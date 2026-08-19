@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>CONTEXA settings</title>
+<style>
+  :root{--bg:#F5F4EF;--surface:#fff;--surface2:#FAF9F5;--text:#3D3929;--text2:#73726C;
+        --border:#DEDCD1;--accent:#D97757;--accent-soft:#F5E9E4;--green:#4C6142;--red:#96432E}
+  @media (prefers-color-scheme:dark){
+    :root{--bg:#262624;--surface:#30302E;--surface2:#3A3A37;--text:#EDECE6;--text2:#A6A49B;
+          --border:#4A4A46;--accent-soft:#453832;--green:#B4C7A8;--red:#E2957F}}
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:var(--bg);color:var(--text);
+       font-family:ui-sans-serif,-apple-system,"Segoe UI",Roboto,sans-serif;
+       display:grid;place-items:start center;min-height:100vh;padding:44px 20px}
+  .card{background:var(--surface);border:1px solid var(--border);border-radius:14px;
+        padding:26px;width:min(500px,94vw)}
+  h1{font-size:18px;margin-bottom:3px}
+  h1 b{color:var(--accent)}
+  .sub{font-size:13px;color:var(--text2);margin-bottom:20px}
+  .mode{border:1px solid var(--border);border-radius:10px;padding:13px 14px;margin-bottom:12px;
+        background:var(--surface2)}
+  .mode .row{display:flex;align-items:center;gap:9px;font-size:14px;font-weight:600}
+  .mode .row .pill{margin-left:auto;font-size:10px;letter-spacing:.08em;text-transform:uppercase;
+        border-radius:999px;padding:3px 9px;background:var(--accent-soft);color:var(--accent);
+        font-weight:700}
+  .mode p{font-size:12.5px;color:var(--text2);line-height:1.5;margin-top:6px}
+  label{display:block;font-size:11.5px;font-weight:600;letter-spacing:.05em;
+        text-transform:uppercase;color:var(--text2);margin:16px 0 6px}
+  input[type=text],input[type=password]{width:100%;padding:9px 11px;font-size:14px;
+        border:1px solid var(--border);border-radius:8px;background:var(--bg);color:var(--text)}
+  .toggle{display:flex;align-items:center;gap:8px;font-size:14px;margin-bottom:4px}
+  .row2{display:flex;align-items:center;gap:10px;margin-top:18px}
+  button{border:none;border-radius:8px;padding:9px 16px;font-size:13px;font-weight:600;
+         cursor:pointer;background:var(--accent);color:#fff}
+  button.ghost{background:transparent;color:var(--text2);border:1px solid var(--border)}
+  #status{font-size:13px;margin-left:auto}
+  #status.ok{color:var(--green)} #status.err{color:var(--red)}
+  details{margin-top:18px;font-size:12.5px;color:var(--text2)}
+  details summary{cursor:pointer;font-weight:600}
+  .privacy{font-size:12.5px;color:var(--text2);line-height:1.55;margin-top:20px;
+           border-top:1px solid var(--border);padding-top:14px}
+</style>
+</head>
+<body>
+  <div class="card">
+    <h1><b>C</b>ONTEXA</h1>
+    <div class="sub">Five next steps after every Claude reply.</div>
+
+    <label class="toggle"><input type="checkbox" id="enabled"> CONTEXA is on</label>
+
+    <div class="mode" id="modeBox">
+      <div class="row"><span id="modeName">Hosted</span><span class="pill" id="modePill">free</span></div>
+      <p id="modeDesc">Suggestions come from CONTEXA's service — no setup needed. Fair-use limit
+        of 20 replies per day.</p>
+    </div>
+
+    <label for="apiKey">Your Anthropic API key <span style="text-transform:none;font-weight:400">(optional — removes the daily limit)</span></label>
+    <input type="password" id="apiKey" placeholder="sk-ant-… (leave empty to use the hosted service)" autocomplete="off">
+
+    <div class="row2">
+      <button id="save">Save</button>
+      <button class="ghost" id="test">Test connection</button>
+      <span id="status"></span>
+    </div>
+
+    <details>
+      <summary>Advanced</summary>
+      <label for="model">Model (own key only)</label>
+      <input type="text" id="model" placeholder="claude-haiku-4-5">
+      <label for="proxyUrl">Backend URL</label>
+      <input type="text" id="proxyUrl" placeholder="https://contexa-api.example.workers.dev">
+    </details>
+
+    <div class="privacy">
+      <b>What leaves your browser.</b> To suggest next steps, CONTEXA sends your last
+      message and Claude's reply for that one exchange. With your own key, it goes
+      directly to the Anthropic API and nowhere else. Without a key, it goes to
+      CONTEXA's backend, which forwards it to Anthropic and returns the
+      suggestions — the text is not stored, and there is no account or profile
+      attached to it. Nothing is sent until a reply finishes, and never from a
+      conversation you don't send a message in.
+    </div>
+  </div>
+  <script src="options.js"></script>
+</body>
+</html>

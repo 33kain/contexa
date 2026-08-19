@@ -1,0 +1,23 @@
+name = "contexa-api"
+main = "src/index.js"
+compatibility_date = "2026-08-01"
+
+# Quota counters. Create the namespace once, then paste its id below:
+#   npx wrangler kv namespace create CX_KV
+[[kv_namespaces]]
+binding = "CX_KV"
+id = "68d9d130c21741e8a5450f38f2942df7"
+
+[vars]
+# Model used for suggestions. Haiku is the right tier here: fast and cheap.
+MODEL = "claude-haiku-4-5"
+
+# Lock the API to your published extension so nobody else can spend your quota.
+# Leave empty during development (any chrome-extension:// origin is accepted),
+# then set it to your real extension ID before you launch:
+#   npx wrangler deploy --var ALLOWED_EXTENSION_IDS:abcdefghijklmnopabcdefghijklmnop
+ALLOWED_EXTENSION_IDS = ""
+
+# Secrets are NOT set here. Set them once, interactively:
+#   npx wrangler secret put ANTHROPIC_API_KEY
+#   npx wrangler secret put IP_SALT

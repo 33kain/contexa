@@ -1,0 +1,23 @@
+# secrets — never commit
+key.txt
+*.key
+.env
+.env.*
+.dev.vars
+
+# wrangler
+.wrangler/
+wrangler.toml.bak
+
+# node
+node_modules/
+npm-debug.log*
+
+# build artifacts
+*.zip
+build-ready/
+
+# os
+.DS_Store
+Thumbs.db
+desktop.ini
