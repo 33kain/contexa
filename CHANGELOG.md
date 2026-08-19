@@ -7,6 +7,56 @@ free to diverge, and the settings page labels them separately for that reason.
 
 ---
 
+## Extension 0.9.14 — backend stays 0.9.12
+
+### Changed: partial salvages render identically to full results
+
+Owner's decision. The "Response was cut short — showing the N that came
+through complete" banner is gone. Rationale: salvage keeps the FIRST N complete
+steps and the prompt orders steps by leverage, so a partial set is the best
+prefix of the intended set; every chip shown is whole; and 3–5 chips is the
+spec either way, so the user cannot act on the distinction. Hiding the banner
+fakes nothing — it stops narrating engine internals.
+
+The signal is not dropped: every partial now logs `[CONTEXA] partial salvage`
+with the diagnostic (when the path provides one) to the page console, because
+each partial means the model hit its token ceiling and burned 3–5× the output
+cost of a clean response. Ceiling-hit frequency stays measurable during
+validation; it just stops being the user's problem.
+
+---
+
+## Extension 0.9.13 — backend stays 0.9.12
+
+### Fixed: the diagnostic was computed, forwarded, delivered — and dropped at the last call
+
+Every truncation card ever shown was bare. Three versions of instrumentation
+(0.9.10–0.9.12) built the diag pipeline: the worker computes it, the background
+forwards it, `renderQuiet` renders it as the grey cause-sentence. The single
+call site joining the last two links read
+`renderQuiet(anchor, 'error', reason)` — no `resp`. The renderer's diag logic
+reads the fourth argument, which was always `undefined` there. Four missing
+characters (`, resp`) silently disabled both the grey sentence and the page
+console warning, on every version that had them.
+
+Each *link* had a test — the sentence generator, the worker's diag object, the
+background pass-through. The *joint* had none. A source assertion in
+`extension/test.mjs` now pins the call site.
+
+Found not by reading the code but by the field: a truncation on a verified
+0.9.12 worker + 0.9.12 extension still produced a bare card, which the version
+matrix said was impossible.
+
+Also learned in the same investigation, via remote browser inspection of a live
+Cowork tab: CONTEXA runs on claude.ai **Cowork sessions** too — same composer,
+working streaming attribute, virtualized DOM (~3–5 response blocks), and reply
+blocks that include tool-widget labels ("Used Claude in Chrome (6 actions)").
+Cowork work-turns are dense multi-part input, and a background tab silently
+spends quota on every reply. Scope decision (fire only on visible tabs? skip
+/cowork/?) deliberately deferred.
+
+---
+
 ## Extension 0.9.12 — Backend 0.9.12
 
 ### Fixed: the model was reading degraded input, expensively
@@ -43,37 +93,6 @@ enforced by the build.
 Acceptance test: reproduce in the conversation that produced three ceiling-hits,
 with `wrangler tail` open. Expect no yellow banner, no `[CONTEXA]` ceiling log,
 and chip payloads free of code fragments.
-
----
-
-## Extension 0.9.13 — backend stays 0.9.12
-
-### Fixed: the diagnostic was computed, forwarded, delivered — and dropped at the last call
-
-Every truncation card ever shown was bare. Three versions of instrumentation
-(0.9.10–0.9.12) built the diag pipeline: the worker computes it, the background
-forwards it, `renderQuiet` renders it as the grey cause-sentence. The single
-call site joining the last two links read
-`renderQuiet(anchor, 'error', reason)` — no `resp`. The renderer's diag logic
-reads the fourth argument, which was always `undefined` there. Four missing
-characters (`, resp`) silently disabled both the grey sentence and the page
-console warning, on every version that had them.
-
-Each *link* had a test — the sentence generator, the worker's diag object, the
-background pass-through. The *joint* had none. A source assertion in
-`extension/test.mjs` now pins the call site.
-
-Found not by reading the code but by the field: a truncation on a verified
-0.9.12 worker + 0.9.12 extension still produced a bare card, which the version
-matrix said was impossible.
-
-Also learned in the same investigation, via remote browser inspection of a live
-Cowork tab: CONTEXA runs on claude.ai **Cowork sessions** too — same composer,
-working streaming attribute, virtualized DOM (~3–5 response blocks), and reply
-blocks that include tool-widget labels ("Used Claude in Chrome (6 actions)").
-Cowork work-turns are dense multi-part input, and a background tab silently
-spends quota on every reply. Scope decision (fire only on visible tabs? skip
-/cowork/?) deliberately deferred.
 
 ---
 

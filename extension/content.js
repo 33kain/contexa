@@ -242,7 +242,20 @@
       return renderQuiet(anchor, 'error',
         thrown ? 'extension: ' + thrown : err || 'empty response', resp);
     }
-    renderSteps(anchor, steps.slice(0, 5), resp.partial === true);
+    /* Partial salvage renders identically to a full result — a deliberate
+       product decision (owner's call, 0.9.14). Rationale: salvage keeps the
+       FIRST N complete steps and the prompt orders by leverage, so a partial
+       set is the best prefix, every chip is whole, and 3–5 is the spec either
+       way — the user cannot act on the distinction. The signal is NOT dropped:
+       it moves to the console, because each partial means the model hit its
+       token ceiling and burned 3–5x the output cost of a clean response.
+       Ceiling-hit frequency stays measurable; the user stops being alarmed
+       by internals. */
+    if (resp.partial === true) {
+      console.warn('[CONTEXA] partial salvage — kept', steps.length, 'step(s)',
+        resp.diag ? resp.diag : '(no diag from this path)');
+    }
+    renderSteps(anchor, steps.slice(0, 5));
   }
 
   /* ---------------- rendering -------------------------------------------- */
@@ -271,10 +284,9 @@
     return words.length <= max ? words.join(' ') : words.slice(0, max).join(' ') + '…';
   }
 
-  function renderSteps(anchor, steps, partial) {
+  function renderSteps(anchor, steps) {
     const wrap = shell(anchor, 'ai');
     wrap.innerHTML = `<div class="label"><b>✦ CONTEXA</b></div>` +
-      (partial ? `<div class="note">Response was cut short — showing the ${steps.length} that came through complete.</div>` : '') +
       `<div class="chips"></div>`;
     const row = wrap.querySelector('.chips');
     for (const s of steps) {

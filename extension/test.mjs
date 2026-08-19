@@ -239,5 +239,17 @@ const settle = () => new Promise(r => setTimeout(r, 0));
     site ? site[0].replace(/\s+/g, ' ').slice(0, 90) : 'call site not found');
 }
 
+
+/* ---- 13. partial salvage is invisible in UI but loud in the console ------ */
+/* Owner's decision (0.9.14): a salvaged set renders identically to a full one
+   (best-prefix argument), but the ceiling-hit signal must not vanish - it
+   moves to the console where remote debugging can still count it. */
+{
+  const csrc3 = readFileSync('./content.js', 'utf8');
+  t('no partial banner markup remains', !csrc3.includes('cut short'));
+  t('renderSteps no longer takes a partial flag', /function renderSteps\(anchor, steps\)/.test(csrc3));
+  t('partial still logs to the console', /resp\.partial === true[\s\S]{0,400}console\.warn\('\[CONTEXA\] partial salvage/.test(csrc3));
+}
+
 console.log(fails.length ? '\nFAILED: ' + fails.join(', ') : '\nall extension checks passed');
 process.exit(fails.length ? 1 : 0);
