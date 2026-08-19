@@ -1,0 +1,63 @@
+﻿
+CONTEXA usefulness test - tag: improved
+api: https://contexa-api.michu110899.workers.dev
+device: improved20260819104451
+utc: 2026-08-19 08:44:52
+
+==========================================================================
+TURN 1
+prompt: Our Cloudflare Worker enforces a 20/day quota per device token using KV counters. Under concurrency two requests both read 19 and both write 20, so users can exceed the limit. What's the right fix?
+
+  1. (5w) Sketch the Durable Object implementation
+      Walk me through the exact code: how you'd key the DO by device token, structure the in-memory counter, handle the read-modify-write, set up the daily alarm for reset, and persist to storage. Include error cases (what if alarm fails, what if request arrives after reset).
+  2. (6w) Test concurrent writes against each option
+      For Durable Objects and Rate Limiting API, show me the actual failure modes under a concurrent load test (e.g., 50 simultaneous requests). What's the overshoot in each case, and at what concurrency does it become unacceptable?
+  3. (6w) Calculate true cost of Durable Objects
+      What's the monthly bill if we go full DO route? Assume 10k daily active devices, 5 requests per device per day, plus alarms and storage writes. Compare to staying on KV with a lower limit (e.g., 18 instead of 20 to absorb drift).
+  4. (7w) Map Rate Limiting API constraints to quota
+      The Rate Limiting API is fixed-window, not daily-quota. Show me exactly how you'd hack it to reset at midnight UTC and whether that creates a reset edge case (users getting extra requests during the window flip).
+  5. (5w) Decide on acceptable drift tolerance
+      If we lower KV quota to 18 to absorb overshoot, what's the real user impact? How often would a legit user hit 18 in a day? Is 18 so low that it creates complaints, or is the business willing to eat a few extra percent of quota burn?
+
+  quota: 1/20
+
+==========================================================================
+TURN 2
+prompt: Give me the arithmetic: with KV's read-modify-write race, how many extra requests can one determined client actually get per day, and what does that cost me in dollars?
+
+  1. (5w) Model the worst-case burst window
+      Walk me through the exact sequence: client fires N requests simultaneously at t=0, all read KV at t=1ms, all see counter=X before any write lands. How many requests N can realistically fit in that window given typical KV latency (10-50ms)? Then show me the math: if N=5 and limit is 60/day, what's the actual overage per burst, times the bursts per day a bad actor would attempt?
+  2. (5w) Price this against your margin
+      You said 24 cents per day per attacker. How many concurrent attackers exploiting this race would it take to cost you $100/month? What's that number as a percentage of your actual user base? Then tell me: is the damage threshold below which you'd just accept it and not fix anything?
+  3. (4w) Pressure-test the per-IP limit
+      The 60/day per hashed IP assumes one attacker = one IP. What if they rotate IPs (AWS, residential proxies, distributor networks)? Does your hash function catch that, or does each IP get its own fresh 60? If they can get 60ÃN requests where N=number of IPs they control, what's the real daily budget leak?
+  4. (7w) Compare: KV guard vs application-side token bucket
+      Forget Durable Objects for a moment. Build me the math for a simple in-memory token bucket (reset daily, burst capacity B) as your cheap fix. What's the smallest B that stops the race from mattering? At what B does the cost become negligible relative to implementation simplicity?
+  5. (4w) Reframe around user experience
+      You're protecting against $0.24/day of abuse per attacker. But what's the cost to legitimate users if you over-correctâsmaller limits, stricter buckets, higher friction? At what point does the guard cost you more in conversion/retention than the race condition costs in compute?
+
+  quota: 2/20
+
+==========================================================================
+TURN 3
+prompt: Write a script that fires 50 parallel requests with the same device token and reports how many got through, so I can measure the real overshoot instead of reasoning about it.
+
+  1. (5w) Run it now against staging
+      I'll execute the parallel burst script against my staging environment with the same device token repeated 50 times. I want to see the raw 200 vs 429 counts, check the KV counter immediately after, and run it three times to capture the worst-case overshoot number.
+  2. (6w) Map which colocation served each request
+      Modify the script to log the colo/region that served each request (from response headers or server identification). Show me a breakdown of how the 50 requests distributed across colos, so I can see if single-origin bias is hiding cross-colo overshoot.
+  3. (6w) Test with staggered request waves instead
+      Run a second test that fires requests in five waves of 10, each wave 100ms apart, rather than all 50 at once. Compare overshoot between the burst and the staggered pattern to isolate whether timing matters for the rate-limit enforcement.
+  4. (6w) Pull the actual KV write logs
+      After running the script, export the raw KV transaction log for that device token during the test window. Show me every write, its timestamp, and the value it set, so I can trace exactly which requests succeeded and in what order the counter incremented.
+  5. (5w) Stress-test with 200 requests instead
+      Run the same harness but fire 200 concurrent requests with the same token (four times the limit). I want to see if overshoot scales linearly or if there's a different failure mode once the system is genuinely saturated.
+
+  quota: 3/20
+
+==========================================================================
+RAW JSON (for scoring)
+{"steps":[{"label":"Sketch the Durable Object implementation","text":"Walk me through the exact code: how you\u0027d key the DO by device token, structure the in-memory counter, handle the read-modify-write, set up the daily alarm for reset, and persist to storage. Include error cases (what if alarm fails, what if request arrives after reset)."},{"label":"Test concurrent writes against each option","text":"For Durable Objects and Rate Limiting API, show me the actual failure modes under a concurrent load test (e.g., 50 simultaneous requests). What\u0027s the overshoot in each case, and at what concurrency does it become unacceptable?"},{"label":"Calculate true cost of Durable Objects","text":"What\u0027s the monthly bill if we go full DO route? Assume 10k daily active devices, 5 requests per device per day, plus alarms and storage writes. Compare to staying on KV with a lower limit (e.g., 18 instead of 20 to absorb drift)."},{"label":"Map Rate Limiting API constraints to quota","text":"The Rate Limiting API is fixed-window, not daily-quota. Show me exactly how you\u0027d hack it to reset at midnight UTC and whether that creates a reset edge case (users getting extra requests during the window flip)."},{"label":"Decide on acceptable drift tolerance","text":"If we lower KV quota to 18 to absorb overshoot, what\u0027s the real user impact? How often would a legit user hit 18 in a day? Is 18 so low that it creates complaints, or is the business willing to eat a few extra percent of quota burn?"}],"quota":{"used":1,"limit":20}}
+{"steps":[{"label":"Model the worst-case burst window","text":"Walk me through the exact sequence: client fires N requests simultaneously at t=0, all read KV at t=1ms, all see counter=X before any write lands. How many requests N can realistically fit in that window given typical KV latency (10-50ms)? Then show me the math: if N=5 and limit is 60/day, what\u0027s the actual overage per burst, times the bursts per day a bad actor would attempt?"},{"label":"Price this against your margin","text":"You said 24 cents per day per attacker. How many concurrent attackers exploiting this race would it take to cost you $100/month? What\u0027s that number as a percentage of your actual user base? Then tell me: is the damage threshold below which you\u0027d just accept it and not fix anything?"},{"label":"Pressure-test the per-IP limit","text":"The 60/day per hashed IP assumes one attacker = one IP. What if they rotate IPs (AWS, residential proxies, distributor networks)? Does your hash function catch that, or does each IP get its own fresh 60? If they can get 60ÃN requests where N=number of IPs they control, what\u0027s the real daily budget leak?"},{"label":"Compare: KV guard vs application-side token bucket","text":"Forget Durable Objects for a moment. Build me the math for a simple in-memory token bucket (reset daily, burst capacity B) as your cheap fix. What\u0027s the smallest B that stops the race from mattering? At what B does the cost become negligible relative to implementation simplicity?"},{"label":"Reframe around user experience","text":"You\u0027re protecting against $0.24/day of abuse per attacker. But what\u0027s the cost to legitimate users if you over-correctâsmaller limits, stricter buckets, higher friction? At what point does the guard cost you more in conversion/retention than the race condition costs in compute?"}],"quota":{"used":2,"limit":20}}
+{"steps":[{"label":"Run it now against staging","text":"I\u0027ll execute the parallel burst script against my staging environment with the same device token repeated 50 times. I want to see the raw 200 vs 429 counts, check the KV counter immediately after, and run it three times to capture the worst-case overshoot number."},{"label":"Map which colocation served each request","text":"Modify the script to log the colo/region that served each request (from response headers or server identification). Show me a breakdown of how the 50 requests distributed across colos, so I can see if single-origin bias is hiding cross-colo overshoot."},{"label":"Test with staggered request waves instead","text":"Run a second test that fires requests in five waves of 10, each wave 100ms apart, rather than all 50 at once. Compare overshoot between the burst and the staggered pattern to isolate whether timing matters for the rate-limit enforcement."},{"label":"Pull the actual KV write logs","text":"After running the script, export the raw KV transaction log for that device token during the test window. Show me every write, its timestamp, and the value it set, so I can trace exactly which requests succeeded and in what order the counter incremented."},{"label":"Stress-test with 200 requests instead","text":"Run the same harness but fire 200 concurrent requests with the same token (four times the limit). I want to see if overshoot scales linearly or if there\u0027s a different failure mode once the system is genuinely saturated."}],"quota":{"used":3,"limit":20}}
+

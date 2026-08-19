@@ -1,0 +1,63 @@
+﻿
+CONTEXA usefulness test - tag: baseline
+api: https://contexa-api.michu110899.workers.dev
+device: baseline20260819104112
+utc: 2026-08-19 08:41:12
+
+==========================================================================
+TURN 1
+prompt: Our Cloudflare Worker enforces a 20/day quota per device token using KV counters. Under concurrency two requests both read 19 and both write 20, so users can exceed the limit. What's the right fix?
+
+  1. (5w) Build Durable Object quota enforcer
+      Write the Durable Object class that tracks device-token quota state with in-memory counter, handles increment/check atomically, and uses an alarm to reset the counter daily at UTC midnight. Include the full Worker route that instantiates the DO by device token and returns {allowed: bool, remaining: int}.
+  2. (7w) Compare cost: DO vs Rate Limiting API
+      Calculate monthly cost difference between Durable Objects (per-request charge + storage) and Workers Rate Limiting API for 10k daily active devices at 20 req/day avg. Show the break-even point and latency trade-off for each approach.
+  3. (4w) Test race condition fix
+      Write a test that fires 50 concurrent requests with the same device token against the Durable Object solution, verify all 20 are allowed and request 21 is rejected, then confirm the DO persists state correctly after restart.
+  4. (3w) Implement drift-absorbing fallback
+      Code the 'accept drift' option: set KV quota to 16/day (20 minus expected overshoot), measure actual overage under production load for one week, tune the buffer down to the minimum that keeps exceedance acceptable.
+  5. (4w) Plan daily reset mechanism
+      Map out the alarm scheduling strategy: should the reset trigger per device-token DO or once globally? How will you handle users in different timezones if they expect reset at local midnight vs UTC? What's the cost implication?
+
+  quota: 1/20
+
+==========================================================================
+TURN 2
+prompt: Give me the arithmetic: with KV's read-modify-write race, how many extra requests can one determined client actually get per day, and what does that cost me in dollars?
+
+  1. (4w) Calculate worst-case burst window
+      Walk me through the exact math: if KV read latency is typically X ms and propagation adds Y ms, how many concurrent requests can realistically hit before the first write propagates? Give me the number with current Cloudflare specs.
+  2. (7w) Map that to my actual rate limit
+      I'm currently rate-limited at 60 requests per day per IP. In a worst-case race burst, how many extra requests beyond 60 could one client actually accumulate before the per-IP counter catches up? Show the scenario.
+  3. (4w) Quote the dollar impact
+      At $0.004 per KV request, what's my actual daily cost exposure if an attacker exploits this race condition optimally against my current setup? Include both the race burst and the per-IP limit enforcement.
+  4. (5w) Show me the cheap fix
+      You mentioned lower limits plus a small burst guard instead of Durable Objects. Spell out the exact thresholds I should set (daily limit, burst size, window) and why that combo stops this race for under $1/day.
+  5. (4w) Pressure-test the per-IP limit
+      The per-IP limit stops one client, but what if an attacker rotates IPs? How many concurrent IP sources would they need to meaningfully increase total cost exposure, and is that realistic at my scale?
+
+  quota: 2/20
+
+==========================================================================
+TURN 3
+prompt: Write a script that fires 50 parallel requests with the same device token and reports how many got through, so I can measure the real overshoot instead of reasoning about it.
+
+  1. (4w) Build the burst script
+      Write a Node.js script that fires 50 concurrent POST requests to my rate limit endpoint with the same device token, captures response status codes, counts 200s vs 429s, and prints the final KV counter value. Include a 2-second delay between runs and parameterize the endpoint URL and token as command-line args.
+  2. (4w) Test against staging first
+      Before running against production, point the script at my staging rate-limit endpoint with a known low limit (e.g., 5 req/min). Run it once and verify the 429 count matches my configured burst threshold. What overshoot do I see?
+  3. (5w) Run three times, log worst
+      Execute the burst script against production three times with 30-second gaps between runs. For each run, record the timestamp, total 200s, total 429s, overshoot percentage, and final KV counter. Report which run had the highest overshoot and flag any colo-skew anomalies.
+  4. (5w) Check KV state between runs
+      After each of the three bursts, query the KV counter directly and record the raw value. Confirm it matches the number of 200 responses. If it drifts across colos, note the discrepancyâthis tells me how much cross-colo lag is affecting my measurement.
+  5. (4w) Compare reasoning vs measured
+      Take the worst overshoot result from the three runs and compare it side-by-side with my original back-of-envelope estimate. What's the delta? If it's >10%, what assumption in my model was wrongâconcurrency model, window definition, or colo distribution?
+
+  quota: 3/20
+
+==========================================================================
+RAW JSON (for scoring)
+{"steps":[{"label":"Build Durable Object quota enforcer","text":"Write the Durable Object class that tracks device-token quota state with in-memory counter, handles increment/check atomically, and uses an alarm to reset the counter daily at UTC midnight. Include the full Worker route that instantiates the DO by device token and returns {allowed: bool, remaining: int}."},{"label":"Compare cost: DO vs Rate Limiting API","text":"Calculate monthly cost difference between Durable Objects (per-request charge + storage) and Workers Rate Limiting API for 10k daily active devices at 20 req/day avg. Show the break-even point and latency trade-off for each approach."},{"label":"Test race condition fix","text":"Write a test that fires 50 concurrent requests with the same device token against the Durable Object solution, verify all 20 are allowed and request 21 is rejected, then confirm the DO persists state correctly after restart."},{"label":"Implement drift-absorbing fallback","text":"Code the \u0027accept drift\u0027 option: set KV quota to 16/day (20 minus expected overshoot), measure actual overage under production load for one week, tune the buffer down to the minimum that keeps exceedance acceptable."},{"label":"Plan daily reset mechanism","text":"Map out the alarm scheduling strategy: should the reset trigger per device-token DO or once globally? How will you handle users in different timezones if they expect reset at local midnight vs UTC? What\u0027s the cost implication?"}],"quota":{"used":1,"limit":20}}
+{"steps":[{"label":"Calculate worst-case burst window","text":"Walk me through the exact math: if KV read latency is typically X ms and propagation adds Y ms, how many concurrent requests can realistically hit before the first write propagates? Give me the number with current Cloudflare specs."},{"label":"Map that to my actual rate limit","text":"I\u0027m currently rate-limited at 60 requests per day per IP. In a worst-case race burst, how many extra requests beyond 60 could one client actually accumulate before the per-IP counter catches up? Show the scenario."},{"label":"Quote the dollar impact","text":"At $0.004 per KV request, what\u0027s my actual daily cost exposure if an attacker exploits this race condition optimally against my current setup? Include both the race burst and the per-IP limit enforcement."},{"label":"Show me the cheap fix","text":"You mentioned lower limits plus a small burst guard instead of Durable Objects. Spell out the exact thresholds I should set (daily limit, burst size, window) and why that combo stops this race for under $1/day."},{"label":"Pressure-test the per-IP limit","text":"The per-IP limit stops one client, but what if an attacker rotates IPs? How many concurrent IP sources would they need to meaningfully increase total cost exposure, and is that realistic at my scale?"}],"quota":{"used":2,"limit":20}}
+{"steps":[{"label":"Build the burst script","text":"Write a Node.js script that fires 50 concurrent POST requests to my rate limit endpoint with the same device token, captures response status codes, counts 200s vs 429s, and prints the final KV counter value. Include a 2-second delay between runs and parameterize the endpoint URL and token as command-line args."},{"label":"Test against staging first","text":"Before running against production, point the script at my staging rate-limit endpoint with a known low limit (e.g., 5 req/min). Run it once and verify the 429 count matches my configured burst threshold. What overshoot do I see?"},{"label":"Run three times, log worst","text":"Execute the burst script against production three times with 30-second gaps between runs. For each run, record the timestamp, total 200s, total 429s, overshoot percentage, and final KV counter. Report which run had the highest overshoot and flag any colo-skew anomalies."},{"label":"Check KV state between runs","text":"After each of the three bursts, query the KV counter directly and record the raw value. Confirm it matches the number of 200 responses. If it drifts across colos, note the discrepancyâthis tells me how much cross-colo lag is affecting my measurement."},{"label":"Compare reasoning vs measured","text":"Take the worst overshoot result from the three runs and compare it side-by-side with my original back-of-envelope estimate. What\u0027s the delta? If it\u0027s \u003e10%, what assumption in my model was wrongâconcurrency model, window definition, or colo distribution?"}],"quota":{"used":3,"limit":20}}
+

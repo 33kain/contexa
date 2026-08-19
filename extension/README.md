@@ -50,7 +50,7 @@ made the output feel like a taxonomy exercise rather than a colleague talking.
 
 ## Chips are handles, not the prompt
 
-Each chip shows at most **5 words** so you can scan all five in about a second.
+Each chip shows at most **6 words** so you can scan all five in about a second.
 The chip is a handle: clicking it loads the *full, specific* prompt into your
 composer, where you read it, edit it, or send it. Hovering shows the full text
 too.
@@ -61,7 +61,7 @@ in the specificity, so the payload stays precise — it names the deliverable, t
 format, the length, the constraint — while the chip stays tiny. You always see
 what you're about to send before it sends.
 
-A label longer than 5 words is truncated client-side, so a chatty model can't
+A label longer than 6 words is truncated client-side, so a chatty model can't
 break the layout.
 
 ## Honest states

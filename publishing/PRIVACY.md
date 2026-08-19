@@ -149,4 +149,4 @@ change.
 
 ## Contact
 
-Questions or requests about this policy: **[YOUR_CONTACT_EMAIL]**
+Questions or requests about this policy: **michu110899@gmail.com**

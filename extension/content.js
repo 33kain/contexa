@@ -11,6 +11,26 @@
   let settings = { enabled: true, apiKey: '', model: 'claude-haiku-4-5' };
   let composer = null;
   let replyObserver = null;
+  let tickTimer = null;
+
+  /* Chrome auto-updates extensions silently. When that happens, THIS script keeps
+     running in the page but its link to the extension is severed — chrome.runtime.id
+     goes undefined and every chrome.* call throws "Extension context invalidated".
+     Detect it and tell the user to reload, rather than surfacing a raw error. */
+  const contextAlive = () => {
+    try { return !!(chrome.runtime && chrome.runtime.id); } catch { return false; }
+  };
+  const isStaleError = e => /context invalidated|Receiving end does not exist|message port closed/i.test(String(e || ''));
+
+  // Once orphaned, stop the polling loop (it would throw every 900ms) but KEEP
+  // the reply observer alive, otherwise the next reply renders nothing at all and
+  // the user gets silence instead of being told to reload. Fully stand down only
+  // after the notice has actually been delivered.
+  let staleNotified = false;
+  function standDown(keepObserver) {
+    if (tickTimer) { clearInterval(tickTimer); tickTimer = null; }
+    if (!keepObserver && replyObserver) { replyObserver.disconnect(); replyObserver = null; }
+  }
 
   /* ---------------- claude.ai DOM (verified Aug 2026) --------------------- */
   // composer: div.ProseMirror.tiptap[contenteditable][aria-label="Write your prompt to Claude"]
@@ -140,6 +160,8 @@
     const anchor = replyEl.closest(ROW_SEL) || replyEl.closest(STREAM_SEL) || replyEl;
     if (anchor.nextElementSibling?.getAttribute?.('data-contexa') === 'steps') return;
 
+    if (!contextAlive()) return goStale(anchor);
+
     let resp = null, thrown = null;
     try {
       resp = await chrome.runtime.sendMessage({
@@ -156,6 +178,7 @@
 
     if (!steps || !steps.length) {
       const err = resp && resp.error;
+      if (isStaleError(thrown) || !contextAlive()) return goStale(anchor);
       if (err === 'quota') return renderQuiet(anchor, 'quota', '', resp);
       if (err === 'proxy_not_configured') return renderQuiet(anchor, 'unconfigured');
       return renderQuiet(anchor, 'error',
@@ -182,9 +205,9 @@
     return wrap;
   }
 
-  // Chip text is a <=5 word handle; the payload is the full prompt. Enforced
+  // Chip text is a <=6 word handle; the payload is the full prompt. Enforced
   // here too, so a chatty model can never blow up the row's layout.
-  function shortLabel(s, max = 5) {
+  function shortLabel(s, max = 6) {
     const words = String(s || '').trim().replace(/[.!?]+$/, '').split(/\s+/).filter(Boolean);
     if (!words.length) return '';
     return words.length <= max ? words.join(' ') : words.slice(0, max).join(' ') + '…';
@@ -214,7 +237,10 @@
   function renderQuiet(anchor, mode, reason, resp) {
     const wrap = shell(anchor, mode);
     let body, btn = 'Settings';
-    if (mode === 'quota') {
+    if (mode === 'stale') {
+      body = `CONTEXA was updated — reload this page to continue.`;
+      btn = 'Reload';
+    } else if (mode === 'quota') {
       const limit = resp && resp.limit ? resp.limit : 20;
       body = `Daily limit reached (${limit} replies). Resets ${resetWording(resp && resp.resetsAt)}
         — or add your own API key for unlimited use.`;
@@ -228,7 +254,9 @@
     wrap.innerHTML = `<div class="quiet"><span><b style="color:var(--accent)">✦</b> ${body}</span>
       <button>${btn}</button></div>`;
     wrap.querySelector('button').addEventListener('click', () => {
-      chrome.runtime.sendMessage({ type: 'openOptions' }).catch(() => {});
+      // no chrome.* here: this path must work when the context is already dead
+      if (mode === 'stale') return location.reload();
+      try { chrome.runtime.sendMessage({ type: 'openOptions' }).catch(() => {}); } catch {}
     });
   }
 
@@ -240,6 +268,14 @@
     if (mins < 60) return `in ${mins} min`;
     const hrs = Math.round(mins / 60);
     return `in ${hrs} hour${hrs === 1 ? '' : 's'}`;
+  }
+
+  // Say it once, then go quiet for the rest of the page's life.
+  function goStale(anchor) {
+    if (staleNotified) return standDown();
+    staleNotified = true;
+    renderQuiet(anchor, 'stale');
+    standDown();
   }
 
   function insertPrompt(text) {
@@ -254,6 +290,7 @@
 
   /* ---------------- lifecycle -------------------------------------------- */
   function tick() {
+    if (!contextAlive()) return standDown(true);   // keep observing to deliver the notice
     if (!settings.enabled) return;
     const el = findComposer();
     if (el && el !== composer) { composer = el; watchReplies(); }
@@ -263,7 +300,7 @@
   chrome.storage.local.get({ enabled: true, apiKey: '', model: 'claude-haiku-4-5' }, s => {
     settings = s;
     if (!settings.enabled) return;
-    setInterval(tick, 900);   // re-finds the composer across SPA navigation
+    tickTimer = setInterval(tick, 900);   // re-finds the composer across SPA navigation
     tick();
   });
 
