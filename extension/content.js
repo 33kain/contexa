@@ -233,8 +233,14 @@
       if (isStaleError(thrown) || !contextAlive()) return goStale(anchor);
       if (err === 'quota') return renderQuiet(anchor, 'quota', '', resp);
       if (err === 'proxy_not_configured') return renderQuiet(anchor, 'unconfigured');
+      /* resp MUST be passed through: the diagnostic lives on it. This call site
+         omitted it through three rounds of instrumentation, which silently
+         disabled both the grey cause-sentence and the console warn for every
+         truncation ever shown — the renderer's diag logic read the fourth
+         argument, and the fourth argument was never there. Tested by a source
+         assertion in test.mjs so it cannot quietly regress. */
       return renderQuiet(anchor, 'error',
-        thrown ? 'extension: ' + thrown : err || 'empty response');
+        thrown ? 'extension: ' + thrown : err || 'empty response', resp);
     }
     renderSteps(anchor, steps.slice(0, 5), resp.partial === true);
   }

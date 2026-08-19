@@ -46,6 +46,37 @@ and chip payloads free of code fragments.
 
 ---
 
+## Extension 0.9.13 — backend stays 0.9.12
+
+### Fixed: the diagnostic was computed, forwarded, delivered — and dropped at the last call
+
+Every truncation card ever shown was bare. Three versions of instrumentation
+(0.9.10–0.9.12) built the diag pipeline: the worker computes it, the background
+forwards it, `renderQuiet` renders it as the grey cause-sentence. The single
+call site joining the last two links read
+`renderQuiet(anchor, 'error', reason)` — no `resp`. The renderer's diag logic
+reads the fourth argument, which was always `undefined` there. Four missing
+characters (`, resp`) silently disabled both the grey sentence and the page
+console warning, on every version that had them.
+
+Each *link* had a test — the sentence generator, the worker's diag object, the
+background pass-through. The *joint* had none. A source assertion in
+`extension/test.mjs` now pins the call site.
+
+Found not by reading the code but by the field: a truncation on a verified
+0.9.12 worker + 0.9.12 extension still produced a bare card, which the version
+matrix said was impossible.
+
+Also learned in the same investigation, via remote browser inspection of a live
+Cowork tab: CONTEXA runs on claude.ai **Cowork sessions** too — same composer,
+working streaming attribute, virtualized DOM (~3–5 response blocks), and reply
+blocks that include tool-widget labels ("Used Claude in Chrome (6 actions)").
+Cowork work-turns are dense multi-part input, and a background tab silently
+spends quota on every reply. Scope decision (fire only on visible tabs? skip
+/cowork/?) deliberately deferred.
+
+---
+
 ## Backend 0.9.11 — extension stays 0.9.10
 
 First deliberate version divergence: this is a worker-only change, which is

@@ -225,5 +225,19 @@ const settle = () => new Promise(r => setTimeout(r, 0));
   t('prompt rule: step texts are prose', SRC.includes('Step texts are prose.'));
 }
 
+
+/* ---- 12. the error call site actually passes resp ------------------------ */
+/* The diag pipeline was built across three versions — worker computes it,
+   background forwards it, renderQuiet renders it — and the single call site
+   joining the last two links dropped it: renderQuiet(anchor,'error',reason)
+   with no resp. Every truncation card ever shown was bare because of four
+   missing characters. Each LINK had a test; the JOINT had none. */
+{
+  const csrc2 = readFileSync('./content.js', 'utf8');
+  const site = csrc2.match(/renderQuiet\(anchor, 'error',[\s\S]{0,180}?\);/);
+  t('error render call passes resp through', !!site && /,\s*resp\s*\)/.test(site[0]),
+    site ? site[0].replace(/\s+/g, ' ').slice(0, 90) : 'call site not found');
+}
+
 console.log(fails.length ? '\nFAILED: ' + fails.join(', ') : '\nall extension checks passed');
 process.exit(fails.length ? 1 : 0);
