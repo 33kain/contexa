@@ -100,6 +100,7 @@
     line-height:1.45;padding:7px 10px;border:1px dashed var(--border2);border-radius:8px;
     background:transparent}
   .quiet code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:10.5px}
+  .quiet .diag{display:inline-block;margin-top:2px;font-size:10.5px;opacity:.75}
   .quiet button{margin-left:auto;flex:none;border:1px solid var(--border2);background:transparent;
     color:var(--text2);border-radius:6px;padding:2px 8px;font-size:10px;letter-spacing:.06em;
     text-transform:uppercase;cursor:pointer;font-family:inherit}
@@ -108,6 +109,57 @@
     border-radius:6px;padding:4px 8px;margin-bottom:5px;line-height:1.4}`;
 
   const esc = s => { const d = document.createElement('div'); d.textContent = s || ''; return d.innerHTML; };
+
+  /* ---------------- capture ------------------------------------------------ */
+  /* What we send to the suggestion model used to be raw textContent, which has
+     two defects. Block elements contribute no line break, so adjacent paragraphs
+     arrived glued together ("…end of one.Start of next") — degraded input on
+     every conversation. And code blocks shipped whole: on a code-heavy reply the
+     entire 6,000-char budget filled with raw code, which is exactly the material
+     the model then echoed back into oversized steps until it hit the token
+     ceiling (measured: three ceiling-hits in one code-heavy conversation, zero
+     elsewhere). Walk the DOM instead: real line breaks at block boundaries, code
+     collapsed to its first lines — signatures survive as anchors ("fix
+     trimPayload") while the bulk stays out — and UI chrome (copy buttons,
+     language labels) skipped. Suggestions operate on the shape of the
+     conversation, not on every line of code in it. */
+  const BLOCK_TAGS = new Set(['P', 'DIV', 'LI', 'UL', 'OL', 'PRE', 'BLOCKQUOTE',
+    'TABLE', 'TR', 'H1', 'H2', 'H3', 'H4', 'H5', 'H6', 'BR', 'HR']);
+  const SKIP_TAGS = new Set(['BUTTON', 'SVG', 'STYLE', 'SCRIPT', 'NOSCRIPT']);
+  const CODE_KEEP_LINES = 2;
+
+  function textSkippingChrome(node) {
+    let s = '';
+    (function w(n) {
+      if (n.nodeType === 3) { s += n.nodeValue; return; }
+      if (n.nodeType !== 1 || SKIP_TAGS.has((n.tagName || '').toUpperCase())) return;
+      for (const c of n.childNodes) w(c);
+    })(node);
+    return s;
+  }
+
+  function summarizeCode(text) {
+    const lines = text.replace(/^\n+|\n+$/g, '').split('\n');
+    // Only collapse when it actually saves something; a 3-line snippet is cheaper
+    // shipped whole than replaced by two lines plus a marker.
+    if (lines.length <= CODE_KEEP_LINES + 1) return lines.join('\n');
+    return lines.slice(0, CODE_KEEP_LINES).join('\n')
+      + '\n[+' + (lines.length - CODE_KEEP_LINES) + ' more lines of code]';
+  }
+
+  function captureText(root) {
+    let out = '';
+    (function walk(node) {
+      if (node.nodeType === 3) { out += node.nodeValue; return; }
+      if (node.nodeType !== 1) return;
+      const tag = (node.tagName || '').toUpperCase();
+      if (SKIP_TAGS.has(tag)) return;
+      if (tag === 'PRE') { out += summarizeCode(textSkippingChrome(node)) + '\n'; return; }
+      for (const child of node.childNodes) walk(child);
+      if (BLOCK_TAGS.has(tag)) out += '\n';
+    })(root);
+    return out.replace(/[ \t]+\n/g, '\n').replace(/\n{3,}/g, '\n\n').trim();
+  }
 
   /* ---------------- reply detection --------------------------------------- */
   const processed = new WeakSet();
@@ -150,9 +202,9 @@
     if (row) {
       // prefer the nearest user message *above* this reply
       const above = msgs.filter(m => m.compareDocumentPosition(row) & Node.DOCUMENT_POSITION_FOLLOWING);
-      if (above.length) return (above[above.length - 1].textContent || '').trim();
+      if (above.length) return captureText(above[above.length - 1]);
     }
-    return (msgs[msgs.length - 1].textContent || '').trim();
+    return captureText(msgs[msgs.length - 1]);
   }
 
   async function onReplyComplete(replyEl) {
@@ -167,7 +219,7 @@
       resp = await chrome.runtime.sendMessage({
         type: 'nextSteps',
         prompt: lastUserMessage(replyEl),
-        reply: (replyEl.textContent || '').trim().slice(0, 6000)
+        reply: captureText(replyEl).slice(0, 6000)
       });
     } catch (e) { thrown = String(e && e.message || e); }
 
@@ -249,7 +301,14 @@
       body = `CONTEXA isn’t connected to a backend yet. Add your own API key to use it now.`;
       btn = 'Add key';
     } else {
-      body = `Couldn’t generate next steps (<code>${esc(reason)}</code>).`;
+      /* Show the cause in the page, not just the symptom. A bare "truncated"
+         sent us hunting through three competing theories with no way to choose;
+         one glance at these numbers picks the right one. Full detail also goes
+         to the console. */
+      const d = resp && resp.diag;
+      if (d) console.warn('[CONTEXA]', reason, d);
+      body = `Couldn’t generate next steps (<code>${esc(reason)}</code>).`
+        + (d ? `<br><span class="diag">${esc(explainDiag(d))}</span>` : '');
     }
     wrap.innerHTML = `<div class="quiet"><span><b style="color:var(--accent)">✦</b> ${body}</span>
       <button>${btn}</button></div>`;
@@ -258,6 +317,29 @@
       if (mode === 'stale') return location.reload();
       try { chrome.runtime.sendMessage({ type: 'openOptions' }).catch(() => {}); } catch {}
     });
+  }
+
+  /* Turn the diagnostic into the one sentence that identifies the cause, rather
+     than dumping fields and leaving the reader to infer it. The three causes of a
+     truncation need different fixes, so naming which one occurred is the whole
+     point of collecting this. */
+  function explainDiag(d) {
+    const at = d.out != null && d.ceiling != null && d.out >= d.ceiling;
+    const bits = [];
+    if (!d.hadJson && d.len === 0) {
+      bits.push('the model returned no text at all');
+      if (d.blocks && d.blocks.length && !d.blocks.includes('text')) {
+        bits.push(`output was ${d.blocks.join(' + ')}, not text`);
+      }
+    } else if (!d.hadJson) {
+      bits.push(`the model wrote ${d.len} characters of prose without starting any JSON`);
+    } else if (d.steps === 0) {
+      bits.push(`JSON started but no step was named in ${d.len} characters`);
+    } else {
+      bits.push(`${d.steps} step(s) started, none completed, in ${d.len} characters`);
+    }
+    if (d.out != null) bits.push(`${d.out} output tokens${at ? ` — at the ${d.ceiling} ceiling` : ''}`);
+    return bits.join('; ') + '.';
   }
 
   // "in 3 hours" reads better than a raw UTC timestamp.

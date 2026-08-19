@@ -7,6 +7,107 @@ free to diverge, and the settings page labels them separately for that reason.
 
 ---
 
+## Extension 0.9.12 — Backend 0.9.12
+
+### Fixed: the model was reading degraded input, expensively
+
+Root cause of the code-conversation truncations, found by following the capture
+path. The reply was sent as raw `textContent`, which has two defects:
+
+- **Block elements contribute no line break**, so adjacent paragraphs arrived
+  glued together ("…each failure.The counter increments…"). Every conversation,
+  every version since 0.6 — verified against a real Chromium DOM.
+- **Code blocks shipped whole.** On a code-heavy reply, raw code filled most of
+  the 6,000-char budget, and it is exactly the material the model then echoed
+  into oversized step texts until it hit the token ceiling. Field data: three
+  ceiling-hits in one code-heavy conversation, zero elsewhere; a spec-compliant
+  response is ~600 tokens against a 2,500 ceiling.
+
+Capture now walks the DOM: real line breaks at block boundaries, UI chrome
+(copy buttons) skipped, and each code block collapsed to its first two lines
+plus a `[+N more lines of code]` marker — signatures survive as anchors ("fix
+`trimPayload`"), the bulk stays out. Applied to both the reply and the user
+message; both the hosted and own-key paths benefit since capture happens before
+either. A mock code-heavy reply shrinks 82%, which also cuts input cost on what
+were the most expensive calls.
+
+The worker cannot do this fix: it receives flat text with no fences (claude.ai
+renders code as `<pre>`, so the markers never existed in the captured string).
+Capture-side is the only place that still knows what is code.
+
+Plus one prompt line as insurance, framed positively per the round-3 A/B finding
+(positive requirements outperform prohibitions): "Step texts are prose. Refer to
+code by its name and location…" — byte-identical in both prompt copies,
+enforced by the build.
+
+Acceptance test: reproduce in the conversation that produced three ceiling-hits,
+with `wrangler tail` open. Expect no yellow banner, no `[CONTEXA]` ceiling log,
+and chip payloads free of code fragments.
+
+---
+
+## Backend 0.9.11 — extension stays 0.9.10
+
+First deliberate version divergence: this is a worker-only change, which is
+exactly why the two artifacts version independently.
+
+### Fixed: partial salvages carried no evidence
+
+0.9.10 instrumented the two failure branches (unparseable, no usable steps). The
+very next ceiling-hit in the field arrived on the third branch — a successful
+partial salvage ("Response was cut short — showing the 5 that came through
+complete") — which hit the same `max_tokens` ceiling but logged nothing.
+
+A partial salvage is the same event as a hard truncation with luckier cut
+placement, so it now logs and returns the same diagnostic. One asymmetry, on
+purpose: failures log the **first** 300 characters (the question is how the
+output started — prose? JSON at all?), partials log the **last** 300 (the JSON
+started fine; the question is what the model was writing when the budget ran
+out — a sixth step, an oversized text, or trailing prose). `diag.steps` counts
+steps *started*, the response's `steps` array counts steps *kept*; the gap
+between them is over-generation made visible.
+
+Field observation that motivated this: three ceiling-hits in one conversation
+(two hard failures, then a partial keeping 5). A spec-compliant response is
+roughly 600 tokens; hitting 2500 means ~4× overshoot, content-triggered by
+something in that conversation.
+
+---
+
+## Extension 0.9.10 — Backend 0.9.10
+
+### Fixed: failure states reported a symptom and destroyed the evidence
+
+A user hit `Couldn't generate next steps (truncated)`. That code means the API
+stopped at the `max_tokens` ceiling *and* not one complete step could be salvaged
+from the response — which has three possible causes needing three different
+fixes: the text body came back empty (budget spent on non-text content), the model
+narrated instead of emitting JSON, or it wrote one enormous step that never
+closed.
+
+None of them could be distinguished, because both paths discarded the response.
+The worker's catch dropped the text entirely; the extension built a `detail`
+string that nothing ever read. The one decisive measurement — `usage.output_tokens`
+— was never looked at on either path.
+
+- Both paths now compute a diagnostic: `stop_reason`, input and output tokens, the
+  ceiling, text length, whether any JSON appeared, how many steps got named, and
+  the set of content block types returned. `blocks` is the decisive field: budget
+  spent on non-`text` types leaves a short body with output at the ceiling, and no
+  increase in `max_tokens` fixes that.
+- The worker logs it to `wrangler tail` along with the first 300 characters of the
+  response. Only the counts go to the client — asserted by a test that plants a
+  marker string in the model's output and fails if it reaches the response body.
+- The page states the cause in one sentence beneath the error, rather than
+  requiring a console. Full detail also goes to the console.
+- `no_steps` (parsed, but nothing usable) carries the same evidence.
+
+Deliberately **not** done: raising `max_tokens` or adding a retry. Both are
+guesses at which of the three causes is real, and one of them is not fixable by
+either.
+
+---
+
 ## Extension 0.9.9 — Backend 0.9.9
 
 ### Fixed: a shipped default could only ever reach a user once

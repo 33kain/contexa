@@ -83,6 +83,72 @@ t('originless request rejected', r.status === 403, String(r.status));
 r = await w.fetch(new Request('https://x/nope'), {});
 t('unknown route 404', r.status === 404, String(r.status));
 
+
+/* ---- 10. parse failures now carry evidence ------------------------------- */
+{
+  const cases = [
+    { name: 'empty text body (budget spent on non-text)',
+      content: [{ type: 'thinking', thinking: 'x'.repeat(50) }], stop: 'max_tokens',
+      usage: { input_tokens: 900, output_tokens: 2500 },
+      expect: d => d.len === 0 && d.hadJson === false && d.out === 2500 && !d.blocks.includes('text') },
+    { name: 'prose, never started JSON',
+      content: [{ type: 'text', text: 'Let me think about the best next steps here.' }], stop: 'max_tokens',
+      usage: { input_tokens: 900, output_tokens: 2500 },
+      expect: d => d.hadJson === false && d.len > 0 && d.steps === 0 },
+    { name: 'JSON opened, first step never closed',
+      content: [{ type: 'text', text: '{"steps":[{"label":"Question the retry bud' }], stop: 'max_tokens',
+      usage: { input_tokens: 900, output_tokens: 2500 },
+      expect: d => d.hadJson === true && d.steps === 1 },
+  ];
+  for (const c of cases) {
+    globalThis.fetch = async () => ({
+      ok: true, status: 200,
+      async json() { return { content: c.content, stop_reason: c.stop, usage: c.usage }; },
+      async text() { return ''; }
+    });
+    const r = await w.fetch(post(), { ANTHROPIC_API_KEY: 'k', CX_KV: makeKV(), IP_SALT: 's' });
+    const b = await r.json();
+    t(`diag: ${c.name}`, b.error === 'truncated' && b.diag && c.expect(b.diag),
+      JSON.stringify(b.diag));
+  }
+  // diag must never leak conversation text to the client
+  globalThis.fetch = async () => ({
+    ok: true, status: 200,
+    async json() { return { content: [{ type: 'text', text: 'SECRET-CONVERSATION-TEXT' }], stop_reason: 'max_tokens', usage: { output_tokens: 9 } }; },
+    async text() { return ''; }
+  });
+  const r2 = await w.fetch(post(), { ANTHROPIC_API_KEY: 'k', CX_KV: makeKV(), IP_SALT: 's' });
+  const body = JSON.stringify(await r2.json());
+  t('diag carries no response text', !body.includes('SECRET-CONVERSATION-TEXT'), body);
+}
+
+
+/* ---- 11. partial salvage carries the same evidence as a failure ---------- */
+{
+  const five = Array.from({length: 5}, (_, i) =>
+    `{"label":"Step ${i+1} label","text":"Do thing ${i+1}.\\n- one constraint\\n- another"}`).join(',');
+  const cutSixth = `{"steps":[${five},{"label":"Six`;   // ceiling hit mid-6th step
+  globalThis.fetch = async () => ({
+    ok: true, status: 200,
+    async json() { return {
+      content: [{ type: 'text', text: cutSixth }],
+      stop_reason: 'max_tokens',
+      usage: { input_tokens: 1100, output_tokens: 2500 }
+    }; },
+    async text() { return ''; }
+  });
+  const r = await w.fetch(post(), { ANTHROPIC_API_KEY: 'k', CX_KV: makeKV(), IP_SALT: 's' });
+  const b = await r.json();
+  t('partial salvage still returns 200', r.status === 200, String(r.status));
+  t('partial salvage keeps the 5 complete steps', Array.isArray(b.steps) && b.steps.length === 5,
+    'kept=' + (b.steps && b.steps.length));
+  t('partial flag set', b.partial === true);
+  t('partial carries diag', !!b.diag && b.diag.out === 2500 && b.diag.stop === 'max_tokens',
+    JSON.stringify(b.diag));
+  t('diag counts steps STARTED (6), not kept (5)', b.diag && b.diag.steps === 6,
+    'started=' + (b.diag && b.diag.steps));
+}
+
 globalThis.fetch = realFetch;
 console.log(fails.length ? '\nFAILED: ' + fails.join(', ') : '\nall worker checks passed');
 process.exit(fails.length ? 1 : 0);

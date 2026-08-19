@@ -62,6 +62,7 @@ Each step has TWO parts:
 - "text": the full prompt loaded into the user's composer when they click the chip. This is where the value lives. ONE outcome per prompt — never bundle two asks or two questions. Shape it as a short imperative line stating the ask, then, when that ask has constraints worth pinning down, two to four tight bullets each on its own line starting with "- ", specifying format, length, count, or what to avoid. Put a real newline between lines by using \n inside the JSON string. Bullets specify a SINGLE outcome; they are never a list of separate requests. Up to 320 characters including bullets. Short sentences, no filler. Write it in the user's own voice, first person, ready to send verbatim. Start with the ask: no persona preamble, no scene-setting, no meta commentary, no "you could ask". Use the imperative for prompts that request work, and a direct question when the point is to challenge an assumption or force a decision — a challenge needs no bullets.
 The label is a handle for the text; the text must deliver on what the label promises.
 CRITICAL: the text is a message the USER sends to Claude. Never write a step that asks the user a question or requests information only the user could know ("what is your current production limit?"). If a step needs a fact the user has not given, have the user state an assumption or ask Claude for something checkable instead.
+Step texts are prose. Refer to code by its name and location — a function, a file, a line — and when a step's outcome is new or changed code, the text asks Claude to write it rather than containing it. A step text never includes code lines or snippets.
 Rules for choosing them:
 - Be specific to THIS conversation. Reference the actual content of the reply — its structure, its gaps, the decision it leaves open. Never generic advice that would fit any conversation.
 - Assume the user is competent and has already thought of the obvious next step. Whatever anyone would type straight after reading this reply does not deserve a slot. Spend every slot on something they probably have not considered.
@@ -176,11 +177,30 @@ async function callClaude(system, userText, maxTokens) {
     const parsed = extractJson(text);
     return { data: parsed, truncated, partial: parsed.__cxPartial === true };
   } catch {
-    return {
-      error: truncated ? 'truncated' : 'bad_json',
-      detail: (truncated ? 'hit max_tokens; ' : '') + 'raw: ' + text.slice(0, 200)
-    };
+    /* `detail` used to hold the only clue and nothing ever read it, so a
+       truncation was reported without any way to learn its cause. Log the
+       evidence where it can actually be found — the service worker console —
+       and return the numbers that separate the possible causes. */
+    const diag = diagnose(data, text, maxTokens);
+    console.warn('[CONTEXA] parse failure', diag, 'text[0,300]=', text.slice(0, 300));
+    return { error: truncated ? 'truncated' : 'bad_json', diag };
   }
+}
+
+/* Identify why a response could not be parsed, without conversation content.
+   `blocks` is decisive: budget spent on content types other than `text` leaves a
+   short body with `out` at the ceiling, and raising max_tokens will not fix it. */
+function diagnose(data, text, ceiling) {
+  return {
+    stop: data.stop_reason || null,
+    out: data.usage ? data.usage.output_tokens : null,
+    in: data.usage ? data.usage.input_tokens : null,
+    ceiling: ceiling ?? null,
+    len: text.length,
+    hadJson: text.indexOf('{') >= 0,
+    steps: (text.match(/"label"\s*:/g) || []).length,
+    blocks: [...new Set((data.content || []).map(b => b.type || 'unknown'))]
+  };
 }
 
 /* Hosted path: the proxy holds the API key, so the user needs nothing. Returns
@@ -205,7 +225,12 @@ async function callHosted(prompt, reply) {
   if (res.status === 429) {
     return { error: 'quota', limit: data?.limit, resetsAt: data?.resetsAt };
   }
-  if (!res.ok) return { error: data?.error || 'proxy_' + res.status };
+  if (!res.ok) {
+    // Surface the worker's diagnostic instead of swallowing it — otherwise the
+    // hosted path is undiagnosable from the browser.
+    if (data?.diag) console.warn('[CONTEXA] backend reported', data.error, data.diag);
+    return { error: data?.error || 'proxy_' + res.status, diag: data?.diag };
+  }
   if (!data || !Array.isArray(data.steps)) return { error: 'bad_response' };
   return { data };
 }

@@ -169,5 +169,61 @@ const settle = () => new Promise(r => setTimeout(r, 0));
     'calls=' + anthropic.length);
 }
 
+
+/* ---- 10. capture: the DOM walker that feeds the model -------------------- */
+/* Extracted from content.js and run against a hand-rolled DOM, because the two
+   capture defects (glued paragraphs, whole code blocks) shipped invisibly for
+   ten versions: nothing ever looked at what the model actually receives. */
+{
+  const csrc = readFileSync('./content.js', 'utf8');
+  const m = csrc.match(/const BLOCK_TAGS[\s\S]*?\.trim\(\);\n  \}/);
+  if (!m) { t('captureText found in content.js', false); }
+  else {
+    const { captureText, summarizeCode } =
+      new Function(m[0] + '; return { captureText, summarizeCode };')();
+    const T = s => ({ nodeType: 3, nodeValue: s });
+    const E = (tag, ...children) => ({ nodeType: 1, tagName: tag, childNodes: children });
+
+    // Paragraphs get real line breaks (textContent glued them: "one.Two")
+    const para = captureText(E('DIV', E('P', T('First paragraph.')), E('P', T('Second one.'))));
+    t('paragraphs are separated by a newline', para === 'First paragraph.\nSecond one.',
+      JSON.stringify(para));
+
+    // Code collapses to first lines + marker; the bulk never ships
+    const code = 'function trimPayload(value) {\n  const t = String(value);\n  mid1;\n  mid2;\n  mid3;\n}';
+    const doc = E('DIV',
+      E('P', T('Here is the fix:')),
+      E('DIV', T('javascript'), E('BUTTON', T('Copy'))),
+      E('PRE', E('CODE', T(code))));
+    const out = captureText(doc);
+    t('code keeps its first lines as anchors', out.includes('function trimPayload(value) {'), out);
+    t('code bulk is replaced by a count marker', out.includes('[+4 more lines of code]'), out);
+    t('code bulk itself never ships', !out.includes('mid3'));
+    t('copy-button chrome is skipped', !out.includes('Copy'), out);
+
+    // Short snippets ship whole — collapsing them would cost more than it saves
+    const short = captureText(E('PRE', E('CODE', T('const a = 1;\nconst b = 2;'))));
+    t('short code ships whole', short === 'const a = 1;\nconst b = 2;', JSON.stringify(short));
+    t('short code has no marker', !short.includes('more lines'));
+
+    // BR produces a break
+    const br = captureText(E('P', T('line one'), E('BR'), T('line two')));
+    t('BR becomes a newline', br === 'line one\nline two', JSON.stringify(br));
+
+    // Size: a code-heavy reply shrinks to a fraction
+    const bigCode = Array.from({length: 80}, (_, i) => '  statement_' + i + '();').join('\n');
+    const heavy = E('DIV', E('P', T('Analysis of the bug follows.')), E('PRE', E('CODE', T(bigCode))));
+    const captured = captureText(heavy);
+    const rawLen = ('Analysis of the bug follows.' + bigCode).length;
+    t('code-heavy reply shrinks by >80%', captured.length < rawLen * 0.2,
+      rawLen + ' -> ' + captured.length);
+  }
+}
+
+/* ---- 11. the prompt carries the no-code rule ------------------------------ */
+{
+  t('prompt rule: step texts are prose', SRC.includes('Step texts are prose.'));
+}
+
 console.log(fails.length ? '\nFAILED: ' + fails.join(', ') : '\nall extension checks passed');
 process.exit(fails.length ? 1 : 0);

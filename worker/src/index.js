@@ -18,7 +18,7 @@
    which build is live. Deliberately independent of the extension's manifest
    version — they ship on separate paths and a worker fix should not force
    everyone to reinstall the extension. */
-const BUILD = '0.9.9';
+const BUILD = '0.9.12';
 
 const ANTHROPIC_URL = 'https://api.anthropic.com/v1/messages';
 /* Sonnet 5 rather than Haiku, on measured evidence: in a controlled three-model
@@ -51,6 +51,7 @@ Each step has TWO parts:
 - "text": the full prompt loaded into the user's composer when they click the chip. This is where the value lives. ONE outcome per prompt — never bundle two asks or two questions. Shape it as a short imperative line stating the ask, then, when that ask has constraints worth pinning down, two to four tight bullets each on its own line starting with "- ", specifying format, length, count, or what to avoid. Put a real newline between lines by using \n inside the JSON string. Bullets specify a SINGLE outcome; they are never a list of separate requests. Up to 320 characters including bullets. Short sentences, no filler. Write it in the user's own voice, first person, ready to send verbatim. Start with the ask: no persona preamble, no scene-setting, no meta commentary, no "you could ask". Use the imperative for prompts that request work, and a direct question when the point is to challenge an assumption or force a decision — a challenge needs no bullets.
 The label is a handle for the text; the text must deliver on what the label promises.
 CRITICAL: the text is a message the USER sends to Claude. Never write a step that asks the user a question or requests information only the user could know ("what is your current production limit?"). If a step needs a fact the user has not given, have the user state an assumption or ask Claude for something checkable instead.
+Step texts are prose. Refer to code by its name and location — a function, a file, a line — and when a step's outcome is new or changed code, the text asks Claude to write it rather than containing it. A step text never includes code lines or snippets.
 Rules for choosing them:
 - Be specific to THIS conversation. Reference the actual content of the reply — its structure, its gaps, the decision it leaves open. Never generic advice that would fit any conversation.
 - Assume the user is competent and has already thought of the obvious next step. Whatever anyone would type straight after reading this reply does not deserve a slot. Spend every slot on something they probably have not considered.
@@ -133,6 +134,23 @@ async function bumpQuota(env, key, limit) {
   if (used >= limit) return { ok: false, used, limit };
   await env.CX_KV.put(key, String(used + 1), { expirationTtl: KV_TTL_SECONDS });
   return { ok: true, used: used + 1, limit };
+}
+
+/* Enough to identify why a response could not be parsed, with no conversation
+   content in it. `blocks` is the decisive field: if the budget was spent on
+   content types other than `text`, the text body is short while `out` is at the
+   ceiling, and no amount of extra max_tokens fixes that. */
+function diagnose(data, text) {
+  return {
+    stop: data.stop_reason || null,
+    out: data.usage ? data.usage.output_tokens : null,
+    in: data.usage ? data.usage.input_tokens : null,
+    ceiling: MAX_TOKENS,
+    len: text.length,
+    hadJson: text.indexOf('{') >= 0,
+    steps: (text.match(/"label"\s*:/g) || []).length,   // how far it actually got
+    blocks: [...new Set((data.content || []).map(b => b.type || 'unknown'))]
+  };
 }
 
 /* Same tolerant JSON parsing the extension uses: models sometimes fence their
@@ -280,7 +298,20 @@ export default {
 
     let parsed;
     try { parsed = extractJson(text); } catch {
-      return json({ error: data.stop_reason === 'max_tokens' ? 'truncated' : 'bad_json' }, 502, request, env);
+      /* A parse failure used to return a bare error code and drop the response on
+         the floor, which made "truncated" undiagnosable: it cannot distinguish an
+         empty text body from a model that narrated instead of emitting JSON from
+         one that wrote an enormous first step. These four numbers separate all
+         three, and none of them contain conversation content. */
+      const diag = diagnose(data, text);
+      // Full text goes to `wrangler tail` only (live stream, not stored) — the
+      // client has no use for it and it echoes the user's conversation.
+      console.log('[CONTEXA] parse failure', JSON.stringify(diag),
+        'text[0,300]=', JSON.stringify(text.slice(0, 300)));
+      return json({
+        error: data.stop_reason === 'max_tokens' ? 'truncated' : 'bad_json',
+        diag
+      }, 502, request, env);
     }
 
     const steps = Array.isArray(parsed.steps)
@@ -289,12 +320,35 @@ export default {
           .slice(0, 5)
           .map(s => ({ label: String(s.label || '').slice(0, 80), text: trimPayload(s.text) }))
       : [];
-    if (!steps.length) return json({ error: 'no_steps' }, 502, request, env);
+    if (!steps.length) {
+      // Parsed but empty is its own failure and deserves the same evidence.
+      const diag = diagnose(data, text);
+      console.log('[CONTEXA] parsed but no usable steps', JSON.stringify(diag));
+      return json({ error: 'no_steps', diag }, 502, request, env);
+    }
+
+    /* A partial salvage hit the same ceiling as a hard failure — the only
+       difference is where the cut happened to fall. It needs the same evidence.
+       (Instrumenting only the two failure branches was a gap: the very next
+       ceiling-hit arrived on this branch, carrying no numbers.) Log the LAST 300
+       characters, not the first: on this branch the JSON started fine, and the
+       question is what the model was writing when the budget ran out — a sixth
+       step, an oversized text, or trailing prose. */
+    if (data.stop_reason === 'max_tokens') {
+      const diag = diagnose(data, text);
+      console.log('[CONTEXA] partial salvage', JSON.stringify(diag),
+        'kept=' + steps.length, 'text[-300]=', JSON.stringify(text.slice(-300)));
+      return json({
+        steps,
+        quota: { used: quota.used, limit: DEVICE_DAILY_LIMIT },
+        partial: true,
+        diag
+      }, 200, request, env);
+    }
 
     return json({
       steps,
-      quota: { used: quota.used, limit: DEVICE_DAILY_LIMIT },
-      partial: data.stop_reason === 'max_tokens' || undefined
+      quota: { used: quota.used, limit: DEVICE_DAILY_LIMIT }
     }, 200, request, env);
   }
 };
