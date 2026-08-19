@@ -1,0 +1,83 @@
+﻿
+CONTEXA usefulness test - tag: round5
+api: https://contexa-api.michu110899.workers.dev
+device: round520260819131958
+utc: 2026-08-19 11:19:58
+
+==========================================================================
+TURN 1
+prompt: Our Cloudflare Worker enforces a 20/day quota per device token using KV counters. Under concurrency two requests both read 19 and both write 20, so users can exceed the limit. What's the right fix?
+
+  steps returned: 4
+  1. (5w) Measure actual overshoot under load
+      Before choosing a fix, run load tests that spike concurrent requests at the 19-count threshold and measure how far over 20 users actually go. This tells us whether accepting drift with a lower limit (e.g., 18/day) is even viable.
+- Simulate 10+ concurrent requests hitting quota boundary
+- Record max overshoot observed across 100+ test runs
+- Calculate if lower limit absorbs it without users notici
+  2. (7w) Cost out Durable Objects vs overage tolerance
+      Get exact per-request charges for a DO-based solution (read + write per request, daily cleanup alarm) and compare to the business cost of letting users occasionally exceed by 1â3 requests. This forces the latency/cost/accuracy tradeoff into numbers.
+- Workers DO pricing per read, write, alarm
+- Your current request volume and peak concurrency
+- Revenue or friction impact of allowing 5â10% overshoo
+  3. (8w) Test Workers Rate Limiting API against your spec
+      The API uses fixed windows, not rolling 24h buckets. Check whether it aligns with your quota model (does a day reset at midnight UTC work, or do users expect 24h rolling from their first request).
+- Does fixed-window match your quota definition?
+- What happens at window boundary if user hits limit at 23:59?
+  4. (6w) Prototype DO solution with alarm cleanup
+      If Durable Objects looks viable, build a minimal version: DO holds in-memory counter, writes to KV once per day via alarm, device tokens are DO keys. Measure actual latency added and validate the alarm fires reliably.
+- Single DO instance per device token
+- In-memory increment, daily KV persist
+- Confirm alarm triggers for next-day reset
+
+  quota: 1/20
+
+==========================================================================
+TURN 2
+prompt: Give me the arithmetic: with KV's read-modify-write race, how many extra requests can one determined client actually get per day, and what does that cost me in dollars?
+
+  steps returned: 3
+  1. (6w) Measure actual race window in production
+      Before deciding on a fix, instrument one origin to measure the real propagation delay and KV read latency under load. Log timestamps on read and write, run 100 concurrent requests at your peak hour, and capture the actual overshoot observed.
+- Log read timestamp, write timestamp, and final value for each request
+- Run during peak traffic, not synthetic test
+- Report: median overshoot requests, 95t
+  2. (8w) Calculate cost if 10k origins exploit this daily
+      Your math assumes one attacker. What if 10,000 origins each get 60 extra requests per day?
+- 10k origins Ã 60 overshoot requests Ã $0.004 = $2,400 per day
+- At what user count does this risk become material to your unit economics?
+  3. (7w) Compare: token bucket versus per-origin Durable Object
+      You mentioned token bucket as the cheap fix. Lay out the operational cost and complexity trade-off side by side.
+- Token bucket: cost per request, latency added, failure mode if service down
+- Durable Object: cost per origin, latency, failure mode if service down
+- Which one breaks your SLA first under DDoS?
+
+  quota: 2/20
+
+==========================================================================
+TURN 3
+prompt: Write a script that fires 50 parallel requests with the same device token and reports how many got through, so I can measure the real overshoot instead of reasoning about it.
+
+  steps returned: 4
+  1. (5w) Measure against production limit first
+      Before running the burst script, what is your current rate limit setting in production, and have you already observed actual 429s from real traffic, or is this the first time you're stress-testing it?
+  2. (5w) Run script across multiple regions
+      Modify the harness to fire the 50 requests from three different geographic locations (or simulate it by hitting three different colo endpoints if you can), so we capture whether KV propagation delay is actually inflating overshoot in your case.
+- Show results from each region separately
+- Flag any region where success count differs by more than 10% from the others
+  3. (6w) Log request timestamps and KV state
+      Add microsecond-precision logging to each request (submit time, response time, response code) and snapshot the KV counter value immediately before and after the burst, so we can see whether overshoot correlates to clock skew or stale reads.
+- Write logs to a file, one request per line with timestamps
+- Include the KV value from the counter before first request and after last response
+  4. (5w) Test with incremented tokens instead
+      Run a second variant that sends 50 requests with 50 *different* device tokens (token-1, token-2, etc.) against the same endpoint, to isolate whether the overshoot is specific to single-token contention or a general ceiling on concurrent requests.
+
+  quota: 3/20
+
+==========================================================================
+step counts per turn: 4, 3, 4
+
+RAW JSON (for scoring)
+{"steps":[{"label":"Measure actual overshoot under load","text":"Before choosing a fix, run load tests that spike concurrent requests at the 19-count threshold and measure how far over 20 users actually go. This tells us whether accepting drift with a lower limit (e.g., 18/day) is even viable.\n- Simulate 10+ concurrent requests hitting quota boundary\n- Record max overshoot observed across 100+ test runs\n- Calculate if lower limit absorbs it without users notici"},{"label":"Cost out Durable Objects vs overage tolerance","text":"Get exact per-request charges for a DO-based solution (read + write per request, daily cleanup alarm) and compare to the business cost of letting users occasionally exceed by 1â3 requests. This forces the latency/cost/accuracy tradeoff into numbers.\n- Workers DO pricing per read, write, alarm\n- Your current request volume and peak concurrency\n- Revenue or friction impact of allowing 5â10% overshoo"},{"label":"Test Workers Rate Limiting API against your spec","text":"The API uses fixed windows, not rolling 24h buckets. Check whether it aligns with your quota model (does a day reset at midnight UTC work, or do users expect 24h rolling from their first request).\n- Does fixed-window match your quota definition?\n- What happens at window boundary if user hits limit at 23:59?"},{"label":"Prototype DO solution with alarm cleanup","text":"If Durable Objects looks viable, build a minimal version: DO holds in-memory counter, writes to KV once per day via alarm, device tokens are DO keys. Measure actual latency added and validate the alarm fires reliably.\n- Single DO instance per device token\n- In-memory increment, daily KV persist\n- Confirm alarm triggers for next-day reset"}],"quota":{"used":1,"limit":20}}
+{"steps":[{"label":"Measure actual race window in production","text":"Before deciding on a fix, instrument one origin to measure the real propagation delay and KV read latency under load. Log timestamps on read and write, run 100 concurrent requests at your peak hour, and capture the actual overshoot observed.\n- Log read timestamp, write timestamp, and final value for each request\n- Run during peak traffic, not synthetic test\n- Report: median overshoot requests, 95t"},{"label":"Calculate cost if 10k origins exploit this daily","text":"Your math assumes one attacker. What if 10,000 origins each get 60 extra requests per day?\n- 10k origins Ã 60 overshoot requests Ã $0.004 = $2,400 per day\n- At what user count does this risk become material to your unit economics?"},{"label":"Compare: token bucket versus per-origin Durable Object","text":"You mentioned token bucket as the cheap fix. Lay out the operational cost and complexity trade-off side by side.\n- Token bucket: cost per request, latency added, failure mode if service down\n- Durable Object: cost per origin, latency, failure mode if service down\n- Which one breaks your SLA first under DDoS?"}],"quota":{"used":2,"limit":20}}
+{"steps":[{"label":"Measure against production limit first","text":"Before running the burst script, what is your current rate limit setting in production, and have you already observed actual 429s from real traffic, or is this the first time you\u0027re stress-testing it?"},{"label":"Run script across multiple regions","text":"Modify the harness to fire the 50 requests from three different geographic locations (or simulate it by hitting three different colo endpoints if you can), so we capture whether KV propagation delay is actually inflating overshoot in your case.\n- Show results from each region separately\n- Flag any region where success count differs by more than 10% from the others"},{"label":"Log request timestamps and KV state","text":"Add microsecond-precision logging to each request (submit time, response time, response code) and snapshot the KV counter value immediately before and after the burst, so we can see whether overshoot correlates to clock skew or stale reads.\n- Write logs to a file, one request per line with timestamps\n- Include the KV value from the counter before first request and after last response"},{"label":"Test with incremented tokens instead","text":"Run a second variant that sends 50 requests with 50 *different* device tokens (token-1, token-2, etc.) against the same endpoint, to isolate whether the overshoot is specific to single-token contention or a general ceiling on concurrent requests."}],"quota":{"used":3,"limit":20}}
+

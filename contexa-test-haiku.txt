@@ -1,0 +1,63 @@
+﻿
+CONTEXA usefulness test - tag: haiku
+api: https://contexa-api.michu110899.workers.dev
+device: haiku20260819133409
+utc: 2026-08-19 11:34:09
+
+==========================================================================
+TURN 1
+prompt: Our Cloudflare Worker enforces a 20/day quota per device token using KV counters. Under concurrency two requests both read 19 and both write 20, so users can exceed the limit. What's the right fix?
+
+  steps returned: 4
+  1. (8w) Calculate actual cost of Durable Objects vs drift
+      I need to know: what is your current request volume per day across all devices, and what would the monthly cost be if we switched the quota enforcement to Durable Objects? Help me compare that against the cost of accepting a 10â15% overage and lowering the limit from 20 to 17 instead.
+  2. (8w) Test Workers Rate Limiting API for our window
+      Build a test endpoint using the Workers Rate Limiting API with a 24-hour fixed window keyed by device token, set to 20 requests, and run concurrent requests against it to see if it actually prevents the overshoot we're seeing with KV. Report the exact behaviorâdoes it block, throttle, or still allow concurrent reads to slip through?
+  3. (6w) Map the in-memory counter cleanup logic
+      Sketch out the Durable Object design with in-memory state: how would we detect when a device's counter has aged 24 hours and needs a reset? What happens if the DO is evicted between the periodic write to KV and the daily cleanup alarmâdo we lose a day's count or double-count the next day?
+  4. (6w) Pressure-test the drift option's real impact
+      If we lower the limit to 17 to absorb concurrent overshoot, what's the worst-case overage a user could see in a single 24-hour window, and would that break any downstream service or SLA we have?
+
+  quota: 1/20
+
+==========================================================================
+TURN 2
+prompt: Give me the arithmetic: with KV's read-modify-write race, how many extra requests can one determined client actually get per day, and what does that cost me in dollars?
+
+  steps returned: 3
+  1. (6w) Measure actual race window in production
+      Run a test against my live KV instance: fire 100 requests in parallel from a single IP, measure how many pass the rate check, repeat 10 times, and report the median overshoot. This tells me the real race size, not the theoretical one.
+- Use the same client library and network path as production
+- Record latency percentiles so I see variance
+- Test during normal traffic load, not off-peak
+  2. (6w) Calculate my actual daily cost exposure
+      Given that I enforce 60 per day per IP and each request costs $0.004, what's my worst-case spend if 1,000 unique IPs all hit the race condition at max burst on the same day? Walk me through the math with my real numbers so I can decide if 24 cents per client matters.
+  3. (6w) Compare token bucket versus KV guard
+      Show me a side-by-side: token bucket (client-side, drift risk, no remote state), versus KV read-modify-write with per-IP daily cap (current), versus Durable Objects (no race, higher cost). For each, show setup time, ongoing cost per 1M requests, and what still leaks in failure modes.
+
+  quota: 2/20
+
+==========================================================================
+TURN 3
+prompt: Write a script that fires 50 parallel requests with the same device token and reports how many got through, so I can measure the real overshoot instead of reasoning about it.
+
+  steps returned: 4
+  1. (5w) Measure actual vs theoretical limit
+      Before running the script, what is your current token bucket size and refill rate? I want to calculate the theoretical maximum that should get through in one burst, so we can compare it against what the script actually reports and see if the gap tells us about queue depth, timing precision, or something else.
+  2. (5w) Test from multiple regions simultaneously
+      Modify the script to fire 25 requests from two different regions (or two different edge locations if you control them) at the exact same millisecond, rather than all 50 from one origin. Report how many got through from each region and whether they interfered with each other's rate limit bucket.
+  3. (8w) Log the KV counter state before and after
+      Add console output that reads the KV counter immediately before the burst fires and immediately after all 50 requests complete, so we can see the starting value, the peak it reached, and whether it settled back down. This catches whether your counter is drifting or getting stuck.
+  4. (7w) Run against staging first with doubled limits
+      Run the same 50-request burst against a staging endpoint where you've temporarily doubled the token bucket limit. If the success rate jumps to nearly 100, the bottleneck is the limit itself and your measurement is solid. If it stays low, something else is rejecting requests.
+
+  quota: 3/20
+
+==========================================================================
+step counts per turn: 4, 3, 4
+
+RAW JSON (for scoring)
+{"steps":[{"label":"Calculate actual cost of Durable Objects vs drift","text":"I need to know: what is your current request volume per day across all devices, and what would the monthly cost be if we switched the quota enforcement to Durable Objects? Help me compare that against the cost of accepting a 10â15% overage and lowering the limit from 20 to 17 instead."},{"label":"Test Workers Rate Limiting API for our window","text":"Build a test endpoint using the Workers Rate Limiting API with a 24-hour fixed window keyed by device token, set to 20 requests, and run concurrent requests against it to see if it actually prevents the overshoot we\u0027re seeing with KV. Report the exact behaviorâdoes it block, throttle, or still allow concurrent reads to slip through?"},{"label":"Map the in-memory counter cleanup logic","text":"Sketch out the Durable Object design with in-memory state: how would we detect when a device\u0027s counter has aged 24 hours and needs a reset? What happens if the DO is evicted between the periodic write to KV and the daily cleanup alarmâdo we lose a day\u0027s count or double-count the next day?"},{"label":"Pressure-test the drift option\u0027s real impact","text":"If we lower the limit to 17 to absorb concurrent overshoot, what\u0027s the worst-case overage a user could see in a single 24-hour window, and would that break any downstream service or SLA we have?"}],"quota":{"used":1,"limit":20}}
+{"steps":[{"label":"Measure actual race window in production","text":"Run a test against my live KV instance: fire 100 requests in parallel from a single IP, measure how many pass the rate check, repeat 10 times, and report the median overshoot. This tells me the real race size, not the theoretical one.\n- Use the same client library and network path as production\n- Record latency percentiles so I see variance\n- Test during normal traffic load, not off-peak"},{"label":"Calculate my actual daily cost exposure","text":"Given that I enforce 60 per day per IP and each request costs $0.004, what\u0027s my worst-case spend if 1,000 unique IPs all hit the race condition at max burst on the same day? Walk me through the math with my real numbers so I can decide if 24 cents per client matters."},{"label":"Compare token bucket versus KV guard","text":"Show me a side-by-side: token bucket (client-side, drift risk, no remote state), versus KV read-modify-write with per-IP daily cap (current), versus Durable Objects (no race, higher cost). For each, show setup time, ongoing cost per 1M requests, and what still leaks in failure modes."}],"quota":{"used":2,"limit":20}}
+{"steps":[{"label":"Measure actual vs theoretical limit","text":"Before running the script, what is your current token bucket size and refill rate? I want to calculate the theoretical maximum that should get through in one burst, so we can compare it against what the script actually reports and see if the gap tells us about queue depth, timing precision, or something else."},{"label":"Test from multiple regions simultaneously","text":"Modify the script to fire 25 requests from two different regions (or two different edge locations if you control them) at the exact same millisecond, rather than all 50 from one origin. Report how many got through from each region and whether they interfered with each other\u0027s rate limit bucket."},{"label":"Log the KV counter state before and after","text":"Add console output that reads the KV counter immediately before the burst fires and immediately after all 50 requests complete, so we can see the starting value, the peak it reached, and whether it settled back down. This catches whether your counter is drifting or getting stuck."},{"label":"Run against staging first with doubled limits","text":"Run the same 50-request burst against a staging endpoint where you\u0027ve temporarily doubled the token bucket limit. If the success rate jumps to nearly 100, the bottleneck is the limit itself and your measurement is solid. If it stays low, something else is rejecting requests."}],"quota":{"used":3,"limit":20}}
+

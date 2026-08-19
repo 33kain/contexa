@@ -9,8 +9,9 @@ binding = "CX_KV"
 id = "68d9d130c21741e8a5450f38f2942df7"
 
 [vars]
-# Model used for suggestions. Haiku is the right tier here: fast and cheap.
-MODEL = "claude-haiku-4-5"
+# Model used for suggestions. Sonnet 5 on measured evidence: it obeys the label,
+# bullet and voice rules that Haiku ignores, for ~$0.008 per call instead of $0.004.
+MODEL = "claude-sonnet-5"
 
 # Lock the API to your published extension so nobody else can spend your quota.
 # Leave empty during development (any chrome-extension:// origin is accepted),

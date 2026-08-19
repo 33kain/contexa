@@ -8,7 +8,7 @@
   if (window.__contexaLoaded) return;
   window.__contexaLoaded = true;
 
-  let settings = { enabled: true, apiKey: '', model: 'claude-haiku-4-5' };
+  let settings = { enabled: true, apiKey: '', model: 'claude-sonnet-5' };
   let composer = null;
   let replyObserver = null;
   let tickTimer = null;
@@ -297,7 +297,7 @@
     if (composer && !composer.isConnected) composer = null;
   }
 
-  chrome.storage.local.get({ enabled: true, apiKey: '', model: 'claude-haiku-4-5' }, s => {
+  chrome.storage.local.get({ enabled: true, apiKey: '', model: 'claude-sonnet-5' }, s => {
     settings = s;
     if (!settings.enabled) return;
     tickTimer = setInterval(tick, 900);   // re-finds the composer across SPA navigation

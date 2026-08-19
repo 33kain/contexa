@@ -26,8 +26,8 @@ involved at all. To set it up:
 
 1. Click the CONTEXA icon in the toolbar (or right-click → Options).
 2. Paste your **Anthropic API key** (`sk-ant-…`).
-3. Optionally change the model (default `claude-haiku-4-5` — fast and cheap,
-   which is what this wants).
+3. Optionally change the model (default `claude-sonnet-5`, chosen because it
+   follows the formatting rules that cheaper tiers ignore).
 4. Click **Test connection**, then **Save**.
 
 Your key is stored in `chrome.storage.local` and is sent only to

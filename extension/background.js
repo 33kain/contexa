@@ -4,16 +4,44 @@
 
 const API_URL = 'https://api.anthropic.com/v1/messages';
 
-// Deployed backend. Pin ALLOWED_EXTENSION_IDS on the Worker after publishing.
+// Baked by build.mjs. Users can override this in Advanced settings.
 const DEFAULT_PROXY_URL = 'https://contexa-api.michu110899.workers.dev';
+
+/* The model this build ships as its default for the own-key path.
+   Stored settings hold '' to mean "follow this", NOT a copy of this string — that
+   distinction is the whole point. Persisting the default into storage is what
+   froze early installs on Haiku: once the value was written, changing the default
+   here could never reach them again. */
+const SHIPPED_MODEL = 'claude-sonnet-5';
+
+/* Values that USED to be SHIPPED_MODEL. A stored model matching one exactly is
+   almost certainly a default we persisted on the user's behalf rather than a
+   choice they typed — nobody types the value that is already the default — so the
+   migration clears it and lets the current default win.
+   Append when SHIPPED_MODEL changes. Never remove an entry: old installs can
+   surface at any time. */
+const SUPERSEDED_MODEL_DEFAULTS = ['claude-haiku-4-5'];
 
 const DEFAULTS = {
   apiKey: '',                    // empty = use the hosted proxy (no key needed)
-  model: 'claude-haiku-4-5',
+  model: '',                     // empty = follow SHIPPED_MODEL
   enabled: true,
   proxyUrl: DEFAULT_PROXY_URL,
   deviceToken: ''                // opaque, generated on first use, not an identity
 };
+
+/* One-time repair for installs predating the '' convention. Idempotent: it only
+   writes when it finds a superseded value, so re-running it costs one read. */
+async function migrateStoredModel() {
+  const { model } = await chrome.storage.local.get({ model: '' });
+  if (model && SUPERSEDED_MODEL_DEFAULTS.includes(model)) {
+    await chrome.storage.local.set({ model: '' });
+    console.log(`[CONTEXA] cleared superseded stored model "${model}" — now following the shipped default "${SHIPPED_MODEL}"`);
+  }
+}
+chrome.runtime.onInstalled.addListener(migrateStoredModel);
+chrome.runtime.onStartup.addListener(migrateStoredModel);
+migrateStoredModel();   // MV3 workers are torn down constantly; cheap and safe to repeat
 
 /* An anonymous per-install token so the proxy can apply a daily quota without
    knowing who anyone is. Not tied to the user, the browser profile, or claude.ai. */
@@ -31,8 +59,9 @@ async function getDeviceToken() {
 const NEXT_STEPS_SYSTEM = `You are CONTEXA, embedded in claude.ai. You see the user's last message and Claude's reply. Propose the most useful next messages the user could send to move the work forward — the ones you would suggest if you were their sharpest collaborator looking at this exact conversation. Return BETWEEN THREE AND FIVE steps: as many as genuinely earn a place, and no more.
 Each step has TWO parts:
 - "label": AT MOST 6 WORDS. This is all the user sees on a small chip, so it must be instantly scannable: verb-first, imperative, plain language, no trailing punctuation, no category names. Keep the distinctive part of the idea in the label — never pad with generic verbs. All labels must be obviously different from each other at a glance. Examples of the right shape: "Write the hero copy", "Challenge my social-proof assumption", "Compare KV guard versus token bucket".
-- "text": the full prompt loaded into the user's composer when they click the chip. This is where the value lives. ONE outcome per prompt — never bundle two asks or two questions. Be concrete: name the deliverable, the format, the length, or the constraint. Short sentences. Up to 220 characters. Write it in the user's own voice, first person, ready to send verbatim. Start with the ask: no persona preamble, no scene-setting, no meta commentary, no "you could ask". Use the imperative for prompts that request work, and a direct question when the point is to challenge an assumption or force a decision.
+- "text": the full prompt loaded into the user's composer when they click the chip. This is where the value lives. ONE outcome per prompt — never bundle two asks or two questions. Shape it as a short imperative line stating the ask, then, when that ask has constraints worth pinning down, two to four tight bullets each on its own line starting with "- ", specifying format, length, count, or what to avoid. Put a real newline between lines by using \n inside the JSON string. Bullets specify a SINGLE outcome; they are never a list of separate requests. Up to 320 characters including bullets. Short sentences, no filler. Write it in the user's own voice, first person, ready to send verbatim. Start with the ask: no persona preamble, no scene-setting, no meta commentary, no "you could ask". Use the imperative for prompts that request work, and a direct question when the point is to challenge an assumption or force a decision — a challenge needs no bullets.
 The label is a handle for the text; the text must deliver on what the label promises.
+CRITICAL: the text is a message the USER sends to Claude. Never write a step that asks the user a question or requests information only the user could know ("what is your current production limit?"). If a step needs a fact the user has not given, have the user state an assumption or ask Claude for something checkable instead.
 Rules for choosing them:
 - Be specific to THIS conversation. Reference the actual content of the reply — its structure, its gaps, the decision it leaves open. Never generic advice that would fit any conversation.
 - Assume the user is competent and has already thought of the obvious next step. Whatever anyone would type straight after reading this reply does not deserve a slot. Spend every slot on something they probably have not considered.
@@ -113,6 +142,9 @@ function salvageTruncated(t, start) {
 async function callClaude(system, userText, maxTokens) {
   const { apiKey, model } = await getSettings();
   if (!apiKey) return { error: 'no_key' };
+  // Resolve here, not at save time: an unset override must always follow the
+  // current shipped default, including after an update changes it.
+  const useModel = model || SHIPPED_MODEL;
   let res;
   try {
     res = await fetch(API_URL, {
@@ -124,7 +156,7 @@ async function callClaude(system, userText, maxTokens) {
         'anthropic-dangerous-direct-browser-access': 'true'
       },
       body: JSON.stringify({
-        model,
+        model: useModel,
         max_tokens: maxTokens,
         system,
         messages: [{ role: 'user', content: userText }]
@@ -193,7 +225,7 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
       // Own key = direct to Anthropic, unlimited. No key = hosted proxy, quota'd.
       const r = apiKey
         ? await callClaude(NEXT_STEPS_SYSTEM,
-            'USER MESSAGE:\n' + prompt + '\n\nCLAUDE REPLY:\n' + reply, 1600)
+            'USER MESSAGE:\n' + prompt + '\n\nCLAUDE REPLY:\n' + reply, 2500)
         : await callHosted(prompt, reply);
       const out = r.error ? r : (r.partial ? Object.assign({}, r.data, { partial: true }) : r.data);
       if (!r.error) cachePut(stepsCache, key, out);
@@ -206,7 +238,12 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
       try {
         const res = await fetch(base + '/v1/health');
         const data = await res.json().catch(() => ({}));
-        sendResponse(res.ok && data.ok ? { ok: true, limit: data.limit } : { error: 'http_' + res.status });
+        // Pass version/model straight through: it turns "Test connection" into a
+        // real answer about which backend build is live, not just a reachability ping.
+        sendResponse(res.ok && data.ok
+          ? { ok: true, limit: data.limit, version: data.version, model: data.model,
+              configured: data.configured }
+          : { error: 'http_' + res.status });
       } catch (e) { sendResponse({ error: 'network' }); }
 
     } else if (msg.type === 'openOptions') {
@@ -215,7 +252,15 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
 
     } else if (msg.type === 'ping') {
       const r = await callClaude('Reply with exactly: {"ok":true}', 'ping', 20);
-      sendResponse(r.error ? r : { ok: true });
+      const { model } = await getSettings();
+      // Report the model actually used, so the settings page can name it rather
+      // than leaving the user to guess which tier their key just spoke to.
+      sendResponse(r.error ? r : { ok: true, model: model || SHIPPED_MODEL });
+
+    } else if (msg.type === 'getConfig') {
+      // Single source of truth for the shipped default; the options page reads it
+      // from here instead of keeping a copy that could drift.
+      sendResponse({ shippedModel: SHIPPED_MODEL });
 
     } else {
       sendResponse({ error: 'unknown_message' });

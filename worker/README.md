@@ -44,8 +44,17 @@ Verify it:
 
 ```bash
 curl https://contexa-api.your-subdomain.workers.dev/v1/health
-# {"ok":true,"limit":20}
+# {"ok":true,"version":"0.9.8","model":"claude-sonnet-5","limit":20,"configured":true}
 ```
+
+Read that response as four separate checks:
+
+| Field | Means |
+|---|---|
+| `version` | which build is live — bump `BUILD` in `src/index.js` each deploy, and this is how you prove the deploy landed rather than no-opped |
+| `model` | the tier that will actually serve requests (`env.MODEL` from `wrangler.toml`, falling back to the constant) |
+| `configured` | `false` means `ANTHROPIC_API_KEY` is missing and every suggestion request will fail with `server_not_configured` |
+| `limit` | the per-device daily quota the client will be held to |
 
 ## 5. Point the extension at it
 
@@ -80,23 +89,37 @@ The Worker then rejects every other origin with `403 forbidden_origin`.
 
 ## What it costs you
 
-Each suggestion set is roughly **$0.004** (≈2,000 input tokens of conversation,
-≈400 output tokens at Haiku pricing).
+Each suggestion set is roughly **$0.008** (≈2,000 input tokens of conversation,
+≈400 output tokens at Sonnet 5 pricing of $2/$10 per MTok).
 
 | Active users | Replies/user/day | Rough monthly cost |
 |---|---|---|
-| 50 | 10 | ~$60 |
-| 100 | 20 | ~$240 |
-| 500 | 20 | ~$1,200 |
+| 50 | 10 | ~$120 |
+| 100 | 20 | ~$480 |
+| 500 | 20 | ~$2,400 |
+
+**Why Sonnet 5 rather than Haiku 4.5**, which is half the price: in a controlled
+three-model comparison on identical inputs, Haiku ignored the label-length limit
+(4 of 11 labels over cap), largely ignored the bullet-formatting instruction
+(1 of 11), and twice produced steps that asked the *user* a question the model
+could not answer — a step that cannot be sent. Sonnet 5 scored 0 of 13 over cap,
+10 of 13 bulleted, and no voice inversion. Three rounds of prompt engineering had
+failed to fix those defects on Haiku. Opus 5 gave the single best suggestion of any
+run but failed a request outright by exceeding `max_tokens`, at 5x the cost.
+
+Set `MODEL` in `wrangler.toml` to change tier. `claude-haiku-4-5` halves the bill
+if you are cost-constrained and can tolerate the formatting defects.
 
 The Worker itself is free at these volumes; essentially all cost is inference.
 
 ## Cost protections already in place
 
-- **20 requests/day per device** and **60/day per IP** (the second axis blunts
-  reinstall-for-a-fresh-token abuse).
+- **20 requests/day per device** and **300/day per IP** (the second axis blunts
+  reinstall-for-a-fresh-token abuse; keep it at roughly 10× the device limit so
+  co-located users — an office, a campus, a household behind one NAT — don't
+  block each other).
 - **Server-side input clamping**: prompt ≤2,500 chars, reply ≤6,000 chars,
-  `max_tokens` fixed at 1,600. A modified client cannot make a request cost more.
+  `max_tokens` fixed at 2,500. A modified client cannot make a request cost more.
 - **Replies under 50 chars are rejected** before any upstream call.
 - Upstream error bodies are never forwarded to clients.
 

@@ -1,0 +1,76 @@
+﻿
+CONTEXA usefulness test - tag: opus5
+api: https://contexa-api.michu110899.workers.dev
+device: opus520260819133709
+utc: 2026-08-19 11:37:09
+
+==========================================================================
+TURN 1
+prompt: Our Cloudflare Worker enforces a 20/day quota per device token using KV counters. Under concurrency two requests both read 19 and both write 20, so users can exceed the limit. What's the right fix?
+
+  FAILED: The remote server returned an error: (502) Bad Gateway.
+  {"error":"truncated"}
+
+==========================================================================
+TURN 2
+prompt: Give me the arithmetic: with KV's read-modify-write race, how many extra requests can one determined client actually get per day, and what does that cost me in dollars?
+
+  steps returned: 4
+  1. (6w) Redo the math with rotating IPs
+      Redo the arithmetic assuming the attacker rotates IPs rather than racing from one origin.
+- Give worst-case daily spend for 100, 1000, and 10000 distinct hashed IPs
+- State the total daily dollar figure I should actually be defending against
+- Recommend one global spend ceiling number based on that
+  2. (7w) Does the 60/day cap survive the race
+      The 60-per-day per-IP counter is stored in the same KV with the same read-modify-write race. So why does it reliably bound anything? Show me why the cap itself can't be overshot the same way.
+  3. (5w) Spec the cheap burst guard
+      Yes, give me the cheap fix. Spec the burst guard concretely.
+- Exact algorithm and where the state lives
+- What happens on KV read failure or stale read
+- Under 40 lines of Worker code, no Durable Objects
+  4. (5w) Log overshoot before building anything
+      Before I build any guard, tell me how to measure the real overshoot in production.
+- What to log per request so I can count actual duplicate-window passes
+- A threshold that would justify building the guard at all
+- Keep it to something I can ship in one commit
+
+  quota: 2/20
+
+==========================================================================
+TURN 3
+prompt: Write a script that fires 50 parallel requests with the same device token and reports how many got through, so I can measure the real overshoot instead of reasoning about it.
+
+  steps returned: 5
+  1. (5w) Set the pass/fail overshoot number
+      Before I run this, help me fix the decision rule so the numbers mean something.
+- Propose a concrete max tolerable overshoot for a device-token limiter and justify it in terms of abuse cost
+- State what result would make me keep KV as-is versus switch approach
+- Keep it under 200 words, no hedging
+  2. (5w) Extend harness across multiple colos
+      Rewrite the harness so it measures the cross-colo case you warned about instead of understating it.
+- Fire the 50 requests from at least three geographically separate origins against the same token
+- Aggregate results into one report with per-origin and total success counts
+- Note any setup I need outside the script
+  3. (4w) Instrument KV convergence timing
+      Add instrumentation that polls the KV counter after the burst and reports how long it takes to converge on the true value.
+- Sample at a fixed interval until the value stops changing or a timeout hits
+- Print time-to-convergence and final value versus observed 200 count
+  4. (5w) Simulate a sustained attacker instead
+      Write a second scenario that models a realistic abuser rather than one clean burst.
+- Sustained requests held right at the limit boundary for 60 seconds
+- Include retries after 429s and report total requests that got through over the window
+- Reuse the same reporting format as the burst harness
+  5. (6w) Compare Durable Objects with real numbers
+      Make the case for and against replacing the KV counter with a Durable Object for this limiter.
+- Give expected overshoot, added latency, and cost per million requests for each
+- End with a single recommendation and the condition that would flip it
+
+  quota: 3/20
+
+==========================================================================
+step counts per turn: 4, 5
+
+RAW JSON (for scoring)
+{"steps":[{"label":"Redo the math with rotating IPs","text":"Redo the arithmetic assuming the attacker rotates IPs rather than racing from one origin.\n- Give worst-case daily spend for 100, 1000, and 10000 distinct hashed IPs\n- State the total daily dollar figure I should actually be defending against\n- Recommend one global spend ceiling number based on that"},{"label":"Does the 60/day cap survive the race","text":"The 60-per-day per-IP counter is stored in the same KV with the same read-modify-write race. So why does it reliably bound anything? Show me why the cap itself can\u0027t be overshot the same way."},{"label":"Spec the cheap burst guard","text":"Yes, give me the cheap fix. Spec the burst guard concretely.\n- Exact algorithm and where the state lives\n- What happens on KV read failure or stale read\n- Under 40 lines of Worker code, no Durable Objects"},{"label":"Log overshoot before building anything","text":"Before I build any guard, tell me how to measure the real overshoot in production.\n- What to log per request so I can count actual duplicate-window passes\n- A threshold that would justify building the guard at all\n- Keep it to something I can ship in one commit"}],"quota":{"used":2,"limit":20}}
+{"steps":[{"label":"Set the pass/fail overshoot number","text":"Before I run this, help me fix the decision rule so the numbers mean something.\n- Propose a concrete max tolerable overshoot for a device-token limiter and justify it in terms of abuse cost\n- State what result would make me keep KV as-is versus switch approach\n- Keep it under 200 words, no hedging"},{"label":"Extend harness across multiple colos","text":"Rewrite the harness so it measures the cross-colo case you warned about instead of understating it.\n- Fire the 50 requests from at least three geographically separate origins against the same token\n- Aggregate results into one report with per-origin and total success counts\n- Note any setup I need outside the script"},{"label":"Instrument KV convergence timing","text":"Add instrumentation that polls the KV counter after the burst and reports how long it takes to converge on the true value.\n- Sample at a fixed interval until the value stops changing or a timeout hits\n- Print time-to-convergence and final value versus observed 200 count"},{"label":"Simulate a sustained attacker instead","text":"Write a second scenario that models a realistic abuser rather than one clean burst.\n- Sustained requests held right at the limit boundary for 60 seconds\n- Include retries after 429s and report total requests that got through over the window\n- Reuse the same reporting format as the burst harness"},{"label":"Compare Durable Objects with real numbers","text":"Make the case for and against replacing the KV counter with a Durable Object for this limiter.\n- Give expected overshoot, added latency, and cost per million requests for each\n- End with a single recommendation and the condition that would flip it"}],"quota":{"used":3,"limit":20}}
+

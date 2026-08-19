@@ -14,25 +14,43 @@
      ALLOWED_EXTENSION_IDS  var  comma-separated Chrome extension IDs (optional)
 */
 
+/* The WORKER's build number, bumped on every deploy so /v1/health can prove
+   which build is live. Deliberately independent of the extension's manifest
+   version — they ship on separate paths and a worker fix should not force
+   everyone to reinstall the extension. */
+const BUILD = '0.9.9';
+
 const ANTHROPIC_URL = 'https://api.anthropic.com/v1/messages';
-const MODEL = 'claude-haiku-4-5';
+/* Sonnet 5 rather than Haiku, on measured evidence: in a controlled three-model
+   comparison Haiku ignored the label-length rule (4/11 over cap), largely ignored
+   the bullet instruction (1/11), and twice wrote steps that asked the USER a
+   question it could not answer — all defects that three rounds of prompt work
+   failed to fix. Sonnet 5 scored 0/13 over cap, 10/13 bulleted, no voice
+   inversion, for $0.004 more per call. Opus 5 produced the best single suggestion
+   but failed a request outright at 5x the cost. */
+const MODEL = 'claude-sonnet-5';
 
 // Quotas. Client values are never trusted; these are the only limits that count.
 const DEVICE_DAILY_LIMIT = 20;
-const IP_DAILY_LIMIT = 60;      // second axis: blunts reinstall-for-fresh-token abuse
+// Second axis: blunts reinstall-for-a-fresh-token abuse. Deliberately generous
+// relative to the device limit, because legitimate users share IPs — an office or
+// a flat would otherwise block each other and it would look like a broken product.
+// Keep this at roughly 10x DEVICE_DAILY_LIMIT.
+const IP_DAILY_LIMIT = 300;
 const KV_TTL_SECONDS = 60 * 60 * 48;
 
 // Cost guards: a request can never be larger than this, whatever the client sends.
 const MAX_PROMPT_CHARS = 2500;
 const MAX_REPLY_CHARS = 6000;
 const MIN_REPLY_CHARS = 50;
-const MAX_TOKENS = 1600;
+const MAX_TOKENS = 2500;   // Opus hit the 1600 ceiling and failed; Sonnet writes longer than Haiku too
 
 const NEXT_STEPS_SYSTEM = `You are CONTEXA, embedded in claude.ai. You see the user's last message and Claude's reply. Propose the most useful next messages the user could send to move the work forward — the ones you would suggest if you were their sharpest collaborator looking at this exact conversation. Return BETWEEN THREE AND FIVE steps: as many as genuinely earn a place, and no more.
 Each step has TWO parts:
 - "label": AT MOST 6 WORDS. This is all the user sees on a small chip, so it must be instantly scannable: verb-first, imperative, plain language, no trailing punctuation, no category names. Keep the distinctive part of the idea in the label — never pad with generic verbs. All labels must be obviously different from each other at a glance. Examples of the right shape: "Write the hero copy", "Challenge my social-proof assumption", "Compare KV guard versus token bucket".
-- "text": the full prompt loaded into the user's composer when they click the chip. This is where the value lives. ONE outcome per prompt — never bundle two asks or two questions. Be concrete: name the deliverable, the format, the length, or the constraint. Short sentences. Up to 220 characters. Write it in the user's own voice, first person, ready to send verbatim. Start with the ask: no persona preamble, no scene-setting, no meta commentary, no "you could ask". Use the imperative for prompts that request work, and a direct question when the point is to challenge an assumption or force a decision.
+- "text": the full prompt loaded into the user's composer when they click the chip. This is where the value lives. ONE outcome per prompt — never bundle two asks or two questions. Shape it as a short imperative line stating the ask, then, when that ask has constraints worth pinning down, two to four tight bullets each on its own line starting with "- ", specifying format, length, count, or what to avoid. Put a real newline between lines by using \n inside the JSON string. Bullets specify a SINGLE outcome; they are never a list of separate requests. Up to 320 characters including bullets. Short sentences, no filler. Write it in the user's own voice, first person, ready to send verbatim. Start with the ask: no persona preamble, no scene-setting, no meta commentary, no "you could ask". Use the imperative for prompts that request work, and a direct question when the point is to challenge an assumption or force a decision — a challenge needs no bullets.
 The label is a handle for the text; the text must deliver on what the label promises.
+CRITICAL: the text is a message the USER sends to Claude. Never write a step that asks the user a question or requests information only the user could know ("what is your current production limit?"). If a step needs a fact the user has not given, have the user state an assumption or ask Claude for something checkable instead.
 Rules for choosing them:
 - Be specific to THIS conversation. Reference the actual content of the reply — its structure, its gaps, the decision it leaves open. Never generic advice that would fit any conversation.
 - Assume the user is competent and has already thought of the obvious next step. Whatever anyone would type straight after reading this reply does not deserve a slot. Spend every slot on something they probably have not considered.
@@ -76,10 +94,18 @@ function originAllowed(request, env) {
   return origin.startsWith('chrome-extension://');
 }
 
+/* no-store is not cosmetic. /v1/health is a GET with a 200 body, so an edge or
+   any intermediary is free to cache it — which it did, and a stale health body
+   reported an old build as live. An endpoint whose only job is saying what is
+   deployed must never be served from a cache. */
 function json(body, status, request, env) {
   return new Response(JSON.stringify(body), {
     status,
-    headers: { 'content-type': 'application/json', ...corsHeaders(request, env) }
+    headers: {
+      'content-type': 'application/json',
+      'cache-control': 'no-store',
+      ...corsHeaders(request, env)
+    }
   });
 }
 
@@ -138,6 +164,25 @@ function extractJson(text) {
   throw new Error('unparseable JSON');
 }
 
+
+/* Payloads are now multi-line with bullets, and models overshoot the stated cap.
+   A blind slice() cuts mid-word and ships visibly broken text ("...without users
+   notici"), so trim at the last clean boundary instead: prefer a whole line, then
+   a sentence, then a word. The ceiling is generous so realistic bulleted payloads
+   pass through untouched. */
+const MAX_PAYLOAD_CHARS = 600;
+function trimPayload(value) {
+  const t = String(value || '').trimEnd();
+  if (t.length <= MAX_PAYLOAD_CHARS) return t;
+  const cut = t.slice(0, MAX_PAYLOAD_CHARS);
+  const nl = cut.lastIndexOf('\n');
+  if (nl > MAX_PAYLOAD_CHARS * 0.5) return cut.slice(0, nl).trimEnd();
+  const dot = Math.max(cut.lastIndexOf('. '), cut.lastIndexOf('? '), cut.lastIndexOf('! '));
+  if (dot > MAX_PAYLOAD_CHARS * 0.5) return cut.slice(0, dot + 1).trimEnd();
+  const sp = cut.lastIndexOf(' ');
+  return (sp > 0 ? cut.slice(0, sp) : cut).trimEnd();
+}
+
 /* ------------------------------------------------------------------ worker */
 
 export default {
@@ -148,7 +193,15 @@ export default {
       return new Response(null, { status: 204, headers: corsHeaders(request, env) });
     }
     if (url.pathname === '/v1/health') {
-      return json({ ok: true, limit: DEVICE_DAILY_LIMIT, configured: !!env.ANTHROPIC_API_KEY }, 200, request, env);
+      // version + model make a deploy verifiable from outside. Without them you
+      // cannot tell a successful deploy from a no-op except by watching a reply.
+      return json({
+        ok: true,
+        version: BUILD,
+        model: env.MODEL || MODEL,
+        limit: DEVICE_DAILY_LIMIT,
+        configured: !!env.ANTHROPIC_API_KEY
+      }, 200, request, env);
     }
     if (url.pathname !== '/v1/next-steps') return json({ error: 'not_found' }, 404, request, env);
     if (request.method !== 'POST') return json({ error: 'method_not_allowed' }, 405, request, env);
@@ -234,7 +287,7 @@ export default {
       ? parsed.steps
           .filter(s => s && typeof s.text === 'string' && s.text.trim())
           .slice(0, 5)
-          .map(s => ({ label: String(s.label || '').slice(0, 80), text: String(s.text).slice(0, 400) }))
+          .map(s => ({ label: String(s.label || '').slice(0, 80), text: trimPayload(s.text) }))
       : [];
     if (!steps.length) return json({ error: 'no_steps' }, 502, request, env);
 

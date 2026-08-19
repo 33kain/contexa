@@ -17,6 +17,9 @@
         padding:26px;width:min(500px,94vw)}
   h1{font-size:18px;margin-bottom:3px}
   h1 b{color:var(--accent)}
+  h1 .ver{font-size:11px;font-weight:500;color:var(--text2);letter-spacing:.04em;
+          margin-left:7px;vertical-align:1px}
+  .hint{text-transform:none;font-weight:400;color:var(--text2)}
   .sub{font-size:13px;color:var(--text2);margin-bottom:20px}
   .mode{border:1px solid var(--border);border-radius:10px;padding:13px 14px;margin-bottom:12px;
         background:var(--surface2)}
@@ -44,7 +47,7 @@
 </head>
 <body>
   <div class="card">
-    <h1><b>C</b>ONTEXA</h1>
+    <h1><b>C</b>ONTEXA <span class="ver" id="extVersion"></span></h1>
     <div class="sub">Five next steps after every Claude reply.</div>
 
     <label class="toggle"><input type="checkbox" id="enabled"> CONTEXA is on</label>
@@ -66,8 +69,8 @@
 
     <details>
       <summary>Advanced</summary>
-      <label for="model">Model (own key only)</label>
-      <input type="text" id="model" placeholder="claude-haiku-4-5">
+      <label for="model">Model <span class="hint">— own key only. Leave empty to follow the current default.</span></label>
+      <input type="text" id="model" placeholder="loading…">
       <label for="proxyUrl">Backend URL</label>
       <input type="text" id="proxyUrl" placeholder="https://contexa-api.example.workers.dev">
     </details>
