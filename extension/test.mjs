@@ -371,5 +371,18 @@ const settle = () => new Promise(r => setTimeout(r, 0));
   t('prompt: voice line present', SRC.includes('always addresses Claude'));
 }
 
+
+/* ---- v0.9.20: thinking explicitly disabled -------------------------------- */
+/* Sonnet 5 turned adaptive thinking ON by default for requests without a
+   thinking field; the field-observed failure was 2,500 tokens of thinking and
+   zero text. Pin the disable on the wire, not just in intent. */
+{
+  const h = load({ storage: { model: '', apiKey: 'sk-x' } });
+  await settle();
+  await h.send({ type: 'nextSteps', prompt: 'p', reply: 'r'.repeat(80) });
+  t('own-key request disables thinking', h.requests[0].body.thinking && h.requests[0].body.thinking.type === 'disabled',
+    JSON.stringify(h.requests[0].body.thinking));
+}
+
 console.log(fails.length ? '\nFAILED: ' + fails.join(', ') : '\nall extension checks passed');
 process.exit(fails.length ? 1 : 0);

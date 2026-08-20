@@ -18,7 +18,7 @@
    which build is live. Deliberately independent of the extension's manifest
    version — they ship on separate paths and a worker fix should not force
    everyone to reinstall the extension. */
-const BUILD = '0.9.19';
+const BUILD = '0.9.20';
 
 const ANTHROPIC_URL = 'https://api.anthropic.com/v1/messages';
 /* Sonnet 5 rather than Haiku, on measured evidence: in a controlled three-model
@@ -282,6 +282,13 @@ export default {
         body: JSON.stringify({
           model: env.MODEL || MODEL,
           max_tokens: MAX_TOKENS,
+          /* Sonnet 5 runs ADAPTIVE thinking when no thinking field is sent
+             (4.6 and earlier ran without). Observed in the field: the model
+             chose to think and spent the entire 2,500-token budget on a
+             thinking block, emitting zero text. For a fast structured-JSON
+             generator under a hard cap, thinking is all cost: disable it
+             explicitly and permanently. */
+          thinking: { type: 'disabled' },
           system: NEXT_STEPS_SYSTEM,
           messages: [{
             role: 'user',

@@ -168,6 +168,10 @@ async function callClaude(system, userText, maxTokens) {
       body: JSON.stringify({
         model: useModel,
         max_tokens: maxTokens,
+        // Sonnet 5 defaults to adaptive thinking when the field is absent —
+        // observed burning the whole budget on a thinking block with zero
+        // text out. Structured JSON generation wants it off, explicitly.
+        thinking: { type: 'disabled' },
         system,
         messages: [{ role: 'user', content: userText }]
       })

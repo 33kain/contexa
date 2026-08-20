@@ -7,6 +7,26 @@ free to diverge, and the settings page labels them separately for that reason.
 
 ---
 
+## Extension 0.9.20 — Backend 0.9.20
+
+### Fixed: Sonnet 5's adaptive-thinking default could spend the whole budget thinking
+
+Upstream behavior change, caught by the diagnostic pipeline on its first
+occurrence: Sonnet 5 runs ADAPTIVE thinking for requests without a `thinking`
+field (4.6 and earlier ran without thinking). On the 0.9.19 prompt — the
+richest yet — the model chose to think and consumed all 2,500 output tokens
+as a thinking block, emitting zero text. The error card named the cause in
+one grey sentence: "output was thinking, not text; 2500 output tokens — at
+the 2500 ceiling." Three versions of instrumentation paid for themselves in
+one line.
+
+Both call sites now send `thinking: { type: "disabled" }` explicitly — for a
+fast structured-JSON generator under a hard cap, thinking is pure cost.
+Pinned by wire-level tests on both paths. Note for own-key users overriding
+the model in settings: `disabled` is the no-op state on older models.
+
+---
+
 ## Extension 0.9.19 — Backend 0.9.19
 
 ### Changed: the elicitation release — CONTEXA learns to flip the question burden
