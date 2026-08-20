@@ -384,5 +384,44 @@ const settle = () => new Promise(r => setTimeout(r, 0));
     JSON.stringify(h.requests[0].body.thinking));
 }
 
+
+/* ---- v0.9.21: thinking-rejection retry + error observability -------------- */
+{
+  // A model that rejects the thinking config gets one retry without it.
+  const h = load({ storage: { model: 'claude-fable-5', apiKey: 'sk-x' } });
+  await settle();
+  let call = 0;
+  h.sandbox.fetch = async (url, opts) => {
+    call++;
+    const body = JSON.parse(opts.body);
+    if (body.thinking) return { ok: false, status: 400,
+      async text() { return '{"error":{"message":"thinking cannot be disabled on this model"}}'; },
+      async json() { return {}; } };
+    return { ok: true, status: 200,
+      async json() { return { stop_reason: 'end_turn', content: [{ text: JSON.stringify({ steps: [{ label: 'A', text: 'Do.', evidence: 'rrrr' }] }) }] }; },
+      async text() { return ''; } };
+  };
+  const out = await h.send({ type: 'nextSteps', prompt: 'p', reply: 'r'.repeat(80) });
+  t('thinking-400 retried without the field', call === 2, 'calls=' + call);
+  t('retry succeeds and returns steps', out.steps && out.steps.length === 1, JSON.stringify(out.steps));
+}
+{
+  // A non-thinking 400 is NOT retried, and its detail survives to the caller.
+  const h = load({ storage: { model: '', apiKey: 'sk-x' } });
+  await settle();
+  let call = 0;
+  h.sandbox.fetch = async () => { call++; return { ok: false, status: 400,
+    async text() { return '{"error":{"message":"max_tokens is too large"}}'; },
+    async json() { return {}; } }; };
+  const out = await h.send({ type: 'nextSteps', prompt: 'p2', reply: 'r'.repeat(80) });
+  t('unrelated 400 not retried', call === 1, 'calls=' + call);
+  t('error detail reaches the response', out.error === 'api_400' && /max_tokens/.test(out.detail || ''),
+    JSON.stringify(out));
+}
+{
+  const csrc7 = readFileSync('./content.js', 'utf8');
+  t('card renders the API detail', /resp && resp\.detail/.test(csrc7) && csrc7.includes('detail:'));
+}
+
 console.log(fails.length ? '\nFAILED: ' + fails.join(', ') : '\nall extension checks passed');
 process.exit(fails.length ? 1 : 0);

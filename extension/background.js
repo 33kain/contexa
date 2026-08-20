@@ -155,32 +155,49 @@ async function callClaude(system, userText, maxTokens) {
   // Resolve here, not at save time: an unset override must always follow the
   // current shipped default, including after an update changes it.
   const useModel = model || SHIPPED_MODEL;
-  let res;
-  try {
-    res = await fetch(API_URL, {
-      method: 'POST',
-      headers: {
-        'content-type': 'application/json',
-        'x-api-key': apiKey,
-        'anthropic-version': '2023-06-01',
-        'anthropic-dangerous-direct-browser-access': 'true'
-      },
-      body: JSON.stringify({
-        model: useModel,
-        max_tokens: maxTokens,
-        // Sonnet 5 defaults to adaptive thinking when the field is absent —
-        // observed burning the whole budget on a thinking block with zero
-        // text out. Structured JSON generation wants it off, explicitly.
-        thinking: { type: 'disabled' },
-        system,
-        messages: [{ role: 'user', content: userText }]
-      })
-    });
-  } catch (e) {
-    return { error: 'network', detail: String(e) };
+
+  /* Sonnet 5 defaults to ADAPTIVE thinking when the field is absent — observed
+     burning the whole 2,500-token budget on a thinking block with zero text
+     out. So thinking is disabled explicitly. BUT: some models (Fable 5,
+     Mythos 5) REJECT the disable with a 400 — thinking cannot be turned off
+     there. Model-agnostic resolution: attempt with disabled; if the API's 400
+     names the thinking config, retry once without the field and let that
+     model's default stand. No model list to maintain, future models included. */
+  const payload = {
+    model: useModel,
+    max_tokens: maxTokens,
+    thinking: { type: 'disabled' },
+    system,
+    messages: [{ role: 'user', content: userText }]
+  };
+  let res, body = '';
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try {
+      res = await fetch(API_URL, {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+          'x-api-key': apiKey,
+          'anthropic-version': '2023-06-01',
+          'anthropic-dangerous-direct-browser-access': 'true'
+        },
+        body: JSON.stringify(payload)
+      });
+    } catch (e) {
+      return { error: 'network', detail: String(e) };
+    }
+    if (res.ok) break;
+    body = await res.text().catch(() => '');
+    // Every error path logs its full evidence at the moment of capture.
+    console.warn('[CONTEXA] api error', res.status, body.slice(0, 300));
+    if (attempt === 0 && res.status === 400 && /thinking/i.test(body) && payload.thinking) {
+      console.warn('[CONTEXA] model rejected the thinking config — retrying without it');
+      delete payload.thinking;
+      continue;
+    }
+    break;
   }
   if (!res.ok) {
-    const body = await res.text().catch(() => '');
     return { error: 'api_' + res.status, detail: body.slice(0, 300) };
   }
   const data = await res.json();

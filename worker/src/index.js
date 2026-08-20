@@ -18,7 +18,7 @@
    which build is live. Deliberately independent of the extension's manifest
    version — they ship on separate paths and a worker fix should not force
    everyone to reinstall the extension. */
-const BUILD = '0.9.20';
+const BUILD = '0.9.21';
 
 const ANTHROPIC_URL = 'https://api.anthropic.com/v1/messages';
 /* Sonnet 5 rather than Haiku, on measured evidence: in a controlled three-model
@@ -270,39 +270,51 @@ export default {
     }
 
     // upstream call — your key, never exposed to the client
-    let upstream;
-    try {
-      upstream = await fetch(ANTHROPIC_URL, {
-        method: 'POST',
-        headers: {
-          'content-type': 'application/json',
-          'x-api-key': env.ANTHROPIC_API_KEY,
-          'anthropic-version': '2023-06-01'
-        },
-        body: JSON.stringify({
-          model: env.MODEL || MODEL,
-          max_tokens: MAX_TOKENS,
-          /* Sonnet 5 runs ADAPTIVE thinking when no thinking field is sent
-             (4.6 and earlier ran without). Observed in the field: the model
-             chose to think and spent the entire 2,500-token budget on a
-             thinking block, emitting zero text. For a fast structured-JSON
-             generator under a hard cap, thinking is all cost: disable it
-             explicitly and permanently. */
-          thinking: { type: 'disabled' },
-          system: NEXT_STEPS_SYSTEM,
-          messages: [{
-            role: 'user',
-            content: 'USER MESSAGE:\n' + (prompt || '(not captured)') + '\n\nCLAUDE REPLY:\n' + reply
-          }]
-        })
-      });
-    } catch (e) {
-      return json({ error: 'upstream_unreachable' }, 502, request, env);
+    /* thinking disabled: Sonnet 5 defaults to adaptive thinking and once spent
+       the entire output budget thinking, emitting zero text. If MODEL is ever
+       pointed at a thinking-mandatory model (Fable/Mythos reject the disable
+       with a 400), retry once without the field — model-agnostic, no list. */
+    const upstreamPayload = {
+      model: env.MODEL || MODEL,
+      max_tokens: MAX_TOKENS,
+      thinking: { type: 'disabled' },
+      system: NEXT_STEPS_SYSTEM,
+      messages: [{
+        role: 'user',
+        content: 'USER MESSAGE:\n' + (prompt || '(not captured)') + '\n\nCLAUDE REPLY:\n' + reply
+      }]
+    };
+    let upstream, upstreamErrBody = '';
+    for (let attempt = 0; attempt < 2; attempt++) {
+      try {
+        upstream = await fetch(ANTHROPIC_URL, {
+          method: 'POST',
+          headers: {
+            'content-type': 'application/json',
+            'x-api-key': env.ANTHROPIC_API_KEY,
+            'anthropic-version': '2023-06-01'
+          },
+          body: JSON.stringify(upstreamPayload)
+        });
+      } catch (e) {
+        return json({ error: 'upstream_unreachable' }, 502, request, env);
+      }
+      if (upstream.ok) break;
+      upstreamErrBody = await upstream.text().catch(() => '');
+      // Tail-only: the body can contain account details, so it never reaches
+      // the client — but silence here cost a debugging cycle once already.
+      console.log('[CONTEXA] upstream error', upstream.status, upstreamErrBody.slice(0, 300));
+      if (attempt === 0 && upstream.status === 400 && /thinking/i.test(upstreamErrBody) && upstreamPayload.thinking) {
+        console.log('[CONTEXA] model rejected the thinking config — retrying without it');
+        delete upstreamPayload.thinking;
+        continue;
+      }
+      break;
     }
 
     if (!upstream.ok) {
       // Deliberately do not forward the upstream body: it can contain account
-      // details, and a client has no use for them.
+      // details, and a client has no use for them. It is in `wrangler tail`.
       const status = upstream.status === 429 ? 503 : 502;
       return json({ error: 'upstream_' + upstream.status }, status, request, env);
     }

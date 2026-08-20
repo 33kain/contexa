@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "CONTEXA — prompt emphasizer for Claude",
-  "version": "0.9.20",
+  "version": "0.9.21",
   "description": "Suggests five logical next steps after every Claude reply, right in the conversation.",
   "permissions": [
     "storage"

@@ -7,6 +7,29 @@ free to diverge, and the settings page labels them separately for that reason.
 
 ---
 
+## Extension 0.9.21 — Backend 0.9.21
+
+### Fixed: thinking-mandatory models rejected the thinking disable with a 400
+
+0.9.20 disabled thinking explicitly — correct for the pinned Sonnet 5, but
+Fable 5 and Mythos 5 REJECT `thinking: {type: "disabled"}` (thinking cannot
+be turned off there), so an own-key user with such a model override got a
+hard `api_400` on every fire. Model-agnostic fix on both paths: attempt with
+the disable; if the API's 400 names the thinking config, retry once without
+the field and let that model's default stand. No model list to maintain.
+
+### Fixed: the API's error text was captured and shown nowhere — again
+
+The card said `api_400`; the API's actual explanation sat in a `detail` field
+that nothing rendered, costing a debugging cycle — the same class of gap as
+the 0.9.13 diag bug. Now: the card renders `detail` in the grey line, the
+background logs every non-ok API body at capture time, and the worker
+tail-logs upstream error bodies (tail-only; they can contain account details
+and still never reach clients). Every error path logs its full evidence at
+the moment of capture — now a standing rule with tests.
+
+---
+
 ## Extension 0.9.20 — Backend 0.9.20
 
 ### Fixed: Sonnet 5's adaptive-thinking default could spend the whole budget thinking

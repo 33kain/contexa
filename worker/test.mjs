@@ -192,6 +192,27 @@ t('unknown route 404', r.status === 404, String(r.status));
     JSON.stringify(sentBody.thinking));
 }
 
+
+/* ---- v0.9.21: thinking-rejection retry on the hosted path ----------------- */
+{
+  let calls = 0;
+  globalThis.fetch = async (url, opts) => {
+    calls++;
+    const body = JSON.parse(opts.body);
+    if (body.thinking) return { ok: false, status: 400,
+      async text() { return '{"error":{"message":"thinking cannot be disabled"}}'; },
+      async json() { return {}; } };
+    return { ok: true, status: 200, async json() { return { stop_reason: 'end_turn',
+      usage: { input_tokens: 10, output_tokens: 10 },
+      content: [{ type: 'text', text: JSON.stringify({ steps: [{ label: 'A', text: 'Do.', evidence: 'rrrr' }] }) }] }; },
+      async text() { return ''; } };
+  };
+  const r = await w.fetch(post(), { ANTHROPIC_API_KEY: 'k', CX_KV: makeKV(), IP_SALT: 's' });
+  const b = await r.json();
+  t('worker retries thinking-400 without the field', calls === 2, 'calls=' + calls);
+  t('worker retry returns steps', b.steps && b.steps.length === 1, JSON.stringify(b.steps));
+}
+
 globalThis.fetch = realFetch;
 console.log(fails.length ? '\nFAILED: ' + fails.join(', ') : '\nall worker checks passed');
 process.exit(fails.length ? 1 : 0);

@@ -361,8 +361,13 @@
          to the console. */
       const d = resp && resp.diag;
       if (d) console.warn('[CONTEXA]', reason, d);
+      // detail = the API's own error text (own-key path). Captured since 0.9.0,
+      // rendered never — until an api_400 cost a debugging cycle. Show it.
+      const det = resp && resp.detail ? String(resp.detail).slice(0, 220) : '';
+      if (det) console.warn('[CONTEXA] detail:', det);
       body = `Couldn’t generate next steps (<code>${esc(reason)}</code>).`
-        + (d ? `<br><span class="diag">${esc(explainDiag(d))}</span>` : '');
+        + (d ? `<br><span class="diag">${esc(explainDiag(d))}</span>` : '')
+        + (det ? `<br><span class="diag">${esc(det)}</span>` : '');
     }
     wrap.innerHTML = `<div class="quiet"><span><b style="color:var(--accent)">✦</b> ${body}</span>
       <button>${btn}</button></div>`;
