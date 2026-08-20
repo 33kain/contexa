@@ -17,7 +17,7 @@ MODEL = "claude-sonnet-5"
 # Leave empty during development (any chrome-extension:// origin is accepted),
 # then set it to your real extension ID before you launch:
 #   npx wrangler deploy --var ALLOWED_EXTENSION_IDS:abcdefghijklmnopabcdefghijklmnop
-ALLOWED_EXTENSION_IDS = ""
+ALLOWED_EXTENSION_IDS = "phhamigkjeeabbjncpmhkppkjccfglhb"
 
 # Secrets are NOT set here. Set them once, interactively:
 #   npx wrangler secret put ANTHROPIC_API_KEY
