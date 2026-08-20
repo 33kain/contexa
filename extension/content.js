@@ -20,7 +20,15 @@
   const contextAlive = () => {
     try { return !!(chrome.runtime && chrome.runtime.id); } catch { return false; }
   };
-  const isStaleError = e => /context invalidated|Receiving end does not exist|message port closed/i.test(String(e || ''));
+  /* Every phrasing Chrome uses when the extension side of a conversation dies —
+     context torn down, no receiver, port closed, or (the one that slipped
+     through in the field) "message CHANNEL closed", which is what an in-flight
+     request reports when the extension is reloaded mid-generation. All of them
+     mean the same thing to the user: the page's copy of CONTEXA is orphaned and
+     a refresh reconnects it. A phrasing this regex misses renders as raw
+     plumbing text, so it is pinned by a test with Chrome's exact strings. */
+  const isStaleError = e =>
+    /context invalidated|Receiving end does not exist|message (port|channel) (is )?closed/i.test(String(e || ''));
 
   // Once orphaned, stop the polling loop (it would throw every 900ms) but KEEP
   // the reply observer alive, otherwise the next reply renders nothing at all and
@@ -161,6 +169,27 @@
     return out.replace(/[ \t]+\n/g, '\n').replace(/\n{3,}/g, '\n\n').trim();
   }
 
+  /* SPEC §3.2 — the viewport marker. The suggestion model cannot distinguish
+     this clamp from a truncated reply, and its correct response to perceived
+     truncation is to requisition the missing text — producing confident chips
+     about a defect that does not exist (observed in the field). Mark the edge
+     explicitly. Trim THEN append, never append then slice: the worker
+     independently slices at 6,000 chars, and a marker riding on top of a
+     6,000-char payload would be eaten by that slice, leaving a bare cut again.
+     Total output including the marker never exceeds CAPTURE_WINDOW. */
+  const CAPTURE_WINDOW = 6000;
+  const CAPTURE_MARKER = '\n[capture window ends here — the reply continues beyond this point]';
+  const CONTENT_BUDGET = CAPTURE_WINDOW - CAPTURE_MARKER.length;
+  function clampCapture(text) {
+    const t = String(text || '');
+    if (t.length <= CAPTURE_WINDOW) return t;   // no marker when nothing was cut
+    let cut = t.slice(0, CONTENT_BUDGET);
+    const nl = cut.lastIndexOf('\n');
+    if (nl >= CONTENT_BUDGET * 0.8) cut = cut.slice(0, nl);
+    else { const sp = cut.lastIndexOf(' '); if (sp > 0) cut = cut.slice(0, sp); }
+    return cut.trimEnd() + CAPTURE_MARKER;
+  }
+
   /* ---------------- reply detection --------------------------------------- */
   const processed = new WeakSet();
 
@@ -219,7 +248,7 @@
       resp = await chrome.runtime.sendMessage({
         type: 'nextSteps',
         prompt: lastUserMessage(replyEl),
-        reply: captureText(replyEl).slice(0, 6000)
+        reply: clampCapture(captureText(replyEl))
       });
     } catch (e) { thrown = String(e && e.message || e); }
 
@@ -251,8 +280,15 @@
        token ceiling and burned 3–5x the output cost of a clean response.
        Ceiling-hit frequency stays measurable; the user stops being alarmed
        by internals. */
+    // SPEC §7.5: the grounding rate must be readable from the page console.
+    // Counts only — no evidence text crosses into the page.
+    if (resp.grounding) console.log('[CONTEXA] grounding', resp.grounding);
     if (resp.partial === true) {
-      console.warn('[CONTEXA] partial salvage — kept', steps.length, 'step(s)',
+      // console.log, not warn: Chrome's extension page surfaces warn/error
+      // under an alarming Errors badge (observed in the field). log stays
+      // readable in the page console and the remote loop without dressing
+      // telemetry as failure.
+      console.log('[CONTEXA] partial salvage — kept', steps.length, 'step(s)',
         resp.diag ? resp.diag : '(no diag from this path)');
     }
     renderSteps(anchor, steps.slice(0, 5));
@@ -278,7 +314,7 @@
 
   // Chip text is a <=6 word handle; the payload is the full prompt. Enforced
   // here too, so a chatty model can never blow up the row's layout.
-  function shortLabel(s, max = 6) {
+  function shortLabel(s, max = 4) {
     const words = String(s || '').trim().replace(/[.!?]+$/, '').split(/\s+/).filter(Boolean);
     if (!words.length) return '';
     return words.length <= max ? words.join(' ') : words.slice(0, max).join(' ') + '…';

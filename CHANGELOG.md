@@ -7,6 +7,130 @@ free to diverge, and the settings page labels them separately for that reason.
 
 ---
 
+## Extension 0.9.18 — backend stays 0.9.17
+
+### Fixed: an extension reload mid-generation rendered raw plumbing text
+
+Field event, seconds old: a request was in flight when the extension was
+reloaded (the user was running the deploy-and-reload sequence). Chrome reports
+that as "the message channel closed before a response was received" — and the
+stale-context classifier only knew "message PORT closed", so instead of the
+friendly "CONTEXA was updated — reload this page" notice, the card showed the
+raw error verbatim. One vocabulary miss; the same event in a tab checked
+after the reload rendered correctly.
+
+The classifier now covers port/channel/is-closed variants and is pinned by a
+test against Chrome's exact emitted strings, including the full
+listener-indicated-asynchronous-response phrasing. No behavior change on any
+other path; extension-only, worker untouched.
+
+---
+
+## Extension 0.9.17 — Backend 0.9.17
+
+### Built to SPEC-v0.9.17.md — evidence-grounded requisitions
+
+The corrected requisition design, per the commissioned spec (see that document
+for full rationale and the verbatim prompt):
+
+- **Evidence rule**: every step must quote the reply fragment that earned it
+  (`evidence` field, ≤90 chars, verbatim). Steps without evidence are dropped;
+  near-miss quotes render but are counted and logged. Evidence never reaches
+  the composer — the worker and the own-key background both validate, strip,
+  and return `{label, text}` plus aggregate `grounding` counts, which the page
+  console logs for the field check.
+- **Principle over taxonomy**: the four moves (supply / collapse-a-fork /
+  grant-commitment / redirect) are worked examples tied to the evidence that
+  earns them, not categories; the prompt states a one-of-each set is almost
+  certainly padded. Redirects capped at one; decrees at two; heavy paste-work
+  steps at one per set.
+- **Friction-aware ordering**: supply steps first only on visible starvation,
+  otherwise slot 1 goes to the highest-leverage step sendable within seconds;
+  heavy steps sink to last.
+- **Viewport marker (§3.2)**: captures longer than 6,000 chars are trimmed at
+  a clean boundary and end with "[capture window ends here — the reply
+  continues beyond this point]", sized so the worker's own 6,000-char slice
+  cannot eat the marker (trim then append — the joint has a dedicated test).
+  The prompt forbids mentioning the marker or requisitioning the continuation.
+  Fixes the observed phantom-truncation chips on long replies.
+- **Logging levels (§4)**: partial salvage downgraded warn→log so Chrome's
+  extension-page Errors badge stays quiet; true failure diagnostics remain
+  warn. Evidence and grounding logs at log level.
+
+Tests: +9 extension (prompt shape, marker mechanics incl. the server-slice
+joint test, evidence drop/strip/count, all-dropped→no_steps, log-level
+asserts), +3 worker (hosted evidence pipeline). 47 extension / 27 worker checks, all green. Field acceptance criteria are §7 of the spec and run post-deploy.
+
+---
+
+## Extension 0.9.16 — Backend 0.9.16
+
+### Changed: the requisition-form design (owner-delegated to Claude)
+
+Owner's brief, verbatim intent: "think about what would make your job easier
+and define the next prompts — whatever YOU think would be the RIGHT fit for
+YOU. The point is to multiply your power by having more sides to think of
+outside the box."
+
+The steps are now the messages the assistant itself would most benefit from
+receiving — its own requests, rendered as ready-to-send user messages. Four
+families as a palette, never a quota:
+
+- **FEED** — supply the artifact the reply had to infer around (code, error,
+  config, observed output), named and format-pinned, with `<paste here>`.
+  When the reply is starved, this comes first and outranks everything.
+- **DECREE** — resolve a hedged fork by decree: "Assume X. Redo under exactly
+  that." The user edits the assumption before sending. Max two per set.
+- **UNLEASH** — grant commitment permission: pick the option you'd choose and
+  produce the complete version, nothing left as an option.
+- **FLIP** — redirect the angle: opposite assumption, argue-against-and-keep-
+  what-survives, different optimization target. Aimed at the work, never at
+  quizzing the user.
+
+Count is 1–5 decided by the reply's need — a starved reply gets one dominant
+chip, not fillers. Labels ≤4 words (client clamp follows). Retained from
+prior designs: no questions ever, exemplar payload shape ("name the thing,
+pin scope and format"), 280-char cap, grounding, no re-requesting, one move
+per step, no code in payloads, never auto-send. Metric remains click-through.
+
+Supersedes 0.9.15's exactly-five/3-word/obvious-only design same-day, by the
+owner's explicit delegation. Three hand-authored sample sets against real
+session replies were approved before this was built.
+
+---
+
+## Extension 0.9.15 — Backend 0.9.15
+
+### Changed: CONTEXA becomes a guide, not a critic (owner's redesign)
+
+The prompt is rewritten around a new core, the owner's chosen exemplar:
+"The current prompts — system prompt, any instruction files, tool/function
+definitions. The actual text, not a summary." Name the thing, pin scope and
+format, no question mark.
+
+- **Always exactly five steps** (variable 3–5 retired).
+- **Labels: max 3 words** (was 6); client clamp in `shortLabel` follows.
+- **No questions, ever** — not to the user, not to Claude. Directives and
+  specifications only.
+- **Obvious next steps by design**: continue the thread, produce the next
+  artifact, implement what the reply describes, supply missing input (with a
+  <placeholder>), extend to the adjacent piece. If the reply is blocked on
+  missing input, step one supplies exactly that.
+- Retired deliberately: the slot-1 plan-changer rule, the ban on obvious
+  steps, challenge/verification/reframing moves. This supersedes the round-3
+  A/B tuning (novelty 73%, slot-1 3/3) by explicit product decision — the
+  loveable.dev pattern this product was inspired by is obvious-next-steps
+  done well. The old measurements remain in prompt-ab-results.md for the
+  record; the new success metric is click-through, not novelty.
+- Kept: grounding in the actual reply, no re-requesting delivered content,
+  one move per step, the no-code rule for texts, 280-char text cap.
+
+Prompt is byte-identical in both copies (extension own-key path, worker hosted
+path) — enforced by the build. Both artifacts ship: worker deploy + extension
+reload required together, or the two paths serve different products.
+
+---
+
 ## Extension 0.9.14 — backend stays 0.9.12
 
 ### Changed: partial salvages render identically to full results

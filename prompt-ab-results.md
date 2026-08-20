@@ -1,5 +1,24 @@
 # CONTEXA prompt A/B — measured on live Haiku
 
+> **RETIRED DESIGN — historical record (2026-08-19, v0.9.15).**
+> Everything measured below tunes the *challenge/verification* design: the
+> slot-1 plan-changer rule, the ban on obvious follow-ups, and novelty as the
+> success metric. That design is retired as of v0.9.15 by explicit product
+> decision. The owner's finding after live use: chips that challenge, verify,
+> and reframe read as CONTEXA quizzing Claude instead of helping the user move
+> — the product's actual job is the loveable.dev pattern that inspired it:
+> **obvious next steps, done well.** The new prompt produces exactly five
+> directive steps (3-word labels, no questions ever, payloads modeled on
+> "name the thing, pin scope and format"), and the target metric moves from
+> **novelty** to **click-through**.
+>
+> Still valid regardless of design: the reply-echo ban (re-requesting delivered
+> content is waste under any philosophy), the positive-requirement-beats-
+> prohibition finding, the label/payload split, the no-code rule, and the
+> fabricated-observability warning at the bottom — none of these depend on the
+> challenge framing. The novelty numbers below remain correct measurements of a
+> target we no longer aim at.
+
 **Date:** 2026-08-19 · **Model:** `claude-haiku-4-5` via the deployed Worker
 **Change under test:** three rules added — assume the obvious step is already
 known, never suggest what the reply already contains, never rank the obvious
@@ -270,3 +289,30 @@ Three of four defects from the original test are fixed:
 
 Novelty gain overall: **27% → 73%**, a 2.7× improvement, from three added rules and
 one rewritten one. No code changes to the extension beyond a truncation constant.
+
+---
+
+## Addendum (v0.9.15): design retired, metric replaced
+
+The table above says "three of four defects fixed" — true against the old
+target. As of v0.9.15 the target itself changed:
+
+| | Old design (rounds 1–5) | New design (v0.9.15) |
+|---|---|---|
+| First slot | must CHANGE the plan (question need / reframe / decision rule / measurement) | most direct continuation, or supply the missing input |
+| Obvious steps | banned — "spend every slot on the unconsidered" | the point — analyze the reply, hand Claude its next move |
+| Questions | allowed for challenges | **never, from anyone** |
+| Count | variable 3–5, quality decides | **exactly 5** |
+| Labels | ≤6 words | **≤3 words** (prompt + client clamp) |
+| Payload shape | imperative + 2–4 constraint bullets | "The current prompts — system prompt, any instruction files, tool/function definitions. The actual text, not a summary." |
+| Success metric | novelty vs pre-registered expectations | **click-through** |
+
+Why: in live use the challenge-first sets read as interrogation — vague probing
+questions and verification passes — where the user wanted guidance: the obvious
+next prompt, sharpened and ready to send. Novelty optimized for surprising the
+user; the product exists to save the user typing. Those are different jobs, and
+the measurements above optimized the wrong one. Kept from this work: reply-echo
+ban, positive-requirement framing, label/payload split, no-code-in-payloads,
+never auto-send. The validation protocol's usefulness gate becomes: of 25
+replies, how often is a chip *clicked* (edited or not) — pre-commitment novelty
+comparison no longer applies.

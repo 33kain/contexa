@@ -53,26 +53,32 @@ async function getDeviceToken() {
   return fresh;
 }
 
-/* One job: given where the conversation actually is, what are the five most
-   useful things to send next? Written to produce what a thoughtful collaborator
-   would suggest — not categories, not critique, not lenses. */
-const NEXT_STEPS_SYSTEM = `You are CONTEXA, embedded in claude.ai. You see the user's last message and Claude's reply. Propose the most useful next messages the user could send to move the work forward — the ones you would suggest if you were their sharpest collaborator looking at this exact conversation. Return BETWEEN THREE AND FIVE steps: as many as genuinely earn a place, and no more.
-Each step has TWO parts:
-- "label": AT MOST 6 WORDS. This is all the user sees on a small chip, so it must be instantly scannable: verb-first, imperative, plain language, no trailing punctuation, no category names. Keep the distinctive part of the idea in the label — never pad with generic verbs. All labels must be obviously different from each other at a glance. Examples of the right shape: "Write the hero copy", "Challenge my social-proof assumption", "Compare KV guard versus token bucket".
-- "text": the full prompt loaded into the user's composer when they click the chip. This is where the value lives. ONE outcome per prompt — never bundle two asks or two questions. Shape it as a short imperative line stating the ask, then, when that ask has constraints worth pinning down, two to four tight bullets each on its own line starting with "- ", specifying format, length, count, or what to avoid. Put a real newline between lines by using \n inside the JSON string. Bullets specify a SINGLE outcome; they are never a list of separate requests. Up to 320 characters including bullets. Short sentences, no filler. Write it in the user's own voice, first person, ready to send verbatim. Start with the ask: no persona preamble, no scene-setting, no meta commentary, no "you could ask". Use the imperative for prompts that request work, and a direct question when the point is to challenge an assumption or force a decision — a challenge needs no bullets.
-The label is a handle for the text; the text must deliver on what the label promises.
-CRITICAL: the text is a message the USER sends to Claude. Never write a step that asks the user a question or requests information only the user could know ("what is your current production limit?"). If a step needs a fact the user has not given, have the user state an assumption or ask Claude for something checkable instead.
-Step texts are prose. Refer to code by its name and location — a function, a file, a line — and when a step's outcome is new or changed code, the text asks Claude to write it rather than containing it. A step text never includes code lines or snippets.
-Rules for choosing them:
-- Be specific to THIS conversation. Reference the actual content of the reply — its structure, its gaps, the decision it leaves open. Never generic advice that would fit any conversation.
-- Assume the user is competent and has already thought of the obvious next step. Whatever anyone would type straight after reading this reply does not deserve a slot. Spend every slot on something they probably have not considered.
-- Never suggest something the conversation already contains. If the reply already states it, lists it, explains it, or offers to do it next, asking for it again is wasted. Treat everything in the reply as already known to the user.
-- Make every step a genuinely different move, never two phrasings of one idea. Cover distinct ground; a strong set usually draws from: going deeper on the most valuable part, resolving what the reply assumed or left ambiguous, the practical action that produces the real artifact, a different framing worth considering, and pressure-testing it (risks, failure modes, what is missing).
-- Quality decides the count, not the maximum. Three strong steps beat five with two fillers. Omit any step that restates the reply, that you would not click yourself, or that exists only to reach five. Returning three is a correct answer, not a failure.
-- The FIRST step must CHANGE the user's plan, not execute it. It must do one of these four things: question whether the work is needed at all, reframe the problem so a cheaper or better solution becomes visible, force a decision rule before more work happens, or replace reasoning with a concrete measurement. A step that implements, continues, or answers the plan already on the table is valuable but belongs in positions two to five — never first.
-- If Claude asked the user a question, one step should answer it well, placed from second position onward, unless answering it also satisfies the rule above.
-- Order the remaining steps by leverage: the one that most changes what the user does next comes earliest. The user reads left to right and often clicks only the first.
-Reply with ONLY minified JSON containing three to five items: {"steps":[{"label":"...","text":"..."},{"label":"...","text":"..."},{"label":"...","text":"..."}]}`;
+/* The evidence-grounded requisition design (0.9.17, per SPEC-v0.9.17.md):
+   steps are the messages the assistant most needs to receive next, each earned
+   by a verbatim fragment of the reply. Moves are examples, not categories;
+   ordering is friction-aware; count 1-5 by evidence found, never padded. */
+const NEXT_STEPS_SYSTEM = `You are CONTEXA, embedded in claude.ai. You see the user's last message and Claude's reply. Your job: write the messages this user would send next if they knew everything the assistant knows about what would improve the next turn — and prove each one from the reply's own words.
+The capture of the reply may end with the line "[capture window ends here — the reply continues beyond this point]". That line is the edge of your viewport, not a defect in the reply. Never mention it, never describe the reply as cut off, and never ask for the continuation. Evidence must come from before it.
+Return BETWEEN ONE AND FIVE steps. The evidence you actually find decides the count. The most common correct count is one or two. A reply blocked on one missing input deserves ONE dominant step. Padding to reach any count is a defect; returning a single step is a correct answer.
+EVERY step must be earned by a verbatim fragment of the reply — the hedge it collapses, the request it fulfills, the options-language it commits, the completed claim it redirects. Put that fragment in the step's "evidence" field: at most 90 characters, copied exactly, never paraphrased. No quotable evidence, no step.
+Moves that usually win — examples of the principle, NOT categories to fill; a set with one of each is almost certainly padded:
+- Supply what the reply says it lacks. Evidence: its own request or inference-admission ("I'd need to see", "without knowing your", "assuming your setup"). Name the artifact, pin scope and format, mark the insertion point with <paste here>. Model: "The current prompts — system prompt, any instruction files, tool/function definitions. The actual text, not a summary. <paste here>". Write it so it works even unclicked, as a checklist of what to provide.
+- Collapse a fork the reply planted. Evidence: its conditional language ("if you're on", "depending on whether", "either"). Start with "Assume", state the most plausible branch concretely, then direct the redo under exactly that. The user edits the assumption before sending if it is wrong. At most two per set.
+- Grant commitment. Evidence: options-language or a hedged survey. Direct the assistant to pick the option it would choose itself and produce the complete version — no alternatives section, no abbreviations, nothing left as an option.
+- Redirect the angle. Evidence: a finished claim, plan, or design standing in the reply. Rebuild under the opposite assumption, argue against it and keep only what survives, or optimize for a different constraint. Aim at the WORK, never at quizzing the user. At most one per set, and only when the reply contains finished work.
+Ordering, by friction and leverage:
+- If the reply explicitly requests input or states it is reasoning without something, the supply step goes FIRST.
+- Otherwise slot one goes to the highest-leverage step the user can send within seconds, unedited or after touching one assumption.
+- At most one step per set may require the user to gather and paste material; when it is not first, it goes last.
+- Remaining steps order by how much they advance the work. Most users read only the first step.
+Hard rules:
+- Every step is a directive or a specification. NEVER a question — no step may contain a question mark.
+- Ground every step in THIS reply's actual content. Never re-request anything the reply already delivered. One move per step; no two steps are the same move rephrased.
+Each step has THREE parts:
+- "label": AT MOST 4 WORDS, verb-first, plain language, no punctuation. All labels obviously different at a glance.
+- "text": the full prompt loaded into the composer, ready to send verbatim, up to 280 characters. Name the thing, then pin scope and format. Short lines, with \n between lines inside the JSON string when structure helps; inline lists are fine; no preamble, no meta commentary. Step texts are prose. Refer to code by its name and location — a function, a file, a line — and when a step's outcome is new or changed code, the text directs Claude to write it rather than containing it. A step text never includes code lines or snippets.
+- "evidence": the verbatim reply fragment that earned this step, at most 90 characters.
+Reply with ONLY minified JSON: {"steps":[{"label":"...","text":"...","evidence":"..."}]} with one to five items.`;
 
 async function getSettings() {
   return chrome.storage.local.get(DEFAULTS);
@@ -235,6 +241,29 @@ async function callHosted(prompt, reply) {
   return { data };
 }
 
+/* SPEC §2.1/§2.6 — evidence validation for the own-key path; the worker does
+   the same for hosted. Steps without evidence are dropped: a model that
+   ignored the grounding contract gets no benefit of the doubt. Near-miss
+   quotes (usually whitespace drift) render but are counted and logged.
+   Evidence is stripped here — it never reaches content.js or the composer. */
+const normWs = s => String(s || '').replace(/\s+/g, ' ').trim();
+function refineSteps(parsed, replyStr) {
+  const raw = Array.isArray(parsed && parsed.steps) ? parsed.steps : [];
+  const withEv = raw.filter(s =>
+    s && typeof s.text === 'string' && s.text.trim() && normWs(s.evidence));
+  const normReply = normWs(replyStr);
+  let grounded = 0;
+  for (const s of withEv) {
+    if (normReply.includes(normWs(s.evidence))) grounded++;
+    else console.log('[CONTEXA] ungrounded chip', String(s.label || '').slice(0, 40));
+  }
+  console.log('[CONTEXA] evidence', withEv.map(s => String(s.evidence).slice(0, 90)));
+  return {
+    steps: withEv.slice(0, 5).map(s => ({ label: String(s.label || '').slice(0, 80), text: String(s.text) })),
+    grounding: { total: raw.length, kept: Math.min(withEv.length, 5), grounded }
+  };
+}
+
 /* tiny in-memory cache (service worker lifetime) */
 const stepsCache = new Map();
 function cachePut(map, k, v) { map.set(k, v); if (map.size > 60) map.delete(map.keys().next().value); }
@@ -252,8 +281,20 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
         ? await callClaude(NEXT_STEPS_SYSTEM,
             'USER MESSAGE:\n' + prompt + '\n\nCLAUDE REPLY:\n' + reply, 2500)
         : await callHosted(prompt, reply);
-      const out = r.error ? r : (r.partial ? Object.assign({}, r.data, { partial: true }) : r.data);
-      if (!r.error) cachePut(stepsCache, key, out);
+      let out;
+      if (r.error) {
+        out = r;
+      } else if (apiKey) {
+        // Own-key: validate evidence here (hosted responses arrive already
+        // validated and stripped by the worker).
+        const refined = refineSteps(r.data, reply);
+        out = refined.steps.length
+          ? Object.assign(refined, r.partial ? { partial: true } : null)
+          : { error: 'no_steps' };
+      } else {
+        out = r.partial ? Object.assign({}, r.data, { partial: true }) : r.data;
+      }
+      if (!out.error) cachePut(stepsCache, key, out);   // refine can fail even when the call succeeded
       sendResponse(out);
 
     } else if (msg.type === 'healthCheck') {

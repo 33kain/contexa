@@ -126,7 +126,7 @@ t('unknown route 404', r.status === 404, String(r.status));
 /* ---- 11. partial salvage carries the same evidence as a failure ---------- */
 {
   const five = Array.from({length: 5}, (_, i) =>
-    `{"label":"Step ${i+1} label","text":"Do thing ${i+1}.\\n- one constraint\\n- another"}`).join(',');
+    `{"label":"Step ${i+1} label","text":"Do thing ${i+1}.\\n- one constraint\\n- another","evidence":"rrrr"}`).join(',');
   const cutSixth = `{"steps":[${five},{"label":"Six`;   // ceiling hit mid-6th step
   globalThis.fetch = async () => ({
     ok: true, status: 200,
@@ -147,6 +147,33 @@ t('unknown route 404', r.status === 404, String(r.status));
     JSON.stringify(b.diag));
   t('diag counts steps STARTED (6), not kept (5)', b.diag && b.diag.steps === 6,
     'started=' + (b.diag && b.diag.steps));
+}
+
+
+/* ---- 12. SPEC v0.9.17: evidence validation, hosted path ------------------- */
+{
+  globalThis.fetch = async () => ({
+    ok: true, status: 200,
+    async json() { return {
+      stop_reason: 'end_turn',
+      usage: { input_tokens: 500, output_tokens: 300 },
+      content: [{ type: 'text', text: JSON.stringify({ steps: [
+        { label: 'Grounded', text: 'Do the thing.', evidence: 'rrrr' },
+        { label: 'Dropped', text: 'No evidence.' },
+        { label: 'Ungrounded', text: 'Renders anyway.', evidence: 'zzz not in reply' }
+      ] }) }]
+    }; },
+    async text() { return ''; }
+  });
+  const r = await w.fetch(post(), { ANTHROPIC_API_KEY: 'k', CX_KV: makeKV(), IP_SALT: 's' });
+  const b = await r.json();
+  t('evidence-less step dropped (hosted)', b.steps && b.steps.length === 2,
+    'kept=' + (b.steps && b.steps.length));
+  t('response steps carry no evidence key', b.steps && b.steps.every(s => !('evidence' in s)),
+    JSON.stringify(b.steps && b.steps[0]));
+  t('grounding counts returned', b.grounding &&
+    b.grounding.total === 3 && b.grounding.kept === 2 && b.grounding.grounded === 1,
+    JSON.stringify(b.grounding));
 }
 
 globalThis.fetch = realFetch;

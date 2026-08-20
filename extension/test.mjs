@@ -55,7 +55,7 @@ function load({ storage = {} } = {}) {
       async json() {
         return {
           stop_reason: 'end_turn',
-          content: [{ text: JSON.stringify({ steps: [{ label: 'Do the thing', text: 'Do it.' }] }) }]
+          content: [{ text: JSON.stringify({ steps: [{ label: 'Do the thing', text: 'Do it.', evidence: 'rrrr' }] }) }]
         };
       },
       async text() { return ''; }
@@ -248,7 +248,115 @@ const settle = () => new Promise(r => setTimeout(r, 0));
   const csrc3 = readFileSync('./content.js', 'utf8');
   t('no partial banner markup remains', !csrc3.includes('cut short'));
   t('renderSteps no longer takes a partial flag', /function renderSteps\(anchor, steps\)/.test(csrc3));
-  t('partial still logs to the console', /resp\.partial === true[\s\S]{0,400}console\.warn\('\[CONTEXA\] partial salvage/.test(csrc3));
+  t('partial still logs to the console at log level', /resp\.partial === true[\s\S]{0,700}console\.log\('\[CONTEXA\] partial salvage/.test(csrc3));
+  t('partial logger is not warn (Errors-badge fix)', !/console\.warn\('\[CONTEXA\] partial salvage/.test(csrc3));
+}
+
+
+/* ---- 14. the 0.9.16 requisition design is present in the prompt ---------- */
+{
+  t('prompt: variable 1-5 count', SRC.includes('BETWEEN ONE AND FIVE'));
+  t('prompt: no-questions rule', SRC.includes('NEVER a question'));
+  t('prompt: feed placeholder convention', SRC.includes('<paste here>'));
+  t('prompt: decree exemplar present (families demoted per spec)', SRC.includes('Start with "Assume"'));
+  t('prompt: flip aimed at the work', SRC.includes('never at quizzing the user'));
+  const csrc4 = readFileSync('./content.js', 'utf8');
+  t('label clamp is 4 words', csrc4.includes('function shortLabel(s, max = 4)'));
+}
+
+
+/* ---- 15. SPEC v0.9.17: prompt shape ---------------------------------------- */
+{
+  t('prompt: evidence field in schema', SRC.includes('"evidence":"..."'));
+  t('prompt: anti-taxonomy sentence', SRC.includes('NOT categories to fill'));
+  t('prompt: viewport-marker rule', SRC.includes('edge of your viewport'));
+  t('prompt: single-step is correct', SRC.includes('returning a single step is a correct answer'));
+}
+
+/* ---- 16. SPEC §3.2: the capture marker ------------------------------------- */
+{
+  const csrc5 = readFileSync('./content.js', 'utf8');
+  const m = csrc5.match(/const CAPTURE_WINDOW[\s\S]*?return cut\.trimEnd\(\) \+ CAPTURE_MARKER;\n  \}/);
+  if (!m) { t('clampCapture found in content.js', false); }
+  else {
+    const { clampCapture, CAPTURE_MARKER } =
+      new Function(m[0] + '; return { clampCapture, CAPTURE_MARKER };')();
+    const short = 'a'.repeat(500);
+    t('under-window capture is untouched, no marker', clampCapture(short) === short);
+
+    const lines = Array.from({ length: 400 }, (_, i) => 'line ' + i + ' of the very long reply body').join('\n');
+    const out = clampCapture(lines);
+    t('over-window output <= 6000 incl marker', out.length <= 6000, 'len=' + out.length);
+    t('marker is the final line', out.endsWith(CAPTURE_MARKER));
+    t('cut falls at a clean boundary', /reply body\n\[capture window ends here/.test(out));
+
+    // THE JOINT TEST (spec 3.2 rule 3): the worker independently slices at
+    // 6000; client output must pass through that slice byte-identical.
+    t('marker survives the server slice', out.slice(0, 6000) === out);
+
+    const noNewlines = 'w'.repeat(9000);
+    const out2 = clampCapture(noNewlines);
+    t('no-boundary input still fits with marker', out2.length <= 6000 && out2.endsWith(CAPTURE_MARKER));
+  }
+}
+
+/* ---- 17. SPEC §2.1/§2.6: evidence validation, own-key path ----------------- */
+{
+  const REPLY = 'alpha beta gamma delta '.repeat(6);
+  const h = load({ storage: { model: '', apiKey: 'sk-x' } });
+  await settle();
+  h.sandbox.fetch = async (url, opts) => ({
+    ok: true, status: 200,
+    async json() { return { stop_reason: 'end_turn', content: [{ text: JSON.stringify({ steps: [
+      { label: 'Grounded step', text: 'Do the grounded thing.', evidence: 'beta gamma' },
+      { label: 'No evidence step', text: 'Should be dropped.' },
+      { label: 'Ungrounded step', text: 'Renders but logged.', evidence: 'zzz never said' }
+    ] }) }] }; },
+    async text() { return ''; }
+  });
+  const out = await h.send({ type: 'nextSteps', prompt: 'p', reply: REPLY });
+  t('evidence-less step is dropped', out.steps && out.steps.length === 2,
+    'kept=' + (out.steps && out.steps.length));
+  t('no step carries an evidence key', out.steps && out.steps.every(s => !('evidence' in s)));
+  t('grounding counts are right', out.grounding &&
+    out.grounding.total === 3 && out.grounding.kept === 2 && out.grounding.grounded === 1,
+    JSON.stringify(out.grounding));
+}
+{
+  // all steps evidence-less => no_steps, and nothing cached
+  const h = load({ storage: { model: '', apiKey: 'sk-x' } });
+  await settle();
+  h.sandbox.fetch = async () => ({
+    ok: true, status: 200,
+    async json() { return { stop_reason: 'end_turn', content: [{ text: JSON.stringify({ steps: [
+      { label: 'A', text: 'no evidence here' } ] }) }] }; },
+    async text() { return ''; }
+  });
+  const out = await h.send({ type: 'nextSteps', prompt: 'p2', reply: 'r'.repeat(80) });
+  t('all-evidence-less becomes no_steps', out.error === 'no_steps', JSON.stringify(out));
+}
+
+
+/* ---- 18. stale-error classifier knows every Chrome phrasing --------------- */
+/* Field event: an extension reload mid-generation closed the message channel,
+   and Chrome's actual wording ("message channel closed") missed the regex
+   ("message port closed"), rendering raw plumbing text instead of the friendly
+   reload notice. Pin the classifier against the exact strings Chrome emits. */
+{
+  const csrc6 = readFileSync('./content.js', 'utf8');
+  const m = csrc6.match(/const isStaleError = e =>\n?\s*(\/.*\/i)\.test/);
+  if (!m) { t('isStaleError found', false); }
+  else {
+    const re = new Function('return ' + m[1])();
+    const mustMatch = [
+      'Error: Extension context invalidated.',
+      'Error: Could not establish connection. Receiving end does not exist.',
+      'Error: The message port closed before a response was received.',
+      'Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received',
+    ];
+    for (const msg of mustMatch) t('stale classifier matches: ' + msg.slice(7, 47) + '…', re.test(msg));
+    t('stale classifier ignores unrelated errors', !re.test('Error: network timeout') && !re.test('api_529'));
+  }
 }
 
 console.log(fails.length ? '\nFAILED: ' + fails.join(', ') : '\nall extension checks passed');
