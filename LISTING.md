@@ -15,42 +15,38 @@ listings that imply affiliation with another company, and a name in the form
 "… for Claude" is a known trigger for that review. The integration is described in
 the body copy instead, which is normal and permitted nominative use.
 
-## Short description  (119 / 132 characters)
+## Short description  (122 / 132 characters)
 
 ```
-Smart next-step prompts after every AI reply. Click one to load it, edit it, send it. No API key, no account, no setup.
+Reads the reply and hands you your next message, ready to send. No API key, no account, no setup - just better next steps.
 ```
 
 Leads with the benefit, closes on the removed objection. "No API key, no account,
 no setup" is the phrase that converts — it answers the question every reader of an
 AI extension listing silently asks.
 
-## Detailed description  (446 words)
+## Detailed description  (453 words)
 
 ```
-CONTEXA suggests what to ask next.
+CONTEXA reads the reply and hands you your next message.
 
-When a reply finishes in your AI chat, a few short chips appear beneath it. Each one is a concrete next step for the work you're actually doing. Click a chip and the full, specific prompt loads into the message box, where you can read it, edit it, or send it as-is.
+When a reply finishes in your AI chat, up to five short chips appear beneath it — each one a complete next message, written and ready to send. Click a chip and the full text lands in your message box, where you read it, edit anything, and send it yourself. Nothing is ever sent for you.
 
-It's the moment you didn't know what to ask, solved.
+These aren't topic suggestions. Each chip is the message the assistant would ask you to send if it could: paste the exact file or error it's been reasoning about blindly; settle a fork its reply hedged ("Assume X. Redo under exactly that."); invite its questions when the goal is still fuzzy; give it permission to stop listing options and produce the complete version; or turn the problem around and attack it from the opposite side. Every chip must be earned by something the reply actually said — no quotable evidence, no chip. A reply blocked on one missing input gets one strong chip, not five fillers, so the number of chips tells you something true about where your conversation stands.
+
+Under the hood, every chip follows the playbook good prompt engineers use — one component at a time, real content, tight scope — applied for you, one message at a time.
 
 NOTHING TO SET UP
 
-No API key. No account. No sign-up, no credit card, no configuration screen to get through first. Install it, open your chat, send a message — the suggestions are there when the reply lands. A fair-use daily allowance is included at no cost.
+No API key. No account. No sign-up, no credit card, no configuration screen. Install it, open your chat, send a message — the chips are there when the reply lands. A fair-use daily allowance is included at no cost.
 
 If you already have an Anthropic API key and want to remove the daily limit, you can add it in settings. That's entirely optional, and most people never will.
-
-WHY IT HELPS
-
-Most of us send vague prompts and get vague answers back. The fix isn't a longer prompt, it's a more specific one — and writing specific prompts is a skill that takes practice. CONTEXA reads the conversation you're already in and proposes the moves a sharp collaborator would suggest: going deeper on the most valuable part, resolving what the reply quietly assumed, producing the actual artifact you need, trying a different framing, or pressure-testing the result before you rely on it.
-
-The chips stay short so you can scan them all in about a second. The prompt behind each one is detailed — it names the deliverable, the format, the length, the constraint. You always see that full text before anything is sent, because clicking a chip fills the message box rather than sending it.
 
 HOW IT WORKS
 
 1. Install the extension and open your AI chat.
 2. Send a message. When the reply finishes, the chips appear underneath.
-3. Click one. The full prompt lands in your message box. Edit it or send it.
+3. Click one. The full message lands in your message box. Edit it or send it.
 
 PRIVACY
 

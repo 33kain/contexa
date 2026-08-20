@@ -359,5 +359,17 @@ const settle = () => new Promise(r => setTimeout(r, 0));
   }
 }
 
+
+/* ---- v0.9.19: the elicitation release -------------------------------------- */
+{
+  t('prompt: elicit move present', SRC.includes("Invite Claude's questions"));
+  t('prompt: elicit exemplar present', SRC.includes('Ask me everything you need to know'));
+  t('prompt: decree/elicit division stated', SRC.includes('invite questions when the forks are invisible'));
+  t('prompt: foundation-first rule', SRC.includes('foundation-first'));
+  t('prompt: question-form lift, Claude-aimed only', SRC.includes('sharpest form of the ask'));
+  t('prompt: user-aimed questions still banned', SRC.includes('NEVER a question aimed at the user'));
+  t('prompt: voice line present', SRC.includes('always addresses Claude'));
+}
+
 console.log(fails.length ? '\nFAILED: ' + fails.join(', ') : '\nall extension checks passed');
 process.exit(fails.length ? 1 : 0);

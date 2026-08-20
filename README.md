@@ -1,12 +1,12 @@
 # CONTEXA
 
-**Five next steps after every Claude reply.**
+**CONTEXA reads Claude's reply and hands you your next message — the one Claude itself would ask you to send.**
 
-A Chrome extension for claude.ai. When a reply finishes, five short chips appear
-beneath it. Click one and the full, specific prompt loads into the composer,
-where you can read it, edit it, or send it.
+CONTEXA is a Chrome extension for claude.ai. When Claude finishes a reply, CONTEXA reads it and offers up to five chips — each one a complete next message, written and ready to send. Click a chip and it lands in your composer; you read it, change anything, and send it yourself. Nothing is ever sent for you.
 
-It's the moment you didn't know what to ask, solved.
+The chips aren't topic suggestions. They're the messages Claude would request if it could: paste the file it's been guessing about, settle the fork it hedged — "Assume X. Redo under exactly that." — invite its questions when the goal is still fuzzy, give it permission to stop listing options and build the full version, or turn the problem around entirely. Every chip must be earned by something the reply actually said; no quotable evidence, no chip. A reply blocked on one missing thing gets one chip, not five fillers. Under the hood, every chip follows the playbook good prompt engineers use — one component at a time, real content, tight scope — applied for you, one message at a time.
+
+No account, no API key, free for up to twenty replies a day. Nothing overlays your composer, nothing scores your writing, and nothing appears unless it's real.
 
 ![CONTEXA chips under a Claude reply](publishing/screenshots/1-chips.png)
 

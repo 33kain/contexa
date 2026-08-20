@@ -7,6 +7,38 @@ free to diverge, and the settings page labels them separately for that reason.
 
 ---
 
+## Extension 0.9.19 — Backend 0.9.19
+
+### Changed: the elicitation release — CONTEXA learns to flip the question burden
+
+Owner's decisions after holding the product against Lovable's prompting
+playbook (the original inspiration, returned nineteen versions later):
+
+- **Question ban lifted, half-way and on purpose**: a chip may be
+  question-form when aimed at Claude and the question is the sharpest form
+  of the ask. Questions aimed at the user stay banned forever — that half of
+  the old rule was always the correct half, and the action-ownership voice
+  line (earned by field pattern n=3) now guards it explicitly in Hard rules.
+- **New move: Invite Claude's questions** — for young or underspecified work
+  where the forks are invisible, the chip flips the question burden: "Ask me
+  everything you need to know to get this right — one focused list, then
+  wait." Division of labor: visible fork → decree; invisible forks → elicit.
+  Rationed at one per set.
+- **Foundation-first rule**: when the exchange reads like a task's opening
+  resting on guessed scope, the set pins what/who/why/key-action before
+  continuation. Shape-triggered, prompt-only, no wire.
+- **Docs**: the requisition identity lands in both READMEs and the store
+  listing (store copy kept brand-safe per the listing's own doctrine), plus
+  the method sentence: the playbook good prompt engineers use, applied for
+  you, one message at a time.
+- Model adaptation was designed, built as a kit, and killed by its own
+  designer's argument: the reply already encodes the model, so the evidence
+  rule adapts transitively; the metadata channel is lie-prone and
+  invisible-by-design. Kit preserved for reopening only on field evidence of
+  tier-specific failure. Pattern library deferred pending click data.
+
+---
+
 ## Extension 0.9.18 — backend stays 0.9.17
 
 ### Fixed: an extension reload mid-generation rendered raw plumbing text
