@@ -7,7 +7,7 @@ import { readFileSync, writeFileSync, mkdirSync, copyFileSync, readdirSync, rmSy
 import { join } from 'node:path';
 import { deflateRawSync, crc32 as zlibCrc32 } from 'node:zlib';
 
-const VERSION = '0.9.22';
+const VERSION = '0.9.23';
 const BACKEND = 'https://contexa-api.michu110899.workers.dev';
 
 const SRC = 'extension';
@@ -65,16 +65,24 @@ if (/workers\.dev\/\*"/.test(outMf) && !outMf.includes(HOST))
   fails.push('wildcard workers.dev host still present');
 if (JSON.parse(outMf).version !== VERSION) fails.push('manifest version wrong');
 
-// The prompt lives in two places (extension + worker) and MUST be byte-identical,
-// or hosted and own-key users get different suggestions from the same product.
-const grab = (s) => {
-  const m = s.match(/NEXT_STEPS_SYSTEM = `([\s\S]*?)`;/);
+// BOTH prompts live in two places (extension + worker) and MUST be byte-identical,
+// or hosted and own-key users get different products. 0.9.23 adds EXPAND_SYSTEM
+// (the fifth chip) to the same contract.
+const wrkForPrompts = readFileSync('worker/src/index.js', 'utf8');
+const grab = (s, name) => {
+  const m = s.match(new RegExp(name + ' = `([\\s\\S]*?)`;'));
   return m && m[1];
 };
-const pExt = grab(outBg);
-const pWrk = grab(readFileSync('worker/src/index.js', 'utf8'));
-if (!pExt || !pWrk) fails.push('could not locate NEXT_STEPS_SYSTEM in one of the two copies');
-else if (pExt !== pWrk) fails.push('PROMPT DRIFT: extension and worker system prompts differ');
+for (const name of ['NEXT_STEPS_SYSTEM', 'EXPAND_SYSTEM']) {
+  const pExt = grab(outBg, name);
+  const pWrk = grab(wrkForPrompts, name);
+  if (!pExt || !pWrk) fails.push(`could not locate ${name} in one of the two copies`);
+  else if (pExt !== pWrk) fails.push(`PROMPT DRIFT: ${name} differs between extension and worker`);
+}
+// The expand request's section labels are code, not prompt — pin them the same way.
+const sectionRe = /'ROUGH ASK:\\n' \+ intent/;
+if (!sectionRe.test(outBg) || !sectionRe.test(wrkForPrompts))
+  fails.push('expand section labels missing or drifted between extension and worker');
 
 // The shipped model must agree across all three places that name one.
 const workerSrc = readFileSync('worker/src/index.js', 'utf8');

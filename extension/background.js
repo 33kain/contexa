@@ -83,6 +83,48 @@ Each step has THREE parts:
 - "evidence": the verbatim reply fragment that earned this step, at most 90 characters.
 Reply with ONLY minified JSON: {"steps":[{"label":"...","text":"...","evidence":"..."}]} with one to five items.`;
 
+/* The fifth chip (0.9.23): rough ask in, well-formed prompt out. Fixes FORM
+   (scope, format, anti-goals, inert adjectives), never invents CONTENT —
+   missing decisions surface as <slots> and "Assume:" lines the user edits.
+   MUST stay byte-identical to the copy in extension/background.js;
+   build.mjs enforces it exactly like NEXT_STEPS_SYSTEM. */
+const EXPAND_SYSTEM = `You are CONTEXA's prompt writer, embedded in claude.ai. The user typed a rough ask. Rewrite it as the message they would send if they wrote prompts for a living: same intent, same voice, more decidable. You also see their last message and Claude's reply for context.
+Input sections: ROUGH ASK (what they typed), THEIR LAST MESSAGE, CLAUDE'S REPLY. The reply may end with the line "[capture window ends here — the reply continues beyond this point]" — that is the edge of your viewport, not a defect; never mention it.
+Write the prompt as the user, in first person, addressed to Claude, ready to send verbatim. No persona preamble, no meta commentary, no politeness padding.
+Rules, in order of force:
+- Preserve exactly what the user asked for. Never add a second ask they did not state, never drop part of what they did state.
+- Start with an imperative line stating the outcome. If the rough ask is a challenge or a question, keep it a question — aimed at Claude, never at the user.
+- If Claude's reply is what the ask acts on, name the actual thing from the reply — the file, the section, the claim, the number — using the reply's own words for anything factual. If the rough ask is unrelated to the reply, ignore the reply completely.
+- Make scope explicit when the conversation makes it inferable: what to change, and what to leave unchanged. Phrase anti-goals positively ("leave the visible copy unchanged"), not as warnings.
+- Add format, length, or count constraints only when the intent or the conversation implies them. Never invent numbers, names, keywords, or file paths that appear nowhere.
+- When a material fact only the user knows is missing, put a slot in angle brackets, like <main keyword> — at most 2 slots. When a reasonable default is worth surfacing, add a final line starting "Assume:" — at most 2. Never bake a silent choice into the prompt.
+- Never use filler quality words: thorough, careful, carefully, properly, really, robust, comprehensive, high-quality, detailed, best. They change nothing. Constraints change things.
+- If the rough ask is already a good prompt, return it nearly verbatim with only mechanical fixes. Longer without more decidable is failure.
+- If expansion would need more than two slots, the ask is not expandable. Output instead, in the user's voice: "I want help with <topic>. Ask me everything you need to know to get this right — one focused list, then wait for my answers before continuing."
+- At most 700 characters. Short sentences. When constraints deserve their own lines, start each with "- " and put a real newline between lines by writing \\n inside the JSON string.
+Examples of the right shape:
+ROUGH ASK: optimize seo & meta (Claude just built a landing page)
+PROMPT: Optimize the SEO of the page you just built. Work only inside <head> and the heading structure — leave the visible copy unchanged.
+- title tag and meta description targeting <main keyword>
+- Open Graph and Twitter card tags
+- one h1, logical h2/h3 order
+Show the changed lines only.
+Assume: single-page site with no domain yet, so skip canonical URLs.
+ROUGH ASK: make it shorter (after a long explanation)
+PROMPT: Rewrite your last answer at a third of the length. Keep the store-review warning and the cost numbers; drop the background on how tokenizers work. Plain paragraphs, no headers.
+ROUGH ASK: is this actually secure (after Claude proposed an architecture)
+PROMPT: Attack your own proposal before I build it. Where does the origin check fail, what can a malicious page do with the open health endpoint, and which assumption is weakest? Name concrete attacks, not categories — and if one is fatal, say so plainly.
+ROUGH ASK: email to my landlord about deposit (unrelated to the reply)
+PROMPT: Draft an email to my landlord asking for my deposit back.
+- moved out <date>; the deposit was <amount>
+- firm but polite, under 150 words
+- cite the handover inspection we did together
+Assume: this is my first written request.
+ROUGH ASK: marketing (nothing relevant in the reply)
+PROMPT: I want help with marketing. Ask me everything you need to know to get this right — one focused list, then wait for my answers before continuing.
+Reply with ONLY minified JSON: {"prompt":"..."}`;
+
+
 async function getSettings() {
   return chrome.storage.local.get(DEFAULTS);
 }
@@ -233,6 +275,21 @@ function diagnose(data, text, ceiling) {
   };
 }
 
+/* The fifth chip's clean-boundary cap. Hard 900; the prompt's soft target is
+   700. Mirrors trimExpansion in worker/src/index.js. */
+const MAX_EXPANSION_CHARS = 900;
+function trimExpansion(value) {
+  const t = String(value || '').trim();
+  if (t.length <= MAX_EXPANSION_CHARS) return t;
+  const cut = t.slice(0, MAX_EXPANSION_CHARS);
+  const nl = cut.lastIndexOf('\n');
+  if (nl > MAX_EXPANSION_CHARS * 0.5) return cut.slice(0, nl).trimEnd();
+  const dot = Math.max(cut.lastIndexOf('. '), cut.lastIndexOf('? '), cut.lastIndexOf('! '));
+  if (dot > MAX_EXPANSION_CHARS * 0.5) return cut.slice(0, dot + 1).trimEnd();
+  const sp = cut.lastIndexOf(' ');
+  return (sp > 0 ? cut.slice(0, sp) : cut).trimEnd();
+}
+
 /* Hosted path: the proxy holds the API key, so the user needs nothing. Returns
    the same shape as the direct path so callers do not care which was used. */
 async function callHosted(prompt, reply) {
@@ -263,6 +320,35 @@ async function callHosted(prompt, reply) {
   }
   if (!data || !Array.isArray(data.steps)) return { error: 'bad_response' };
   return { data };
+}
+
+/* Hosted expand — same worker, same device token, same daily pool. */
+async function callHostedExpand(intent, prompt, reply) {
+  const { proxyUrl } = await chrome.storage.local.get({ proxyUrl: DEFAULT_PROXY_URL });
+  const base = String(proxyUrl || DEFAULT_PROXY_URL).replace(/\/+$/, '');
+  if (/YOUR-SUBDOMAIN/.test(base)) return { error: 'proxy_not_configured' };
+  const device = await getDeviceToken();
+  let res;
+  try {
+    res = await fetch(base + '/v1/expand', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', 'x-cx-device': device },
+      body: JSON.stringify({ intent, prompt, reply })
+    });
+  } catch (e) {
+    return { error: 'network', detail: String(e) };
+  }
+  let data = null;
+  try { data = await res.json(); } catch {}
+  if (res.status === 429) {
+    return { error: 'quota', limit: data?.limit, resetsAt: data?.resetsAt };
+  }
+  if (!res.ok) {
+    if (data?.diag) console.warn('[CONTEXA] backend reported', data.error, data.diag);
+    return { error: data?.error || 'proxy_' + res.status, diag: data?.diag };
+  }
+  if (!data || typeof data.prompt !== 'string' || !data.prompt.trim()) return { error: 'bad_response' };
+  return { prompt: data.prompt };
 }
 
 /* SPEC §2.1/§2.6 — evidence validation for the own-key path; the worker does
@@ -320,6 +406,27 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
       }
       if (!out.error) cachePut(stepsCache, key, out);   // refine can fail even when the call succeeded
       sendResponse(out);
+
+    } else if (msg.type === 'expandPrompt') {
+      /* The fifth chip: rough ask -> drafted prompt. No cache — typed intents
+         do not repeat the way replies do. Spends from the same daily pool. */
+      const intent = String(msg.intent || '').trim().slice(0, 300);
+      if (!intent) return sendResponse({ error: 'bad_request' });
+      const { apiKey } = await getSettings();
+      const prompt = (msg.prompt || '(not captured)').slice(0, 2500);
+      const reply = (msg.reply || '').slice(0, 6000);
+      if (apiKey) {
+        // Section labels MUST match worker/src/index.js byte-for-byte.
+        const r = await callClaude(EXPAND_SYSTEM,
+          'ROUGH ASK:\n' + intent
+            + '\n\nTHEIR LAST MESSAGE:\n' + prompt
+            + '\n\nCLAUDE\'S REPLY:\n' + (reply || '(none)'), 1200);
+        if (r.error) return sendResponse(r);
+        const drafted = trimExpansion(typeof r.data?.prompt === 'string' ? r.data.prompt : '');
+        sendResponse(drafted ? { prompt: drafted } : { error: 'no_prompt' });
+      } else {
+        sendResponse(await callHostedExpand(intent, prompt, reply));
+      }
 
     } else if (msg.type === 'healthCheck') {
       const { proxyUrl } = await chrome.storage.local.get({ proxyUrl: DEFAULT_PROXY_URL });

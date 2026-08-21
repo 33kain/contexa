@@ -114,7 +114,19 @@
     text-transform:uppercase;cursor:pointer;font-family:inherit}
   .quiet button:hover{color:var(--accent);border-color:var(--accent)}
   .note{font-size:10.5px;color:var(--amber-text);background:var(--amber-bg);
-    border-radius:6px;padding:4px 8px;margin-bottom:5px;line-height:1.4}`;
+    border-radius:6px;padding:4px 8px;margin-bottom:5px;line-height:1.4}
+  /* the fifth chip: rough ask in, drafted prompt out */
+  .chip.own{border-style:dashed;color:var(--text2)}
+  .chip.own:hover{color:var(--accent);background:var(--surface2)}
+  .chip.busy{border-style:dashed;color:var(--text2);cursor:default;
+    animation:cxpulse 1.2s ease-in-out infinite}
+  .chip.cxerr{border-style:dashed;color:var(--amber-text);background:var(--amber-bg);
+    border-color:transparent}
+  .own-input{background:var(--surface);border:1px solid var(--accent);border-radius:999px;
+    padding:5px 12px;font-size:12px;line-height:1.35;color:var(--text);width:250px;
+    outline:none;font-family:inherit}
+  .own-input::placeholder{color:var(--text2)}
+  @keyframes cxpulse{0%,100%{opacity:.55}50%{opacity:1}}`;
 
   const esc = s => { const d = document.createElement('div'); d.textContent = s || ''; return d.innerHTML; };
 
@@ -243,12 +255,17 @@
 
     if (!contextAlive()) return goStale(anchor);
 
+    // Captured once, used twice: the suggestion request now, the fifth chip's
+    // expand request whenever the user types into it later.
+    const promptText = lastUserMessage(replyEl);
+    const replyText = clampCapture(captureText(replyEl));
+
     let resp = null, thrown = null;
     try {
       resp = await chrome.runtime.sendMessage({
         type: 'nextSteps',
-        prompt: lastUserMessage(replyEl),
-        reply: clampCapture(captureText(replyEl))
+        prompt: promptText,
+        reply: replyText
       });
     } catch (e) { thrown = String(e && e.message || e); }
 
@@ -291,7 +308,7 @@
       console.log('[CONTEXA] partial salvage — kept', steps.length, 'step(s)',
         resp.diag ? resp.diag : '(no diag from this path)');
     }
-    renderSteps(anchor, steps.slice(0, 5));
+    renderSteps(anchor, steps.slice(0, 5), { prompt: promptText, reply: replyText });
   }
 
   /* ---------------- rendering -------------------------------------------- */
@@ -320,7 +337,7 @@
     return words.length <= max ? words.join(' ') : words.slice(0, max).join(' ') + '…';
   }
 
-  function renderSteps(anchor, steps) {
+  function renderSteps(anchor, steps, ctx) {
     const wrap = shell(anchor, 'ai');
     wrap.innerHTML = `<div class="label"><b>✦ CONTEXA</b></div>` +
       `<div class="chips"></div>`;
@@ -335,6 +352,86 @@
       chip.title = full;                       // hover shows what will be sent
       chip.addEventListener('click', () => insertPrompt(full));
       row.appendChild(chip);
+    }
+    appendOwnChip(row, ctx || {}, anchor);
+  }
+
+  /* The fifth chip (0.9.23): an empty slot at the end of the row. The user
+     types a rough ask; CONTEXA drafts the full prompt into the composer.
+     Suggestions cover what we guessed they want — this covers everything we
+     didn't. One small state machine in one <span>: idle -> input -> busy ->
+     idle | inline error. Never a second card, never an auto-send. */
+  function appendOwnChip(row, ctx, anchor) {
+    const slot = document.createElement('span');
+    row.appendChild(slot);
+    idle();
+
+    function idle() {
+      const chip = document.createElement('button');
+      chip.className = 'chip own';
+      chip.textContent = '✎ Rough ask…';
+      chip.title = 'Type it rough — CONTEXA writes it properly';
+      chip.addEventListener('click', arm);
+      slot.replaceChildren(chip);
+    }
+
+    function arm() {
+      const input = document.createElement('input');
+      input.className = 'own-input';
+      input.type = 'text';
+      input.maxLength = 300;
+      input.placeholder = 'Type it rough — I’ll write it properly';
+      /* Typing must stay ours. Keyboard events are composed, so they cross the
+         shadow boundary and reach claude.ai's document-level listeners — which
+         is how a keystroke here could scroll the page or pull focus into the
+         composer. Stop everything at the boundary. */
+      for (const evt of ['keydown', 'keyup', 'keypress', 'input', 'paste']) {
+        input.addEventListener(evt, e => e.stopPropagation());
+      }
+      input.addEventListener('keydown', e => {
+        if (e.key === 'Escape') return idle();
+        if (e.key === 'Enter') submit(input.value.trim());
+      });
+      // Clicking away with nothing typed collapses; typed text stays armed.
+      input.addEventListener('blur', () => { if (!input.value.trim()) idle(); });
+      slot.replaceChildren(input);
+      setTimeout(() => input.focus(), 0);
+    }
+
+    function fail(err) {
+      const chip = document.createElement('button');
+      chip.className = 'chip cxerr';
+      chip.textContent = err === 'quota' ? '✎ daily limit reached' : '✎ couldn’t write it — retry';
+      chip.title = 'Click to try again';
+      chip.addEventListener('click', arm);
+      slot.replaceChildren(chip);
+    }
+
+    async function submit(intent) {
+      if (!intent) return;
+      if (!contextAlive()) return goStale(anchor);
+      const busy = document.createElement('span');
+      busy.className = 'chip busy';
+      busy.textContent = '✎ writing…';
+      slot.replaceChildren(busy);
+      let resp = null, thrown = null;
+      try {
+        resp = await chrome.runtime.sendMessage({
+          type: 'expandPrompt', intent, prompt: ctx.prompt || '', reply: ctx.reply || ''
+        });
+      } catch (e) { thrown = String(e && e.message || e); }
+      if (!slot.isConnected) return;
+      if (isStaleError(thrown) || (!resp && !contextAlive())) return goStale(anchor);
+      if (resp && typeof resp.prompt === 'string' && resp.prompt.trim()) {
+        insertPrompt(resp.prompt);
+        idle();               // ready for the next rough ask
+        return;
+      }
+      const err = (resp && resp.error) || thrown || 'empty response';
+      // Detail to the console, one plain phrase on the chip — the row keeps
+      // its suggestions either way.
+      console.warn('[CONTEXA] expand failed', err, (resp && (resp.detail || JSON.stringify(resp.diag || ''))) || '');
+      fail(err);
     }
   }
 
@@ -423,9 +520,27 @@
     if (!composer) composer = findComposer();
     if (!composer) return;
     composer.focus();
-    window.getSelection().selectAllChildren(composer);
+    const sel = window.getSelection();
+    const existing = (composer.textContent || '').trim();
+    /* Design-review item #4, verified real in 0.9.22: this used to select-all
+       and type over whatever was in the composer — the one path where CONTEXA
+       could destroy the user's own words. Never replace a non-empty draft:
+       append below it instead. The user deletes what they don't want; nothing
+       is ever lost. */
+    if (existing) {
+      const range = document.createRange();
+      range.selectNodeContents(composer);
+      range.collapse(false);
+      sel.removeAllRanges();
+      sel.addRange(range);
+      text = '\n\n' + text;
+    } else {
+      sel.selectAllChildren(composer);
+    }
     // execCommand cooperates with ProseMirror; fall back to textContent
-    if (!document.execCommand('insertText', false, text)) composer.textContent = text;
+    if (!document.execCommand('insertText', false, text)) {
+      composer.textContent = existing ? composer.textContent + text : text;
+    }
     composer.dispatchEvent(new InputEvent('input', { bubbles: true }));
   }
 

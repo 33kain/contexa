@@ -247,7 +247,7 @@ const settle = () => new Promise(r => setTimeout(r, 0));
 {
   const csrc3 = readFileSync('./content.js', 'utf8');
   t('no partial banner markup remains', !csrc3.includes('cut short'));
-  t('renderSteps no longer takes a partial flag', /function renderSteps\(anchor, steps\)/.test(csrc3));
+  t('renderSteps no longer takes a partial flag', /function renderSteps\(anchor, steps, ctx\)/.test(csrc3));
   t('partial still logs to the console at log level', /resp\.partial === true[\s\S]{0,700}console\.log\('\[CONTEXA\] partial salvage/.test(csrc3));
   t('partial logger is not warn (Errors-badge fix)', !/console\.warn\('\[CONTEXA\] partial salvage/.test(csrc3));
 }
@@ -421,6 +421,113 @@ const settle = () => new Promise(r => setTimeout(r, 0));
 {
   const csrc7 = readFileSync('./content.js', 'utf8');
   t('card renders the API detail', /resp && resp\.detail/.test(csrc7) && csrc7.includes('detail:'));
+}
+
+/* ---- v0.9.23: the fifth chip — expandPrompt handler ----------------------- */
+{
+  // own-key path: the writer system on the wire, 1200 ceiling, thinking disabled,
+  // labeled sections — pinned so hosted and own-key stay the same product.
+  const h = load({ storage: { model: '', apiKey: 'sk-x' } });
+  await settle();
+  let sent = null;
+  h.sandbox.fetch = async (url, opts) => {
+    sent = JSON.parse(opts.body);
+    return { ok: true, status: 200,
+      async json() { return { stop_reason: 'end_turn',
+        content: [{ text: JSON.stringify({ prompt: 'Do the specific thing.\n- one constraint' }) }] }; },
+      async text() { return ''; } };
+  };
+  const out = await h.send({ type: 'expandPrompt', intent: 'do thing', prompt: 'p', reply: 'r'.repeat(80) });
+  t('expand returns the drafted prompt', out.prompt === 'Do the specific thing.\n- one constraint',
+    JSON.stringify(out));
+  t('expand uses the writer system', /prompt writer/.test(sent.system || ''), (sent.system || '').slice(0, 40));
+  t('expand ceiling is 1200', sent.max_tokens === 1200, String(sent.max_tokens));
+  t('expand disables thinking', sent.thinking && sent.thinking.type === 'disabled');
+  t('expand sections are labeled', /^ROUGH ASK:\n/.test(sent.messages[0].content) &&
+    sent.messages[0].content.includes("CLAUDE'S REPLY:"), sent.messages[0].content.slice(0, 24));
+}
+{
+  // blank intent is rejected before any call is made
+  const h = load({ storage: { model: '', apiKey: 'sk-x' } });
+  await settle();
+  const out = await h.send({ type: 'expandPrompt', intent: '   ', prompt: 'p', reply: 'r'.repeat(80) });
+  t('blank intent rejected without spend', out.error === 'bad_request' && h.requests.length === 0,
+    JSON.stringify(out) + ' calls=' + h.requests.length);
+}
+{
+  // hosted path posts to /v1/expand and passes the draft through
+  const h = load({ storage: { model: '', apiKey: '' } });
+  await settle();
+  let hostedUrl = '';
+  h.sandbox.fetch = async (url) => {
+    hostedUrl = String(url);
+    return { ok: true, status: 200, async json() { return { prompt: 'Hosted draft.' }; },
+      async text() { return ''; } };
+  };
+  const out = await h.send({ type: 'expandPrompt', intent: 'x', prompt: 'p', reply: 'r'.repeat(80) });
+  t('hosted expand hits /v1/expand', /\/v1\/expand$/.test(hostedUrl), hostedUrl);
+  t('hosted expand returns the draft', out.prompt === 'Hosted draft.', JSON.stringify(out));
+}
+{
+  // hosted 429 surfaces as quota — the same word the row's card already knows
+  const h = load({ storage: { model: '', apiKey: '' } });
+  await settle();
+  h.sandbox.fetch = async () => ({ ok: false, status: 429,
+    async json() { return { error: 'quota', limit: 20, resetsAt: new Date(Date.now() + 3600e3).toISOString() }; },
+    async text() { return ''; } });
+  const out = await h.send({ type: 'expandPrompt', intent: 'x', prompt: 'p', reply: 'r'.repeat(80) });
+  t('hosted expand quota maps to quota', out.error === 'quota' && out.limit === 20, JSON.stringify(out));
+}
+{
+  // an empty draft is an error, never an empty insert
+  const h = load({ storage: { model: '', apiKey: 'sk-x' } });
+  await settle();
+  h.sandbox.fetch = async () => ({ ok: true, status: 200,
+    async json() { return { stop_reason: 'end_turn', content: [{ text: '{"prompt":"   "}' }] }; },
+    async text() { return ''; } });
+  const out = await h.send({ type: 'expandPrompt', intent: 'x', prompt: 'p', reply: 'r'.repeat(80) });
+  t('empty draft becomes no_prompt', out.error === 'no_prompt', JSON.stringify(out));
+}
+{
+  // overlong drafts trim at a clean boundary, hard cap 900
+  const h = load({ storage: { model: '', apiKey: 'sk-x' } });
+  await settle();
+  const long = ('Sentence one goes here. ').repeat(60);
+  h.sandbox.fetch = async () => ({ ok: true, status: 200,
+    async json() { return { stop_reason: 'end_turn', content: [{ text: JSON.stringify({ prompt: long }) }] }; },
+    async text() { return ''; } });
+  const out = await h.send({ type: 'expandPrompt', intent: 'x', prompt: 'p', reply: 'r'.repeat(80) });
+  t('overlong draft trimmed under 900', typeof out.prompt === 'string' && out.prompt.length <= 900,
+    'len=' + (out.prompt || '').length);
+  t('trim ends at a clean boundary', /[.!?]$/.test(out.prompt || ''), JSON.stringify((out.prompt || '').slice(-20)));
+}
+
+/* ---- v0.9.23: fifth-chip UI + the insert guard (source assertions) --------- */
+{
+  const c = readFileSync('./content.js', 'utf8');
+  t('rough-ask chip present', c.includes('Rough ask'));
+  t('input keystrokes stopped at the shadow boundary',
+    /\['keydown', 'keyup', 'keypress', 'input', 'paste'\][\s\S]{0,120}stopPropagation/.test(c));
+  t('Enter submits, Escape collapses', /key === 'Enter'/.test(c) && /key === 'Escape'/.test(c));
+  t('renderSteps carries capture context', /renderSteps\(anchor, steps\.slice\(0, 5\), \{ prompt: promptText, reply: replyText \}\)/.test(c));
+  t('expand failure stays inline (no second card)', /cxerr/.test(c) && /daily limit reached/.test(c));
+  /* Design-review #4, verified real in 0.9.22: insertPrompt selected all and
+     typed over the user's draft. The guard and the append branch must exist —
+     CONTEXA must never destroy the user's own words. */
+  const ins = c.match(/function insertPrompt[\s\S]*?\n  \}/);
+  t('insertPrompt guards a non-empty draft', !!ins && /existing/.test(ins[0]) && /collapse\(false\)/.test(ins[0]),
+    ins ? 'guard found' : 'insertPrompt not found');
+  t('empty composer still gets a clean insert', !!ins && /selectAllChildren/.test(ins[0]));
+}
+{
+  // the EXPAND prompt carries its load-bearing rules (source assertions on SRC)
+  t('expand prompt: banned filler adjectives', SRC.includes('filler quality words'));
+  t('expand prompt: slot cap', SRC.includes('at most 2 slots'));
+  t('expand prompt: assume-line convention', SRC.includes('"Assume:"'));
+  t('expand prompt: near-verbatim on good input', SRC.includes('nearly verbatim'));
+  t('expand prompt: elicit degenerate case', SRC.includes('not expandable'));
+  t('expand prompt: 700-char soft cap', SRC.includes('At most 700 characters'));
+  t('expand prompt: viewport marker rule present', (SRC.match(/edge of your viewport/g) || []).length >= 2);
 }
 
 console.log(fails.length ? '\nFAILED: ' + fails.join(', ') : '\nall extension checks passed');

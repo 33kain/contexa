@@ -213,6 +213,108 @@ t('unknown route 404', r.status === 404, String(r.status));
   t('worker retry returns steps', b.steps && b.steps.length === 1, JSON.stringify(b.steps));
 }
 
+/* ---- v0.9.23: /v1/expand — the fifth chip's endpoint ---------------------- */
+function postExpand(body = { intent: 'optimize seo', prompt: 'p', reply: 'r'.repeat(120) }) {
+  return new Request('https://x/v1/expand', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', 'x-cx-device': DEV, origin: 'chrome-extension://abc' },
+    body: JSON.stringify(body)
+  });
+}
+{
+  // success: labeled sections, the writer system, 1200 ceiling, thinking disabled,
+  // and the spend lands on the SAME device counter next-steps uses.
+  let sent = null;
+  globalThis.fetch = async (url, opts) => {
+    sent = JSON.parse(opts.body);
+    return { ok: true, status: 200, async json() { return { stop_reason: 'end_turn',
+      usage: { input_tokens: 10, output_tokens: 10 },
+      content: [{ type: 'text', text: JSON.stringify({ prompt: 'Drafted.' }) }] }; },
+      async text() { return ''; } };
+  };
+  const kvE = makeKV();
+  const r = await w.fetch(postExpand(), { ANTHROPIC_API_KEY: 'k', CX_KV: kvE, IP_SALT: 's' });
+  const b = await r.json();
+  t('expand returns the draft', b.prompt === 'Drafted.', JSON.stringify(b));
+  t('expand uses the writer system', /prompt writer/.test(sent.system || ''), (sent.system || '').slice(0, 40));
+  t('expand ceiling is 1200', sent.max_tokens === 1200, String(sent.max_tokens));
+  t('expand disables thinking', sent.thinking && sent.thinking.type === 'disabled');
+  t('expand sections labeled', /^ROUGH ASK:\n/.test(sent.messages[0].content) &&
+    sent.messages[0].content.includes("CLAUDE'S REPLY:"), sent.messages[0].content.slice(0, 24));
+  t('expand spends the SAME device counter', kvE.store.get('q:' + DEV + ':' + day) === '1',
+    String(kvE.store.get('q:' + DEV + ':' + day)));
+}
+{
+  // one pool: a device that exhausted next-steps cannot expand
+  upstream = 0;
+  globalThis.fetch = async () => { upstream++; throw new Error('no'); };
+  const kvQ = makeKV({ ['q:' + DEV + ':' + day]: '20' });
+  const r = await w.fetch(postExpand(), { ANTHROPIC_API_KEY: 'k', CX_KV: kvQ, IP_SALT: 's' });
+  t('expand 429s from the shared pool', r.status === 429, String(r.status));
+  t('shared-pool 429 costs nothing upstream', upstream === 0, 'calls=' + upstream);
+}
+{
+  // gates: blank intent -> 400 before spend; originless -> 403; empty reply is FINE
+  upstream = 0;
+  globalThis.fetch = async () => { upstream++; throw new Error('no'); };
+  let r = await w.fetch(postExpand({ intent: '   ', prompt: 'p', reply: 'r'.repeat(120) }),
+    { ANTHROPIC_API_KEY: 'k', CX_KV: makeKV(), IP_SALT: 's' });
+  t('blank intent rejected', r.status === 400, String(r.status));
+  t('blank intent costs nothing', upstream === 0, 'calls=' + upstream);
+  r = await w.fetch(new Request('https://x/v1/expand', { method: 'POST',
+    headers: { 'content-type': 'application/json', 'x-cx-device': DEV },
+    body: JSON.stringify({ intent: 'x', reply: 'r'.repeat(120) }) }),
+    { ANTHROPIC_API_KEY: 'k', CX_KV: makeKV(), IP_SALT: 's' });
+  t('originless expand rejected', r.status === 403, String(r.status));
+  globalThis.fetch = async () => ({ ok: true, status: 200, async json() { return { stop_reason: 'end_turn',
+    usage: { input_tokens: 10, output_tokens: 10 },
+    content: [{ type: 'text', text: '{"prompt":"Standalone."}' }] }; }, async text() { return ''; } });
+  r = await w.fetch(postExpand({ intent: 'email to my landlord', prompt: '', reply: '' }),
+    { ANTHROPIC_API_KEY: 'k', CX_KV: makeKV(), IP_SALT: 's' });
+  const b2 = await r.json();
+  t('expand works with no reply (topic switch)', r.status === 200 && b2.prompt === 'Standalone.',
+    r.status + ' ' + JSON.stringify(b2));
+}
+{
+  // thinking-400 retry works on the expand path too
+  let calls = 0;
+  globalThis.fetch = async (url, opts) => {
+    calls++;
+    const body = JSON.parse(opts.body);
+    if (body.thinking) return { ok: false, status: 400,
+      async text() { return '{"error":{"message":"thinking cannot be disabled"}}'; },
+      async json() { return {}; } };
+    return { ok: true, status: 200, async json() { return { stop_reason: 'end_turn',
+      usage: { input_tokens: 10, output_tokens: 10 },
+      content: [{ type: 'text', text: '{"prompt":"Drafted."}' }] }; }, async text() { return ''; } };
+  };
+  const r = await w.fetch(postExpand(), { ANTHROPIC_API_KEY: 'k', CX_KV: makeKV(), IP_SALT: 's' });
+  const b = await r.json();
+  t('expand retries thinking-400', calls === 2 && b.prompt === 'Drafted.', 'calls=' + calls);
+}
+{
+  // an overlong draft is trimmed at a clean boundary, hard cap 900
+  const long = ('One clean sentence here. ').repeat(60);
+  globalThis.fetch = async () => ({ ok: true, status: 200, async json() { return { stop_reason: 'end_turn',
+    usage: { input_tokens: 10, output_tokens: 10 },
+    content: [{ type: 'text', text: JSON.stringify({ prompt: long }) }] }; }, async text() { return ''; } });
+  const r = await w.fetch(postExpand(), { ANTHROPIC_API_KEY: 'k', CX_KV: makeKV(), IP_SALT: 's' });
+  const b = await r.json();
+  t('overlong draft hard-capped at 900', typeof b.prompt === 'string' && b.prompt.length <= 900,
+    'len=' + (b.prompt || '').length);
+  t('trim ends at a clean boundary', /[.!?]$/.test(b.prompt || ''), JSON.stringify((b.prompt || '').slice(-20)));
+}
+{
+  // an empty drafted prompt is an error with evidence, not an empty 200
+  globalThis.fetch = async () => ({ ok: true, status: 200, async json() { return { stop_reason: 'end_turn',
+    usage: { input_tokens: 10, output_tokens: 10 },
+    content: [{ type: 'text', text: '{"prompt":"   "}' }] }; }, async text() { return ''; } });
+  const r = await w.fetch(postExpand(), { ANTHROPIC_API_KEY: 'k', CX_KV: makeKV(), IP_SALT: 's' });
+  const b = await r.json();
+  t('empty draft becomes no_prompt with diag', r.status === 502 && b.error === 'no_prompt' && !!b.diag,
+    JSON.stringify(b));
+}
+
 globalThis.fetch = realFetch;
 console.log(fails.length ? '\nFAILED: ' + fails.join(', ') : '\nall worker checks passed');
 process.exit(fails.length ? 1 : 0);

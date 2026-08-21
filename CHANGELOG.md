@@ -7,6 +7,62 @@ free to diverge, and the settings page labels them separately for that reason.
 
 ---
 
+## Extension 0.9.23 — Backend 0.9.23
+
+### Added: the fifth chip — type a rough ask, CONTEXA writes the prompt
+
+Motto made mechanism: **make bad prompts good.** A dashed "✎ Rough ask…" chip
+now sits at the end of every suggestion row. Click it, type a rough intent
+("optimize seo & meta", "make it shorter"), press Enter — the drafted prompt
+loads into the composer, ready to edit and send. Never auto-sends.
+
+The draft is produced by a second system prompt, `EXPAND_SYSTEM`, built from
+the platform docs' catalog of transformations that measurably change output:
+imperative first line, explicit scope, positive-form anti-goals, constraints
+only when implied, banned filler adjectives. It fixes FORM, never invents
+CONTENT — missing decisions surface as `<slots>` (max 2) and `Assume:` lines
+(max 2) the user edits before sending. Already-good input comes back nearly
+verbatim; a hopeless one-worder degrades into the shipped elicit move. The
+expansion sees the typed ask plus the same capture the suggestions saw, so
+"make it shorter" means *this* reply — and a topic-switch ask ignores the
+reply entirely.
+
+Wiring: new `POST /v1/expand` on the worker sharing every existing gate —
+origin pin, device token, IP cap, and the SAME 20/day pool (a rough ask
+spends exactly what a suggestion row spends); `expandPrompt` message type in
+the background with own-key and hosted paths, the same thinking-disable +
+model-agnostic 400-retry, ceiling 1200, clean-boundary hard cap at 900 chars
+(soft target 700 in the prompt). build.mjs now enforces byte-identity for
+BOTH prompts and pins the shared section labels. Failures render inline on
+the chip ("daily limit reached" / "couldn't write it — retry") — never a
+second card; detail goes to the console. Keystrokes in the chip's input are
+stopped at the shadow boundary so claude.ai's document-level listeners never
+see them.
+
+### Fixed: clicking a chip could type over a draft already in the composer
+
+Design-review item #4, verified real: `insertPrompt` selected all and typed
+over whatever the composer held — the one path where CONTEXA could destroy
+the user's own words, and the fifth chip would have doubled how often it ran.
+Now a non-empty draft is never replaced: the drafted prompt is appended below
+it, and the user deletes what they don't want. Nothing is ever lost. Pinned
+by source-assertion tests.
+
+---
+
+## Extension 0.9.22 — store copy release (no code changes)
+
+### Changed: store-facing copy moved off the affiliation trigger
+
+The Chrome Web Store "Summary from package" is the manifest `description` —
+not editable in the dashboard — so the rename shipped as a version: name
+**"CONTEXA - Prompt like a PRO"** (the old name's "for Claude" phrasing read
+as an affiliation claim), summary "Reads the reply and hands you your next
+prompt, tailored in AI language, ready to send. No API key, no account, no
+setup." (121/132 chars). Extension behavior unchanged; backend stayed 0.9.21.
+
+---
+
 ## Extension 0.9.21 — Backend 0.9.21
 
 ### Fixed: thinking-mandatory models rejected the thinking disable with a 400

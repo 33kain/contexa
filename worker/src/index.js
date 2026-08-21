@@ -5,6 +5,7 @@
 
    Endpoints:
      POST /v1/next-steps  -> { steps: [{label, text}], quota: {used, limit} }
+     POST /v1/expand      -> { prompt, quota: {used, limit} }   (the fifth chip)
      GET  /v1/health      -> { ok: true }
 
    Secrets / bindings (see wrangler.toml and README):
@@ -18,7 +19,7 @@
    which build is live. Deliberately independent of the extension's manifest
    version — they ship on separate paths and a worker fix should not force
    everyone to reinstall the extension. */
-const BUILD = '0.9.21';
+const BUILD = '0.9.23';
 
 const ANTHROPIC_URL = 'https://api.anthropic.com/v1/messages';
 /* Sonnet 5 rather than Haiku, on measured evidence: in a controlled three-model
@@ -45,6 +46,12 @@ const MAX_REPLY_CHARS = 6000;
 const MIN_REPLY_CHARS = 50;
 const MAX_TOKENS = 2500;   // Opus hit the 1600 ceiling and failed; Sonnet writes longer than Haiku too
 
+// The fifth chip: one drafted prompt, not five steps — a smaller ceiling, and a
+// typed intent can never be longer than the input field allows client-side.
+const MAX_INTENT_CHARS = 300;
+const EXPAND_MAX_TOKENS = 1200;
+const MAX_EXPANSION_CHARS = 900;   // hard cap; the prompt's own soft target is 700
+
 const NEXT_STEPS_SYSTEM = `You are CONTEXA, embedded in claude.ai. You see the user's last message and Claude's reply. Your job: write the messages this user would send next if they knew everything the assistant knows about what would improve the next turn — and prove each one from the reply's own words.
 The capture of the reply may end with the line "[capture window ends here — the reply continues beyond this point]". That line is the edge of your viewport, not a defect in the reply. Never mention it, never describe the reply as cut off, and never ask for the continuation. Evidence must come from before it.
 Return BETWEEN ONE AND FIVE steps. The evidence you actually find decides the count. The most common correct count is one or two. A reply blocked on one missing input deserves ONE dominant step. Padding to reach any count is a defect; returning a single step is a correct answer.
@@ -70,6 +77,48 @@ Each step has THREE parts:
 - "text": the full prompt loaded into the composer, ready to send verbatim, up to 280 characters. Name the thing, then pin scope and format. Short lines, with \n between lines inside the JSON string when structure helps; inline lists are fine; no preamble, no meta commentary. Step texts are prose. Refer to code by its name and location — a function, a file, a line — and when a step's outcome is new or changed code, the text directs Claude to write it rather than containing it. A step text never includes code lines or snippets.
 - "evidence": the verbatim reply fragment that earned this step, at most 90 characters.
 Reply with ONLY minified JSON: {"steps":[{"label":"...","text":"...","evidence":"..."}]} with one to five items.`;
+
+/* The fifth chip (0.9.23): rough ask in, well-formed prompt out. Fixes FORM
+   (scope, format, anti-goals, inert adjectives), never invents CONTENT —
+   missing decisions surface as <slots> and "Assume:" lines the user edits.
+   MUST stay byte-identical to the copy in extension/background.js;
+   build.mjs enforces it exactly like NEXT_STEPS_SYSTEM. */
+const EXPAND_SYSTEM = `You are CONTEXA's prompt writer, embedded in claude.ai. The user typed a rough ask. Rewrite it as the message they would send if they wrote prompts for a living: same intent, same voice, more decidable. You also see their last message and Claude's reply for context.
+Input sections: ROUGH ASK (what they typed), THEIR LAST MESSAGE, CLAUDE'S REPLY. The reply may end with the line "[capture window ends here — the reply continues beyond this point]" — that is the edge of your viewport, not a defect; never mention it.
+Write the prompt as the user, in first person, addressed to Claude, ready to send verbatim. No persona preamble, no meta commentary, no politeness padding.
+Rules, in order of force:
+- Preserve exactly what the user asked for. Never add a second ask they did not state, never drop part of what they did state.
+- Start with an imperative line stating the outcome. If the rough ask is a challenge or a question, keep it a question — aimed at Claude, never at the user.
+- If Claude's reply is what the ask acts on, name the actual thing from the reply — the file, the section, the claim, the number — using the reply's own words for anything factual. If the rough ask is unrelated to the reply, ignore the reply completely.
+- Make scope explicit when the conversation makes it inferable: what to change, and what to leave unchanged. Phrase anti-goals positively ("leave the visible copy unchanged"), not as warnings.
+- Add format, length, or count constraints only when the intent or the conversation implies them. Never invent numbers, names, keywords, or file paths that appear nowhere.
+- When a material fact only the user knows is missing, put a slot in angle brackets, like <main keyword> — at most 2 slots. When a reasonable default is worth surfacing, add a final line starting "Assume:" — at most 2. Never bake a silent choice into the prompt.
+- Never use filler quality words: thorough, careful, carefully, properly, really, robust, comprehensive, high-quality, detailed, best. They change nothing. Constraints change things.
+- If the rough ask is already a good prompt, return it nearly verbatim with only mechanical fixes. Longer without more decidable is failure.
+- If expansion would need more than two slots, the ask is not expandable. Output instead, in the user's voice: "I want help with <topic>. Ask me everything you need to know to get this right — one focused list, then wait for my answers before continuing."
+- At most 700 characters. Short sentences. When constraints deserve their own lines, start each with "- " and put a real newline between lines by writing \\n inside the JSON string.
+Examples of the right shape:
+ROUGH ASK: optimize seo & meta (Claude just built a landing page)
+PROMPT: Optimize the SEO of the page you just built. Work only inside <head> and the heading structure — leave the visible copy unchanged.
+- title tag and meta description targeting <main keyword>
+- Open Graph and Twitter card tags
+- one h1, logical h2/h3 order
+Show the changed lines only.
+Assume: single-page site with no domain yet, so skip canonical URLs.
+ROUGH ASK: make it shorter (after a long explanation)
+PROMPT: Rewrite your last answer at a third of the length. Keep the store-review warning and the cost numbers; drop the background on how tokenizers work. Plain paragraphs, no headers.
+ROUGH ASK: is this actually secure (after Claude proposed an architecture)
+PROMPT: Attack your own proposal before I build it. Where does the origin check fail, what can a malicious page do with the open health endpoint, and which assumption is weakest? Name concrete attacks, not categories — and if one is fatal, say so plainly.
+ROUGH ASK: email to my landlord about deposit (unrelated to the reply)
+PROMPT: Draft an email to my landlord asking for my deposit back.
+- moved out <date>; the deposit was <amount>
+- firm but polite, under 150 words
+- cite the handover inspection we did together
+Assume: this is my first written request.
+ROUGH ASK: marketing (nothing relevant in the reply)
+PROMPT: I want help with marketing. Ask me everything you need to know to get this right — one focused list, then wait for my answers before continuing.
+Reply with ONLY minified JSON: {"prompt":"..."}`;
+
 
 /* ---------------------------------------------------------------- helpers */
 
@@ -148,12 +197,12 @@ async function bumpQuota(env, key, limit) {
    content in it. `blocks` is the decisive field: if the budget was spent on
    content types other than `text`, the text body is short while `out` is at the
    ceiling, and no amount of extra max_tokens fixes that. */
-function diagnose(data, text) {
+function diagnose(data, text, ceiling = MAX_TOKENS) {
   return {
     stop: data.stop_reason || null,
     out: data.usage ? data.usage.output_tokens : null,
     in: data.usage ? data.usage.input_tokens : null,
-    ceiling: MAX_TOKENS,
+    ceiling,
     len: text.length,
     hadJson: text.indexOf('{') >= 0,
     steps: (text.match(/"label"\s*:/g) || []).length,   // how far it actually got
@@ -196,6 +245,21 @@ function extractJson(text) {
    notici"), so trim at the last clean boundary instead: prefer a whole line, then
    a sentence, then a word. The ceiling is generous so realistic bulleted payloads
    pass through untouched. */
+/* Same clean-boundary trim for the fifth chip's drafted prompt, at its own cap.
+   A draft that blows the cap is a prompt-discipline failure upstream; trimming
+   at a line or sentence keeps what ships readable either way. */
+function trimExpansion(value) {
+  const t = String(value || '').trim();
+  if (t.length <= MAX_EXPANSION_CHARS) return t;
+  const cut = t.slice(0, MAX_EXPANSION_CHARS);
+  const nl = cut.lastIndexOf('\n');
+  if (nl > MAX_EXPANSION_CHARS * 0.5) return cut.slice(0, nl).trimEnd();
+  const dot = Math.max(cut.lastIndexOf('. '), cut.lastIndexOf('? '), cut.lastIndexOf('! '));
+  if (dot > MAX_EXPANSION_CHARS * 0.5) return cut.slice(0, dot + 1).trimEnd();
+  const sp = cut.lastIndexOf(' ');
+  return (sp > 0 ? cut.slice(0, sp) : cut).trimEnd();
+}
+
 const MAX_PAYLOAD_CHARS = 600;
 function trimPayload(value) {
   const t = String(value || '').trimEnd();
@@ -229,7 +293,11 @@ export default {
         configured: !!env.ANTHROPIC_API_KEY
       }, 200, request, env);
     }
-    if (url.pathname !== '/v1/next-steps') return json({ error: 'not_found' }, 404, request, env);
+    /* Two POST endpoints, one gate order: origin -> token -> body -> quotas ->
+       upstream. /v1/expand is the fifth chip; it shares EVERY gate and the SAME
+       daily pool — a rough ask spends exactly what a suggestion row spends. */
+    const wantExpand = url.pathname === '/v1/expand';
+    if (url.pathname !== '/v1/next-steps' && !wantExpand) return json({ error: 'not_found' }, 404, request, env);
     if (request.method !== 'POST') return json({ error: 'method_not_allowed' }, 405, request, env);
     if (!originAllowed(request, env)) return json({ error: 'forbidden_origin' }, 403, request, env);
     if (!env.ANTHROPIC_API_KEY) return json({ error: 'server_not_configured' }, 500, request, env);
@@ -246,7 +314,13 @@ export default {
     // clamp server-side: the client cannot make a request more expensive
     const prompt = String(body.prompt || '').slice(0, MAX_PROMPT_CHARS);
     const reply = String(body.reply || '').slice(0, MAX_REPLY_CHARS);
-    if (reply.trim().length < MIN_REPLY_CHARS) {
+    let intent = '';
+    if (wantExpand) {
+      // A rough ask is required; the reply is NOT — "email to my landlord"
+      // legitimately ignores the conversation entirely.
+      intent = String(body.intent || '').trim().slice(0, MAX_INTENT_CHARS);
+      if (!intent) return json({ error: 'bad_request' }, 400, request, env);
+    } else if (reply.trim().length < MIN_REPLY_CHARS) {
       return json({ error: 'reply_too_short' }, 400, request, env);
     }
 
@@ -274,16 +348,32 @@ export default {
        the entire output budget thinking, emitting zero text. If MODEL is ever
        pointed at a thinking-mandatory model (Fable/Mythos reject the disable
        with a 400), retry once without the field — model-agnostic, no list. */
-    const upstreamPayload = {
-      model: env.MODEL || MODEL,
-      max_tokens: MAX_TOKENS,
-      thinking: { type: 'disabled' },
-      system: NEXT_STEPS_SYSTEM,
-      messages: [{
-        role: 'user',
-        content: 'USER MESSAGE:\n' + (prompt || '(not captured)') + '\n\nCLAUDE REPLY:\n' + reply
-      }]
-    };
+    const upstreamPayload = wantExpand
+      ? {
+          model: env.MODEL || MODEL,
+          max_tokens: EXPAND_MAX_TOKENS,
+          thinking: { type: 'disabled' },
+          system: EXPAND_SYSTEM,
+          messages: [{
+            role: 'user',
+            // Section labels MUST match extension/background.js byte-for-byte —
+            // hosted and own-key users get the same product. Pinned by tests
+            // on both sides.
+            content: 'ROUGH ASK:\n' + intent
+              + '\n\nTHEIR LAST MESSAGE:\n' + (prompt || '(not captured)')
+              + '\n\nCLAUDE\'S REPLY:\n' + (reply || '(none)')
+          }]
+        }
+      : {
+          model: env.MODEL || MODEL,
+          max_tokens: MAX_TOKENS,
+          thinking: { type: 'disabled' },
+          system: NEXT_STEPS_SYSTEM,
+          messages: [{
+            role: 'user',
+            content: 'USER MESSAGE:\n' + (prompt || '(not captured)') + '\n\nCLAUDE REPLY:\n' + reply
+          }]
+        };
     let upstream, upstreamErrBody = '';
     for (let attempt = 0; attempt < 2; attempt++) {
       try {
@@ -324,7 +414,16 @@ export default {
     const text = (data.content || []).map(b => b.text || '').join('');
 
     let parsed;
-    try { parsed = extractJson(text); } catch {
+    try { parsed = extractJson(text); } catch (e) {
+      if (wantExpand) {
+        const diag = diagnose(data, text, EXPAND_MAX_TOKENS);
+        console.log('[CONTEXA] expand parse failure', JSON.stringify(diag),
+          'text[0,300]=', JSON.stringify(text.slice(0, 300)));
+        return json({
+          error: data.stop_reason === 'max_tokens' ? 'truncated' : 'bad_json',
+          diag
+        }, 502, request, env);
+      }
       /* A parse failure used to return a bare error code and drop the response on
          the floor, which made "truncated" undiagnosable: it cannot distinguish an
          empty text body from a model that narrated instead of emitting JSON from
@@ -339,6 +438,22 @@ export default {
         error: data.stop_reason === 'max_tokens' ? 'truncated' : 'bad_json',
         diag
       }, 502, request, env);
+    }
+
+    /* The fifth chip returns ONE drafted prompt, not steps. Evidence validation
+       does not apply — the user typed the intent themselves, so relevance is
+       theirs by construction; the prompt's own rules police invention. */
+    if (wantExpand) {
+      const drafted = trimExpansion(typeof parsed.prompt === 'string' ? parsed.prompt : '');
+      if (!drafted) {
+        const diag = diagnose(data, text, EXPAND_MAX_TOKENS);
+        console.log('[CONTEXA] expand: parsed but no prompt', JSON.stringify(diag));
+        return json({ error: 'no_prompt', diag }, 502, request, env);
+      }
+      return json({
+        prompt: drafted,
+        quota: { used: quota.used, limit: DEVICE_DAILY_LIMIT }
+      }, 200, request, env);
     }
 
     /* SPEC §2.1/§2.6 — evidence validation. A step with no evidence ignored the
