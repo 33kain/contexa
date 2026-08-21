@@ -255,7 +255,7 @@ const settle = () => new Promise(r => setTimeout(r, 0));
 
 /* ---- 14. the 0.9.16 requisition design is present in the prompt ---------- */
 {
-  t('prompt: variable 1-5 count', SRC.includes('BETWEEN ONE AND FIVE'));
+  t('prompt: floor of three', SRC.includes('BETWEEN THREE AND FIVE'));
   t('prompt: no-questions rule', SRC.includes('NEVER a question'));
   t('prompt: feed placeholder convention', SRC.includes('<paste here>'));
   t('prompt: decree exemplar present (families demoted per spec)', SRC.includes('Start with "Assume"'));
@@ -270,7 +270,11 @@ const settle = () => new Promise(r => setTimeout(r, 0));
   t('prompt: evidence field in schema', SRC.includes('"evidence":"..."'));
   t('prompt: anti-taxonomy sentence', SRC.includes('NOT categories to fill'));
   t('prompt: viewport-marker rule', SRC.includes('edge of your viewport'));
-  t('prompt: single-step is correct', SRC.includes('returning a single step is a correct answer'));
+  t('prompt: floor is a search obligation, not a licence to pad', SRC.includes('obligation to search harder'));
+  t('prompt: no scarcity priors left', !SRC.includes('most common correct count') && !SRC.includes('ONE dominant step'));
+  t('prompt: lateral recast move present', SRC.includes('Recast the problem'));
+  t('prompt: recast may name what the reply did not', SRC.includes('free to name something the reply never mentioned'));
+  t('prompt: schema asks for three to five', SRC.includes('with three to five items'));
 }
 
 /* ---- 16. SPEC §3.2: the capture marker ------------------------------------- */

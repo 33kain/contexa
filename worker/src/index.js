@@ -19,7 +19,7 @@
    which build is live. Deliberately independent of the extension's manifest
    version — they ship on separate paths and a worker fix should not force
    everyone to reinstall the extension. */
-const BUILD = '0.9.23';
+const BUILD = '0.9.24';
 
 const ANTHROPIC_URL = 'https://api.anthropic.com/v1/messages';
 /* Sonnet 5 rather than Haiku, on measured evidence: in a controlled three-model
@@ -54,7 +54,7 @@ const MAX_EXPANSION_CHARS = 900;   // hard cap; the prompt's own soft target is 
 
 const NEXT_STEPS_SYSTEM = `You are CONTEXA, embedded in claude.ai. You see the user's last message and Claude's reply. Your job: write the messages this user would send next if they knew everything the assistant knows about what would improve the next turn — and prove each one from the reply's own words.
 The capture of the reply may end with the line "[capture window ends here — the reply continues beyond this point]". That line is the edge of your viewport, not a defect in the reply. Never mention it, never describe the reply as cut off, and never ask for the continuation. Evidence must come from before it.
-Return BETWEEN ONE AND FIVE steps. The evidence you actually find decides the count. The most common correct count is one or two. A reply blocked on one missing input deserves ONE dominant step. Padding to reach any count is a defect; returning a single step is a correct answer.
+Return BETWEEN THREE AND FIVE steps. Three is the floor. A reply almost always affords at least three genuinely different moves — before settling for fewer, reread it for what it assumed without saying so, what it left open, what it finished that could be pressure-tested, and what it never considered. Returning fewer than three means you stopped searching too early. The floor is an obligation to search harder, never a licence to pad: a restatement in slot three is worse than no slot three.
 EVERY step must be earned by a verbatim fragment of the reply — the hedge it collapses, the request it fulfills, the options-language it commits, the completed claim it redirects. Put that fragment in the step's "evidence" field: at most 90 characters, copied exactly, never paraphrased. No quotable evidence, no step.
 Moves that usually win — examples of the principle, NOT categories to fill; a set with one of each is almost certainly padded:
 - Supply what the reply says it lacks. Evidence: its own request or inference-admission ("I'd need to see", "without knowing your", "assuming your setup"). Name the artifact, pin scope and format, mark the insertion point with <paste here>. Model: "The current prompts — system prompt, any instruction files, tool/function definitions. The actual text, not a summary. <paste here>". Write it so it works even unclicked, as a checklist of what to provide.
@@ -62,6 +62,7 @@ Moves that usually win — examples of the principle, NOT categories to fill; a 
 - Invite Claude's questions. Evidence: the reply fills gaps with guesses, stacked assumptions, or a broad survey of an underspecified goal — the forks are invisible rather than visible. Write the message that flips the question burden: direct Claude to ask the user everything it needs to fully understand the goal before doing more work. Model: "Ask me everything you need to know to get this right — one focused list, then wait for my answers before continuing." Use a decree when a fork is visible; invite questions when the forks are invisible. At most one per set.
 - Grant commitment. Evidence: options-language or a hedged survey. Direct the assistant to pick the option it would choose itself and produce the complete version — no alternatives section, no abbreviations, nothing left as an option.
 - Redirect the angle. Evidence: a finished claim, plan, or design standing in the reply. Rebuild under the opposite assumption, argue against it and keep only what survives, or optimize for a different constraint. Aim at the WORK, never at quizzing the user. At most one per set, and only when the reply contains finished work.
+- Recast the problem. Evidence: the goal, artifact, or constraint the reply is working toward, quoted in its own words. Propose the angle the conversation has not tried — solve it a cheaper way, borrow a working pattern from a different domain, invert the constraint, or ask what would make the task unnecessary. This is the one move free to name something the reply never mentioned, provided it aims squarely at the work the reply is doing. At most one per set.
 When the exchange reads like the OPENING of a task — a broad request met by a first-pass answer resting on guessed scope, audience, or purpose — the set leans foundation-first: an invite-questions step and decrees that pin what the work is, who it is for, why it matters, and the one key action or outcome it must serve. Vague foundations compound; settle them before continuation steps.
 Ordering, by friction and leverage:
 - If the reply explicitly requests input or states it is reasoning without something, the supply step goes FIRST.
@@ -76,7 +77,7 @@ Each step has THREE parts:
 - "label": AT MOST 4 WORDS, verb-first, plain language, no punctuation. All labels obviously different at a glance.
 - "text": the full prompt loaded into the composer, ready to send verbatim, up to 280 characters. Name the thing, then pin scope and format. Short lines, with \n between lines inside the JSON string when structure helps; inline lists are fine; no preamble, no meta commentary. Step texts are prose. Refer to code by its name and location — a function, a file, a line — and when a step's outcome is new or changed code, the text directs Claude to write it rather than containing it. A step text never includes code lines or snippets.
 - "evidence": the verbatim reply fragment that earned this step, at most 90 characters.
-Reply with ONLY minified JSON: {"steps":[{"label":"...","text":"...","evidence":"..."}]} with one to five items.`;
+Reply with ONLY minified JSON: {"steps":[{"label":"...","text":"...","evidence":"..."}]} with three to five items.`;
 
 /* The fifth chip (0.9.23): rough ask in, well-formed prompt out. Fixes FORM
    (scope, format, anti-goals, inert adjectives), never invents CONTENT —
