@@ -19,7 +19,7 @@
    which build is live. Deliberately independent of the extension's manifest
    version — they ship on separate paths and a worker fix should not force
    everyone to reinstall the extension. */
-const BUILD = '0.9.24';
+const BUILD = '0.9.25';
 
 const ANTHROPIC_URL = 'https://api.anthropic.com/v1/messages';
 /* Sonnet 5 rather than Haiku, on measured evidence: in a controlled three-model
@@ -58,7 +58,7 @@ Return BETWEEN THREE AND FIVE steps. Three is the floor. A reply almost always a
 EVERY step must be earned by a verbatim fragment of the reply — the hedge it collapses, the request it fulfills, the options-language it commits, the completed claim it redirects. Put that fragment in the step's "evidence" field: at most 90 characters, copied exactly, never paraphrased. No quotable evidence, no step.
 Moves that usually win — examples of the principle, NOT categories to fill; a set with one of each is almost certainly padded:
 - Supply what the reply says it lacks. Evidence: its own request or inference-admission ("I'd need to see", "without knowing your", "assuming your setup"). Name the artifact, pin scope and format, mark the insertion point with <paste here>. Model: "The current prompts — system prompt, any instruction files, tool/function definitions. The actual text, not a summary. <paste here>". Write it so it works even unclicked, as a checklist of what to provide.
-- Collapse a fork the reply planted. Evidence: its conditional language ("if you're on", "depending on whether", "either"). Start with "Assume", state the most plausible branch concretely, then direct the redo under exactly that. The user edits the assumption before sending if it is wrong. At most two per set.
+- Collapse a fork the reply planted. Evidence: its conditional language ("if you're on", "depending on whether", "either"). Start with "Assume", state the most plausible branch concretely, then direct the redo under exactly that. The user edits the assumption before sending if it is wrong. At most two per set. Model, when the reply asks which branch the user is on: "Assume the deploy already landed and the worker reports the new build. Redo the checklist for that case only." Never write "The deploy already landed" as a plain statement — you cannot see their machine.
 - Invite Claude's questions. Evidence: the reply fills gaps with guesses, stacked assumptions, or a broad survey of an underspecified goal — the forks are invisible rather than visible. Write the message that flips the question burden: direct Claude to ask the user everything it needs to fully understand the goal before doing more work. Model: "Ask me everything you need to know to get this right — one focused list, then wait for my answers before continuing." Use a decree when a fork is visible; invite questions when the forks are invisible. At most one per set.
 - Grant commitment. Evidence: options-language or a hedged survey. Direct the assistant to pick the option it would choose itself and produce the complete version — no alternatives section, no abbreviations, nothing left as an option.
 - Redirect the angle. Evidence: a finished claim, plan, or design standing in the reply. Rebuild under the opposite assumption, argue against it and keep only what survives, or optimize for a different constraint. Aim at the WORK, never at quizzing the user. At most one per set, and only when the reply contains finished work.
@@ -71,6 +71,7 @@ Ordering, by friction and leverage:
 - Remaining steps order by how much they advance the work. Most users read only the first step.
 Hard rules:
 - Directive is the default shape. A step may be question-form ONLY when the question is aimed at Claude and is the sharpest form of the ask ("What breaks first under 10x load?"). NEVER a question aimed at the user or one that needs the user's knowledge to answer — if only the user knows it, decree it or invite Claude to ask.
+- A step never states a fact only the user can know — what they did, when they did it, what happened on their machine, which branch they are on — as though you had observed it. Mark it instead: begin that sentence with "Assume" so the user can strike it before sending, or leave the unknown as <a slot in angle brackets>. A decree that hides its assumption is the defect this rule exists to prevent.
 - The text always addresses Claude. When an action can only be done by the user — running a command on their machine, clicking, waiting, pasting — the text directs Claude to prepare or verify Claude's side of it; it never commands Claude to perform the user's action and never contains instructions aimed at the user.
 - Ground every step in THIS reply's actual content. Never re-request anything the reply already delivered. One move per step; no two steps are the same move rephrased.
 Each step has THREE parts:
@@ -116,6 +117,9 @@ PROMPT: Draft an email to my landlord asking for my deposit back.
 - firm but polite, under 150 words
 - cite the handover inspection we did together
 Assume: this is my first written request.
+ROUGH ASK: deployed, works (after a reply that listed five checks to run)
+PROMPT: Deployed and the worker is live. Go ahead with the release ceremony next.\nAssume: all five field checks passed as you listed them — I will say so if any did not.
+
 ROUGH ASK: marketing (nothing relevant in the reply)
 PROMPT: I want help with marketing. Ask me everything you need to know to get this right — one focused list, then wait for my answers before continuing.
 Reply with ONLY minified JSON: {"prompt":"..."}`;

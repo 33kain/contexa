@@ -275,6 +275,15 @@ const settle = () => new Promise(r => setTimeout(r, 0));
   t('prompt: lateral recast move present', SRC.includes('Recast the problem'));
   t('prompt: recast may name what the reply did not', SRC.includes('free to name something the reply never mentioned'));
   t('prompt: schema asks for three to five', SRC.includes('with three to five items'));
+  /* v0.9.25 — the Assume defect, n=3 across both prompts: the draft stated a
+     user-only fact as though observed. Rules existed and were ignored, so the
+     fix is worked exemplars (docs: positive examples beat added rules) plus
+     the one marking clause NEXT_STEPS genuinely lacked. */
+  t('prompt: user-only facts must be marked', SRC.includes('as though you had observed it'));
+  t('prompt: marking means Assume or a slot', SRC.includes('so the user can strike it before sending'));
+  t('prompt: decree exemplar shows the wrong form too', SRC.includes('Never write "The deploy already landed" as a plain statement'));
+  t('expand prompt: deployed-works exemplar present', SRC.includes('ROUGH ASK: deployed, works'));
+  t('expand prompt: exemplar marks the inference', SRC.includes('Assume: all five field checks passed'));
 }
 
 /* ---- 16. SPEC §3.2: the capture marker ------------------------------------- */

@@ -7,6 +7,74 @@ free to diverge, and the settings page labels them separately for that reason.
 
 ---
 
+## Extension 0.9.25 — Backend 0.9.25
+
+### Fixed: drafts stated facts only the user could know as though observed
+
+Field defect, three instances across both prompts before it was named. The
+model would answer a question only the user could answer — what they did,
+when they did it, what happened on their machine — and write it as plain
+fact instead of a marked assumption. Instances: "Deployed, succes" became a
+flat assertion that all five field checks had passed; a clean release run
+produced "confirm which gate it stopped at", presupposing a failure that
+never happened; and a chip asserted "The egg-and-chicken test was run before
+I called wrangler deploy for 0.9.24" — something CONTEXA cannot see, since
+it receives only the last message and reply.
+
+Not blindness but inconsistency: a chip in a neighbouring fire from the same
+prompt wrote "Assume it rendered exactly one chip again", applying the
+convention correctly.
+
+Both prompts already carried rules requiring the marking and ignored them
+three times, so the fix is worked exemplars rather than another instruction —
+the platform prompting docs are explicit that positive examples outperform
+added rules, and this prompt had already proved immune to the rule.
+NEXT_STEPS_SYSTEM gains a decree exemplar showing the right form and the
+wrong one side by side, plus the one marking clause its hard rules genuinely
+lacked. EXPAND_SYSTEM gains an exemplar built from the real defect: the
+"deployed, works" case, rendered correctly with an `Assume:` line the user
+can strike. Five new prompt assertions pin all of it.
+
+Harmless in every observed instance because the user ratifies before sending —
+but the whole product rests on never asserting what it cannot see.
+
+---
+
+## Extension 0.9.24 — Backend 0.9.24
+
+*Backend deployed and measured in the field on 2026-08-21; the extension half
+shipped alongside 0.9.25 rather than reaching the store on its own.*
+
+### Changed: the prompt was teaching scarcity, so rows arrived nearly empty
+
+Single-chip rows read as broken. The cause was not the evidence rule but
+three sentences written in 0.9.16 when the enemy was padding to five: "the
+most common correct count is one or two", "deserves ONE dominant step", and
+"returning a single step is a correct answer". The model was not failing to
+find material; it was being told that finding little was success.
+
+Replaced with a floor of three framed as a search obligation — "before
+settling for fewer, reread it for what it assumed without saying so, what it
+left open, what it finished that could be pressure-tested, and what it never
+considered" — plus the anti-padding line "a restatement in slot three is
+worse than no slot three". The where-to-look clause carries most of the
+weight. A regression test now fails if any scarcity prior returns.
+
+### Added: "Recast the problem", the first generative move
+
+The five existing moves are all reactive. The sixth is anchored to a quote of
+the goal, artifact or constraint rather than a defect, then free to propose
+what the conversation has not tried: solve it cheaper, borrow a pattern from
+another domain, invert the constraint, or ask what would make the task
+unnecessary. It holds the only licence in the prompt to name something the
+reply never mentioned, capped at one per set, and must aim at the work.
+
+First field measurement: `{total: 4, kept: 4, grounded: 4}` — nothing dropped
+by the evidence gate, no fabricated quotes, floor held on a short
+conversational reply.
+
+---
+
 ## Extension 0.9.23 — Backend 0.9.23
 
 ### Added: the fifth chip — type a rough ask, CONTEXA writes the prompt
