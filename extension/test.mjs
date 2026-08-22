@@ -652,5 +652,63 @@ const settle = () => new Promise(r => setTimeout(r, 0));
     humanTexts.every(x => /[.!?]$/.test(x)));
 }
 
+/* ---- 16. v0.9.28: capability moves ---------------------------------------
+   The first class of chip that teaches a FEATURE rather than a next step.
+   Three risks these assertions exist to catch: (a) the paragraph drifting
+   into the "moves that usually win" list, where nine equal bullets would let
+   a set of three come back with two capability moves and break the cap before
+   anyone noticed; (b) a move text growing a UI click-path, which the prompt
+   cannot see and which goes stale on any redesign; (c) the exemplars quietly
+   breaking the 280-character rule the same prompt imposes on every step. */
+{
+  const capStart = SRC.indexOf('Capability moves ');
+  const capEnd = SRC.indexOf('Ordering, by friction and leverage');
+  t('capability: the paragraph exists', capStart > 0 && capEnd > capStart);
+
+  // Structural: it must sit OUTSIDE the freely-pickable winning-moves list.
+  t('capability: paragraph sits after the winning-moves list, not inside it',
+    capStart > SRC.indexOf('When the exchange reads like the OPENING'));
+  t('capability: paragraph sits before the ordering rules',
+    capStart < SRC.indexOf('Ordering, by friction and leverage'));
+
+  const cap = capStart > 0 ? SRC.slice(capStart, capEnd) : '';
+  t('capability: capped at one per set', cap.includes('At most ONE per set'));
+  t('capability: a set is never obliged to contain one',
+    cap.includes('never obliged to contain one'));
+  t('capability: no symptom means no chip', cap.includes('no symptom, no capability move'));
+  t('capability: destination is asked of Claude, not stated by us',
+    cap.includes('asked OF Claude, never stated by you'));
+  t('capability: closing line present', cap.includes('Those three are the whole class'));
+  t('capability: the class is closed at three', cap.includes('Never invent a fourth capability'));
+  t('capability: no consecutive repeat of the same capability',
+    cap.includes('never offer the same capability twice in a row'));
+
+  t('capability: the three durable moves are present',
+    cap.includes('- Set up a project.') && cap.includes('- Lock in my style.') &&
+    cap.includes('- Work from real data.'));
+  t('capability: the two decaying moves stayed out',
+    !SRC.includes('Make it an artifact') && !SRC.includes('Check it live'));
+
+  const models = [...cap.matchAll(/Model: "([^"]*)"/g)].map(m => m[1]);
+  t('capability: exactly three moves carry a model text', models.length === 3, String(models.length));
+  t('capability: no move text sends the user to the UI',
+    models.every(x => !/\bclick\b|\bmenu\b|\bsidebar\b|\bbutton\b|\bsettings\b|top right|left panel/i.test(x)),
+    models.find(x => /\bclick\b|\bmenu\b|\bsidebar\b|\bbutton\b|\bsettings\b/i.test(x)) || '');
+  t('capability: every move text obeys the prompt own 280-char step limit',
+    models.every(x => x.length <= 280), String(Math.max(0, ...models.map(x => x.length))));
+  t('capability: every move text opens with a directive to Claude',
+    models.every(x => /^(Write|Turn|List) /.test(x)));
+
+  /* The dated marker is the ONLY instrument for a stale capability exemplar:
+     if Claude renames a feature no test fails and no counter moves. It must be
+     a JS comment, never inside the prompt, or every request pays for it. */
+  t('capability: dated audit marker present', /CAPABILITY-AUDIT: \d{4}-\d{2}-\d{2}/.test(SRC));
+  const promptOnly = (SRC.match(/NEXT_STEPS_SYSTEM = `([\s\S]*?)`;/) || [])[1] || '';
+  t('capability: audit marker is outside the prompt string, not billed per request',
+    promptOnly.length > 0 && !promptOnly.includes('CAPABILITY-AUDIT'));
+  t('capability: paragraph is inside the prompt string', promptOnly.includes('Capability moves '));
+}
+
+
 console.log(fails.length ? '\nFAILED: ' + fails.join(', ') : '\nall extension checks passed');
 process.exit(fails.length ? 1 : 0);

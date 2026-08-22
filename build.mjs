@@ -7,7 +7,7 @@ import { readFileSync, writeFileSync, mkdirSync, copyFileSync, readdirSync, rmSy
 import { join } from 'node:path';
 import { deflateRawSync, crc32 as zlibCrc32 } from 'node:zlib';
 
-const VERSION = '0.9.27';
+const VERSION = '0.9.28';
 const BACKEND = 'https://contexa-api.michu110899.workers.dev';
 
 const SRC = 'extension';
@@ -84,6 +84,16 @@ const sectionRe = /'ROUGH ASK:\\n' \+ intent/;
 if (!sectionRe.test(outBg) || !sectionRe.test(wrkForPrompts))
   fails.push('expand section labels missing or drifted between extension and worker');
 
+/* 0.9.28: the capability moves teach features of a product that changes without
+   telling us, and nothing else in this build can see a stale exemplar. The dated
+   marker is the only instrument there is. Missing or drifted is a failure; merely
+   OLD is a warning printed below - a stale list must never block an urgent fix. */
+const AUDIT_RE = /CAPABILITY-AUDIT: (\d{4}-\d{2}-\d{2})/;
+const auditExt = (outBg.match(AUDIT_RE) || [])[1];
+const auditWrk = (wrkForPrompts.match(AUDIT_RE) || [])[1];
+if (!auditExt || !auditWrk) fails.push('CAPABILITY-AUDIT date missing from one of the two prompt files');
+else if (auditExt !== auditWrk) fails.push(`CAPABILITY-AUDIT drift: extension=${auditExt} worker=${auditWrk}`);
+
 // The shipped model must agree across all three places that name one.
 const workerSrc = readFileSync('worker/src/index.js', 'utf8');
 const modelExt = (outBg.match(/const SHIPPED_MODEL = '([^']+)'/) || [])[1];
@@ -116,6 +126,17 @@ if (fails.length) {
 
 console.log(`built ${OUT}/ Ã¢â‚¬â€ v${VERSION}, model ${modelExt}, backend ${BACKEND}`);
 console.log('  prompt identical across extension and worker Ã¢Å“â€œ');
+
+const auditAge = Math.floor((Date.now() - Date.parse(auditExt + 'T00:00:00Z')) / 86400000);
+if (auditAge > 120) {
+  console.log('');
+  console.log(`  WARNING: capability moves last audited ${auditExt} - ${auditAge} days ago.`);
+  console.log('  Re-check them against the real product, then update CAPABILITY-AUDIT in BOTH');
+  console.log('  prompt files. Nothing else reports a stale capability exemplar. Not fatal.');
+  console.log('');
+} else {
+  console.log(`  capability moves audited ${auditExt}, ${auditAge}d ago - fresh`);
+}
 
 /* --- zip, with manifest.json at the ARCHIVE ROOT --------------------------- */
 /* Chrome rejects an upload whose manifest sits inside a wrapper folder, which is

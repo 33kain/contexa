@@ -7,6 +7,74 @@ free to diverge, and the settings page labels them separately for that reason.
 
 ---
 
+## Extension 0.9.28 — Backend 0.9.28
+
+*Capability moves: the first chips that teach a feature instead of a next step.*
+
+Prompt-only. Both copies of `NEXT_STEPS_SYSTEM` change together and the change
+reaches every hosted user through one `wrangler deploy`, with no store review.
+Own-key users get it when the store copy lands.
+
+### Added: three capability moves
+
+Most people use a fraction of Claude — no Projects, no saved styles, no
+uploaded files — and nobody teaches them, because the moment the tip would
+help is mid-conversation. That is exactly where CONTEXA already is.
+
+- **Set up a project.** Fires when the reply re-explains or re-requests context
+  the conversation already carried.
+- **Lock in my style.** Fires when the reply acknowledges a repeated correction
+  to tone, length or format.
+- **Work from real data.** Fires when the reply reasons from a *description* of
+  a file rather than the file.
+
+Two further moves were drafted and deliberately left out. *Make it an artifact*
+and *Check it live* fire when **Claude** behaves badly — re-pasting a whole
+document instead of making an artifact, hedging about currency instead of
+searching — and Anthropic is actively eliminating both defaults, so those chips
+fire less with every model release. The three that shipped fire when the **user**
+has not set something up, and no model update creates a saved style in someone's
+account. The gap is on the user's side of the wire, so it stays.
+
+### How they are constrained
+
+The moves live in their own paragraph, subordinate to the "moves that usually
+win" list rather than inside it. Appending three more bullets to a six-bullet
+list of freely-pickable examples would have let a set of three come back with
+two capability moves in it, breaking the one-per-set cap before it shipped. The
+framing sentence is what teaches; that is the 0.9.24 lesson.
+
+They obey the existing contract with no exceptions: quotable evidence or no
+chip, text addressed to Claude, never instructions aimed at the user. No
+click-paths, no menu names, no settings — the prompt cannot see the UI and
+would go stale the moment it changed.
+
+Where the prepared material *goes* is asked of Claude rather than stated by us.
+A beginner handed 150 words of project instructions and no destination is stuck,
+and our own rules forbid us from supplying the path. A stale sentence from
+Claude is one conversation's error that gets fixed for free; a stale click-path
+in our exemplar ships to every user until we redeploy.
+
+### Added: a staleness instrument, because nothing else would report it
+
+Capability knowledge lives in our exemplars, not in the model's training. If
+Claude renames a feature, no test fails and no counter moves — the chips just
+quietly start lying.
+
+`build.mjs` now reads a dated `CAPABILITY-AUDIT` marker from both prompt files.
+Missing or drifted between the two copies is a **build failure**. Merely old —
+past 120 days — prints a **warning and builds anyway**, because a stale
+capability list must never block an urgent fix.
+
+### Note on what this release does not contain
+
+No click telemetry, here or anywhere. Clicks happen in the browser and are never
+transmitted; "no tracking, no analytics" is a promise on the listing and it
+still holds. Whether these chips are useful will be answered by people saying
+so, not by a number.
+
+---
+
 ## Extension 0.9.27 — Backend unchanged (0.9.25)
 
 *Copy and consistency pass on the beginner release.*
