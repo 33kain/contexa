@@ -1,0 +1,18 @@
+# Line endings.
+#
+# Every text blob in this repo is already stored with LF. That was luck — it
+# held only while everyone's core.autocrlf happened to behave. On a Windows
+# clone (autocrlf=true, the default) files check out as CRLF, and a commit made
+# from certain editors or scripts can push those CRLF bytes back into the blob,
+# which shows up as a whole-file rewrite in the diff.
+#
+# text=auto  — treat any file git detects as text as text
+# eol=lf     — and give it LF both in the repo and in the working tree
+#
+# This is what let three source-matching regexes in extension/test.mjs fail on
+# Windows only: content.js was checked out CRLF, so `;\r\n  }` never matched a
+# pattern written as `;\n  }`.
+* text=auto eol=lf
+
+# Binary assets: never inspected for line endings, never diffed as text.
+*.png binary
