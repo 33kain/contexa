@@ -175,8 +175,11 @@ const settle = () => new Promise(r => setTimeout(r, 0));
    capture defects (glued paragraphs, whole code blocks) shipped invisibly for
    ten versions: nothing ever looked at what the model actually receives. */
 {
+  /* Source-matching regexes below use \r?\n: git checks content.js out with
+     CRLF on Windows (core.autocrlf), so a bare \n after a literal character
+     never matches there. */
   const csrc = readFileSync('./content.js', 'utf8');
-  const m = csrc.match(/const BLOCK_TAGS[\s\S]*?\.trim\(\);\n  \}/);
+  const m = csrc.match(/const BLOCK_TAGS[\s\S]*?\.trim\(\);\r?\n  \}/);
   if (!m) { t('captureText found in content.js', false); }
   else {
     const { captureText, summarizeCode } =
@@ -289,7 +292,7 @@ const settle = () => new Promise(r => setTimeout(r, 0));
 /* ---- 16. SPEC §3.2: the capture marker ------------------------------------- */
 {
   const csrc5 = readFileSync('./content.js', 'utf8');
-  const m = csrc5.match(/const CAPTURE_WINDOW[\s\S]*?return cut\.trimEnd\(\) \+ CAPTURE_MARKER;\n  \}/);
+  const m = csrc5.match(/const CAPTURE_WINDOW[\s\S]*?return cut\.trimEnd\(\) \+ CAPTURE_MARKER;\r?\n  \}/);
   if (!m) { t('clampCapture found in content.js', false); }
   else {
     const { clampCapture, CAPTURE_MARKER } =
@@ -555,7 +558,7 @@ const settle = () => new Promise(r => setTimeout(r, 0));
   t('guard still short-circuits while streaming', /streamFlag === 'true'\) return/.test(c));
   t('settled is set only by the debounced path',
     /settleTimer = setTimeout\(\(\) => \{ settled = true; scan\(\); \}, 1200\)/.test(c));
-  t('settled resets on every mutation burst', /settled = false;\n      scan\(\);/.test(c));
+  t('settled resets on every mutation burst', /settled = false;\r?\n      scan\(\);/.test(c));
 
   /* The first outside user met the bare string "forbidden_origin". */
   t('error codes are translated for humans', c.includes('function humanError'));
