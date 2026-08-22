@@ -7,6 +7,53 @@ free to diverge, and the settings page labels them separately for that reason.
 
 ---
 
+## Extension 0.9.32 — Backend unchanged (0.9.31)
+
+*One selector. Found by DOM position after three string-based detectors got it wrong.*
+
+### Visually hidden text is no longer captured
+
+`SKIP_TAGS` is tag-based, so it cannot catch text that is hidden by CSS but
+present in the DOM. claude.ai renders the thinking header twice: once inside
+`button[data-testid=tool-status-pill]`, correctly skipped, and once in a
+`span.sr-only` outside it — which shipped on every reply carrying a thinking
+block, for the whole life of the product.
+
+Both capture walkers now also skip `.sr-only`, `[data-testid^="tool-status"]`
+and `[class*="artifact-block"]`.
+
+**The cost was never the tokens.** It is that hidden text is **quotable**: a chip
+grounded in *"Thought for 8s"* passes the evidence gate cleanly and means
+nothing. That is a new route to precisely the failure the gate exists to prevent.
+
+### How it was found, and how it was nearly missed
+
+Three string-matching detectors in one evening reported chrome that was not
+there. Each time the hits turned out to be **prose about chrome** — Claude
+writing `Ran 2 commands` in backticks while explaining the bug, or citing
+`§4` while discussing §4. Text about a thing is indistinguishable from the
+thing when you match on text.
+
+Probe v3 escaped it by finding the **deepest DOM element** holding each string
+and printing its ancestor chain. The difference between `span.sr-only` and
+`em` inside `p.font-claude-response-body` is invisible to a regex and obvious
+in a chain.
+
+A test pins both directions: hidden duplicates are dropped, and an `em` quoting
+a chrome string in the reply body still survives.
+
+### Scope
+
+An earlier reading claimed chrome leaked on both surfaces and that Cowork was
+grounding chips in project documents. **Both were wrong**, and the controls that
+disproved them are recorded in the pattern file. What remained after the
+controls was one selector.
+
+`Searched the web` appeared once in a v2 capture and produced no holders in v3.
+**Unexplained, and deliberately not fixed on one observation.**
+
+---
+
 ## Extension 0.9.31 — Backend 0.9.31
 
 *The worker learns to speak to both generations of client at once.*

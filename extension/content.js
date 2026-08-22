@@ -171,13 +171,26 @@
   const BLOCK_TAGS = new Set(['P', 'DIV', 'LI', 'UL', 'OL', 'PRE', 'BLOCKQUOTE',
     'TABLE', 'TR', 'H1', 'H2', 'H3', 'H4', 'H5', 'H6', 'BR', 'HR']);
   const SKIP_TAGS = new Set(['BUTTON', 'SVG', 'STYLE', 'SCRIPT', 'NOSCRIPT']);
+  /* 0.9.32 — tag-based skipping cannot catch text that is VISUALLY HIDDEN but
+     present in the DOM. claude.ai renders a screen-reader duplicate of the
+     thinking header in a span.sr-only that sits OUTSIDE the tool-status button,
+     so the visible copy was skipped correctly and the invisible one shipped on
+     every reply carrying a thinking block. The principle: capture what the
+     reader sees. Anything hidden from them that duplicates what they see is
+     cost with no information, and worse, it is QUOTABLE — a chip grounded in
+     'Thought for 8s' passes the evidence gate while meaning nothing.
+     Found by DOM position, not by string matching: three separate string-based
+     detectors this session mistook prose ABOUT chrome for the chrome itself. */
+  const SKIP_SEL = '.sr-only, [data-testid^="tool-status"], [class*="artifact-block"]';
+  const skipEl = n => SKIP_TAGS.has((n.tagName || '').toUpperCase())
+    || (typeof n.matches === 'function' && n.matches(SKIP_SEL));
   const CODE_KEEP_LINES = 2;
 
   function textSkippingChrome(node) {
     let s = '';
     (function w(n) {
       if (n.nodeType === 3) { s += n.nodeValue; return; }
-      if (n.nodeType !== 1 || SKIP_TAGS.has((n.tagName || '').toUpperCase())) return;
+      if (n.nodeType !== 1 || skipEl(n)) return;
       for (const c of n.childNodes) w(c);
     })(node);
     return s;
@@ -198,7 +211,7 @@
       if (node.nodeType === 3) { out += node.nodeValue; return; }
       if (node.nodeType !== 1) return;
       const tag = (node.tagName || '').toUpperCase();
-      if (SKIP_TAGS.has(tag)) return;
+      if (skipEl(node)) return;
       if (tag === 'PRE') { out += summarizeCode(textSkippingChrome(node)) + '\n'; return; }
       for (const child of node.childNodes) walk(child);
       if (BLOCK_TAGS.has(tag)) out += '\n';

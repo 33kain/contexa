@@ -186,11 +186,40 @@ const settle = () => new Promise(r => setTimeout(r, 0));
       new Function(m[0] + '; return { captureText, summarizeCode };')();
     const T = s => ({ nodeType: 3, nodeValue: s });
     const E = (tag, ...children) => ({ nodeType: 1, tagName: tag, childNodes: children });
+    /* 0.9.32: the stub needs matches() because skipping is no longer tag-only.
+       H() is an element the SKIP_SEL catches — a visually hidden duplicate. */
+    const H = (tag, ...children) => ({ nodeType: 1, tagName: tag, childNodes: children,
+      matches: sel => /sr-only|tool-status|artifact-block/.test(sel) });
 
     // Paragraphs get real line breaks (textContent glued them: "one.Two")
     const para = captureText(E('DIV', E('P', T('First paragraph.')), E('P', T('Second one.'))));
     t('paragraphs are separated by a newline', para === 'First paragraph.\nSecond one.',
       JSON.stringify(para));
+
+    /* 0.9.32 — the screen-reader duplicate. claude.ai renders the thinking
+       header twice: once inside the tool-status BUTTON (skipped by tag) and
+       once in a span.sr-only outside it, which shipped on every reply. Text
+       the reader cannot see is cost with no information — and quotable, so a
+       chip could ground itself in it and pass the evidence gate. */
+    const withSr = captureText(E('DIV',
+      H('SPAN', T('Thought for 8s')),
+      E('P', T('The actual reply.'))));
+    t('visually hidden duplicates are not captured', withSr === 'The actual reply.',
+      JSON.stringify(withSr));
+    t('the visible reply survives alongside it', withSr.includes('The actual reply.'));
+
+    const nested = captureText(E('DIV',
+      E('DIV', H('DIV', E('SPAN', T('Ran 2 commands, used 2 tools')))),
+      E('P', T('Real prose.'))));
+    t('hidden containers are skipped with their children', nested === 'Real prose.',
+      JSON.stringify(nested));
+
+    /* The confound that fooled three detectors tonight: prose ABOUT chrome is
+       not chrome. An em/code inside the reply body must survive. */
+    const quoting = captureText(E('DIV',
+      E('P', T('The string '), E('EM', T('Ran 2 commands')), T(' survives the walk.'))));
+    t('prose quoting a chrome string is NOT skipped',
+      quoting === 'The string Ran 2 commands survives the walk.', JSON.stringify(quoting));
 
     // Code collapses to first lines + marker; the bulk never ships
     const code = 'function trimPayload(value) {\n  const t = String(value);\n  mid1;\n  mid2;\n  mid3;\n}';
