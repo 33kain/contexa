@@ -7,6 +7,84 @@ free to diverge, and the settings page labels them separately for that reason.
 
 ---
 
+## Extension 0.9.29 — Backend 0.9.29
+
+*The core changes. One chip, or none.*
+
+### What replaced what
+
+CONTEXA was **reactive**: reread the reply for defects — hedges, forks, gaps —
+and offer three to five chips, each repairing one. It is now **projective**:
+read the user's message for the intent and the reply for the state, infer where
+this is going, and return the single message the user would send **two turns
+from now** if they could already see the road.
+
+The floor of three is gone. So is the move taxonomy, the ordering rules, and
+the capability-move class as a separate thing. `NEXT_STEPS_SYSTEM` went from
+9,187 characters to 5,601 — 39% smaller on every request.
+
+### Zero is an answer
+
+The model may now return no step at all, and an empty row renders as the Rough
+ask chip alone rather than an error card.
+
+This is the point of the release, not a side effect. Every defect in the
+pattern file — user-only facts stated as observed, the chip that said "go",
+the row that read Claude's own three options back at the user — was a
+**padding** defect: a chip that existed because a floor demanded a third one.
+Remove the floor, permit silence, and that entire failure family stops being
+possible rather than being mitigated.
+
+**Two silences, deliberately not conflated.** A model that returns
+`{"steps":[]}` earned nothing, and that is the product working — 200, quiet
+row, no error. A model that produced steps which the evidence gate then
+rejected entirely is a defect, and still returns `no_steps` with its
+diagnostic. They look identical at the end of the pipe and mean opposite
+things.
+
+### The obvious step is now banned outright
+
+The premise is that CONTEXA returns the message the user would *not* have
+typed. Answering the reply's direct question, or picking an item from a list it
+just offered, is the product failing at its own thesis — the user can already
+see those. The 22 Aug field test caught exactly this: a row where three of four
+chips were Claude's own "Your pick" menu, transcribed. Scored `{4,4,4}`,
+perfectly grounded, and worth nothing.
+
+### The monster breathes
+
+Step texts go from 280 to **700 characters**, and `MAX_PAYLOAD_CHARS` rises
+from 600 to 700 to match — otherwise every long step would have been silently
+truncated by a cap the prompt didn't know about. Two moves ahead needs room:
+the upload *and* the ranked findings *and* the decision the analysis was for.
+
+### Exemplars from real rows, not invented ones
+
+All three worked examples in the new prompt are exchanges captured in the field
+on 22 Aug, and each one names the obvious step it is refusing before giving the
+one worth clicking. Authored exemplars beat added rules — the 0.9.25 lesson,
+applied to a rewrite rather than a patch.
+
+### The capability class, resolved
+
+Field testing found it mostly inert: *Lock in my style* could not fire at all
+(a repeated correction is a multi-turn pattern, and CONTEXA sees one message
+and one reply), and *Work from real data* was dominated by Supply whenever
+Claude asked for the file. Rather than rebuild or pull it, the new core absorbs
+it: a capability is routed **as part of the plan** when the road ahead runs
+through it, never as a tip. The staleness guard stays — capability knowledge
+moved into the routing sentence, it did not leave.
+
+### Not prompt-only
+
+Unlike 0.9.24, 0.9.25 and 0.9.28, this release changes `content.js`: a
+successful response carrying an empty steps array used to fall into the error
+branch and render *"Couldn't write suggestions for this reply."* Silence has to
+be reachable. **Store clients below 0.9.29 will show that mislabeled card on
+quiet rows until the submission lands.**
+
+---
+
 ## Extension 0.9.28 — Backend 0.9.28
 
 *Capability moves: the first chips that teach a feature instead of a next step.*

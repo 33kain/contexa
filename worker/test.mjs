@@ -140,7 +140,8 @@ t('unknown route 404', r.status === 404, String(r.status));
   const r = await w.fetch(post(), { ANTHROPIC_API_KEY: 'k', CX_KV: makeKV(), IP_SALT: 's' });
   const b = await r.json();
   t('partial salvage still returns 200', r.status === 200, String(r.status));
-  t('partial salvage keeps the 5 complete steps', Array.isArray(b.steps) && b.steps.length === 5,
+  // 0.9.29: salvage still keeps only COMPLETE steps, but the core ships one.
+  t('partial salvage keeps one complete step', Array.isArray(b.steps) && b.steps.length === 1,
     'kept=' + (b.steps && b.steps.length));
   t('partial flag set', b.partial === true);
   t('partial carries diag', !!b.diag && b.diag.out === 2500 && b.diag.stop === 'max_tokens',
@@ -167,13 +168,84 @@ t('unknown route 404', r.status === 404, String(r.status));
   });
   const r = await w.fetch(post(), { ANTHROPIC_API_KEY: 'k', CX_KV: makeKV(), IP_SALT: 's' });
   const b = await r.json();
-  t('evidence-less step dropped (hosted)', b.steps && b.steps.length === 2,
+  t('evidence-less step dropped, one chip kept (hosted)', b.steps && b.steps.length === 1,
     'kept=' + (b.steps && b.steps.length));
+  t('the kept chip is the grounded one, not the ungrounded one',
+    b.steps && b.steps[0] && b.steps[0].label === 'Grounded', JSON.stringify(b.steps && b.steps[0]));
   t('response steps carry no evidence key', b.steps && b.steps.every(s => !('evidence' in s)),
     JSON.stringify(b.steps && b.steps[0]));
   t('grounding counts returned', b.grounding &&
-    b.grounding.total === 3 && b.grounding.kept === 2 && b.grounding.grounded === 1,
+    b.grounding.total === 3 && b.grounding.kept === 1 && b.grounding.grounded === 1,
     JSON.stringify(b.grounding));
+}
+
+
+/* ---- v0.9.29: zero is an answer, and the two silences are not the same ----
+   The one-chip core is only honest if the model is allowed to return nothing.
+   But "I earned no step" and "I produced steps and the evidence gate ate every
+   one" look identical at the end of the pipe and mean opposite things — one is
+   the product working, the other is a defect. These pin the split. */
+{
+  globalThis.fetch = async () => ({
+    ok: true, status: 200,
+    async json() { return {
+      stop_reason: 'end_turn',
+      usage: { input_tokens: 500, output_tokens: 30 },
+      content: [{ type: 'text', text: JSON.stringify({ steps: [] }) }]
+    }; },
+    async text() { return ''; }
+  });
+  const r = await w.fetch(post(), { ANTHROPIC_API_KEY: 'k', CX_KV: makeKV(), IP_SALT: 's' });
+  const b = await r.json();
+  t('deliberate zero is a 200, not an error', r.status === 200, String(r.status));
+  t('quiet row carries an empty steps array', Array.isArray(b.steps) && b.steps.length === 0,
+    JSON.stringify(b.steps));
+  t('quiet row is flagged as quiet', b.quiet === true);
+  t('quiet row carries no error', !b.error, JSON.stringify(b.error));
+  t('quiet row still reports grounding', b.grounding && b.grounding.total === 0 && b.grounding.kept === 0,
+    JSON.stringify(b.grounding));
+}
+
+{
+  // Steps WERE produced; every one failed the evidence contract. Not silence —
+  // a failure, and it must keep its diagnostic rather than masquerade as quiet.
+  globalThis.fetch = async () => ({
+    ok: true, status: 200,
+    async json() { return {
+      stop_reason: 'end_turn',
+      usage: { input_tokens: 500, output_tokens: 200 },
+      content: [{ type: 'text', text: JSON.stringify({ steps: [
+        { label: 'No evidence', text: 'Do a thing.' }
+      ] }) }]
+    }; },
+    async text() { return ''; }
+  });
+  const r = await w.fetch(post(), { ANTHROPIC_API_KEY: 'k', CX_KV: makeKV(), IP_SALT: 's' });
+  const b = await r.json();
+  t('gate-ate-everything is still an error, not a quiet row', r.status === 502, String(r.status));
+  t('that error is no_steps with a diag', b.error === 'no_steps' && !!b.diag, JSON.stringify(b.error));
+  t('a failure is never flagged quiet', b.quiet !== true);
+}
+
+{
+  // The monster breathes: a 700-char step survives intact where the old 600
+  // cap would have silently cut it.
+  const long = 'Word '.repeat(130).trim().slice(0, 690) + '.';
+  globalThis.fetch = async () => ({
+    ok: true, status: 200,
+    async json() { return {
+      stop_reason: 'end_turn',
+      usage: { input_tokens: 500, output_tokens: 400 },
+      content: [{ type: 'text', text: JSON.stringify({ steps: [
+        { label: 'Long one', text: long, evidence: 'rrrr' }
+      ] }) }]
+    }; },
+    async text() { return ''; }
+  });
+  const r = await w.fetch(post(), { ANTHROPIC_API_KEY: 'k', CX_KV: makeKV(), IP_SALT: 's' });
+  const b = await r.json();
+  t('a ~690-char step is not truncated at the old 600 cap',
+    b.steps && b.steps[0] && b.steps[0].text.length > 600, 'len=' + (b.steps && b.steps[0] && b.steps[0].text.length));
 }
 
 

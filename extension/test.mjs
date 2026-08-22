@@ -256,39 +256,6 @@ const settle = () => new Promise(r => setTimeout(r, 0));
 }
 
 
-/* ---- 14. the 0.9.16 requisition design is present in the prompt ---------- */
-{
-  t('prompt: floor of three', SRC.includes('BETWEEN THREE AND FIVE'));
-  t('prompt: no-questions rule', SRC.includes('NEVER a question'));
-  t('prompt: feed placeholder convention', SRC.includes('<paste here>'));
-  t('prompt: decree exemplar present (families demoted per spec)', SRC.includes('Start with "Assume"'));
-  t('prompt: flip aimed at the work', SRC.includes('never at quizzing the user'));
-  const csrc4 = readFileSync('./content.js', 'utf8');
-  t('label clamp is 4 words', csrc4.includes('function shortLabel(s, max = 4)'));
-}
-
-
-/* ---- 15. SPEC v0.9.17: prompt shape ---------------------------------------- */
-{
-  t('prompt: evidence field in schema', SRC.includes('"evidence":"..."'));
-  t('prompt: anti-taxonomy sentence', SRC.includes('NOT categories to fill'));
-  t('prompt: viewport-marker rule', SRC.includes('edge of your viewport'));
-  t('prompt: floor is a search obligation, not a licence to pad', SRC.includes('obligation to search harder'));
-  t('prompt: no scarcity priors left', !SRC.includes('most common correct count') && !SRC.includes('ONE dominant step'));
-  t('prompt: lateral recast move present', SRC.includes('Recast the problem'));
-  t('prompt: recast may name what the reply did not', SRC.includes('free to name something the reply never mentioned'));
-  t('prompt: schema asks for three to five', SRC.includes('with three to five items'));
-  /* v0.9.25 — the Assume defect, n=3 across both prompts: the draft stated a
-     user-only fact as though observed. Rules existed and were ignored, so the
-     fix is worked exemplars (docs: positive examples beat added rules) plus
-     the one marking clause NEXT_STEPS genuinely lacked. */
-  t('prompt: user-only facts must be marked', SRC.includes('as though you had observed it'));
-  t('prompt: marking means Assume or a slot', SRC.includes('so the user can strike it before sending'));
-  t('prompt: decree exemplar shows the wrong form too', SRC.includes('Never write "The deploy already landed" as a plain statement'));
-  t('expand prompt: deployed-works exemplar present', SRC.includes('ROUGH ASK: deployed, works'));
-  t('expand prompt: exemplar marks the inference', SRC.includes('Assume: all five field checks passed'));
-}
-
 /* ---- 16. SPEC §3.2: the capture marker ------------------------------------- */
 {
   const csrc5 = readFileSync('./content.js', 'utf8');
@@ -331,11 +298,11 @@ const settle = () => new Promise(r => setTimeout(r, 0));
     async text() { return ''; }
   });
   const out = await h.send({ type: 'nextSteps', prompt: 'p', reply: REPLY });
-  t('evidence-less step is dropped', out.steps && out.steps.length === 2,
+  t('evidence-less step is dropped, one chip kept', out.steps && out.steps.length === 1,
     'kept=' + (out.steps && out.steps.length));
   t('no step carries an evidence key', out.steps && out.steps.every(s => !('evidence' in s)));
   t('grounding counts are right', out.grounding &&
-    out.grounding.total === 3 && out.grounding.kept === 2 && out.grounding.grounded === 1,
+    out.grounding.total === 3 && out.grounding.kept === 1 && out.grounding.grounded === 1,
     JSON.stringify(out.grounding));
 }
 {
@@ -373,18 +340,6 @@ const settle = () => new Promise(r => setTimeout(r, 0));
     for (const msg of mustMatch) t('stale classifier matches: ' + msg.slice(7, 47) + '…', re.test(msg));
     t('stale classifier ignores unrelated errors', !re.test('Error: network timeout') && !re.test('api_529'));
   }
-}
-
-
-/* ---- v0.9.19: the elicitation release -------------------------------------- */
-{
-  t('prompt: elicit move present', SRC.includes("Invite Claude's questions"));
-  t('prompt: elicit exemplar present', SRC.includes('Ask me everything you need to know'));
-  t('prompt: decree/elicit division stated', SRC.includes('invite questions when the forks are invisible'));
-  t('prompt: foundation-first rule', SRC.includes('foundation-first'));
-  t('prompt: question-form lift, Claude-aimed only', SRC.includes('sharpest form of the ask'));
-  t('prompt: user-aimed questions still banned', SRC.includes('NEVER a question aimed at the user'));
-  t('prompt: voice line present', SRC.includes('always addresses Claude'));
 }
 
 
@@ -525,7 +480,7 @@ const settle = () => new Promise(r => setTimeout(r, 0));
   t('input keystrokes stopped at the shadow boundary',
     /\['keydown', 'keyup', 'keypress', 'input', 'paste'\][\s\S]{0,120}stopPropagation/.test(c));
   t('Enter submits, Escape collapses', /key === 'Enter'/.test(c) && /key === 'Escape'/.test(c));
-  t('renderSteps carries capture context', /renderSteps\(anchor, steps\.slice\(0, 5\), \{ prompt: promptText, reply: replyText \}\)/.test(c));
+  t('renderSteps carries capture context', /renderSteps\(anchor, steps\.slice\(0, 1\), \{ prompt: promptText, reply: replyText \}\)/.test(c));
   t('expand failure stays inline (no second card)', /cxerr/.test(c) && /daily limit reached/.test(c));
   /* Design-review #4, verified real in 0.9.22: insertPrompt selected all and
      typed over the user's draft. The guard and the append branch must exist —
@@ -655,63 +610,75 @@ const settle = () => new Promise(r => setTimeout(r, 0));
     humanTexts.every(x => /[.!?]$/.test(x)));
 }
 
-/* ---- v0.9.28: capability moves -------------------------------------------
-   The first class of chip that teaches a FEATURE rather than a next step.
-   Three risks these assertions exist to catch: (a) the paragraph drifting
-   into the "moves that usually win" list, where nine equal bullets would let
-   a set of three come back with two capability moves and break the cap before
-   anyone noticed; (b) a move text growing a UI click-path, which the prompt
-   cannot see and which goes stale on any redesign; (c) the exemplars quietly
-   breaking the 280-character rule the same prompt imposes on every step. */
+/* ---- v0.9.29: the trajectory core ----------------------------------------
+   The product changed shape, so the assertions do too. Three failure modes
+   are worth pinning, and they are the ones the field found in one evening:
+
+   (a) The floor coming back. Every defect in the pattern file — user-only
+       facts, the "go" chip, the row that read Claude's own menu back — was a
+       PADDING defect, produced because a floor demanded a third chip. There is
+       no floor now, and nothing may reintroduce one.
+   (b) The obvious step. The whole premise is that CONTEXA returns the message
+       the user would NOT have typed. A chip that answers the reply's question
+       or picks from its list is the product failing at its own thesis.
+   (c) The evidence contract quietly loosening under pressure from "creative".
+       That rule is what separates reading the road from inventing a
+       destination, and it was declared untouchable. */
 {
-  const capStart = SRC.indexOf('Capability moves ');
-  const capEnd = SRC.indexOf('Ordering, by friction and leverage');
-  t('capability: the paragraph exists', capStart > 0 && capEnd > capStart);
+  t('prompt: at most one step', SRC.includes('Return AT MOST ONE step.'));
+  t('prompt: zero is a real answer', SRC.includes('Zero is a real answer'));
+  t('prompt: no floor language survives anywhere',
+    !/BETWEEN THREE AND FIVE|three to five|Three is the floor/.test(SRC));
+  t('prompt: schema asks for exactly one or none', SRC.includes('exactly one step, or {"steps":[]}'));
 
-  // Structural: it must sit OUTSIDE the freely-pickable winning-moves list.
-  t('capability: paragraph sits after the winning-moves list, not inside it',
-    capStart > SRC.indexOf('When the exchange reads like the OPENING'));
-  t('capability: paragraph sits before the ordering rules',
-    capStart < SRC.indexOf('Ordering, by friction and leverage'));
+  t('prompt: reads intent and state together', SRC.includes('Read them TOGETHER'));
+  t('prompt: aims two turns ahead', SRC.includes('two turns from now'));
+  t('prompt: the obvious step is banned', SRC.includes('NEVER return the obvious next step'));
+  t('prompt: menus must not be transcribed', SRC.includes('do not transcribe them into a chip'));
+  t('prompt: capabilities are routed as plan, never as a tip', SRC.includes('never as a tip'));
 
-  const cap = capStart > 0 ? SRC.slice(capStart, capEnd) : '';
-  t('capability: capped at one per set', cap.includes('At most ONE per set'));
-  t('capability: a set is never obliged to contain one',
-    cap.includes('never obliged to contain one'));
-  t('capability: no symptom means no chip', cap.includes('no symptom, no capability move'));
-  t('capability: destination is asked of Claude, not stated by us',
-    cap.includes('asked OF Claude, never stated by you'));
-  t('capability: closing line present', cap.includes('Those three are the whole class'));
-  t('capability: the class is closed at three', cap.includes('Never invent a fourth capability'));
-  t('capability: no consecutive repeat of the same capability',
-    cap.includes('never offer the same capability twice in a row'));
+  // The untouchable rule, stated three ways it has actually been broken.
+  t('prompt: evidence must be verbatim from the reply', SRC.includes('earned by a verbatim fragment of the reply'));
+  t('prompt: no evidence, no step', SRC.includes('No quotable evidence, no step.'));
+  t('prompt: user-only facts still marked', SRC.includes('as though observed'));
+  t('prompt: Assume convention survives the rewrite', SRC.includes('Open it with "Assume"'));
+  t('prompt: slot convention survives', SRC.includes('<a slot in angle brackets>'));
+  t('prompt: still never commands the user action', SRC.includes("never commands the user's action"));
+  t('prompt: user-aimed questions still banned', SRC.includes('NEVER a question aimed at the user'));
+  t('prompt: no UI click-paths', SRC.includes('No UI click-paths'));
+  t('prompt: viewport-marker rule kept', SRC.includes('edge of your viewport'));
 
-  t('capability: the three durable moves are present',
-    cap.includes('- Set up a project.') && cap.includes('- Lock in my style.') &&
-    cap.includes('- Work from real data.'));
-  t('capability: the two decaying moves stayed out',
-    !SRC.includes('Make it an artifact') && !SRC.includes('Check it live'));
+  // The monster breathes, but not without limit.
+  t('prompt: 700-character step cap stated', SRC.includes('up to 700 characters'));
+  t('prompt: label clamp still 4 words', SRC.includes('AT MOST 4 WORDS'));
+  const csrc6 = readFileSync('./content.js', 'utf8');
+  t('label clamp is 4 words in code too', csrc6.includes('function shortLabel(s, max = 4)'));
 
-  const models = [...cap.matchAll(/Model: "([^"]*)"/g)].map(m => m[1]);
-  t('capability: exactly three moves carry a model text', models.length === 3, String(models.length));
-  t('capability: no move text sends the user to the UI',
-    models.every(x => !/\bclick\b|\bmenu\b|\bsidebar\b|\bbutton\b|\bsettings\b|top right|left panel/i.test(x)),
-    models.find(x => /\bclick\b|\bmenu\b|\bsidebar\b|\bbutton\b|\bsettings\b/i.test(x)) || '');
-  t('capability: every move text obeys the prompt own 280-char step limit',
-    models.every(x => x.length <= 280), String(Math.max(0, ...models.map(x => x.length))));
-  t('capability: every move text opens with a directive to Claude',
-    models.every(x => /^(Write|Turn|List) /.test(x)));
+  /* Exemplars, not rules — the 0.9.25 lesson. All three are real exchanges
+     captured in the field on 2026-08-22, and each one names the obvious step
+     it is refusing before giving the one worth clicking. */
+  t('prompt: worked exemplars present', SRC.includes('Worked examples, from real exchanges'));
+  t('prompt: three exemplars', (SRC.match(/The obvious step/g) || []).length >= 2 && SRC.includes('Return the step that goes straight at the named hard part'));
+  t('prompt: spreadsheet exemplar keeps the attach slot', SRC.includes('<attach here>'));
+  t('prompt: exemplars use the JSON newline escape, not a real break',
+    SRC.includes('<attach here>' + '\\'.repeat(2) + 'nRun the full checklist'));
 
-  /* The dated marker is the ONLY instrument for a stale capability exemplar:
-     if Claude renames a feature no test fails and no counter moves. It must be
-     a JS comment, never inside the prompt, or every request pays for it. */
-  t('capability: dated audit marker present', /CAPABILITY-AUDIT: \d{4}-\d{2}-\d{2}/.test(SRC));
-  const promptOnly = (SRC.match(/NEXT_STEPS_SYSTEM = `([\s\S]*?)`;/) || [])[1] || '';
-  t('capability: audit marker is outside the prompt string, not billed per request',
-    promptOnly.length > 0 && !promptOnly.includes('CAPABILITY-AUDIT'));
-  t('capability: paragraph is inside the prompt string', promptOnly.includes('Capability moves '));
+  // Zero must be reachable end to end, not just permitted by the prompt.
+  t('content: an empty steps array no longer takes the error path',
+    /if \(!steps\) \{\n\s*const err = resp && resp\.error;/.test(csrc6));
+  t('content: the quiet row is logged', csrc6.includes('[CONTEXA] quiet row'));
+  const bsrc = readFileSync('./background.js', 'utf8');
+  t('background: deliberate zero is quiet, not no_steps',
+    /grounding\.total === 0[\s\S]{0,80}quiet: true/.test(bsrc));
+  t('background: gate-ate-everything is still no_steps', bsrc.includes("{ error: 'no_steps' }"));
+  t('background: one chip enforced in code', bsrc.includes('withEv.slice(0, 1)'));
+
+  /* Capability knowledge did not leave with the class — it moved into the
+     routing sentence, so the staleness marker still has a job. */
+  t('audit marker survives the core change', /CAPABILITY-AUDIT: \d{4}-\d{2}-\d{2}/.test(bsrc));
+  const promptOnly = (bsrc.match(/NEXT_STEPS_SYSTEM = `([\s\S]*?)`;/) || [])[1] || '';
+  t('audit marker still outside the prompt string', promptOnly.length > 0 && !promptOnly.includes('CAPABILITY-AUDIT'));
 }
-
 
 console.log(fails.length ? '\nFAILED: ' + fails.join(', ') : '\nall extension checks passed');
 process.exit(fails.length ? 1 : 0);

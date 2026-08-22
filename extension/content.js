@@ -291,7 +291,7 @@
       ? resp.steps.filter(s => s && typeof s.text === 'string' && s.text.trim())
       : null;
 
-    if (!steps || !steps.length) {
+    if (!steps) {
       const err = resp && resp.error;
       if (isStaleError(thrown) || !contextAlive()) return goStale(anchor);
       if (err === 'quota') return renderQuiet(anchor, 'quota', '', resp);
@@ -307,9 +307,8 @@
     }
     /* Partial salvage renders identically to a full result — a deliberate
        product decision (owner's call, 0.9.14). Rationale: salvage keeps the
-       FIRST N complete steps and the prompt orders by leverage, so a partial
-       set is the best prefix, every chip is whole, and 3–5 is the spec either
-       way — the user cannot act on the distinction. The signal is NOT dropped:
+       FIRST N complete steps, so a partial set is the best prefix and every
+       chip is whole — the user cannot act on the distinction. The signal is NOT dropped:
        it moves to the console, because each partial means the model hit its
        token ceiling and burned 3–5x the output cost of a clean response.
        Ceiling-hit frequency stays measurable; the user stops being alarmed
@@ -325,7 +324,11 @@
       console.log('[CONTEXA] partial salvage — kept', steps.length, 'step(s)',
         resp.diag ? resp.diag : '(no diag from this path)');
     }
-    renderSteps(anchor, steps.slice(0, 5), { prompt: promptText, reply: replyText });
+    /* 0.9.29: zero is a real answer. An empty array reaches renderSteps on
+       purpose — it draws the shell and the Rough ask chip and no suggestion,
+       which is what "nothing here was worth a click" looks like. */
+    if (!steps.length) console.log('[CONTEXA] quiet row — nothing earned a chip');
+    renderSteps(anchor, steps.slice(0, 1), { prompt: promptText, reply: replyText });
   }
 
   /* ---------------- rendering -------------------------------------------- */
