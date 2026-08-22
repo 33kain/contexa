@@ -7,6 +7,47 @@ free to diverge, and the settings page labels them separately for that reason.
 
 ---
 
+## Extension 0.9.27 — Backend unchanged (0.9.25)
+
+*Copy and consistency pass on the beginner release.*
+
+### Changed: one save rule for the whole settings page
+
+0.9.26 shipped two rules — the on/off switch saved itself, the Advanced text
+fields waited for a Save button — and within an hour the person who wrote the
+requirements typed a value into a field, walked away, and assumed it had
+applied. If the author falls for it, every beginner will.
+
+Advanced fields now save when you leave them, and Enter commits too. The Save
+button is gone, because leaving one beside self-saving fields recreates the
+same ambiguity in reverse. The page states the rule in one line.
+
+The reasoning behind auto-saving a field that could hold a half-pasted API key:
+a silent no-op is the worst failure available here, because nothing on screen
+contradicts the user's belief. A wrong value that *does* save is visible and
+recoverable — the mode box moves, Test reports it. Invisible beats visible only
+when the invisible thing is correct.
+
+### Changed: three beginner-facing sentences that overclaimed or misdirected
+
+The network error said "It's usually back within a minute" — a recovery time
+never measured, and one that blames the service when the cause may be the
+reader's own connection. It now reads "Couldn't reach the CONTEXA service.
+Check your connection and try again in a moment."
+
+The lost-connection card told the reader that reloading fixes it and then
+offered a Settings button. It now offers Reload.
+
+The quota card pitched an API key on the beginner surface — expert vocabulary
+the audience decision had just moved behind Advanced. It now reads "That's all
+20 free suggestions for today. They come back in about 3 hours." Anyone who
+wants unlimited use still finds the key field where it belongs.
+
+Two new invariants are now tested: no user-facing sentence may contain a raw
+error code, and every one must end in a full stop.
+
+---
+
 ## Extension 0.9.26 — Backend unchanged (0.9.25)
 
 *The beginner release. Audience decision of 2026-08-21: CONTEXA targets

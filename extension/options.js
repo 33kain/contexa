@@ -65,29 +65,34 @@ function paintMode() {
 }
 $('apiKey').addEventListener('input', paintMode);
 
-$('save').addEventListener('click', () => {
-  chrome.storage.local.set({
-    enabled: $('enabled').checked,
-    apiKey: $('apiKey').value.trim(),
-    // No fallback to a default here, deliberately: an empty field must STAY
-    // empty so the shipped default keeps applying to this install forever.
-    model: $('model').value.trim(),
-    proxyUrl: $('proxyUrl').value.trim()
-  }, () => {
+/* One rule for this whole page: a change applies when you leave the field.
+   0.9.26 shipped two rules — the switch saved itself, the text fields waited
+   for a Save button — and the person who wrote the requirements still typed in
+   a field, walked away, and assumed it had applied. If the author falls for it,
+   every beginner will. A silent no-op is the worst failure available here,
+   because nothing on screen contradicts the user's belief; a wrong value that
+   saves is at least visible and fixable (the mode box moves, Test says so). */
+function saveField(key, el) {
+  const value = el.value.trim();
+  // No fallback to a default, ever: an empty field must STAY empty so the
+  // shipped default keeps applying to this install. That is the freeze bug.
+  chrome.storage.local.set({ [key]: value }, () => {
     paintMode();
-    flash('Saved.', true);
+    flash('Saved', true);
   });
-});
+}
+
+for (const [key, id] of [['apiKey','apiKey'], ['model','model'], ['proxyUrl','proxyUrl']]) {
+  const el = $(id);
+  el.addEventListener('blur', () => saveField(key, el));
+  // Enter is what people press when they think they are done.
+  el.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); el.blur(); } });
+}
 
 /* Test whatever will actually be used — the key path, or the backend. */
-$('test').addEventListener('click', () => {
+$('test').addEventListener('click', async () => {
   flash('Testing…');
-  chrome.storage.local.set({
-    apiKey: $('apiKey').value.trim(),
-    model: $('model').value.trim(),
-    proxyUrl: $('proxyUrl').value.trim()
-  }, async () => {
-    paintMode();
+  {
     const own = !!$('apiKey').value.trim();
     try {
       if (own) {
@@ -108,7 +113,7 @@ $('test').addEventListener('click', () => {
     } catch (e) {
       flash('Not reachable: ' + friendly('network'), false);
     }
-  });
+  }
 });
 
 /* Error codes are for the console, not for a person reading a settings page. */

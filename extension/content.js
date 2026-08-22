@@ -456,15 +456,17 @@
   // dressing up generic text as real suggestions.
   function renderQuiet(anchor, mode, reason, resp) {
     const wrap = shell(anchor, mode);
-    let body, btn = 'Settings', openUrl = null;
+    let body, btn = 'Settings', openUrl = null, doReload = false;
     if (mode === 'stale') {
       body = `CONTEXA was updated — reload this page to continue.`;
       btn = 'Reload';
     } else if (mode === 'quota') {
+      /* This card is on the beginner surface, so it no longer pitches an API
+         key — that is expert vocabulary, and the audience decision put it
+         behind Advanced. Anyone who wants unlimited use finds it there. */
       const limit = resp && resp.limit ? resp.limit : 20;
-      body = `Daily limit reached (${limit} replies). Resets ${resetWording(resp && resp.resetsAt)}
-        — or add your own API key for unlimited use.`;
-      btn = 'Add key';
+      body = `That’s all ${limit} free suggestions for today. They come back ${resetWording(resp && resp.resetsAt)}.`;
+      btn = 'Settings';
     } else if (mode === 'unconfigured') {
       body = `CONTEXA isn’t connected to a backend yet. Add your own API key to use it now.`;
       btn = 'Add key';
@@ -483,6 +485,7 @@
       const said = humanError(reason);
       body = esc(said.text);
       btn = said.btn;
+      if (said.reload) doReload = true;
       // Only this one has a fix the user can act on right now, so it gets a
       // real destination instead of the settings page.
       if (said.url) openUrl = said.url;
@@ -491,7 +494,7 @@
       <button>${btn}</button></div>`;
     wrap.querySelector('button').addEventListener('click', () => {
       // no chrome.* on these two paths: they must work when the context is dead
-      if (mode === 'stale') return location.reload();
+      if (mode === 'stale' || doReload) return location.reload();
       if (openUrl) return window.open(openUrl, '_blank', 'noopener');
       try { chrome.runtime.sendMessage({ type: 'openOptions' }).catch(() => {}); } catch {}
     });
@@ -513,7 +516,7 @@
       btn: 'Settings'
     };
     if (/^network$/.test(c) || /^proxy_5\d\d$/.test(c) || /^upstream_/.test(c)) return {
-      text: 'Couldn’t reach the CONTEXA service just now. It’s usually back within a minute.',
+      text: 'Couldn’t reach the CONTEXA service. Check your connection and try again in a moment.',
       btn: 'Settings'
     };
     if (/^server_not_configured$/.test(c)) return {
@@ -533,8 +536,10 @@
       btn: 'Settings'
     };
     if (/extension:/.test(c) || /^unknown_message$/.test(c)) return {
-      text: 'CONTEXA lost its connection to this page. Reloading usually fixes it.',
-      btn: 'Settings'
+      // The sentence named the fix and the button did something else. Offer the
+      // fix itself.
+      text: 'CONTEXA lost its connection to this page. Reload the page to reconnect it.',
+      btn: 'Reload', reload: true
     };
     return {
       text: 'Something went wrong generating suggestions. Send another message to try again.',

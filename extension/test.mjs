@@ -594,7 +594,7 @@ const settle = () => new Promise(r => setTimeout(r, 0));
   t('options never backfills an empty model field',
     !/\.value\.trim\(\)\s*\|\|\s*DEFAULTS\.model/.test(js));
 
-  for (const id of ['apiKey', 'model', 'proxyUrl', 'test', 'save']) {
+  for (const id of ['apiKey', 'model', 'proxyUrl', 'test']) {
     const at = html.indexOf('id="' + id + '"');
     t('expert control hidden behind Advanced: ' + id, at > det, 'at=' + at);
   }
@@ -612,6 +612,44 @@ const settle = () => new Promise(r => setTimeout(r, 0));
   t('shipped model is asked for, not copied', /type: 'getConfig'/.test(js));
   t('options translates codes too', /forbidden_origin/.test(js));
   t('page states it is not affiliated', /not affiliated with Anthropic/i.test(html));
+}
+
+/* ---- v0.9.27: one save rule, and copy that doesn't overclaim ------------- */
+{
+  const js = readFileSync('./options.js', 'utf8');
+  const html = readFileSync('./options.html', 'utf8');
+
+  /* 0.9.26 taught two rules — switch self-saved, fields waited for Save — and
+     the author of the requirements still lost a change to it. */
+  t('advanced fields save on blur', /addEventListener\('blur', \(\) => saveField/.test(js));
+  t('Enter commits the field too', /e\.key === 'Enter'[\s\S]{0,60}el\.blur\(\)/.test(js));
+  t('the Save button is gone', !html.includes('id="save"') && !js.includes("$('save')"));
+  t('the page states the rule', /save on their own/i.test(html));
+  t('saveField never backfills a default',
+    !/\.value\.trim\(\)\s*\|\|\s*DEFAULTS\./.test(js));
+  t('every field is wired to saveField',
+    ["'apiKey'", "'model'", "'proxyUrl'"].every(k => js.includes(k)) && js.includes('function saveField'));
+  t('Test no longer writes before testing',
+    !/\$\('test'\)[\s\S]{0,200}chrome\.storage\.local\.set/.test(js));
+
+  const c = readFileSync('./content.js', 'utf8');
+  t('no invented recovery time', !/usually back within a minute/.test(c));
+  t('network error names the user connection too',
+    c.includes('Check your connection and try again in a moment'));
+  t('lost-connection card offers Reload, not Settings',
+    /btn: 'Reload', reload: true/.test(c));
+  t('reload flag is actually honoured', /mode === 'stale' \|\| doReload/.test(c));
+  t('quota card no longer pitches an API key on the beginner surface',
+    !/add your own API key for unlimited use/.test(c));
+  t('quota card says what happened in plain words',
+    /free suggestions for today/.test(c));
+
+  // nothing user-facing may name a raw error code
+  const humanTexts = [...c.matchAll(/text: '([^']*)'/g)].map(m => m[1]);
+  t('no user-facing sentence contains an error code',
+    humanTexts.every(x => !/\b[a-z]+_[a-z0-9]+\b/.test(x)), humanTexts.find(x => /\b[a-z]+_[a-z0-9]+\b/.test(x)) || '');
+  t('every user-facing sentence ends in a full stop',
+    humanTexts.every(x => /[.!?]$/.test(x)));
 }
 
 console.log(fails.length ? '\nFAILED: ' + fails.join(', ') : '\nall extension checks passed');
