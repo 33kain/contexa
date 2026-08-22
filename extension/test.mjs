@@ -655,7 +655,7 @@ const settle = () => new Promise(r => setTimeout(r, 0));
     humanTexts.every(x => /[.!?]$/.test(x)));
 }
 
-/* ---- 16. v0.9.28: capability moves ---------------------------------------
+/* ---- v0.9.28: capability moves -------------------------------------------
    The first class of chip that teaches a FEATURE rather than a next step.
    Three risks these assertions exist to catch: (a) the paragraph drifting
    into the "moves that usually win" list, where nine equal bullets would let
