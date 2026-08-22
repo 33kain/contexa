@@ -7,6 +7,62 @@ free to diverge, and the settings page labels them separately for that reason.
 
 ---
 
+## Extension 0.9.31 — Backend 0.9.31
+
+*The worker learns to speak to both generations of client at once.*
+
+### The problem 0.9.30 created
+
+0.9.30 renamed the wire field from `steps` to `questions` and changed what a row
+IS — a composer-ready message became a questionnaire. That breaks in **both**
+directions across a boundary the server cannot upgrade:
+
+- an old extension asks a 0.9.30 worker for `steps` and gets none
+- a 0.9.30 extension asks an older worker for `questions` and gets none
+
+Both render *"Couldn't write suggestions for this reply."* — an error message
+that describes neither cause. And because Google approves on its own clock,
+**no deploy order avoids a window of breakage**: hold the worker back and newly
+approved clients break; deploy it early and existing installs break.
+
+### The fix
+
+The extension sends its version with every hosted request. A client that sends
+none predates the field, so its silence identifies it — old clients never
+change, which makes absence a reliable signal rather than a guess.
+
+The worker keeps **both prompts live** and picks by client: pre-0.9.30 gets the
+0.9.29 trajectory prompt, one chip, the `steps` key, no `options`; 0.9.30+ gets
+the questionnaire, up to four questions, the `questions` key, with options.
+
+Deploy order stops mattering. Submit whenever, deploy whenever.
+
+### One bug caught by its own test
+
+The parser read `parsed.questions` only — but the legacy prompt emits
+`{"steps":[...]}`. Every legacy call would have produced an empty array, which
+this code reads as *the model earned nothing* and turns into a **quiet row**: a
+total outage wearing the mask of correct behaviour, on the one path with no
+coverage from real use. The parser now accepts whichever key arrived, and a
+regression test pins it.
+
+### Guards
+
+`build.mjs` now fails if `LEGACY_STEPS_SYSTEM` goes missing from the worker, if
+it is ever copied **into** the extension (the byte-identity rule invites exactly
+that mistake, and it would ship the previous product to current users), or if
+the extension stops sending its version. Worker tests declare which client
+generation each one simulates — a single default is what hid the original break.
+
+### Retirement
+
+This is a transition shim. Once the store has been on 0.9.30+ long enough that
+no older install is plausibly still calling, delete `LEGACY_STEPS_SYSTEM`, the
+negotiation, and the version field. Written down in the code because a shim with
+no removal note is permanent.
+
+---
+
 ## Extension 0.9.30 — Backend 0.9.30
 
 *CONTEXA stops writing your next message and starts asking you the questions

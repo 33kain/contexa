@@ -15,6 +15,14 @@ function makeKV(seed = {}) {
   };
 }
 const DEV = 'a'.repeat(32);
+/* post() deliberately sends NO version: it simulates a pre-0.9.30 client, the
+   generation the dual-schema shim exists for. postV() is a modern client. Every
+   assertion below therefore declares which generation it is testing, which is
+   the whole point — a single default would have hidden the break that shipped. */
+function postV(body = { prompt: 'ship it', reply: 'r'.repeat(120) }) {
+  return post(Object.assign({ v: '0.9.31' }, body));
+}
+
 function post(body = { prompt: 'ship it', reply: 'r'.repeat(120) }) {
   return new Request('https://x/v1/next-steps', {
     method: 'POST',
@@ -45,7 +53,7 @@ t('health reports configured', b.configured === true);
 const day = new Date().toISOString().slice(0, 10);
 const kv = makeKV({ ['q:' + DEV + ':' + day]: '20' });
 upstream = 0;
-r = await w.fetch(post(), { ANTHROPIC_API_KEY: 'k', CX_KV: kv, IP_SALT: 's' });
+r = await w.fetch(postV(), { ANTHROPIC_API_KEY: 'k', CX_KV: kv, IP_SALT: 's' });
 b = await r.json();
 t('device quota returns 429', r.status === 429, String(r.status));
 t('resetsAt parses as a date', Number.isFinite(Date.parse(b.resetsAt || '')), String(b.resetsAt));
@@ -106,7 +114,7 @@ t('unknown route 404', r.status === 404, String(r.status));
       async json() { return { content: c.content, stop_reason: c.stop, usage: c.usage }; },
       async text() { return ''; }
     });
-    const r = await w.fetch(post(), { ANTHROPIC_API_KEY: 'k', CX_KV: makeKV(), IP_SALT: 's' });
+    const r = await w.fetch(postV(), { ANTHROPIC_API_KEY: 'k', CX_KV: makeKV(), IP_SALT: 's' });
     const b = await r.json();
     t(`diag: ${c.name}`, b.error === 'truncated' && b.diag && c.expect(b.diag),
       JSON.stringify(b.diag));
@@ -117,7 +125,7 @@ t('unknown route 404', r.status === 404, String(r.status));
     async json() { return { content: [{ type: 'text', text: 'SECRET-CONVERSATION-TEXT' }], stop_reason: 'max_tokens', usage: { output_tokens: 9 } }; },
     async text() { return ''; }
   });
-  const r2 = await w.fetch(post(), { ANTHROPIC_API_KEY: 'k', CX_KV: makeKV(), IP_SALT: 's' });
+  const r2 = await w.fetch(postV(), { ANTHROPIC_API_KEY: 'k', CX_KV: makeKV(), IP_SALT: 's' });
   const body = JSON.stringify(await r2.json());
   t('diag carries no response text', !body.includes('SECRET-CONVERSATION-TEXT'), body);
 }
@@ -137,7 +145,7 @@ t('unknown route 404', r.status === 404, String(r.status));
     }; },
     async text() { return ''; }
   });
-  const r = await w.fetch(post(), { ANTHROPIC_API_KEY: 'k', CX_KV: makeKV(), IP_SALT: 's' });
+  const r = await w.fetch(postV(), { ANTHROPIC_API_KEY: 'k', CX_KV: makeKV(), IP_SALT: 's' });
   const b = await r.json();
   t('partial salvage still returns 200', r.status === 200, String(r.status));
   // 0.9.29: salvage still keeps only COMPLETE steps, but the core ships one.
@@ -167,7 +175,7 @@ t('unknown route 404', r.status === 404, String(r.status));
     }; },
     async text() { return ''; }
   });
-  const r = await w.fetch(post(), { ANTHROPIC_API_KEY: 'k', CX_KV: makeKV(), IP_SALT: 's' });
+  const r = await w.fetch(postV(), { ANTHROPIC_API_KEY: 'k', CX_KV: makeKV(), IP_SALT: 's' });
   const b = await r.json();
   t('evidence-less question dropped (hosted)', b.questions && b.questions.length === 2,
     'kept=' + (b.questions && b.questions.length));
@@ -196,7 +204,7 @@ t('unknown route 404', r.status === 404, String(r.status));
     }; },
     async text() { return ''; }
   });
-  const r = await w.fetch(post(), { ANTHROPIC_API_KEY: 'k', CX_KV: makeKV(), IP_SALT: 's' });
+  const r = await w.fetch(postV(), { ANTHROPIC_API_KEY: 'k', CX_KV: makeKV(), IP_SALT: 's' });
   const b = await r.json();
   t('deliberate zero is a 200, not an error', r.status === 200, String(r.status));
   t('quiet row carries an empty steps array', Array.isArray(b.questions) && b.questions.length === 0,
@@ -221,7 +229,7 @@ t('unknown route 404', r.status === 404, String(r.status));
     }; },
     async text() { return ''; }
   });
-  const r = await w.fetch(post(), { ANTHROPIC_API_KEY: 'k', CX_KV: makeKV(), IP_SALT: 's' });
+  const r = await w.fetch(postV(), { ANTHROPIC_API_KEY: 'k', CX_KV: makeKV(), IP_SALT: 's' });
   const b = await r.json();
   t('gate-ate-everything is still an error, not a quiet row', r.status === 502, String(r.status));
   t('that error is no_steps with a diag', b.error === 'no_steps' && !!b.diag, JSON.stringify(b.error));
@@ -243,10 +251,104 @@ t('unknown route 404', r.status === 404, String(r.status));
     }; },
     async text() { return ''; }
   });
-  const r = await w.fetch(post(), { ANTHROPIC_API_KEY: 'k', CX_KV: makeKV(), IP_SALT: 's' });
+  const r = await w.fetch(postV(), { ANTHROPIC_API_KEY: 'k', CX_KV: makeKV(), IP_SALT: 's' });
   const b = await r.json();
   t('a ~690-char step is not truncated at the old 600 cap',
     b.questions && b.questions[0] && b.questions[0].text.length > 600, 'len=' + (b.questions && b.questions[0] && b.questions[0].text.length));
+}
+
+
+/* ---- v0.9.31: dual schema, both directions --------------------------------
+   The bug this exists to prevent already shipped once. 0.9.30 renamed the wire
+   field and changed what a row IS, and it broke in BOTH directions: an old
+   client asking a new worker for `steps`, and a new client asking an old worker
+   for `questions`. Both render "Couldn't write suggestions" — an error message
+   describing neither cause. Only ONE of those directions is fixable from the
+   server, and this is it. */
+{
+  const modelJson = obj => async () => ({
+    ok: true, status: 200,
+    async json() { return {
+      stop_reason: 'end_turn',
+      usage: { input_tokens: 500, output_tokens: 200 },
+      content: [{ type: 'text', text: JSON.stringify(obj) }]
+    }; },
+    async text() { return ''; }
+  });
+
+  const THREE = { questions: [
+    { label: 'Occasion', text: 'What is the occasion?', options: ['Wedding', 'Work talk'], evidence: 'rrrr' },
+    { label: 'Length', text: 'How long should it run?', options: ['~2 min', '~5 min'], evidence: 'rrrr' },
+    { label: 'Language', text: 'Which language?', options: ['English', 'Serbian'], evidence: 'rrrr' }
+  ] };
+
+  // A client that sends no version is, by definition, older than the field.
+  globalThis.fetch = modelJson(THREE);
+  let r = await w.fetch(post(), { ANTHROPIC_API_KEY: 'k', CX_KV: makeKV(), IP_SALT: 's' });
+  let b = await r.json();
+  t('legacy client gets steps, never questions',
+    Array.isArray(b.steps) && !('questions' in b), Object.keys(b).join(','));
+  t('legacy client is capped at one chip', b.steps && b.steps.length === 1, 'kept=' + (b.steps && b.steps.length));
+  t('legacy chip carries no options key it cannot render',
+    b.steps && b.steps[0] && !('options' in b.steps[0]), JSON.stringify(b.steps && b.steps[0]));
+
+  /* The legacy PROMPT emits {"steps":[...]}, not {"questions":[...]}. A parser
+     reading only the new key turns every legacy call into a quiet row — an
+     outage that looks exactly like the product working correctly. */
+  globalThis.fetch = modelJson({ steps: [
+    { label: 'Upload and decide', text: 'Here is the file. Run the checklist.', evidence: 'rrrr' }
+  ] });
+  r = await w.fetch(post(), { ANTHROPIC_API_KEY: 'k', CX_KV: makeKV(), IP_SALT: 's' });
+  b = await r.json();
+  t('a legacy-shaped model response is parsed, not silently quieted',
+    b.steps && b.steps.length === 1 && b.steps[0].label === 'Upload and decide', JSON.stringify(b.steps));
+  t('that legacy response is not flagged quiet', b.quiet !== true);
+
+  // A client that sends one understands the questionnaire.
+  globalThis.fetch = modelJson(THREE);
+  r = await w.fetch(postV(), { ANTHROPIC_API_KEY: 'k', CX_KV: makeKV(), IP_SALT: 's' });
+  b = await r.json();
+  t('modern client gets questions, never steps',
+    Array.isArray(b.questions) && !('steps' in b), Object.keys(b).join(','));
+  t('modern client gets all three questions', b.questions && b.questions.length === 3,
+    'kept=' + (b.questions && b.questions.length));
+  t('modern client gets options', b.questions && Array.isArray(b.questions[0].options)
+    && b.questions[0].options[0] === 'Wedding', JSON.stringify(b.questions && b.questions[0]));
+
+  // An empty version string is not a version. Whitespace is not a version.
+  globalThis.fetch = modelJson(THREE);
+  r = await w.fetch(post({ prompt: 'p', reply: 'r'.repeat(120), v: '   ' }),
+    { ANTHROPIC_API_KEY: 'k', CX_KV: makeKV(), IP_SALT: 's' });
+  b = await r.json();
+  t('a blank version is treated as a legacy client', Array.isArray(b.steps) && !('questions' in b));
+
+  // The two prompts must actually differ, or the shim is decorative.
+  globalThis.fetch = async (url, opts) => {
+    sent = JSON.parse(opts.body).system;
+    return (await modelJson(THREE)())
+  };
+  let sent = null;
+  await w.fetch(post(), { ANTHROPIC_API_KEY: 'k', CX_KV: makeKV(), IP_SALT: 's' });
+  const legacySystem = sent;
+  await w.fetch(postV(), { ANTHROPIC_API_KEY: 'k', CX_KV: makeKV(), IP_SALT: 's' });
+  const modernSystem = sent;
+  t('legacy clients get the 0.9.29 trajectory prompt',
+    typeof legacySystem === 'string' && legacySystem.includes('Return AT MOST ONE step.'));
+  t('modern clients get the questionnaire prompt',
+    typeof modernSystem === 'string' && modernSystem.includes('BETWEEN ZERO AND FOUR questions'));
+  t('the two prompts are genuinely different', legacySystem !== modernSystem);
+
+  // Zero must stay reachable on BOTH sides, in each side's own vocabulary.
+  globalThis.fetch = modelJson({ questions: [] });
+  r = await w.fetch(post(), { ANTHROPIC_API_KEY: 'k', CX_KV: makeKV(), IP_SALT: 's' });
+  b = await r.json();
+  t('legacy quiet row is an empty steps array, 200',
+    r.status === 200 && Array.isArray(b.steps) && b.steps.length === 0 && b.quiet === true);
+  globalThis.fetch = modelJson({ questions: [] });
+  r = await w.fetch(postV(), { ANTHROPIC_API_KEY: 'k', CX_KV: makeKV(), IP_SALT: 's' });
+  b = await r.json();
+  t('modern quiet row is an empty questions array, 200',
+    r.status === 200 && Array.isArray(b.questions) && b.questions.length === 0 && b.quiet === true);
 }
 
 
@@ -260,7 +362,7 @@ t('unknown route 404', r.status === 404, String(r.status));
       content: [{ type: 'text', text: JSON.stringify({ questions: [{ label: 'A', text: 'Do.', evidence: 'rrrr' }] }) }] }; },
       async text() { return ''; } };
   };
-  await w.fetch(post(), { ANTHROPIC_API_KEY: 'k', CX_KV: makeKV(), IP_SALT: 's' });
+  await w.fetch(postV(), { ANTHROPIC_API_KEY: 'k', CX_KV: makeKV(), IP_SALT: 's' });
   t('hosted request disables thinking', sentBody.thinking && sentBody.thinking.type === 'disabled',
     JSON.stringify(sentBody.thinking));
 }
@@ -280,7 +382,7 @@ t('unknown route 404', r.status === 404, String(r.status));
       content: [{ type: 'text', text: JSON.stringify({ questions: [{ label: 'A', text: 'Do.', evidence: 'rrrr' }] }) }] }; },
       async text() { return ''; } };
   };
-  const r = await w.fetch(post(), { ANTHROPIC_API_KEY: 'k', CX_KV: makeKV(), IP_SALT: 's' });
+  const r = await w.fetch(postV(), { ANTHROPIC_API_KEY: 'k', CX_KV: makeKV(), IP_SALT: 's' });
   const b = await r.json();
   t('worker retries thinking-400 without the field', calls === 2, 'calls=' + calls);
   t('worker retry returns steps', b.questions && b.questions.length === 1, JSON.stringify(b.questions));

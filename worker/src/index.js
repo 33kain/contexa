@@ -19,7 +19,7 @@
    which build is live. Deliberately independent of the extension's manifest
    version — they ship on separate paths and a worker fix should not force
    everyone to reinstall the extension. */
-const BUILD = '0.9.30';
+const BUILD = '0.9.31';
 
 const ANTHROPIC_URL = 'https://api.anthropic.com/v1/messages';
 /* Sonnet 5 rather than Haiku, on measured evidence: in a controlled three-model
@@ -51,6 +51,53 @@ const MAX_TOKENS = 2500;   // Opus hit the 1600 ceiling and failed; Sonnet write
 const MAX_INTENT_CHARS = 300;
 const EXPAND_MAX_TOKENS = 1200;
 const MAX_EXPANSION_CHARS = 900;   // hard cap; the prompt's own soft target is 700
+
+/* 0.9.31 — dual schema, and why it exists.
+   0.9.30 renamed the wire field from `steps` to `questions` and changed what a
+   row IS: a composer-ready message became a questionnaire. That breaks in BOTH
+   directions across a client the server cannot upgrade — an old extension asked
+   for `steps` and got none; a new one asked for `questions` from an old worker
+   and got none. Either way the user sees "Couldn't write suggestions".
+
+   The store approves on Google's clock, not ours, so there is no deploy order
+   that avoids a window of breakage. Instead the worker serves both generations:
+   0.9.30+ sends its version in the request, and anything that does NOT send one
+   is, by definition, an older client — old clients never change, so their
+   silence is a reliable signal.
+
+   Cost: the previous prompt has to stay live here, worker-only, with no
+   counterpart in the extension. RETIREMENT: once the store has been on 0.9.30+
+   long enough that no older install is plausibly still calling, delete
+   LEGACY_STEPS_SYSTEM, this comment, and the negotiation. Written down because
+   a transition shim with no removal note is permanent. */
+const LEGACY_STEPS_SYSTEM = `You are CONTEXA, embedded in claude.ai. You see the user's last message and Claude's reply. Read them TOGETHER: the user's message carries the intent — where this person is trying to get to and why; the reply carries the state — how far they got. Your job: write the ONE message the user would send two turns from now if they could already see the road. Think past the obvious next step to the destination it serves, and fold the follow-through in now.
+The capture of the reply may end with the line "[capture window ends here — the reply continues beyond this point]". That line is the edge of your viewport, not a defect in the reply. Never mention it, never describe the reply as cut off, and never ask for the continuation. Evidence must come from before it.
+Return AT MOST ONE step. Zero is a real answer: when the reply closed the loop and nothing worth a click remains, return no step at all. An empty row is honest; a filler chip is not. And one strong step beats one adequate step — if what you have is merely adequate, reread the pair for the move that would make the user think "that is exactly where I was going."
+EVERY step must be earned by a verbatim fragment of the reply — the sentence where the road ahead shows through: the request it makes, the hard part it names, the offer it ends on, the assumption it leans on. Put that fragment in the step's "evidence" field: at most 90 characters, copied exactly, never paraphrased. No quotable evidence, no step.
+NEVER return the obvious next step — the message the user would type without you: answering the reply's direct question, picking an item from its menu, saying yes to what it offered. If the reply ends in options, do not transcribe them into a chip; the user can already see them. Choose the most plausible road, mark the choice with "Assume" so the user can strike it, then drive past the first junction: fold in what they would ask for two turns later — the format that makes the output judgeable, the decision the work is for, the check that must pass before it counts.
+When the road runs through something Claude can do, route the step through it as part of the plan, never as a tip: a document that will be revised again lives in an artifact Claude keeps updated; a claim that may have changed gets verified with web search before more is built on it; work described from memory gets done on the uploaded real thing instead, with the attachment point marked <attach here>; context the user keeps re-explaining becomes project instructions Claude drafts.
+Hard rules:
+- The text always addresses Claude and is ready to send verbatim. It never commands the user's action and never contains instructions aimed at the user; when only the user can act, the text directs Claude to prepare Claude's side of it.
+- A step never states a fact only the user can know as though observed. Open it with "Assume" or leave <a slot in angle brackets>.
+- Never re-request anything the reply already delivered. No UI click-paths, no menu names, no settings.
+- Question-form only when the question is aimed at Claude and is the sharpest form of the ask. NEVER a question aimed at the user or one that needs the user's knowledge to answer.
+Worked examples, from real exchanges:
+- The user described a spreadsheet (date, category, amount, ~300 rows) and asked what to look for; the reply gave a checklist and ended "Upload it and I'll run through this on the actual numbers." The obvious step — never return it — is uploading with no further instruction. Return instead: label "Upload and decide", text "Here's the spreadsheet. <attach here>\\nRun the full checklist on the real numbers. Then end with the three findings worth the most money this month, ranked by amount, and the one recurring charge to cancel first. Findings only — skip whatever checks out clean."
+- The user asked for a creative brainstorm; the reply asked them to pick a lane and promised "a proper spread of ideas plus something visual to react to." The obvious step is naming a lane. Return instead: label "Set the lane", text "Assume the lane is marketing for a small local business.\\nGive me fifteen ideas in three bands — five safe, five bold, five you'd never dare pitch — one line each, no explanations.\\nPut them in an artifact and keep it updated: I'll cut, you refill the bands until three are worth developing."
+- The reply laid out a design and named its own weak point: "The hard engineering problem is candidate generation." Return the step that goes straight at the named hard part: label "Attack candidate generation", text "Go at the hard part you named: candidate generation.\\nDraft eight candidate framings for the deploy-dread scenario — specific enough to reject usefully, wrong in interesting directions, zero paraphrase.\\nMark which axis each one bets on, so a rejection still teaches us the shape."
+The step has THREE parts:
+- "label": AT MOST 4 WORDS, verb-first, plain language, no punctuation.
+- "text": the full prompt loaded into the composer, ready to send verbatim, up to 700 characters. Short lines, with \\n between lines inside the JSON string when structure helps. Step texts are prose. Refer to code by its name and location, and when a step's outcome is new or changed code, the text directs Claude to write it rather than containing it. Write it so it works even unclicked, as a plan the user can read.
+- "evidence": the verbatim reply fragment that earned this step, at most 90 characters.
+Reply with ONLY minified JSON: {"steps":[{"label":"...","text":"...","evidence":"..."}]} — exactly one step, or {"steps":[]} when nothing is earned.`;
+
+/* A client that sends no version predates the field, so it is old. Anything
+   that sends one is at least 0.9.30 — the release that added it. Deliberately
+   not a semver comparison: the only question is "does this client understand
+   questions", and sending the field IS the answer. */
+function wantsQuestions(body) {
+  return typeof body.v === 'string' && body.v.trim() !== '';
+}
 
 /* CAPABILITY-AUDIT: 2026-08-22 — re-check the capability moves in QUESTIONS_SYSTEM
    against the real product. build.mjs warns once this date is over 120 days old.
@@ -331,6 +378,7 @@ export default {
     try { body = await request.json(); } catch { return json({ error: 'bad_request' }, 400, request, env); }
 
     // clamp server-side: the client cannot make a request more expensive
+    const asksQuestions = wantsQuestions(body);
     const prompt = String(body.prompt || '').slice(0, MAX_PROMPT_CHARS);
     const reply = String(body.reply || '').slice(0, MAX_REPLY_CHARS);
     let intent = '';
@@ -387,7 +435,7 @@ export default {
           model: env.MODEL || MODEL,
           max_tokens: MAX_TOKENS,
           thinking: { type: 'disabled' },
-          system: QUESTIONS_SYSTEM,
+          system: asksQuestions ? QUESTIONS_SYSTEM : LEGACY_STEPS_SYSTEM,
           messages: [{
             role: 'user',
             content: 'USER MESSAGE:\n' + (prompt || '(not captured)') + '\n\nCLAUDE REPLY:\n' + reply
@@ -482,7 +530,14 @@ export default {
        grounding counts, so the page console can report the rate without any
        reply text leaving the worker's logs. */
     const normWs = s => String(s || '').replace(/\s+/g, ' ').trim();
-    const rawSteps = Array.isArray(parsed.questions) ? parsed.questions : [];
+    /* The two prompts emit two different keys — LEGACY_STEPS_SYSTEM says
+       {"steps":[...]}, QUESTIONS_SYSTEM says {"questions":[...]} — so the parser
+       has to accept whichever arrived. Reading only one silently produced an
+       empty array, which the code below reads as 'the model earned nothing' and
+       turns into a QUIET ROW: a total outage wearing the mask of correct
+       behaviour, on the exact path that has no test coverage from real use. */
+    const rawSteps = Array.isArray(parsed.questions) ? parsed.questions
+      : Array.isArray(parsed.steps) ? parsed.steps : [];
     const withEv = rawSteps.filter(s =>
       s && typeof s.text === 'string' && s.text.trim() && normWs(s.evidence));
     const normReply = normWs(reply);
@@ -492,13 +547,22 @@ export default {
       else console.log('[CONTEXA] ungrounded chip', JSON.stringify(String(s.label || '').slice(0, 40)));
     }
     console.log('[CONTEXA] evidence', JSON.stringify(withEv.map(s => String(s.evidence).slice(0, 90))));
+    /* One chip for a legacy client, up to four questions for a new one — the
+       two products have different caps and a legacy client would render four
+       question-shaped chips as four pasteable prompts, which is nonsense. */
     const steps = withEv
-      .slice(0, 4)
-      .map(s => ({
-        label: String(s.label || '').slice(0, 80),
-        text: trimPayload(s.text),
-        options: cleanOptions(s.options)
-      }));
+      .slice(0, asksQuestions ? 4 : 1)
+      .map(s => asksQuestions
+        ? {
+            label: String(s.label || '').slice(0, 80),
+            text: trimPayload(s.text),
+            options: cleanOptions(s.options)
+          }
+        : { label: String(s.label || '').slice(0, 80), text: trimPayload(s.text) });
+    // The key an old client reads is not the key a new one reads.
+    const shape = extra => asksQuestions
+      ? Object.assign({ questions: steps }, extra)
+      : Object.assign({ steps }, extra);
     const grounding = { total: rawSteps.length, kept: steps.length, grounded };
     if (!steps.length) {
       /* 0.9.29 — there are now TWO silences and conflating them would hide the
@@ -509,8 +573,8 @@ export default {
          produced and the evidence gate ate every one of them, which is a real
          failure and keeps its diagnostic. */
       if (!rawSteps.length) {
-        console.log('[CONTEXA] quiet row — nothing to ask');
-        return json({ questions: [], grounding, quiet: true }, 200, request, env);
+        console.log('[CONTEXA] quiet row — nothing to ask', asksQuestions ? '(questions)' : '(legacy steps)');
+        return json(shape({ grounding, quiet: true }), 200, request, env);
       }
       const diag = diagnose(data, text);
       console.log('[CONTEXA] parsed but no usable steps', JSON.stringify(diag), 'rawSteps=' + rawSteps.length);
@@ -528,19 +592,17 @@ export default {
       const diag = diagnose(data, text);
       console.log('[CONTEXA] partial salvage', JSON.stringify(diag),
         'kept=' + steps.length, 'text[-300]=', JSON.stringify(text.slice(-300)));
-      return json({
-        questions: steps,
+      return json(shape({
         grounding,
         quota: { used: quota.used, limit: DEVICE_DAILY_LIMIT },
         partial: true,
         diag
-      }, 200, request, env);
+      }), 200, request, env);
     }
 
-    return json({
-      questions: steps,
+    return json(shape({
       grounding,
       quota: { used: quota.used, limit: DEVICE_DAILY_LIMIT }
-    }, 200, request, env);
+    }), 200, request, env);
   }
 };

@@ -7,7 +7,7 @@ import { readFileSync, writeFileSync, mkdirSync, copyFileSync, readdirSync, rmSy
 import { join } from 'node:path';
 import { deflateRawSync, crc32 as zlibCrc32 } from 'node:zlib';
 
-const VERSION = '0.9.30';
+const VERSION = '0.9.31';
 const BACKEND = 'https://contexa-api.michu110899.workers.dev';
 
 const SRC = 'extension';
@@ -83,6 +83,19 @@ for (const name of ['QUESTIONS_SYSTEM', 'EXPAND_SYSTEM']) {
 const sectionRe = /'ROUGH ASK:\\n' \+ intent/;
 if (!sectionRe.test(outBg) || !sectionRe.test(wrkForPrompts))
   fails.push('expand section labels missing or drifted between extension and worker');
+
+/* 0.9.31: LEGACY_STEPS_SYSTEM is worker-only BY DESIGN — it serves extensions
+   older than 0.9.30, which by definition cannot be updated from here. Someone
+   reading the byte-identity rule ('both prompts live in two places') would
+   reasonably try to sync it into background.js; that would ship the previous
+   product to current users. Assert both halves: present in the worker, absent
+   from the extension. */
+if (!wrkForPrompts.includes('const LEGACY_STEPS_SYSTEM'))
+  fails.push('LEGACY_STEPS_SYSTEM missing from the worker - pre-0.9.30 clients would break');
+if (outBg.includes('const LEGACY_STEPS_SYSTEM'))
+  fails.push('LEGACY_STEPS_SYSTEM copied into the extension - it is worker-only, see the comment there');
+if (!outBg.includes('v: chrome.runtime.getManifest().version'))
+  fails.push('the extension no longer sends its version - the worker would answer in the legacy shape');
 
 /* 0.9.28: the capability moves teach features of a product that changes without
    telling us, and nothing else in this build can see a stale exemplar. The dated

@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "CONTEXA - Prompt like a PRO",
-  "version": "0.9.30",
+  "version": "0.9.31",
   "description": "Reads the reply and hands you your next prompt, tailored in AI language, ready to send. No API key, no account, no setup.",
   "permissions": [
     "storage"

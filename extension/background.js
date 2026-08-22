@@ -307,7 +307,10 @@ async function callHosted(prompt, reply) {
     res = await fetch(base + '/v1/next-steps', {
       method: 'POST',
       headers: { 'content-type': 'application/json', 'x-cx-device': device },
-      body: JSON.stringify({ prompt, reply })
+      /* 0.9.31: the version IS the schema negotiation. A worker that receives
+         no `v` knows it is talking to a pre-0.9.30 client and answers in the old
+         shape. Never remove this before LEGACY_STEPS_SYSTEM is retired worker-side.  */
+      body: JSON.stringify({ prompt, reply, v: chrome.runtime.getManifest().version })
     });
   } catch (e) {
     return { error: 'network', detail: String(e) };
