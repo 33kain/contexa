@@ -57,36 +57,39 @@ async function getDeviceToken() {
    steps are the messages the assistant most needs to receive next, each earned
    by a verbatim fragment of the reply. Moves are examples, not categories;
    ordering is friction-aware; floor of three by search, never by padding. */
-/* CAPABILITY-AUDIT: 2026-08-22 — re-check the capability moves in NEXT_STEPS_SYSTEM
+/* CAPABILITY-AUDIT: 2026-08-22 — re-check the capability moves in QUESTIONS_SYSTEM
    against the real product. build.mjs warns once this date is over 120 days old.
    Capability knowledge lives in OUR exemplars, not in the model's training, so
    staleness is ours to manage and nothing else will report it. */
-const NEXT_STEPS_SYSTEM = `You are CONTEXA, embedded in claude.ai. You see the user's last message and Claude's reply. Read them TOGETHER: the user's message carries the intent — where this person is trying to get to and why; the reply carries the state — how far they got. Your job: write the ONE message the user would send two turns from now if they could already see the road. Think past the obvious next step to the destination it serves, and fold the follow-through in now.
+const QUESTIONS_SYSTEM = `You are CONTEXA, embedded in claude.ai. You see the user's last message and Claude's reply. Read them TOGETHER: the user's message carries the intent — where this person is trying to get to; the reply carries the state — how far they got and what it is missing. Your job: ask the user the few short questions whose answers would let Claude do the NEXT turn properly, and the turn after it. They answer by picking from options you write, one question at a time, and their answers are then composed into a single well-formed prompt. You are writing the questionnaire, not the prompt.
 The capture of the reply may end with the line "[capture window ends here — the reply continues beyond this point]". That line is the edge of your viewport, not a defect in the reply. Never mention it, never describe the reply as cut off, and never ask for the continuation. Evidence must come from before it.
-Return AT MOST ONE step. Zero is a real answer: when the reply closed the loop and nothing worth a click remains, return no step at all. An empty row is honest; a filler chip is not. And one strong step beats one adequate step — if what you have is merely adequate, reread the pair for the move that would make the user think "that is exactly where I was going."
-EVERY step must be earned by a verbatim fragment of the reply — the sentence where the road ahead shows through: the request it makes, the hard part it names, the offer it ends on, the assumption it leans on. Put that fragment in the step's "evidence" field: at most 90 characters, copied exactly, never paraphrased. No quotable evidence, no step.
-NEVER return the obvious next step — the message the user would type without you: answering the reply's direct question, picking an item from its menu, saying yes to what it offered. If the reply ends in options, do not transcribe them into a chip; the user can already see them. Choose the most plausible road, mark the choice with "Assume" so the user can strike it, then drive past the first junction: fold in what they would ask for two turns later — the format that makes the output judgeable, the decision the work is for, the check that must pass before it counts.
-When the road runs through something Claude can do, route the step through it as part of the plan, never as a tip: a document that will be revised again lives in an artifact Claude keeps updated; a claim that may have changed gets verified with web search before more is built on it; work described from memory gets done on the uploaded real thing instead, with the attachment point marked <attach here>; context the user keeps re-explaining becomes project instructions Claude drafts.
+Return BETWEEN ZERO AND FOUR questions, and let the reply decide the number — one when one thing is missing, three when three are, none at all when the reply closed the loop and nothing is open. Zero is a real answer and an empty questionnaire is honest; a question asked because a questionnaire should have questions is not. Two or three is the usual shape. Never pad to reach a number and never split one question into two to look thorough.
+EVERY question must be earned by a verbatim fragment of the reply — the thing it asked for, the assumption it had to make, the branch it left open, the work it promised once it knows more. Put that fragment in the question's "evidence" field: at most 90 characters, copied exactly, never paraphrased. No quotable evidence, no question.
+Ask what only the user can answer: their situation, their audience, their constraint, their preference, the material they hold. NEVER ask something Claude could work out for itself, something the user already said, or something the reply already delivered. If the reply asked vaguely — "a couple of quick things", "tell me more about your setup" — do not hand the vagueness back: name each thing precisely and separately, because turning one vague request into three answerable questions is most of the value you add.
+Look past the immediate turn. Ask what will decide whether the FINISHED work is right — the length, the audience, the format it must arrive in, the language it must be in, the constraint that would invalidate it — not only what unblocks the very next reply.
+THE OPTIONS ARE THE PRODUCT. The person answering may not know what a good answer looks like; that is usually why the work is underspecified. So write the answers for them. Give each question TWO TO FOUR options, ordered with the most likely first, each one a concrete answer rather than a category — "~2 min (short toast)" not "short", "a client pitch" not "professional context". Keep every option under 40 characters, make them mutually exclusive, and together cover the ground a real answer would land on. A good option set is one where picking the first is usually right and picking any other is a real, different decision. Never write an option meaning "other", "something else", "not sure" or "skip" — the interface adds those itself and a duplicate wastes a slot.
 Hard rules:
-- The text always addresses Claude and is ready to send verbatim. It never commands the user's action and never contains instructions aimed at the user; when only the user can act, the text directs Claude to prepare Claude's side of it.
-- A step never states a fact only the user can know as though observed. Open it with "Assume" or leave <a slot in angle brackets>.
-- Never re-request anything the reply already delivered. No UI click-paths, no menu names, no settings.
-- Question-form only when the question is aimed at Claude and is the sharpest form of the ask. NEVER a question aimed at the user or one that needs the user's knowledge to answer.
+- The question addresses THE USER and reads as a person would ask it: plain, short, no preamble, no jargon, no numbering, ending in a question mark.
+- Never ask the user to click, open, enable or navigate anything. If material is needed, ask what they have, not where it lives.
+- Never ask the user to confirm something you could simply assume instead.
+- No two questions overlap, and no question rephrases another.
 Worked examples, from real exchanges:
-- The user described a spreadsheet (date, category, amount, ~300 rows) and asked what to look for; the reply gave a checklist and ended "Upload it and I'll run through this on the actual numbers." The obvious step — never return it — is uploading with no further instruction. Return instead: label "Upload and decide", text "Here's the spreadsheet. <attach here>\\nRun the full checklist on the real numbers. Then end with the three findings worth the most money this month, ranked by amount, and the one recurring charge to cancel first. Findings only — skip whatever checks out clean."
-- The user asked for a creative brainstorm; the reply asked them to pick a lane and promised "a proper spread of ideas plus something visual to react to." The obvious step is naming a lane. Return instead: label "Set the lane", text "Assume the lane is marketing for a small local business.\\nGive me fifteen ideas in three bands — five safe, five bold, five you'd never dare pitch — one line each, no explanations.\\nPut them in an artifact and keep it updated: I'll cut, you refill the bands until three are worth developing."
-- The reply laid out a design and named its own weak point: "The hard engineering problem is candidate generation." Return the step that goes straight at the named hard part: label "Attack candidate generation", text "Go at the hard part you named: candidate generation.\\nDraft eight candidate framings for the deploy-dread scenario — specific enough to reject usefully, wrong in interesting directions, zero paraphrase.\\nMark which axis each one bets on, so a rejection still teaches us the shape."
-The step has THREE parts:
-- "label": AT MOST 4 WORDS, verb-first, plain language, no punctuation.
-- "text": the full prompt loaded into the composer, ready to send verbatim, up to 700 characters. Short lines, with \\n between lines inside the JSON string when structure helps. Step texts are prose. Refer to code by its name and location, and when a step's outcome is new or changed code, the text directs Claude to write it rather than containing it. Write it so it works even unclicked, as a plan the user can read.
-- "evidence": the verbatim reply fragment that earned this step, at most 90 characters.
-Reply with ONLY minified JSON: {"steps":[{"label":"...","text":"...","evidence":"..."}]} — exactly one step, or {"steps":[]} when nothing is earned.`;
+- The user asked for speech drafts; the reply said "two or three quick things and I can get to a real draft rather than a generic one". Its request is vague, so name the pieces, and reach past the draft to the things that decide whether it lands: label "Occasion", question "What's the occasion?", options ["Wedding / toast","Work, launch or product talk","Ceremony (award, farewell, graduation)"] — label "Length", question "How long should it run?", options ["~2 min (short toast)","~5 min","~10-15 min","20+ min"] — label "Language", question "Which language?", options ["English","Serbian","Both versions"].
+- The user asked for a creative brainstorm; the reply said "pick a lane and I'll come back with a proper spread of ideas plus something visual to react to". One thing is genuinely missing, and the second question aims at the finished output rather than the next turn: label "The lane", question "What's this brainstorm for?", options ["A product or feature launch","A side project of mine","A client pitch","Content or social"] — label "How wild", question "How far out should the ideas go?", options ["Safe and usable","Mostly safe, a few risky","Give me the ones that scare me"].
+- The reply laid out a full design, named its own hard part, and asked for nothing. Nothing blocks the next turn, but the destination is open: label "Build first", question "Which piece do you want built first?", options ["The candidate generator","The reject-pile UI","The terminal handoff"]. That is ONE question. Do not invent two more to fill the questionnaire.
+- A reply that answered completely, delivered what was asked, and left nothing open returns {"questions":[]}. An empty questionnaire is the correct output far more often than it feels.
+Each question has FOUR parts:
+- "label": the question's short name. AT MOST 3 WORDS, plain, no punctuation, no question mark. All labels obviously different at a glance.
+- "text": the question itself, up to 90 characters, ending in a question mark.
+- "options": TWO TO FOUR answers, each under 40 characters, most likely first, never including an "other" or "skip" choice.
+- "evidence": the verbatim reply fragment that earned this question, at most 90 characters.
+Reply with ONLY minified JSON: {"questions":[{"label":"...","text":"...","options":["...","..."],"evidence":"..."}]} — zero to four items.`;
 
 /* The fifth chip (0.9.23): rough ask in, well-formed prompt out. Fixes FORM
    (scope, format, anti-goals, inert adjectives), never invents CONTENT —
    missing decisions surface as <slots> and "Assume:" lines the user edits.
    MUST stay byte-identical to the copy in extension/background.js;
-   build.mjs enforces it exactly like NEXT_STEPS_SYSTEM. */
+   build.mjs enforces it exactly like QUESTIONS_SYSTEM. */
 const EXPAND_SYSTEM = `You are CONTEXA's prompt writer, embedded in claude.ai. The user typed a rough ask. Rewrite it as the message they would send if they wrote prompts for a living: same intent, same voice, more decidable. You also see their last message and Claude's reply for context.
 Input sections: ROUGH ASK (what they typed), THEIR LAST MESSAGE, CLAUDE'S REPLY. The reply may end with the line "[capture window ends here — the reply continues beyond this point]" — that is the edge of your viewport, not a defect; never mention it.
 Write the prompt as the user, in first person, addressed to Claude, ready to send verbatim. No persona preamble, no meta commentary, no politeness padding.
@@ -320,7 +323,7 @@ async function callHosted(prompt, reply) {
     if (data?.diag) console.warn('[CONTEXA] backend reported', data.error, data.diag);
     return { error: data?.error || 'proxy_' + res.status, diag: data?.diag };
   }
-  if (!data || !Array.isArray(data.steps)) return { error: 'bad_response' };
+  if (!data || !Array.isArray(data.questions)) return { error: 'bad_response' };
   return { data };
 }
 
@@ -360,7 +363,21 @@ async function callHostedExpand(intent, prompt, reply) {
    Evidence is stripped here — it never reaches content.js or the composer. */
 const normWs = s => String(s || '').replace(/\s+/g, ' ').trim();
 function refineSteps(parsed, replyStr) {
-  const raw = Array.isArray(parsed && parsed.steps) ? parsed.steps : [];
+const OTHER_RE = /^(other|something else|not sure|skip|none|n\/a)\b/i;
+function cleanOptions(v) {
+  if (!Array.isArray(v)) return [];
+  const out = [];
+  for (const o of v) {
+    const t = String(o || '').replace(/\s+/g, ' ').trim().slice(0, 60);
+    if (!t || OTHER_RE.test(t)) continue;
+    if (out.some(x => x.toLowerCase() === t.toLowerCase())) continue;
+    out.push(t);
+    if (out.length === 4) break;
+  }
+  return out;
+}
+
+  const raw = Array.isArray(parsed && parsed.questions) ? parsed.questions : [];
   const withEv = raw.filter(s =>
     s && typeof s.text === 'string' && s.text.trim() && normWs(s.evidence));
   const normReply = normWs(replyStr);
@@ -371,8 +388,12 @@ function refineSteps(parsed, replyStr) {
   }
   console.log('[CONTEXA] evidence', withEv.map(s => String(s.evidence).slice(0, 90)));
   return {
-    steps: withEv.slice(0, 1).map(s => ({ label: String(s.label || '').slice(0, 80), text: String(s.text) })),
-    grounding: { total: raw.length, kept: Math.min(withEv.length, 1), grounded }
+    questions: withEv.slice(0, 4).map(s => ({
+      label: String(s.label || '').slice(0, 80),
+      text: String(s.text),
+      options: cleanOptions(s.options)
+    })),
+    grounding: { total: raw.length, kept: Math.min(withEv.length, 4), grounded }
   };
 }
 
@@ -390,7 +411,7 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
       const reply = (msg.reply || '').slice(0, 6000);
       // Own key = direct to Anthropic, unlimited. No key = hosted proxy, quota'd.
       const r = apiKey
-        ? await callClaude(NEXT_STEPS_SYSTEM,
+        ? await callClaude(QUESTIONS_SYSTEM,
             'USER MESSAGE:\n' + prompt + '\n\nCLAUDE REPLY:\n' + reply, 2500)
         : await callHosted(prompt, reply);
       let out;
@@ -404,7 +425,7 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
             get identical behaviour. grounding.total is the raw count the model
             returned: zero means deliberate silence, non-zero means the gate
             rejected everything. */
-        out = refined.steps.length
+        out = refined.questions.length
           ? Object.assign(refined, r.partial ? { partial: true } : null)
           : refined.grounding.total === 0
             ? Object.assign(refined, { quiet: true })

@@ -127,6 +127,30 @@
     padding:5px 12px;font-size:12px;line-height:1.35;color:var(--text);width:250px;
     outline:none;font-family:inherit}
   .own-input::placeholder{color:var(--text2)}
+  .card{background:var(--surface);border:1px solid var(--border2);border-radius:12px;overflow:hidden}
+  .chead{display:flex;align-items:center;gap:8px;padding:10px 12px;border-bottom:1px solid var(--border)}
+  .q{flex:1;font-size:13px;font-weight:600;color:var(--text);line-height:1.3}
+  .nav{display:flex;align-items:center;gap:4px;color:var(--text2);font-size:11px;flex-shrink:0}
+  .nav button{background:none;border:none;color:var(--text2);cursor:pointer;font-size:14px;
+    padding:1px 5px;line-height:1;font-family:inherit;border-radius:4px}
+  .nav button:hover:not(:disabled){color:var(--accent);background:var(--surface2)}
+  .nav button:disabled{opacity:.3;cursor:default}
+  .opt{display:flex;align-items:center;gap:10px;width:100%;background:none;border:none;
+    border-bottom:1px solid var(--border);padding:9px 12px;cursor:pointer;text-align:left;
+    font-size:13px;color:var(--text);font-family:inherit;line-height:1.35}
+  .opt:hover,.opt.on{background:var(--surface2)}
+  .opt .n{display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;
+    border-radius:4px;background:var(--surface2);color:var(--text2);font-size:10px;flex-shrink:0}
+  .opt:hover .n,.opt.on .n{background:var(--accent-soft);color:var(--accent)}
+  .opt .tick{margin-left:auto;color:var(--accent);font-size:11px;opacity:0}
+  .opt:hover .tick,.opt.on .tick{opacity:1}
+  .foot{display:flex;align-items:center;gap:8px;padding:8px 10px}
+  .foot .own-input{flex:1;width:auto;border-radius:8px;border-color:var(--border2)}
+  .foot .own-input:focus{border-color:var(--accent)}
+  .skip{background:var(--surface2);border:1px solid var(--border2);border-radius:6px;
+    padding:4px 10px;font-size:11px;color:var(--text2);cursor:pointer;font-family:inherit;flex-shrink:0}
+  .skip:hover{color:var(--accent);border-color:var(--accent)}
+  .cxbusy{padding:12px;font-size:12px;color:var(--text2);animation:cxpulse 1.4s ease-in-out infinite}
   @keyframes cxpulse{0%,100%{opacity:.55}50%{opacity:1}}`;
 
   const esc = s => { const d = document.createElement('div'); d.textContent = s || ''; return d.innerHTML; };
@@ -267,8 +291,11 @@
 
   async function onReplyComplete(replyEl) {
     if (!replyEl.isConnected) return;
+    /* 0.9.30: the card no longer lives next to the reply, so a sibling check
+       cannot tell us whether this reply was handled. The `processed` WeakSet in
+       scan() is now the only dedupe, and it is sufficient: one card exists at a
+       time and a newer reply is meant to replace an older one. */
     const anchor = replyEl.closest(ROW_SEL) || replyEl.closest(STREAM_SEL) || replyEl;
-    if (anchor.nextElementSibling?.getAttribute?.('data-contexa') === 'steps') return;
 
     if (!contextAlive()) return goStale(anchor);
 
@@ -287,11 +314,11 @@
     } catch (e) { thrown = String(e && e.message || e); }
 
     if (!anchor.isConnected) return;
-    const steps = resp && !resp.error && Array.isArray(resp.steps)
-      ? resp.steps.filter(s => s && typeof s.text === 'string' && s.text.trim())
+    const questions = resp && !resp.error && Array.isArray(resp.questions)
+      ? resp.questions.filter(q => q && typeof q.text === 'string' && q.text.trim())
       : null;
 
-    if (!steps) {
+    if (!questions) {
       const err = resp && resp.error;
       if (isStaleError(thrown) || !contextAlive()) return goStale(anchor);
       if (err === 'quota') return renderQuiet(anchor, 'quota', '', resp);
@@ -321,18 +348,46 @@
       // under an alarming Errors badge (observed in the field). log stays
       // readable in the page console and the remote loop without dressing
       // telemetry as failure.
-      console.log('[CONTEXA] partial salvage — kept', steps.length, 'step(s)',
+      console.log('[CONTEXA] partial salvage — kept', questions.length, 'question(s)',
         resp.diag ? resp.diag : '(no diag from this path)');
     }
     /* 0.9.29: zero is a real answer. An empty array reaches renderSteps on
        purpose — it draws the shell and the Rough ask chip and no suggestion,
        which is what "nothing here was worth a click" looks like. */
-    if (!steps.length) console.log('[CONTEXA] quiet row — nothing earned a chip');
-    renderSteps(anchor, steps.slice(0, 1), { prompt: promptText, reply: replyText });
+    const ctx = { prompt: promptText, reply: replyText };
+    if (!questions.length) {
+      // Zero is a real answer. The row falls back to the Rough ask chip alone —
+      // an empty questionnaire, not an error card.
+      console.log('[CONTEXA] quiet row — nothing to ask');
+      return renderSteps(anchor, [], ctx);
+    }
+    renderInterview(anchor, questions.slice(0, 4), ctx);
   }
 
   /* ---------------- rendering -------------------------------------------- */
+  /* 0.9.30: one card for the page, mounted above the composer, replacing the
+     row-under-every-reply model. Owner's call, and it has a second payoff — a
+     virtualised transcript (Claude Code sessions) forbids injecting into rows,
+     and this is the placement that scope concluded was required.
+     Consequences, all deliberate: only the newest reply has a card; nothing
+     accumulates when you scroll back; there is exactly ONE node, so a new reply
+     replaces the previous card instead of stacking under it. */
+  function mountHost() {
+    if (!composer || !composer.isConnected) composer = findComposer();
+    if (!composer) return null;
+    let n = composer;
+    for (let i = 0; i < 6 && n.parentElement; i++) {
+      const p = n.parentElement;
+      if (p.tagName === 'MAIN' || p === document.body) break;
+      n = p;
+    }
+    return n;
+  }
+
   function shell(anchor, mode) {
+    const host = mountHost();
+    if (!host) return null;
+    for (const old of document.querySelectorAll('[data-contexa]')) old.remove();
     const holder = document.createElement('div');
     holder.setAttribute('data-contexa', 'steps');
     holder.setAttribute('data-cx-mode', mode);
@@ -344,7 +399,7 @@
     wrap.className = 'wrap';
     wrap.dataset.theme = isDark() ? 'dark' : 'light';
     root.appendChild(wrap);
-    anchor.after(holder);
+    host.before(holder);
     requestAnimationFrame(() => requestAnimationFrame(() => wrap.classList.add('show')));
     return wrap;
   }
@@ -357,8 +412,143 @@
     return words.length <= max ? words.join(' ') : words.slice(0, max).join(' ') + '…';
   }
 
+  /* 0.9.30 — the interview, modelled on Claude's own clarifying-question card,
+     which is what "ask questions like Claude" meant. One question at a time,
+     numbered options WRITTEN FOR the user, per-question skip, free text, and a
+     dismiss that falls back to the Rough ask chip so nothing is ever lost.
+
+     The options are the product. Someone who cannot specify the work usually
+     cannot fill an empty box either — but they can recognise the right answer
+     when they see it. That is the whole difference between this and a form. */
+  function renderInterview(anchor, questions, ctx) {
+    const wrap = shell(anchor, 'ai');
+    if (!wrap) return;
+    wrap.innerHTML = `<div class="label"><b>✦ CONTEXA</b></div><div class="card"></div>`;
+    const card = wrap.querySelector('.card');
+    const answers = new Array(questions.length).fill('');
+    let i = 0;
+
+    const mk = (tag, cls, text) => {
+      const e = document.createElement(tag);
+      if (cls) e.className = cls;
+      if (text != null) e.textContent = text;
+      return e;
+    };
+
+    function dismiss() {
+      // Falls back to the Rough ask chip: closing the questions must never
+      // leave the user with less than they had.
+      renderSteps(anchor, [], ctx);
+    }
+
+    function answer(value) {
+      answers[i] = String(value || '').trim();
+      i++;
+      draw();
+    }
+
+    async function compose() {
+      const parts = questions
+        .map((q, n) => (answers[n] ? `${q.label}: ${answers[n]}` : null))
+        .filter(Boolean);
+      if (!parts.length) return dismiss();          // everything skipped
+      if (!contextAlive()) return goStale(anchor);
+      card.replaceChildren(mk('div', 'cxbusy', 'Writing your prompt…'));
+      let resp = null, thrown = null;
+      try {
+        resp = await chrome.runtime.sendMessage({
+          type: 'expandPrompt',
+          intent: parts.join('\n'),
+          prompt: ctx.prompt || '',
+          reply: ctx.reply || ''
+        });
+      } catch (e) { thrown = String(e && e.message || e); }
+      if (!card.isConnected) return;
+      if (isStaleError(thrown) || (!resp && !contextAlive())) return goStale(anchor);
+      if (resp && typeof resp.prompt === 'string' && resp.prompt.trim()) {
+        insertPrompt(resp.prompt);
+        return dismiss();
+      }
+      const err = (resp && resp.error) || thrown || 'empty response';
+      console.warn('[CONTEXA] interview compose failed', err,
+        (resp && (resp.detail || JSON.stringify(resp.diag || ''))) || '');
+      const h = humanError(err);
+      card.replaceChildren(mk('div', 'cxbusy', h.text));
+    }
+
+    function draw() {
+      if (i >= questions.length) return compose();
+      const q = questions[i];
+      card.replaceChildren();
+
+      const head = mk('div', 'chead');
+      head.appendChild(mk('div', 'q', q.text));
+      const nav = mk('div', 'nav');
+      const prev = mk('button', null, '‹');
+      prev.disabled = i === 0;
+      prev.addEventListener('click', () => { i--; draw(); });
+      const next = mk('button', null, '›');
+      next.addEventListener('click', () => { i++; draw(); });
+      const close = mk('button', null, '×');
+      close.addEventListener('click', dismiss);
+      nav.append(prev, mk('span', null, `${i + 1} of ${questions.length}`), next, close);
+      head.appendChild(nav);
+      card.appendChild(head);
+
+      const opts = Array.isArray(q.options) ? q.options.slice(0, 4) : [];
+      opts.forEach((o, n) => {
+        const b = mk('button', 'opt');
+        b.appendChild(mk('span', 'n', String(n + 1)));
+        b.appendChild(mk('span', null, o));
+        b.appendChild(mk('span', 'tick', '→'));
+        b.addEventListener('click', () => answer(o));
+        card.appendChild(b);
+      });
+
+      const foot = mk('div', 'foot');
+      const input = document.createElement('input');
+      input.className = 'own-input';
+      input.type = 'text';
+      input.maxLength = 200;
+      input.placeholder = opts.length ? 'Something else…' : 'Type your answer…';
+      input.value = answers[i] && !opts.includes(answers[i]) ? answers[i] : '';
+      /* Keyboard events are composed and cross the shadow boundary, so without
+         this a keystroke here reaches claude.ai's document listeners and can
+         scroll the page or pull focus into the composer. */
+      for (const evt of ['keydown', 'keyup', 'keypress', 'input', 'paste']) {
+        input.addEventListener(evt, e => e.stopPropagation());
+      }
+      input.addEventListener('keydown', e => {
+        if (e.key === 'Enter') { e.preventDefault(); answer(input.value); }
+        else if (e.key === 'Escape') dismiss();
+      });
+      foot.appendChild(input);
+      const skip = mk('button', 'skip', 'Skip');
+      skip.addEventListener('click', () => answer(''));
+      foot.appendChild(skip);
+      card.appendChild(foot);
+
+      /* Number keys pick an option, the way the reference card does. Focus is
+         only taken when the user is NOT typing in the composer — interrupting
+         someone mid-sentence to offer them a questionnaire is not help. */
+      card.tabIndex = -1;
+      card.onkeydown = e => {
+        if (e.target === input) return;
+        const n = parseInt(e.key, 10);
+        if (n >= 1 && n <= opts.length) { e.preventDefault(); answer(opts[n - 1]); }
+        else if (e.key === 'Escape') dismiss();
+      };
+      const active = document.activeElement;
+      const typing = active && (active === composer || (composer && composer.contains(active)));
+      if (!typing) setTimeout(() => card.focus({ preventScroll: true }), 0);
+    }
+
+    draw();
+  }
+
   function renderSteps(anchor, steps, ctx) {
     const wrap = shell(anchor, 'ai');
+    if (!wrap) return;
     wrap.innerHTML = `<div class="label"><b>✦ CONTEXA</b></div>` +
       `<div class="chips"></div>`;
     const row = wrap.querySelector('.chips');
@@ -459,6 +649,7 @@
   // dressing up generic text as real suggestions.
   function renderQuiet(anchor, mode, reason, resp) {
     const wrap = shell(anchor, mode);
+    if (!wrap) return;
     let body, btn = 'Settings', openUrl = null, doReload = false;
     if (mode === 'stale') {
       body = `CONTEXA was updated — reload this page to continue.`;
@@ -467,8 +658,12 @@
       /* This card is on the beginner surface, so it no longer pitches an API
          key — that is expert vocabulary, and the audience decision put it
          behind Advanced. Anyone who wants unlimited use finds it there. */
+      /* 0.9.30: an interview spends two calls from the pool — one to write the
+         questions, one to write the prompt — so the honest headline number is
+         half the raw limit. Say what the user actually gets, not what the
+         counter counts. */
       const limit = resp && resp.limit ? resp.limit : 20;
-      body = `That’s all ${limit} free suggestions for today. They come back ${resetWording(resp && resp.resetsAt)}.`;
+      body = `That’s all ${Math.floor(limit / 2)} free prompts for today. They come back ${resetWording(resp && resp.resetsAt)}.`;
       btn = 'Settings';
     } else if (mode === 'unconfigured') {
       body = `CONTEXA isn’t connected to a backend yet. Add your own API key to use it now.`;

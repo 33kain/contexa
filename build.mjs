@@ -7,7 +7,7 @@ import { readFileSync, writeFileSync, mkdirSync, copyFileSync, readdirSync, rmSy
 import { join } from 'node:path';
 import { deflateRawSync, crc32 as zlibCrc32 } from 'node:zlib';
 
-const VERSION = '0.9.29';
+const VERSION = '0.9.30';
 const BACKEND = 'https://contexa-api.michu110899.workers.dev';
 
 const SRC = 'extension';
@@ -73,7 +73,7 @@ const grab = (s, name) => {
   const m = s.match(new RegExp(name + ' = `([\\s\\S]*?)`;'));
   return m && m[1];
 };
-for (const name of ['NEXT_STEPS_SYSTEM', 'EXPAND_SYSTEM']) {
+for (const name of ['QUESTIONS_SYSTEM', 'EXPAND_SYSTEM']) {
   const pExt = grab(outBg, name);
   const pWrk = grab(wrkForPrompts, name);
   if (!pExt || !pWrk) fails.push(`could not locate ${name} in one of the two copies`);

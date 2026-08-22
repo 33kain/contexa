@@ -55,7 +55,7 @@ function load({ storage = {} } = {}) {
       async json() {
         return {
           stop_reason: 'end_turn',
-          content: [{ text: JSON.stringify({ steps: [{ label: 'Do the thing', text: 'Do it.', evidence: 'rrrr' }] }) }]
+          content: [{ text: JSON.stringify({ questions: [{ label: 'Do the thing', text: 'Do it.', evidence: 'rrrr' }] }) }]
         };
       },
       async text() { return ''; }
@@ -225,7 +225,7 @@ const settle = () => new Promise(r => setTimeout(r, 0));
 
 /* ---- 11. the prompt carries the no-code rule ------------------------------ */
 {
-  t('prompt rule: step texts are prose', SRC.includes('Step texts are prose.'));
+  t('prompt rule: questions end in a question mark', SRC.includes('ending in a question mark'));
 }
 
 
@@ -290,7 +290,7 @@ const settle = () => new Promise(r => setTimeout(r, 0));
   await settle();
   h.sandbox.fetch = async (url, opts) => ({
     ok: true, status: 200,
-    async json() { return { stop_reason: 'end_turn', content: [{ text: JSON.stringify({ steps: [
+    async json() { return { stop_reason: 'end_turn', content: [{ text: JSON.stringify({ questions: [
       { label: 'Grounded step', text: 'Do the grounded thing.', evidence: 'beta gamma' },
       { label: 'No evidence step', text: 'Should be dropped.' },
       { label: 'Ungrounded step', text: 'Renders but logged.', evidence: 'zzz never said' }
@@ -298,11 +298,11 @@ const settle = () => new Promise(r => setTimeout(r, 0));
     async text() { return ''; }
   });
   const out = await h.send({ type: 'nextSteps', prompt: 'p', reply: REPLY });
-  t('evidence-less step is dropped, one chip kept', out.steps && out.steps.length === 1,
-    'kept=' + (out.steps && out.steps.length));
-  t('no step carries an evidence key', out.steps && out.steps.every(s => !('evidence' in s)));
+  t('evidence-less question is dropped', out.questions && out.questions.length === 2,
+    'kept=' + (out.questions && out.questions.length));
+  t('no question carries an evidence key', out.questions && out.questions.every(s => !('evidence' in s)));
   t('grounding counts are right', out.grounding &&
-    out.grounding.total === 3 && out.grounding.kept === 1 && out.grounding.grounded === 1,
+    out.grounding.total === 3 && out.grounding.kept === 2 && out.grounding.grounded === 1,
     JSON.stringify(out.grounding));
 }
 {
@@ -311,7 +311,7 @@ const settle = () => new Promise(r => setTimeout(r, 0));
   await settle();
   h.sandbox.fetch = async () => ({
     ok: true, status: 200,
-    async json() { return { stop_reason: 'end_turn', content: [{ text: JSON.stringify({ steps: [
+    async json() { return { stop_reason: 'end_turn', content: [{ text: JSON.stringify({ questions: [
       { label: 'A', text: 'no evidence here' } ] }) }] }; },
     async text() { return ''; }
   });
@@ -369,12 +369,12 @@ const settle = () => new Promise(r => setTimeout(r, 0));
       async text() { return '{"error":{"message":"thinking cannot be disabled on this model"}}'; },
       async json() { return {}; } };
     return { ok: true, status: 200,
-      async json() { return { stop_reason: 'end_turn', content: [{ text: JSON.stringify({ steps: [{ label: 'A', text: 'Do.', evidence: 'rrrr' }] }) }] }; },
+      async json() { return { stop_reason: 'end_turn', content: [{ text: JSON.stringify({ questions: [{ label: 'A', text: 'Do.', evidence: 'rrrr' }] }) }] }; },
       async text() { return ''; } };
   };
   const out = await h.send({ type: 'nextSteps', prompt: 'p', reply: 'r'.repeat(80) });
   t('thinking-400 retried without the field', call === 2, 'calls=' + call);
-  t('retry succeeds and returns steps', out.steps && out.steps.length === 1, JSON.stringify(out.steps));
+  t('retry succeeds and returns steps', out.questions && out.questions.length === 1, JSON.stringify(out.questions));
 }
 {
   // A non-thinking 400 is NOT retried, and its detail survives to the caller.
@@ -480,7 +480,7 @@ const settle = () => new Promise(r => setTimeout(r, 0));
   t('input keystrokes stopped at the shadow boundary',
     /\['keydown', 'keyup', 'keypress', 'input', 'paste'\][\s\S]{0,120}stopPropagation/.test(c));
   t('Enter submits, Escape collapses', /key === 'Enter'/.test(c) && /key === 'Escape'/.test(c));
-  t('renderSteps carries capture context', /renderSteps\(anchor, steps\.slice\(0, 1\), \{ prompt: promptText, reply: replyText \}\)/.test(c));
+  t('the interview carries capture context', /renderInterview\(anchor, questions\.slice\(0, 4\), ctx\)/.test(c) && /const ctx = \{ prompt: promptText, reply: replyText \}/.test(c));
   t('expand failure stays inline (no second card)', /cxerr/.test(c) && /daily limit reached/.test(c));
   /* Design-review #4, verified real in 0.9.22: insertPrompt selected all and
      typed over the user's draft. The guard and the append branch must exist —
@@ -600,7 +600,7 @@ const settle = () => new Promise(r => setTimeout(r, 0));
   t('quota card no longer pitches an API key on the beginner surface',
     !/add your own API key for unlimited use/.test(c));
   t('quota card says what happened in plain words',
-    /free suggestions for today/.test(c));
+    /free prompts for today/.test(c));
 
   // nothing user-facing may name a raw error code
   const humanTexts = [...c.matchAll(/text: '([^']*)'/g)].map(m => m[1]);
@@ -610,74 +610,124 @@ const settle = () => new Promise(r => setTimeout(r, 0));
     humanTexts.every(x => /[.!?]$/.test(x)));
 }
 
-/* ---- v0.9.29: the trajectory core ----------------------------------------
-   The product changed shape, so the assertions do too. Three failure modes
-   are worth pinning, and they are the ones the field found in one evening:
+/* ---- v0.9.30: the interview ----------------------------------------------
+   The core changed again, this time in shape rather than degree: CONTEXA no
+   longer writes the user's next message, it asks the user the questions whose
+   answers become that message. Three things these assertions exist to protect:
 
-   (a) The floor coming back. Every defect in the pattern file — user-only
-       facts, the "go" chip, the row that read Claude's own menu back — was a
-       PADDING defect, produced because a floor demanded a third chip. There is
-       no floor now, and nothing may reintroduce one.
-   (b) The obvious step. The whole premise is that CONTEXA returns the message
-       the user would NOT have typed. A chip that answers the reply's question
-       or picks from its list is the product failing at its own thesis.
-   (c) The evidence contract quietly loosening under pressure from "creative".
-       That rule is what separates reading the road from inventing a
-       destination, and it was declared untouchable. */
+   (a) Zero. Silence stayed reachable through two rewrites and every padding
+       defect in the pattern file traces back to a floor. Nothing may put one
+       back, in the prompt or in code.
+   (b) The options. Someone who cannot specify the work usually cannot fill an
+       empty box either — they recognise a good answer without being able to
+       produce one. Options ARE the product, and an "other"/"skip" option is a
+       wasted slot because the interface supplies both itself.
+   (c) The evidence contract, declared untouchable and now guarding questions
+       instead of steps. A question with nothing to quote is an invented one. */
 {
-  t('prompt: at most one step', SRC.includes('Return AT MOST ONE step.'));
+  t('prompt: zero to four questions', SRC.includes('BETWEEN ZERO AND FOUR questions'));
   t('prompt: zero is a real answer', SRC.includes('Zero is a real answer'));
-  t('prompt: no floor language survives anywhere',
-    !/BETWEEN THREE AND FIVE|three to five|Three is the floor/.test(SRC));
-  t('prompt: schema asks for exactly one or none', SRC.includes('exactly one step, or {"steps":[]}'));
+  t('prompt: the reply decides the number', SRC.includes('let the reply decide the number'));
+  t('prompt: no floor language anywhere',
+    !/BETWEEN THREE AND FIVE|three to five|Three is the floor|AT MOST ONE step/.test(SRC));
+  t('prompt: schema is questions, zero to four', SRC.includes('zero to four items'));
 
-  t('prompt: reads intent and state together', SRC.includes('Read them TOGETHER'));
-  t('prompt: aims two turns ahead', SRC.includes('two turns from now'));
-  t('prompt: the obvious step is banned', SRC.includes('NEVER return the obvious next step'));
-  t('prompt: menus must not be transcribed', SRC.includes('do not transcribe them into a chip'));
-  t('prompt: capabilities are routed as plan, never as a tip', SRC.includes('never as a tip'));
+  // The options, and the reason they exist.
+  t('prompt: options are named as the product', SRC.includes('THE OPTIONS ARE THE PRODUCT'));
+  t('prompt: two to four options each', SRC.includes('TWO TO FOUR options'));
+  t('prompt: options are concrete, not categories', SRC.includes('a concrete answer rather than a category'));
+  t('prompt: never an other/skip option', SRC.includes('Never write an option meaning "other"'));
+  t('prompt: most likely option first', SRC.includes('most likely first'));
 
-  // The untouchable rule, stated three ways it has actually been broken.
-  t('prompt: evidence must be verbatim from the reply', SRC.includes('earned by a verbatim fragment of the reply'));
-  t('prompt: no evidence, no step', SRC.includes('No quotable evidence, no step.'));
-  t('prompt: user-only facts still marked', SRC.includes('as though observed'));
-  t('prompt: Assume convention survives the rewrite', SRC.includes('Open it with "Assume"'));
-  t('prompt: slot convention survives', SRC.includes('<a slot in angle brackets>'));
-  t('prompt: still never commands the user action', SRC.includes("never commands the user's action"));
-  t('prompt: user-aimed questions still banned', SRC.includes('NEVER a question aimed at the user'));
-  t('prompt: no UI click-paths', SRC.includes('No UI click-paths'));
-  t('prompt: viewport-marker rule kept', SRC.includes('edge of your viewport'));
+  // Aimed at the user, and past the immediate turn.
+  t('prompt: asks only what the user can answer', SRC.includes('Ask what only the user can answer'));
+  t('prompt: never asks what Claude could work out', SRC.includes('something Claude could work out for itself'));
+  t('prompt: refuses to hand vagueness back', SRC.includes('do not hand the vagueness back'));
+  t('prompt: reaches past the immediate turn', SRC.includes('Look past the immediate turn'));
+  t('prompt: no click-paths at the user', SRC.includes('Never ask the user to click, open, enable or navigate'));
 
-  // The monster breathes, but not without limit.
-  t('prompt: 700-character step cap stated', SRC.includes('up to 700 characters'));
-  t('prompt: label clamp still 4 words', SRC.includes('AT MOST 4 WORDS'));
-  const csrc6 = readFileSync('./content.js', 'utf8');
-  t('label clamp is 4 words in code too', csrc6.includes('function shortLabel(s, max = 4)'));
+  // The untouchable rule, now guarding questions.
+  t('prompt: evidence verbatim from the reply', SRC.includes('earned by a verbatim fragment of the reply'));
+  t('prompt: no evidence, no question', SRC.includes('No quotable evidence, no question.'));
+  t('prompt: label clamp stated at 3 words', SRC.includes('AT MOST 3 WORDS'));
 
-  /* Exemplars, not rules — the 0.9.25 lesson. All three are real exchanges
-     captured in the field on 2026-08-22, and each one names the obvious step
-     it is refusing before giving the one worth clicking. */
+  /* Exemplars over rules — the 0.9.25 lesson, and all four are real: three
+     captured exchanges plus the empty case, which is the one most likely to be
+     forgotten precisely because it produces nothing to look at. */
   t('prompt: worked exemplars present', SRC.includes('Worked examples, from real exchanges'));
-  t('prompt: three exemplars', (SRC.match(/The obvious step/g) || []).length >= 2 && SRC.includes('Return the step that goes straight at the named hard part'));
-  t('prompt: spreadsheet exemplar keeps the attach slot', SRC.includes('<attach here>'));
-  t('prompt: exemplars use the JSON newline escape, not a real break',
-    SRC.includes('<attach here>' + '\\'.repeat(2) + 'nRun the full checklist'));
+  t('prompt: speech exemplar with real options', SRC.includes('"~2 min (short toast)"'));
+  t('prompt: brainstorm exemplar present', SRC.includes('How far out should the ideas go?'));
+  t('prompt: single-question exemplar refuses to pad', SRC.includes('Do not invent two more to fill the questionnaire'));
+  t('prompt: the empty questionnaire is exemplified', SRC.includes('returns {"questions":[]}'));
 
-  // Zero must be reachable end to end, not just permitted by the prompt.
-  t('content: an empty steps array no longer takes the error path',
-    /if \(!steps\) \{\n\s*const err = resp && resp\.error;/.test(csrc6));
-  t('content: the quiet row is logged', csrc6.includes('[CONTEXA] quiet row'));
+  /* The sanitiser must live in BOTH copies: hosted and own-key users cannot be
+     handed different option sets. */
   const bsrc = readFileSync('./background.js', 'utf8');
-  t('background: deliberate zero is quiet, not no_steps',
-    /grounding\.total === 0[\s\S]{0,80}quiet: true/.test(bsrc));
-  t('background: gate-ate-everything is still no_steps', bsrc.includes("{ error: 'no_steps' }"));
-  t('background: one chip enforced in code', bsrc.includes('withEv.slice(0, 1)'));
+  t('option sanitiser present in background', bsrc.includes('function cleanOptions'));
+  t('sanitiser strips an other/skip choice', /OTHER_RE = \/\^\(other\|something else/.test(bsrc));
+  t('sanitiser caps options at four', /out\.length === 4/.test(bsrc));
+  t('background returns questions, not steps', bsrc.includes('questions: withEv.slice(0, 4)'));
+  t('background still splits the two silences', /grounding\.total === 0[\s\S]{0,80}quiet: true/.test(bsrc));
 
-  /* Capability knowledge did not leave with the class — it moved into the
-     routing sentence, so the staleness marker still has a job. */
-  t('audit marker survives the core change', /CAPABILITY-AUDIT: \d{4}-\d{2}-\d{2}/.test(bsrc));
-  const promptOnly = (bsrc.match(/NEXT_STEPS_SYSTEM = `([\s\S]*?)`;/) || [])[1] || '';
-  t('audit marker still outside the prompt string', promptOnly.length > 0 && !promptOnly.includes('CAPABILITY-AUDIT'));
+  /* The card mounts above the composer as ONE node for the page. A regression
+     here is invisible in a screenshot but stacks a card per reply. */
+  const csrc7 = readFileSync('./content.js', 'utf8');
+  t('interview renderer exists', csrc7.includes('function renderInterview'));
+  t('card mounts above the composer, not after the reply',
+    csrc7.includes('host.before(holder)') && !csrc7.includes('anchor.after(holder)'));
+  t('exactly one card survives at a time',
+    /for \(const old of document\.querySelectorAll\('\[data-contexa\]'\)\) old\.remove\(\)/.test(csrc7));
+  t('a missing composer is survived, not thrown', /const host = mountHost\(\);\n\s*if \(!host\) return null;/.test(csrc7));
+  t('the stale sibling dedupe is gone', !csrc7.includes("nextElementSibling?.getAttribute?.('data-contexa')"));
+
+  // Interaction: numbers pick, skip answers blank, dismiss loses nothing.
+  t('number keys pick an option', /const n = parseInt\(e\.key, 10\)/.test(csrc7));
+  t('skip records a blank answer', /skip\.addEventListener\('click', \(\) => answer\(''\)\)/.test(csrc7));
+  t('dismiss falls back to the Rough ask chip', /function dismiss\(\) \{[\s\S]{0,220}renderSteps\(anchor, \[\], ctx\)/.test(csrc7));
+  t('everything skipped composes nothing', csrc7.includes('if (!parts.length) return dismiss();'));
+  t('interview keystrokes stopped at the shadow boundary',
+    /for \(const evt of \['keydown', 'keyup', 'keypress', 'input', 'paste'\]\)/.test(csrc7));
+  t('focus is not stolen from someone mid-sentence', csrc7.includes('const typing = active &&'));
+
+  // Zero, end to end.
+  t('zero questions renders the Rough ask chip alone',
+    /if \(!questions\.length\) \{[\s\S]{0,220}renderSteps\(anchor, \[\], ctx\)/.test(csrc7));
+  t('the quiet row is logged', csrc7.includes('[CONTEXA] quiet row'));
+
+  /* An interview spends two calls, so the honest headline is half the counter.
+     Three surfaces state the allowance and they must not disagree. */
+  t('quota card halves the raw limit', csrc7.includes('Math.floor(limit / 2)'));
+  const oh = readFileSync('./options.html', 'utf8'), oj = readFileSync('./options.js', 'utf8');
+  t('options page states 10 prompts a day', /10 prompts a day/.test(oh) && /10 prompts a day/.test(oj));
+  t('no surface still claims 20', !/20 suggestion sets|20 sets a day|20 free suggestions/.test(oh + oj + csrc7));
+
+  // Capability knowledge still lives in the prompt, so its staleness marker must too.
+  t('audit marker survives', /CAPABILITY-AUDIT: \d{4}-\d{2}-\d{2}/.test(bsrc));
+  const promptOnly = (bsrc.match(/QUESTIONS_SYSTEM = `([\s\S]*?)`;/) || [])[1] || '';
+  t('audit marker stays outside the prompt string', promptOnly.length > 0 && !promptOnly.includes('CAPABILITY-AUDIT'));
+}
+
+{
+  /* Functional: an "Other" option coming back from the model is stripped rather
+     than rendered, and options survive the own-key path intact. */
+  const REPLY = 'alpha beta gamma delta '.repeat(6);
+  const h = load({ storage: { model: '', apiKey: 'sk-x' } });
+  await settle();
+  h.sandbox.fetch = async () => ({
+    ok: true, status: 200,
+    async json() { return { stop_reason: 'end_turn', content: [{ text: JSON.stringify({ questions: [
+      { label: 'Length', text: 'How long should it run?',
+        options: ['~2 min', '~5 min', 'Something else', '~2 min', '~10 min', '20+ min'],
+        evidence: 'beta gamma' }
+    ] }) }] }; },
+    async text() { return ''; }
+  });
+  const out = await h.send({ type: 'nextSteps', prompt: 'p', reply: REPLY });
+  const opts = out.questions && out.questions[0] && out.questions[0].options;
+  t('options survive the own-key path', Array.isArray(opts) && opts[0] === '~2 min', JSON.stringify(opts));
+  t('an "other" option is stripped', Array.isArray(opts) && !opts.includes('Something else'), JSON.stringify(opts));
+  t('a duplicate option is stripped', Array.isArray(opts) && opts.filter(o => o === '~2 min').length === 1);
+  t('options are capped at four', Array.isArray(opts) && opts.length <= 4, 'len=' + (opts && opts.length));
 }
 
 console.log(fails.length ? '\nFAILED: ' + fails.join(', ') : '\nall extension checks passed');

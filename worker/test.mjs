@@ -96,7 +96,7 @@ t('unknown route 404', r.status === 404, String(r.status));
       usage: { input_tokens: 900, output_tokens: 2500 },
       expect: d => d.hadJson === false && d.len > 0 && d.steps === 0 },
     { name: 'JSON opened, first step never closed',
-      content: [{ type: 'text', text: '{"steps":[{"label":"Question the retry bud' }], stop: 'max_tokens',
+      content: [{ type: 'text', text: '{"questions":[{"label":"Question the retry bud' }], stop: 'max_tokens',
       usage: { input_tokens: 900, output_tokens: 2500 },
       expect: d => d.hadJson === true && d.steps === 1 },
   ];
@@ -127,7 +127,7 @@ t('unknown route 404', r.status === 404, String(r.status));
 {
   const five = Array.from({length: 5}, (_, i) =>
     `{"label":"Step ${i+1} label","text":"Do thing ${i+1}.\\n- one constraint\\n- another","evidence":"rrrr"}`).join(',');
-  const cutSixth = `{"steps":[${five},{"label":"Six`;   // ceiling hit mid-6th step
+  const cutSixth = `{"questions":[${five},{"label":"Six`;   // ceiling hit mid-6th step
   globalThis.fetch = async () => ({
     ok: true, status: 200,
     async json() { return {
@@ -141,12 +141,13 @@ t('unknown route 404', r.status === 404, String(r.status));
   const b = await r.json();
   t('partial salvage still returns 200', r.status === 200, String(r.status));
   // 0.9.29: salvage still keeps only COMPLETE steps, but the core ships one.
-  t('partial salvage keeps one complete step', Array.isArray(b.steps) && b.steps.length === 1,
-    'kept=' + (b.steps && b.steps.length));
+  // 0.9.30: salvage keeps only COMPLETE items, now up to the four-question cap.
+  t('partial salvage keeps the complete questions', Array.isArray(b.questions) && b.questions.length === 4,
+    'kept=' + (b.questions && b.questions.length));
   t('partial flag set', b.partial === true);
   t('partial carries diag', !!b.diag && b.diag.out === 2500 && b.diag.stop === 'max_tokens',
     JSON.stringify(b.diag));
-  t('diag counts steps STARTED (6), not kept (5)', b.diag && b.diag.steps === 6,
+  t('diag counts items STARTED (6), not kept (4)', b.diag && b.diag.steps === 6,
     'started=' + (b.diag && b.diag.steps));
 }
 
@@ -158,7 +159,7 @@ t('unknown route 404', r.status === 404, String(r.status));
     async json() { return {
       stop_reason: 'end_turn',
       usage: { input_tokens: 500, output_tokens: 300 },
-      content: [{ type: 'text', text: JSON.stringify({ steps: [
+      content: [{ type: 'text', text: JSON.stringify({ questions: [
         { label: 'Grounded', text: 'Do the thing.', evidence: 'rrrr' },
         { label: 'Dropped', text: 'No evidence.' },
         { label: 'Ungrounded', text: 'Renders anyway.', evidence: 'zzz not in reply' }
@@ -168,14 +169,14 @@ t('unknown route 404', r.status === 404, String(r.status));
   });
   const r = await w.fetch(post(), { ANTHROPIC_API_KEY: 'k', CX_KV: makeKV(), IP_SALT: 's' });
   const b = await r.json();
-  t('evidence-less step dropped, one chip kept (hosted)', b.steps && b.steps.length === 1,
-    'kept=' + (b.steps && b.steps.length));
-  t('the kept chip is the grounded one, not the ungrounded one',
-    b.steps && b.steps[0] && b.steps[0].label === 'Grounded', JSON.stringify(b.steps && b.steps[0]));
-  t('response steps carry no evidence key', b.steps && b.steps.every(s => !('evidence' in s)),
-    JSON.stringify(b.steps && b.steps[0]));
+  t('evidence-less question dropped (hosted)', b.questions && b.questions.length === 2,
+    'kept=' + (b.questions && b.questions.length));
+  t('the first kept question is the grounded one',
+    b.questions && b.questions[0] && b.questions[0].label === 'Grounded', JSON.stringify(b.questions && b.questions[0]));
+  t('response steps carry no evidence key', b.questions && b.questions.every(s => !('evidence' in s)),
+    JSON.stringify(b.questions && b.questions[0]));
   t('grounding counts returned', b.grounding &&
-    b.grounding.total === 3 && b.grounding.kept === 1 && b.grounding.grounded === 1,
+    b.grounding.total === 3 && b.grounding.kept === 2 && b.grounding.grounded === 1,
     JSON.stringify(b.grounding));
 }
 
@@ -191,15 +192,15 @@ t('unknown route 404', r.status === 404, String(r.status));
     async json() { return {
       stop_reason: 'end_turn',
       usage: { input_tokens: 500, output_tokens: 30 },
-      content: [{ type: 'text', text: JSON.stringify({ steps: [] }) }]
+      content: [{ type: 'text', text: JSON.stringify({ questions: [] }) }]
     }; },
     async text() { return ''; }
   });
   const r = await w.fetch(post(), { ANTHROPIC_API_KEY: 'k', CX_KV: makeKV(), IP_SALT: 's' });
   const b = await r.json();
   t('deliberate zero is a 200, not an error', r.status === 200, String(r.status));
-  t('quiet row carries an empty steps array', Array.isArray(b.steps) && b.steps.length === 0,
-    JSON.stringify(b.steps));
+  t('quiet row carries an empty steps array', Array.isArray(b.questions) && b.questions.length === 0,
+    JSON.stringify(b.questions));
   t('quiet row is flagged as quiet', b.quiet === true);
   t('quiet row carries no error', !b.error, JSON.stringify(b.error));
   t('quiet row still reports grounding', b.grounding && b.grounding.total === 0 && b.grounding.kept === 0,
@@ -214,7 +215,7 @@ t('unknown route 404', r.status === 404, String(r.status));
     async json() { return {
       stop_reason: 'end_turn',
       usage: { input_tokens: 500, output_tokens: 200 },
-      content: [{ type: 'text', text: JSON.stringify({ steps: [
+      content: [{ type: 'text', text: JSON.stringify({ questions: [
         { label: 'No evidence', text: 'Do a thing.' }
       ] }) }]
     }; },
@@ -236,7 +237,7 @@ t('unknown route 404', r.status === 404, String(r.status));
     async json() { return {
       stop_reason: 'end_turn',
       usage: { input_tokens: 500, output_tokens: 400 },
-      content: [{ type: 'text', text: JSON.stringify({ steps: [
+      content: [{ type: 'text', text: JSON.stringify({ questions: [
         { label: 'Long one', text: long, evidence: 'rrrr' }
       ] }) }]
     }; },
@@ -245,7 +246,7 @@ t('unknown route 404', r.status === 404, String(r.status));
   const r = await w.fetch(post(), { ANTHROPIC_API_KEY: 'k', CX_KV: makeKV(), IP_SALT: 's' });
   const b = await r.json();
   t('a ~690-char step is not truncated at the old 600 cap',
-    b.steps && b.steps[0] && b.steps[0].text.length > 600, 'len=' + (b.steps && b.steps[0] && b.steps[0].text.length));
+    b.questions && b.questions[0] && b.questions[0].text.length > 600, 'len=' + (b.questions && b.questions[0] && b.questions[0].text.length));
 }
 
 
@@ -256,7 +257,7 @@ t('unknown route 404', r.status === 404, String(r.status));
     sentBody = JSON.parse(opts.body);
     return { ok: true, status: 200, async json() { return { stop_reason: 'end_turn',
       usage: { input_tokens: 10, output_tokens: 10 },
-      content: [{ type: 'text', text: JSON.stringify({ steps: [{ label: 'A', text: 'Do.', evidence: 'rrrr' }] }) }] }; },
+      content: [{ type: 'text', text: JSON.stringify({ questions: [{ label: 'A', text: 'Do.', evidence: 'rrrr' }] }) }] }; },
       async text() { return ''; } };
   };
   await w.fetch(post(), { ANTHROPIC_API_KEY: 'k', CX_KV: makeKV(), IP_SALT: 's' });
@@ -276,13 +277,13 @@ t('unknown route 404', r.status === 404, String(r.status));
       async json() { return {}; } };
     return { ok: true, status: 200, async json() { return { stop_reason: 'end_turn',
       usage: { input_tokens: 10, output_tokens: 10 },
-      content: [{ type: 'text', text: JSON.stringify({ steps: [{ label: 'A', text: 'Do.', evidence: 'rrrr' }] }) }] }; },
+      content: [{ type: 'text', text: JSON.stringify({ questions: [{ label: 'A', text: 'Do.', evidence: 'rrrr' }] }) }] }; },
       async text() { return ''; } };
   };
   const r = await w.fetch(post(), { ANTHROPIC_API_KEY: 'k', CX_KV: makeKV(), IP_SALT: 's' });
   const b = await r.json();
   t('worker retries thinking-400 without the field', calls === 2, 'calls=' + calls);
-  t('worker retry returns steps', b.steps && b.steps.length === 1, JSON.stringify(b.steps));
+  t('worker retry returns steps', b.questions && b.questions.length === 1, JSON.stringify(b.questions));
 }
 
 /* ---- v0.9.23: /v1/expand — the fifth chip's endpoint ---------------------- */

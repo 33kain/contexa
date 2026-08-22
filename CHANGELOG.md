@@ -7,6 +7,71 @@ free to diverge, and the settings page labels them separately for that reason.
 
 ---
 
+## Extension 0.9.30 — Backend 0.9.30
+
+*CONTEXA stops writing your next message and starts asking you the questions
+that become it.*
+
+### The interview
+
+Modelled directly on Claude's own clarifying-question card, which is what the
+owner meant by "ask questions like Claude" — the reference was literal, and the
+earlier reading of it (three empty text fields) was wrong.
+
+One question at a time, `1 of 3` pagination, **numbered answer options written
+for the user**, a per-question Skip, a free-text "Something else", and a × that
+dismisses to the Rough ask chip so closing the card never leaves you with less
+than you had. Number keys pick an option. Focus is taken only when you are not
+already typing in the composer.
+
+**The options are the product.** Someone who cannot specify the work usually
+cannot fill an empty box either — but they can recognise the right answer when
+they see it. That is the whole difference between this and a form, and it is
+why the prompt spends more words on writing good options than on writing good
+questions. An option meaning "other" or "skip" is stripped in both copies: the
+interface supplies both, and a duplicate wastes one of only four slots.
+
+### Above the composer, one card for the page
+
+The row no longer sits under each reply. It mounts above the composer and there
+is exactly one — a new reply replaces the previous card rather than stacking
+under it, and nothing accumulates when you scroll back.
+
+Owner's call, and it has a second payoff: the Code-session scope concluded that
+a virtualised transcript forbids injecting into rows and requires exactly this
+placement. That adapter's hard half is now solved as a side effect.
+
+### Two calls, and the copy now says so
+
+An interview spends two units from the daily pool — one to write the questions,
+one to compose the prompt. No metering code changed, because both endpoints
+already charge a unit each. What changed is the honesty: every surface that
+said "20 suggestion sets a day" now says **10 prompts a day**, and the quota
+card halves the raw limit rather than reporting the counter.
+
+### What survived, and what is gone
+
+`NEXT_STEPS_SYSTEM` is renamed `QUESTIONS_SYSTEM` — a constant called
+NEXT_STEPS that generates questions is the kind of lie a future session reads
+instead of the body. The wire schema is `{questions:[{label,text,options,evidence}]}`.
+
+**Zero survived a second rewrite.** Nothing was earned, nothing is asked, and
+the card falls back to the Rough ask chip. Every padding defect in the pattern
+file traces to a floor, and there is still no floor.
+
+**The evidence contract survived, now guarding questions.** A question with
+nothing quotable in the reply is an invented question, and it is dropped.
+
+### Field evidence behind this release
+
+Four rows under 0.9.29 on 22 Aug. Zero fired on a reply that asked the user for
+specifics — correctly, because answering the reply's own question is the banned
+obvious step — and the store build rendered that silence as *"Couldn't write
+suggestions for this reply."* That mislabel is what made the store submission
+urgent rather than advisable, and it is fixed here.
+
+---
+
 ## Extension 0.9.29 — Backend 0.9.29
 
 *The core changes. One chip, or none.*
