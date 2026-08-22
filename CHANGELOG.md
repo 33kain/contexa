@@ -7,6 +7,63 @@ free to diverge, and the settings page labels them separately for that reason.
 
 ---
 
+## Extension 0.9.26 — Backend unchanged (0.9.25)
+
+*The beginner release. Audience decision of 2026-08-21: CONTEXA targets
+beginners and intermediate users, not senior developers — "make bad prompts
+good" is worth nothing to someone whose prompts are already good.*
+
+### Changed: the settings page now hides everything a beginner doesn't need
+
+The old page opened on an API key field. For the audience this product is for,
+that is a wall: it implies setup is required, implies a cost, and implies you
+need to know what an API is. None of that is true — the free service needs
+nothing at all.
+
+The default view is now a single card reading **CONTEXA is on** with a switch,
+four plain steps ending with "click one and the full message is written into
+your message box — you can edit it, nothing is ever sent without you pressing
+send", and one line saying it's free with no sign-up. That is the whole page.
+API key, model, backend URL and Test collapse behind an **Advanced**
+disclosure that opens with "You don't need any of this."
+
+The switch saves on flip rather than waiting for Save — a Save button attached
+to a toggle is a quiet trap: people flip it, close the tab, and nothing
+happened. Version comes from the manifest and the shipped model from
+`getConfig`, so neither can drift into a stale second copy.
+
+### Fixed: error cards spoke in codes to people who can't read them
+
+The first outside user this product ever had opened claude.ai and met the
+string `forbidden_origin`. He was simply running an unpacked dev copy instead
+of the store build — a thirty-second fix — but nothing on screen said so. An
+error the reader cannot act on is worse than no error at all.
+
+Every failure now renders one plain sentence with the most useful button for
+that cause. `forbidden_origin` reads "This copy of CONTEXA wasn't installed
+from the Chrome Web Store, so it can't use the free service. Install the store
+version and remove this one." — with a **Get CONTEXA** button going to the
+listing rather than to settings. Truncations, network failures, rejected keys
+and rate limits each get their own sentence; anything unmapped falls back to
+one that is at least honest and actionable. Diagnostics are untouched and still
+go to the console, where they were always the useful thing.
+
+### Fixed: the streaming guard failed open
+
+`scan()` read `if (wrap && wrap.getAttribute('data-is-streaming') === 'true')`.
+If claude.ai ever moved, renamed, or relocated that attribute, `wrap` would be
+null, the guard would silently stop applying, and CONTEXA would fire mid-stream
+on a half-written reply — after which the `processed` WeakSet blocked any
+correction. The only symptom would have been one weak chip and no error
+anywhere, which is precisely the failure mode hardest to notice.
+
+It now fails closed: `'true'` still short-circuits, but without a positive
+`'false'` the fast path is refused and the decision waits for the debounced
+settle timer, which sets its own signal after 1.2 seconds of quiet. A future
+claude.ai redesign now costs a small delay instead of a bad capture.
+
+---
+
 ## Extension 0.9.25 — Backend 0.9.25
 
 ### Fixed: drafts stated facts only the user could know as though observed

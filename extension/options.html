@@ -1,90 +1,227 @@
 <!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="UTF-8">
-<title>CONTEXA settings</title>
+<meta charset="utf-8">
+<title>CONTEXA</title>
 <style>
-  :root{--bg:#F5F4EF;--surface:#fff;--surface2:#FAF9F5;--text:#3D3929;--text2:#73726C;
-        --border:#DEDCD1;--accent:#D97757;--accent-soft:#F5E9E4;--green:#4C6142;--red:#96432E}
-  @media (prefers-color-scheme:dark){
-    :root{--bg:#262624;--surface:#30302E;--surface2:#3A3A37;--text:#EDECE6;--text2:#A6A49B;
-          --border:#4A4A46;--accent-soft:#453832;--green:#B4C7A8;--red:#E2957F}}
+  :root{
+    --bg:#FAF9F5; --card:#FFFFFF; --text:#3D3929; --text2:#73726C;
+    --line:#E8E6DE; --line2:#DEDCD1; --accent:#D97757; --accent-soft:#F5E9E4;
+    --ok:#2F7D5B; --ok-soft:#E8F3ED; --warn-bg:#F7F0DF; --warn-text:#8A6A1F;
+  }
+  @media (prefers-color-scheme: dark){
+    :root{
+      --bg:#262624; --card:#30302E; --text:#EDECE6; --text2:#A6A49B;
+      --line:#3F3F3C; --line2:#4A4A46; --accent:#D97757; --accent-soft:#453832;
+      --ok:#7CC0A0; --ok-soft:#25382F; --warn-bg:#403823; --warn-text:#E0C382;
+    }
+  }
   *{box-sizing:border-box;margin:0;padding:0}
-  body{background:var(--bg);color:var(--text);
-       font-family:ui-sans-serif,-apple-system,"Segoe UI",Roboto,sans-serif;
-       display:grid;place-items:start center;min-height:100vh;padding:44px 20px}
-  .card{background:var(--surface);border:1px solid var(--border);border-radius:14px;
-        padding:26px;width:min(500px,94vw)}
-  h1{font-size:18px;margin-bottom:3px}
-  h1 b{color:var(--accent)}
-  h1 .ver{font-size:11px;font-weight:500;color:var(--text2);letter-spacing:.04em;
-          margin-left:7px;vertical-align:1px}
-  .hint{text-transform:none;font-weight:400;color:var(--text2)}
-  .sub{font-size:13px;color:var(--text2);margin-bottom:20px}
-  .mode{border:1px solid var(--border);border-radius:10px;padding:13px 14px;margin-bottom:12px;
-        background:var(--surface2)}
-  .mode .row{display:flex;align-items:center;gap:9px;font-size:14px;font-weight:600}
-  .mode .row .pill{margin-left:auto;font-size:10px;letter-spacing:.08em;text-transform:uppercase;
-        border-radius:999px;padding:3px 9px;background:var(--accent-soft);color:var(--accent);
-        font-weight:700}
-  .mode p{font-size:12.5px;color:var(--text2);line-height:1.5;margin-top:6px}
-  label{display:block;font-size:11.5px;font-weight:600;letter-spacing:.05em;
-        text-transform:uppercase;color:var(--text2);margin:16px 0 6px}
-  input[type=text],input[type=password]{width:100%;padding:9px 11px;font-size:14px;
-        border:1px solid var(--border);border-radius:8px;background:var(--bg);color:var(--text)}
-  .toggle{display:flex;align-items:center;gap:8px;font-size:14px;margin-bottom:4px}
-  .row2{display:flex;align-items:center;gap:10px;margin-top:18px}
-  button{border:none;border-radius:8px;padding:9px 16px;font-size:13px;font-weight:600;
-         cursor:pointer;background:var(--accent);color:#fff}
-  button.ghost{background:transparent;color:var(--text2);border:1px solid var(--border)}
-  #status{font-size:13px;margin-left:auto}
-  #status.ok{color:var(--green)} #status.err{color:var(--red)}
-  details{margin-top:18px;font-size:12.5px;color:var(--text2)}
-  details summary{cursor:pointer;font-weight:600}
-  .privacy{font-size:12.5px;color:var(--text2);line-height:1.55;margin-top:20px;
-           border-top:1px solid var(--border);padding-top:14px}
+  body{
+    background:var(--bg);color:var(--text);
+    font:15px/1.55 ui-sans-serif,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    padding:40px 24px 56px;
+  }
+  .page{max-width:520px;margin:0 auto}
+
+  .brand{display:flex;align-items:center;gap:9px;margin-bottom:28px}
+  .brand b{font-size:14px;font-weight:700;letter-spacing:.28em;color:var(--accent)}
+
+  /* ---------- the only thing a beginner needs ---------- */
+  .status{
+    background:var(--card);border:1px solid var(--line);border-radius:14px;
+    padding:20px 22px;display:flex;align-items:center;gap:16px;
+  }
+  .status .dot{
+    width:10px;height:10px;border-radius:99px;background:var(--ok);flex:none;
+    box-shadow:0 0 0 4px var(--ok-soft);
+  }
+  .status.off .dot{background:var(--text2);box-shadow:0 0 0 4px var(--line)}
+  .status h1{font-size:18px;font-weight:600;letter-spacing:-.2px}
+  .status p{font-size:13.5px;color:var(--text2);margin-top:2px}
+
+  /* switch */
+  .switch{margin-left:auto;flex:none;position:relative;width:46px;height:27px}
+  .switch input{opacity:0;width:0;height:0;position:absolute}
+  .slider{
+    position:absolute;inset:0;background:var(--line2);border-radius:99px;
+    cursor:pointer;transition:background .18s;
+  }
+  .slider:before{
+    content:"";position:absolute;width:21px;height:21px;left:3px;top:3px;
+    background:#fff;border-radius:99px;transition:transform .18s;
+    box-shadow:0 1px 3px rgba(0,0,0,.25);
+  }
+  input:checked + .slider{background:var(--accent)}
+  input:checked + .slider:before{transform:translateX(19px)}
+
+  /* ---------- how it works ---------- */
+  .how{margin-top:26px}
+  .how h2{
+    font-size:10.5px;letter-spacing:.16em;text-transform:uppercase;
+    color:var(--text2);margin-bottom:12px;font-weight:600;
+  }
+  .step{display:flex;gap:13px;padding:9px 0}
+  .num{
+    flex:none;width:22px;height:22px;border-radius:99px;background:var(--accent-soft);
+    color:var(--accent);font-size:11.5px;font-weight:700;
+    display:flex;align-items:center;justify-content:center;margin-top:1px;
+  }
+  .step p{font-size:14px}
+  .step .sub{font-size:13px;color:var(--text2);margin-top:1px}
+
+  .quota{
+    margin-top:22px;background:var(--card);border:1px solid var(--line);
+    border-radius:12px;padding:14px 16px;font-size:13.5px;color:var(--text2);
+  }
+  .quota b{color:var(--text);font-weight:600}
+
+  /* ---------- advanced ---------- */
+  details{margin-top:30px}
+  summary{
+    font-size:13px;color:var(--text2);cursor:pointer;list-style:none;
+    display:inline-flex;align-items:center;gap:6px;padding:5px 0;
+  }
+  summary::-webkit-details-marker{display:none}
+  summary .chev{transition:transform .18s}
+  details[open] summary .chev{transform:rotate(90deg)}
+  summary:hover{color:var(--accent)}
+
+  .adv{
+    margin-top:16px;background:var(--card);border:1px solid var(--line);
+    border-radius:14px;padding:20px 22px;
+  }
+  .adv .lead{font-size:13.5px;color:var(--text2);margin-bottom:20px}
+  label{display:block;font-size:12.5px;font-weight:600;margin-bottom:5px}
+  .hint{font-size:12px;color:var(--text2);font-weight:400;margin-bottom:6px}
+  input[type=text],input[type=password]{
+    width:100%;padding:9px 11px;border:1px solid var(--line2);border-radius:9px;
+    background:var(--bg);color:var(--text);font:13.5px ui-monospace,SFMono-Regular,Menlo,monospace;
+  }
+  input:focus{outline:none;border-color:var(--accent)}
+  .field{margin-bottom:18px}
+
+  .mode{
+    background:var(--bg);border:1px solid var(--line2);border-radius:10px;
+    padding:12px 14px;margin-bottom:20px;
+  }
+  .mode .row{display:flex;align-items:center;gap:8px}
+  .mode b{font-size:13.5px}
+  .pill{
+    font-size:10.5px;letter-spacing:.05em;text-transform:uppercase;font-weight:700;
+    background:var(--accent-soft);color:var(--accent);border-radius:99px;padding:2px 8px;
+  }
+  .mode p{font-size:12.5px;color:var(--text2);margin-top:5px}
+
+  .actions{display:flex;align-items:center;gap:9px}
+  button{
+    font:600 13px inherit;border-radius:9px;padding:9px 16px;cursor:pointer;
+    border:1px solid var(--line2);background:transparent;color:var(--text);
+  }
+  button.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+  button:hover{border-color:var(--accent)}
+  #status{font-size:13px;margin-left:2px}
+  #status.ok{color:var(--ok)} #status.err{color:var(--warn-text)}
+
+  footer{margin-top:26px;font-size:12px;color:var(--text2);text-align:center}
+  footer a{color:var(--text2)}
 </style>
-</head>
-<body>
-  <div class="card">
-    <h1><b>C</b>ONTEXA <span class="ver" id="extVersion"></span></h1>
-    <div class="sub">Five next steps after every Claude reply.</div>
 
-    <label class="toggle"><input type="checkbox" id="enabled"> CONTEXA is on</label>
+<div class="page">
 
-    <div class="mode" id="modeBox">
-      <div class="row"><span id="modeName">Hosted</span><span class="pill" id="modePill">free</span></div>
-      <p id="modeDesc">Suggestions come from CONTEXA's service — no setup needed. Fair-use limit
-        of 20 replies per day.</p>
+  <div class="brand">
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="#D97757" aria-hidden="true"><path d="M12 1.6l1.9 7.3 7.3 1.9-7.3 1.9-1.9 7.3-1.9-7.3-7.3-1.9 7.3-1.9z"/></svg>
+    <b>CONTEXA</b>
+  </div>
+
+  <!-- Everything a beginner ever needs to see -->
+  <div class="status" id="statusCard">
+    <span class="dot"></span>
+    <div>
+      <h1 id="stateTitle">CONTEXA is on</h1>
+      <p id="stateNote">Nothing else to set up.</p>
     </div>
+    <label class="switch">
+      <input type="checkbox" id="enabled" aria-label="Turn CONTEXA on or off">
+      <span class="slider"></span>
+    </label>
+  </div>
 
-    <label for="apiKey">Your Anthropic API key <span style="text-transform:none;font-weight:400">(optional — removes the daily limit)</span></label>
-    <input type="password" id="apiKey" placeholder="sk-ant-… (leave empty to use the hosted service)" autocomplete="off">
-
-    <div class="row2">
-      <button id="save">Save</button>
-      <button class="ghost" id="test">Test connection</button>
-      <span id="status"></span>
+  <div class="how">
+    <h2>How it works</h2>
+    <div class="step">
+      <span class="num">1</span>
+      <div><p>Open a chat on claude.ai and ask anything.</p></div>
     </div>
-
-    <details>
-      <summary>Advanced</summary>
-      <label for="model">Model <span class="hint">— own key only. Leave empty to follow the current default.</span></label>
-      <input type="text" id="model" placeholder="loading…">
-      <label for="proxyUrl">Backend URL</label>
-      <input type="text" id="proxyUrl" placeholder="https://contexa-api.example.workers.dev">
-    </details>
-
-    <div class="privacy">
-      <b>What leaves your browser.</b> To suggest next steps, CONTEXA sends your last
-      message and Claude's reply for that one exchange. With your own key, it goes
-      directly to the Anthropic API and nowhere else. Without a key, it goes to
-      CONTEXA's backend, which forwards it to Anthropic and returns the
-      suggestions — the text is not stored, and there is no account or profile
-      attached to it. Nothing is sent until a reply finishes, and never from a
-      conversation you don't send a message in.
+    <div class="step">
+      <span class="num">2</span>
+      <div>
+        <p>When the answer finishes, a row of suggestions appears under it.</p>
+        <p class="sub">Each one is a good next thing to ask.</p>
+      </div>
+    </div>
+    <div class="step">
+      <span class="num">3</span>
+      <div>
+        <p>Click one and the full message is written into your message box.</p>
+        <p class="sub">You can edit it. Nothing is ever sent without you pressing send.</p>
+      </div>
+    </div>
+    <div class="step">
+      <span class="num">4</span>
+      <div>
+        <p>Or click <b>✎ Rough ask…</b> and type roughly what you want.</p>
+        <p class="sub">Type "make it shorter" and CONTEXA writes the proper version for you.</p>
+      </div>
     </div>
   </div>
-  <script src="options.js"></script>
-</body>
-</html>
+
+  <div class="quota" id="quotaLine">
+    <b>Free.</b> No account, no sign-up. Fair use is 20 suggestion sets a day.
+  </div>
+
+  <!-- Expert surface: out of sight until asked for -->
+  <details id="advanced">
+    <summary>
+      <svg class="chev" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>
+      Advanced
+    </summary>
+
+    <div class="adv">
+      <p class="lead">You don't need any of this. It's here for people who want to use their own Anthropic API key instead of the free service.</p>
+
+      <div class="mode">
+        <div class="row"><b id="modeName">Free service</b><span class="pill" id="modePill">no key needed</span></div>
+        <p id="modeDesc"></p>
+      </div>
+
+      <div class="field">
+        <label for="apiKey">Your Anthropic API key</label>
+        <p class="hint">Optional. Stays in this browser and goes only to Anthropic — never to our server.</p>
+        <input type="password" id="apiKey" placeholder="leave empty to use the free service" autocomplete="off" spellcheck="false">
+      </div>
+
+      <div class="field">
+        <label for="model">Model</label>
+        <p class="hint">Leave empty to follow the shipped default (<span id="shippedModel">…</span>).</p>
+        <input type="text" id="model" placeholder="" autocomplete="off" spellcheck="false">
+      </div>
+
+      <div class="field">
+        <label for="proxyUrl">Backend URL</label>
+        <p class="hint">Only change this if you host the CONTEXA backend yourself.</p>
+        <input type="text" id="proxyUrl" autocomplete="off" spellcheck="false">
+      </div>
+
+      <div class="actions">
+        <button class="primary" id="save">Save</button>
+        <button id="test">Test connection</button>
+        <span id="status"></span>
+      </div>
+    </div>
+  </details>
+
+  <footer>
+    CONTEXA <span id="ver"></span><span id="backendVer"></span> · independent, not affiliated with Anthropic
+  </footer>
+</div>
+
+<script src="options.js"></script>

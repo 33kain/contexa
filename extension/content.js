@@ -104,7 +104,8 @@
   .chip:hover{border-color:var(--accent);color:var(--accent);background:var(--surface2);
     transform:translateY(-1px)}
   /* honest states — never fake output */
-  .quiet{display:flex;align-items:center;gap:8px;font-size:11.5px;color:var(--text2);
+  .quiet{display:flex;align-items:flex-start;gap:8px;font-size:11.5px;color:var(--text2);
+    max-width:520px;
     line-height:1.45;padding:7px 10px;border:1px dashed var(--border2);border-radius:8px;
     background:transparent}
   .quiet code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:10.5px}
@@ -209,23 +210,39 @@
     if (replyObserver) replyObserver.disconnect();
     const container = composer.closest('main') || document.body;
     let settleTimer = null;
+    // true only inside the debounced call: "mutations have stopped for 1.2s"
+    let settled = false;
 
     const scan = () => {
       const responses = container.querySelectorAll(RESPONSE_SEL);
       if (!responses.length) return;
       const last = responses[responses.length - 1];
       if (processed.has(last)) return;
+      /* The streaming guard used to fail OPEN: `wrap && ...` meant that if the
+         attribute ever moved, was renamed, or stopped being an ancestor of the
+         reply, the guard silently stopped applying and we fired mid-stream on a
+         half-written answer — then `processed` blocked any correction. The
+         symptom would be one weak chip and no error anywhere. Fail CLOSED
+         instead: without a positive "streaming has finished" signal, refuse the
+         fast path and let the settle timer decide. `settled` is set only by the
+         debounced call, so a claude.ai redesign costs a 1.2s delay, never a
+         capture of half a reply. */
       const wrap = last.closest(STREAM_SEL);
-      if (wrap && wrap.getAttribute('data-is-streaming') === 'true') return; // still streaming
+      const streamFlag = wrap ? wrap.getAttribute('data-is-streaming') : null;
+      if (streamFlag === 'true') return;                  // definitely still streaming
+      if (streamFlag !== 'false' && !settled) return;      // no positive signal - wait for quiet
       if ((last.textContent || '').trim().length < 120) return;              // skip one-liners
       processed.add(last);
       onReplyComplete(last);
     };
 
     replyObserver = new MutationObserver(() => {
+      settled = false;
       scan();                                 // fast path: streaming flag flipped false
       clearTimeout(settleTimer);
-      settleTimer = setTimeout(scan, 1200);   // fallback if the flag is ever absent
+      // fallback when the flag is absent or renamed: the page going quiet for
+      // 1.2s is the positive signal scan() needs.
+      settleTimer = setTimeout(() => { settled = true; scan(); }, 1200);
     });
     replyObserver.observe(container, {
       childList: true, subtree: true, characterData: true,
@@ -439,7 +456,7 @@
   // dressing up generic text as real suggestions.
   function renderQuiet(anchor, mode, reason, resp) {
     const wrap = shell(anchor, mode);
-    let body, btn = 'Settings';
+    let body, btn = 'Settings', openUrl = null;
     if (mode === 'stale') {
       body = `CONTEXA was updated — reload this page to continue.`;
       btn = 'Reload';
@@ -452,27 +469,77 @@
       body = `CONTEXA isn’t connected to a backend yet. Add your own API key to use it now.`;
       btn = 'Add key';
     } else {
-      /* Show the cause in the page, not just the symptom. A bare "truncated"
-         sent us hunting through three competing theories with no way to choose;
-         one glance at these numbers picks the right one. Full detail also goes
-         to the console. */
+      /* The diagnostics stay — they have paid for themselves repeatedly — but
+         they belong in the console, not in a card a beginner is reading. The
+         first outside user this product ever had met the bare string
+         "forbidden_origin" and had no idea he was simply running a dev copy.
+         An error the reader cannot act on is worse than no error at all. */
       const d = resp && resp.diag;
       if (d) console.warn('[CONTEXA]', reason, d);
-      // detail = the API's own error text (own-key path). Captured since 0.9.0,
-      // rendered never — until an api_400 cost a debugging cycle. Show it.
       const det = resp && resp.detail ? String(resp.detail).slice(0, 220) : '';
       if (det) console.warn('[CONTEXA] detail:', det);
-      body = `Couldn’t generate next steps (<code>${esc(reason)}</code>).`
-        + (d ? `<br><span class="diag">${esc(explainDiag(d))}</span>` : '')
-        + (det ? `<br><span class="diag">${esc(det)}</span>` : '');
+      console.warn('[CONTEXA] error', reason);
+
+      const said = humanError(reason);
+      body = esc(said.text);
+      btn = said.btn;
+      // Only this one has a fix the user can act on right now, so it gets a
+      // real destination instead of the settings page.
+      if (said.url) openUrl = said.url;
     }
     wrap.innerHTML = `<div class="quiet"><span><b style="color:var(--accent)">✦</b> ${body}</span>
       <button>${btn}</button></div>`;
     wrap.querySelector('button').addEventListener('click', () => {
-      // no chrome.* here: this path must work when the context is already dead
+      // no chrome.* on these two paths: they must work when the context is dead
       if (mode === 'stale') return location.reload();
+      if (openUrl) return window.open(openUrl, '_blank', 'noopener');
       try { chrome.runtime.sendMessage({ type: 'openOptions' }).catch(() => {}); } catch {}
     });
+  }
+
+  /* One plain sentence per failure, written for someone who has never seen an
+     error code, plus the most useful button for that specific cause. Codes
+     still go to the console for us. Anything unmapped falls back to a sentence
+     that is at least honest and actionable. */
+  const STORE_URL = 'https://chromewebstore.google.com/detail/phhamigkjeeabbjncpmhkppkjccfglhb';
+  function humanError(code) {
+    const c = String(code || '');
+    if (/^forbidden_origin$/.test(c)) return {
+      text: 'This copy of CONTEXA wasn’t installed from the Chrome Web Store, so it can’t use the free service. Install the store version and remove this one.',
+      btn: 'Get CONTEXA', url: STORE_URL
+    };
+    if (/^(truncated|bad_json|no_steps|no_prompt|bad_response)$/.test(c)) return {
+      text: 'Couldn’t write suggestions for this reply. Send another message and it’ll try again.',
+      btn: 'Settings'
+    };
+    if (/^network$/.test(c) || /^proxy_5\d\d$/.test(c) || /^upstream_/.test(c)) return {
+      text: 'Couldn’t reach the CONTEXA service just now. It’s usually back within a minute.',
+      btn: 'Settings'
+    };
+    if (/^server_not_configured$/.test(c)) return {
+      text: 'The CONTEXA service isn’t set up correctly right now. Nothing you can fix — try again later.',
+      btn: 'Settings'
+    };
+    if (/^api_401$/.test(c) || /^no_key$/.test(c)) return {
+      text: 'Your Anthropic API key was rejected. Check it in settings, or clear it to use the free service.',
+      btn: 'Settings'
+    };
+    if (/^api_429$/.test(c)) return {
+      text: 'Anthropic is rate-limiting your API key. Wait a moment and try again.',
+      btn: 'Settings'
+    };
+    if (/^api_/.test(c)) return {
+      text: 'Anthropic refused that request. If you set a model name in settings, check it’s spelled right.',
+      btn: 'Settings'
+    };
+    if (/extension:/.test(c) || /^unknown_message$/.test(c)) return {
+      text: 'CONTEXA lost its connection to this page. Reloading usually fixes it.',
+      btn: 'Settings'
+    };
+    return {
+      text: 'Something went wrong generating suggestions. Send another message to try again.',
+      btn: 'Settings'
+    };
   }
 
   /* Turn the diagnostic into the one sentence that identifies the cause, rather

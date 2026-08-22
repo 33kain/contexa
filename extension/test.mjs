@@ -543,5 +543,76 @@ const settle = () => new Promise(r => setTimeout(r, 0));
   t('expand prompt: viewport marker rule present', (SRC.match(/edge of your viewport/g) || []).length >= 2);
 }
 
+/* ---- v0.9.26: the beginner release ---------------------------------------- */
+{
+  const c = readFileSync('./content.js', 'utf8');
+
+  /* Streaming guard used to fail OPEN — `wrap && attr === 'true'` meant a
+     renamed or relocated attribute silently disabled the guard and CONTEXA
+     captured half a reply, with `processed` blocking any correction. */
+  t('guard requires a positive end-of-stream signal',
+    /streamFlag !== 'false' && !settled/.test(c));
+  t('guard still short-circuits while streaming', /streamFlag === 'true'\) return/.test(c));
+  t('settled is set only by the debounced path',
+    /settleTimer = setTimeout\(\(\) => \{ settled = true; scan\(\); \}, 1200\)/.test(c));
+  t('settled resets on every mutation burst', /settled = false;\n      scan\(\);/.test(c));
+
+  /* The first outside user met the bare string "forbidden_origin". */
+  t('error codes are translated for humans', c.includes('function humanError'));
+  t('forbidden_origin names the real cause',
+    c.includes('wasn’t installed from the Chrome Web Store'));
+  t('forbidden_origin offers the store, not settings',
+    /btn: 'Get CONTEXA', url: STORE_URL/.test(c));
+  t('store URL is the pinned extension id',
+    c.includes('chromewebstore.google.com/detail/phhamigkjeeabbjncpmhkppkjccfglhb'));
+  t('raw code no longer rendered in the card', !/Couldn’t generate next steps \(<code>/.test(c));
+  t('diagnostics still reach the console', /console\.warn\('\[CONTEXA\] error', reason\)/.test(c));
+  t('button can open a url without chrome.*', /if \(openUrl\) return window\.open/.test(c));
+
+  // every branch of humanError must return both a sentence and a button label
+  const hm = c.match(/function humanError\(code\)[\s\S]*?\n  \}/);
+  if (!hm) { t('humanError body found', false); }
+  else {
+    const returns = hm[0].match(/return \{[\s\S]*?\}/g) || [];
+    t('humanError has a fallback plus mapped causes', returns.length >= 8, 'branches=' + returns.length);
+    t('every branch has text and btn', returns.every(r => /text:/.test(r) && /btn:/.test(r)));
+    t('no raw error codes leak into sentences', !/\btext: '[^']*_[a-z]+/.test(hm[0]));
+  }
+}
+
+/* ---- v0.9.26: options page — expert surface hidden ------------------------ */
+{
+  const html = readFileSync('./options.html', 'utf8');
+  const js = readFileSync('./options.js', 'utf8');
+  const det = html.indexOf('<details');
+  t('options page has an Advanced disclosure', det > 0);
+
+  // the freeze bug: a concrete model must never be seeded or backfilled
+  const defs = js.match(/const DEFAULTS = \{[\s\S]*?\};/);
+  t('options DEFAULTS still uses the empty-model convention',
+    !!defs && !/model: '[^']+'/.test(defs[0]));
+  t('options never backfills an empty model field',
+    !/\.value\.trim\(\)\s*\|\|\s*DEFAULTS\.model/.test(js));
+
+  for (const id of ['apiKey', 'model', 'proxyUrl', 'test', 'save']) {
+    const at = html.indexOf('id="' + id + '"');
+    t('expert control hidden behind Advanced: ' + id, at > det, 'at=' + at);
+  }
+  for (const id of ['enabled', 'stateTitle', 'quotaLine']) {
+    const at = html.indexOf('id="' + id + '"');
+    t('beginner control on the default view: ' + id, at > 0 && at < det, 'at=' + at);
+  }
+  // every id the script reaches for must exist, or the page dies silently
+  const used = [...js.matchAll(/\$\('([^']+)'\)/g)].map(m => m[1]);
+  const missing = [...new Set(used)].filter(id => !html.includes('id="' + id + '"'));
+  t('every id used by options.js exists in the html', missing.length === 0, missing.join(','));
+
+  t('the switch saves itself (no lost toggle)',
+    /\$\('enabled'\)\.addEventListener\('change'[\s\S]{0,200}chrome\.storage\.local\.set/.test(js));
+  t('shipped model is asked for, not copied', /type: 'getConfig'/.test(js));
+  t('options translates codes too', /forbidden_origin/.test(js));
+  t('page states it is not affiliated', /not affiliated with Anthropic/i.test(html));
+}
+
 console.log(fails.length ? '\nFAILED: ' + fails.join(', ') : '\nall extension checks passed');
 process.exit(fails.length ? 1 : 0);
