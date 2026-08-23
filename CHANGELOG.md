@@ -7,6 +7,55 @@ free to diverge, and the settings page labels them separately for that reason.
 
 ---
 
+## 0.9.38 — Extension and Backend
+
+*Finishes what 0.9.35 started. Adding one demonstration was not the same as
+removing five counter-demonstrations.*
+
+### Five votes against, one for
+
+0.9.35 added a single filled JSON answer showing `evidence`, and the failure
+went from every-call to occasional. **It stayed all-or-nothing** — `3 of 3`,
+`2 of 2`, never partial, which is what a model committing to a schema looks
+like rather than a model being sloppy.
+
+The reason was still sitting in the prompt. Five worked exemplars described a
+question as `label`, `question`, `options` **and nothing else**. One filled
+answer showed the fourth field. **Five demonstrations of the field's absence
+against one of its presence** — the invariant from 0.9.37 violated five to one
+inside the prompt that invariant was written for.
+
+Every exemplar now carries `evidence` on every question. The strings were
+already there, unlabelled: each exemplar quotes the reply fragment in its own
+narrative, so the field only had to be attached to it.
+
+Two things fell out of doing it properly:
+
+- The three-question exemplar takes **three different slices of one sentence** —
+  *"two or three quick things"*, *"I can get to a real draft"*, *"rather than a
+  generic one"*. Evidence is a slice, not the reply, and two questions must not
+  share a quote.
+- The zero-questions exemplar keeps no evidence, and now **says why**: it is the
+  only case with none, because it has no question to earn one. Left silent, it
+  read as a sixth vote for the field being optional.
+
+One exemplar referenced a quote it never showed — *"named its own hard part"* —
+so it got the quote it was already implying.
+
+### The assertion is about the vote, not the mention
+
+`t('every worked exemplar carries one evidence per question')` counts
+`question "` against `evidence "` per exemplar. Deleting evidence from a single
+exemplar fails it by name. A test for whether the field is *mentioned* would
+have passed throughout the entire bug.
+
+**Not changed, deliberately:** the exemplars still say `question` where the
+schema says `text`. The 0.9.36 log settled that — `0 with no usable "text"` on
+every call observed — and changing two things in one release makes the next
+regression unattributable.
+
+---
+
 ## 0.9.37 — Extension and Backend
 
 *The composer never showed its own output shape. Same defect as 0.9.35's

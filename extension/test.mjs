@@ -653,6 +653,54 @@ const settle = () => new Promise(r => setTimeout(r, 0));
   t('BOTH system prompts demonstrate a complete filled answer',
     /\{"questions":\[\{"label"/.test(liveQuestions) && /\{"prompt":"/.test(liveExpand));
 
+  /* 0.9.38 — the vote, not just the presence. 0.9.35 added ONE filled answer
+     showing "evidence" and the failure went from every-call to occasional; it
+     stayed all-or-nothing (3 of 3, 2 of 2), which is a model committing to a
+     schema. The reason: five prose exemplars still demonstrated a question as
+     label/question/options and nothing else. Five demonstrations of the field's
+     ABSENCE against one of its presence.
+
+     So the assertion is not "is it mentioned" but "does EVERY worked exemplar
+     carry one evidence per question" — the shape a future exemplar has to match
+     to be added at all. The zero-questions case is the sole exemption, and it
+     is exempt because it has no question to earn one. */
+  {
+    const L = liveQuestions.split('\n');
+    const from = L.findIndex(l => l.startsWith('Worked examples'));
+    const to = L.findIndex(l => l.startsWith('Each question has'));
+    t('the exemplar block is still findable', from > 0 && to > from, from + '..' + to);
+    const rows = L.slice(from + 1, to);
+    t('there are worked exemplars to check', rows.length >= 5, String(rows.length));
+
+    const mismatched = rows.filter(l => {
+      const q = (l.match(/question "/g) || []).length;
+      const e = (l.match(/evidence "/g) || []).length;
+      return q !== e;
+    });
+    t('every worked exemplar carries one evidence per question',
+      mismatched.length === 0,
+      mismatched.length ? mismatched[0].slice(2, 60) : '');
+
+    const zero = rows.find(l => /\{"questions":\[\]\}/.test(l));
+    t('the zero-questions exemplar exists and carries no evidence',
+      !!zero && !/evidence "/.test(zero));
+    t('and says WHY it is exempt, so it does not read as the field being optional',
+      /the ONLY case with no evidence in it/.test(liveQuestions));
+
+    /* Evidence is a slice of the reply, not the reply. Three questions off one
+       sentence in the first exemplar, three different slices — which also
+       demonstrates that two questions must not share one quote. */
+    t('an exemplar shows several questions taking different slices of one sentence',
+      /three DIFFERENT slices of the same sentence/.test(liveQuestions));
+    t('no exemplar reuses the same evidence string twice', (() => {
+      for (const l of rows) {
+        const found = (l.match(/evidence "([^"]+)"/g) || []);
+        if (new Set(found).size !== found.length) return false;
+      }
+      return true;
+    })());
+  }
+
   // And the diagnostic whose absence made this cost an extra round trip.
   t('the own-key no_steps branch says WHY, like the worker does',
     SRC.includes('[CONTEXA] parsed but no usable questions'));
