@@ -581,14 +581,16 @@ const settle = () => new Promise(r => setTimeout(r, 0));
      block of raw prose. It answered with a five-line bulleted block of raw
      prose and no JSON wrapper, and every compose failed. The rule was fine;
      its POSITION was the bug. */
+  /* 0.9.37 SUPERSEDES the 0.9.35 version of this check. That one demanded the
+     JSON *instruction* sit last with a single-line PROMPT before it — a
+     workaround for a prompt that never demonstrated its own output shape at
+     all. Now that it does, the real invariant is simpler and stronger: THE LAST
+     THING IN THE PROMPT IS THE CORRECT OUTPUT, literally. Keeping the old
+     assertion would have blocked the actual fix, which is what it did when the
+     wrapper example was first appended. */
   const EX = SRC.match(/const EXPAND_SYSTEM = `([\s\S]*?)`;/)[1].trim().split('\n');
-  t('the JSON instruction is the final line of the composer prompt',
-    /^Reply with ONLY minified JSON/.test(EX[EX.length - 1]), EX[EX.length - 1].slice(0, 40));
-  t('the exemplar just before it is a single-line PROMPT, not a bulleted block',
-    /^PROMPT: /.test(EX[EX.length - 2]) && !/^- /.test(EX[EX.length - 2]),
-    EX[EX.length - 2].slice(0, 48));
-  t('a multi-line exemplar never sits last',
-    !/^- /.test(EX[EX.length - 2]) && !/^- /.test(EX[EX.length - 3]));
+  t('no bulleted plain-text exemplar sits in the last two lines',
+    !/^- /.test(EX[EX.length - 1]) && !/^- /.test(EX[EX.length - 2]));
 
   /* 0.9.36 — one prompt, one verb. Rule #1 has said "never add a second ask"
      since 0.9.23 and the composer routes around it by adding SUB-DELIVERABLES
@@ -609,6 +611,47 @@ const settle = () => new Promise(r => setTimeout(r, 0));
     /the most common failure/.test(SRC) && /bolted on/.test(SRC));
   t('the rule sits high in the force-ordered list, not appended at the end',
     SRC.indexOf('ONE ask, ONE imperative verb') < SRC.indexOf('Never use filler quality words'));
+
+  /* 0.9.37 — the same defect as QUESTIONS_SYSTEM's missing "evidence", found in
+     the composer: EXPAND_SYSTEM demonstrated its output NINE times as
+     `PROMPT: <plain text>` and never once as {"prompt":"..."}. One instruction
+     line asked for JSON against nine worked examples showing text, and the
+     model periodically answered with text — `stop_reason: end_turn`, a
+     perfectly good prompt, no wrapper. 0.9.35 reordered the exemplars, which
+     only rearranged nine plain-text demonstrations and moved the odds.
+
+     THE INVARIANT WORTH KEEPING: every required part of the output must be
+     DEMONSTRATED at least once, not merely required. Both prompts broke it, in
+     the same way, on different fields.
+
+     Evaluated as a template literal, never string-matched: the exemplar's whole
+     job is to carry \\n as two characters rather than a real newline, and a
+     regex over the source cannot tell those apart. */
+  const liveExpand = new Function('return `' +
+    SRC.match(/const EXPAND_SYSTEM = `([\s\S]*?)`;/)[1] + '`')();
+  const wrapper = liveExpand.split('\n').find(l => l.startsWith('{"prompt":"'));
+
+  t('the composer prompt demonstrates its own JSON wrapper at least once', !!wrapper);
+  t('and that demonstration is the LAST thing the model reads',
+    liveExpand.trim().split('\n').pop().startsWith('{"prompt":"'));
+  t('the demonstration is valid JSON', (() => {
+    try { return typeof JSON.parse(wrapper).prompt === 'string'; } catch { return false; }
+  })());
+  t('it encodes newlines as \\n rather than breaking the line',
+    /\.\\n- inline/.test(wrapper) && JSON.parse(wrapper).prompt.split('\n').length === 4);
+  t('the prompt names the gap it is closing',
+    /not one of them shows the wrapper/.test(liveExpand));
+  t('and forbids anything outside the braces',
+    /no text before the brace, none after it/i.test(liveExpand));
+  t('the wrapper example is scoped to shape, not content',
+    /Copy its SHAPE, never its content/.test(liveExpand));
+
+  /* Both prompts now carry a filled answer. Assert it as one rule so the next
+     person adding a required field is told where it also has to appear. */
+  const liveQuestions = new Function('return `' +
+    SRC.match(/const QUESTIONS_SYSTEM = `([\s\S]*?)`;/)[1] + '`')();
+  t('BOTH system prompts demonstrate a complete filled answer',
+    /\{"questions":\[\{"label"/.test(liveQuestions) && /\{"prompt":"/.test(liveExpand));
 
   // And the diagnostic whose absence made this cost an extra round trip.
   t('the own-key no_steps branch says WHY, like the worker does',

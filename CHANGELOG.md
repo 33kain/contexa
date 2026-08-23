@@ -7,6 +7,65 @@ free to diverge, and the settings page labels them separately for that reason.
 
 ---
 
+## 0.9.37 — Extension and Backend
+
+*The composer never showed its own output shape. Same defect as 0.9.35's
+`evidence` bug, different prompt, and this one had been mistaken for three
+separate bugs.*
+
+### Nine demonstrations of plain text, zero of JSON
+
+`EXPAND_SYSTEM` demonstrated its output nine times as `PROMPT: <plain text>` and
+**not once** as `{"prompt":"..."}`. One instruction line asked for JSON against
+nine worked examples showing text. The model periodically answered with text:
+
+```
+[CONTEXA] parse failure {stop:'end_turn', out:201, in:3255, ceiling:1200, len:658}
+text[0,300]= Write my wedding toast draft. Someone else speaks right after me…
+```
+
+`end_turn`, not truncation. A **correct, one-verb, well-constrained prompt** —
+just handed back naked.
+
+**0.9.35 diagnosed this as a position problem and moved the exemplars.** That
+was rearranging nine plain-text demonstrations. It moved the odds and the bug
+came back the moment 0.9.36 added 1,336 characters. Three separate sessions of
+symptom, one cause, never addressed.
+
+The prompt now ends with a complete filled answer — one line, newlines encoded
+as `\n`, nothing outside the braces — preceded by the sentence naming the gap:
+*"not one of them shows the wrapper."*
+
+### The invariant both bugs violated
+
+> **Every required part of the output must be DEMONSTRATED at least once, not
+> merely required.**
+
+`QUESTIONS_SYSTEM` required `evidence` and never showed it. `EXPAND_SYSTEM`
+required a JSON wrapper and never showed it. Same failure, different field,
+found four hours apart. One assertion now checks **both** prompts carry a filled
+answer, so the next person adding a required field is told where else it has to
+appear.
+
+### An assertion that had to be retired
+
+0.9.35's tail check demanded the JSON *instruction* sit last with a single-line
+`PROMPT:` before it. That was a workaround for a prompt that never demonstrated
+its shape at all — and it **failed when the real fix was applied**, because the
+filled example now sits last.
+
+It is replaced by the honest version: **the last thing in the prompt is the
+correct output, literally.** The test evaluates the template literal rather than
+matching the source, because the exemplar's entire job is to carry `\n` as two
+characters instead of a real newline, and a regex cannot tell those apart.
+
+`QUESTIONS_SYSTEM` deliberately keeps its disclaimer after its example: its risk
+is the model copying a **count** and killing the zero-questions outcome. The
+composer's risk is shape, so its example goes last. Different tails, different
+reasons, both written down.
+
+---
+
 ## 0.9.36 — Extension and Backend
 
 *A composer rule with a mechanical test, and a diagnostic that stops guessing.*

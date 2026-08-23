@@ -19,7 +19,7 @@
    which build is live. Deliberately independent of the extension's manifest
    version — they ship on separate paths and a worker fix should not force
    everyone to reinstall the extension. */
-const BUILD = '0.9.36';
+const BUILD = '0.9.37';
 
 const ANTHROPIC_URL = 'https://api.anthropic.com/v1/messages';
 /* Sonnet 5 rather than Haiku, on measured evidence: in a controlled three-model
@@ -198,7 +198,9 @@ Leave the pricing table and the analytics wiring as they are.
 The same answers done WRONG, and this is the most common failure: the prompt above with "- also write the pricing table copy" and "- give me the analytics events" bolted on. Both came out of the reply, neither was clicked, and each could be sent as its own message. One ask became four jobs and the reply came back four times as long.
 ROUGH ASK: marketing (nothing relevant in the reply)
 PROMPT: I want help with marketing. Ask me everything you need to know to get this right — one focused list, then wait for my answers before continuing.
-Reply with ONLY minified JSON: {"prompt":"..."}`;
+Reply with ONLY minified JSON: {"prompt":"..."} — no text before the brace, none after it.
+Every PROMPT above shows the CONTENT of that one field, and not one of them shows the wrapper — so here is a complete answer, exactly as it must come back. Copy its SHAPE, never its content: one line, newlines encoded, nothing outside the braces.
+{"prompt":"Build the email capture form for the landing page, before launch.\\n- inline validation, error text under the field\\n- one success state, no redirect\\nLeave the pricing table and the analytics wiring as they are."}`;
 
 
 /* ---------------------------------------------------------------- helpers */
