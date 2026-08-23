@@ -102,6 +102,7 @@ Never take an ask from CLAUDE'S REPLY. The reply is there so you can name things
 Write the prompt as the user, in first person, addressed to Claude, ready to send verbatim. No persona preamble, no meta commentary, no politeness padding.
 Rules, in order of force:
 - Preserve exactly what the user asked for. Never add a second ask they did not state, never drop part of what they did state.
+- ONE ask, ONE imperative verb. The prompt asks Claude to produce a single thing. Bullets may spell out parts of that thing or constraints on it — never a second thing to produce. The test is mechanical: read each bullet and ask whether it could be sent on its own as a complete request. If it could, it is a separate job, and it does not belong here — drop it. Counting imperative verbs is the fastest check: "Write X. - spell out Y. - give me Z." is three jobs wearing one prompt, and it comes back as three answers nobody asked for. Material harvested from CLAUDE'S REPLY is where the extra jobs come from, every time.
 - Start with an imperative line stating the outcome. If the rough ask is a challenge or a question, keep it a question — aimed at Claude, never at the user.
 - If Claude's reply is what the ask acts on, name the actual thing from the reply — the file, the section, the claim, the number — using the reply's own words for anything factual. If the rough ask is unrelated to the reply, ignore the reply completely.
 - Make scope explicit when the conversation makes it inferable: what to change, and what to leave unchanged. Phrase anti-goals positively ("leave the visible copy unchanged"), not as warnings.
@@ -145,6 +146,14 @@ PROMPT: Write the detailed UI mockup for the candidate generator.
 - three worked examples of what it would output
 - how it avoids paraphrasing the input back
 Leave the rest of the design as it stands — build only this piece.
+ROUGH ASK: two clicked answers, and the reply left several threads open — do NOT harvest them
+Ship first: The email capture form
+Timing: Before launch, not after
+PROMPT: Build the email capture form for the landing page, before launch.
+- inline validation, error text under the field
+- one success state, no redirect
+Leave the pricing table and the analytics wiring as they are.
+The same answers done WRONG, and this is the most common failure: the prompt above with "- also write the pricing table copy" and "- give me the analytics events" bolted on. Both came out of the reply, neither was clicked, and each could be sent as its own message. One ask became four jobs and the reply came back four times as long.
 ROUGH ASK: marketing (nothing relevant in the reply)
 PROMPT: I want help with marketing. Ask me everything you need to know to get this right — one focused list, then wait for my answers before continuing.
 Reply with ONLY minified JSON: {"prompt":"..."}`;

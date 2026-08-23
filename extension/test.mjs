@@ -590,6 +590,26 @@ const settle = () => new Promise(r => setTimeout(r, 0));
   t('a multi-line exemplar never sits last',
     !/^- /.test(EX[EX.length - 2]) && !/^- /.test(EX[EX.length - 3]));
 
+  /* 0.9.36 — one prompt, one verb. Rule #1 has said "never add a second ask"
+     since 0.9.23 and the composer routes around it by adding SUB-DELIVERABLES
+     and scoring them as specificity. Field specimen: four imperative verbs
+     (Write, spell, spell, give) in 816 characters, three harvested from the
+     reply and none of them clicked. A prohibition was already there; what was
+     missing was a mechanical test and a worked pair. */
+  t('the one-verb rule exists', /ONE ask, ONE imperative verb/.test(SRC));
+  t('bullets are parts of the ask, never a second thing to produce',
+    /never a second thing to produce/.test(SRC));
+  t('it carries a mechanical test, not just a prohibition',
+    /could be sent on its own as a complete request/.test(SRC));
+  t('and names the reply as where extra jobs come from',
+    /where the extra jobs come from, every time/.test(SRC));
+  t('a one-verb exemplar is worked through',
+    /Build the email capture form for the landing page/.test(SRC));
+  t('with the WRONG version shown beside it',
+    /the most common failure/.test(SRC) && /bolted on/.test(SRC));
+  t('the rule sits high in the force-ordered list, not appended at the end',
+    SRC.indexOf('ONE ask, ONE imperative verb') < SRC.indexOf('Never use filler quality words'));
+
   // And the diagnostic whose absence made this cost an extra round trip.
   t('the own-key no_steps branch says WHY, like the worker does',
     SRC.includes('[CONTEXA] parsed but no usable questions'));

@@ -9,8 +9,46 @@ free to diverge, and the settings page labels them separately for that reason.
 
 ## 0.9.36 — Extension and Backend
 
-*Diagnostics only. No behaviour changes, and that is the point: the log shipped
-in 0.9.35 asserted a cause it could not know.*
+*A composer rule with a mechanical test, and a diagnostic that stops guessing.*
+
+### One prompt, one verb
+
+Owner's report: *"still makes it complicated."* The specimen —
+
+> **Write** up the artifact-selection extension… · - **spell out** the anchor
+> format… · - **spell out** the verb shortcuts… · - **give** the store-listing
+> copy…
+
+**Four imperative verbs. 816 characters, over its own 700 soft cap. Three of the
+four were never clicked** — all harvested from Claude's reply.
+
+Rule #1 has said *"never add a second ask they did not state"* since 0.9.23, and
+the composer routes around it: it does not add another **ask**, it adds another
+**deliverable**, and scores that as specificity. A constraint shapes the one
+thing being produced — its length, its format, what to leave untouched. A
+sub-deliverable is another thing to produce. Only the first makes an answer
+better; the second makes it longer.
+
+This also corrects a line drawn too early. 0.9.34's reasoning was *facts-only
+interviews go wrong, decision interviews are fine* — drawn from two specimens.
+**This one contained a decision and bloated anyway.** One good case is not a
+rule.
+
+So the force-ordered list gains, at position two:
+
+> ONE ask, ONE imperative verb. Bullets may spell out parts of that thing or
+> constraints on it — never a second thing to produce. **The test is mechanical:
+> could this bullet be sent on its own as a complete request? Then it is a
+> separate job — drop it.**
+
+Plus a worked pair: a correct two-bullet prompt, and the **same answers done
+wrong** with two harvested jobs bolted on. A prohibition was already present;
+what was missing was a test and an example, which is the 0.9.25 lesson.
+
+The exemplars go **before** the degenerate `marketing` case, so the block still
+ends on a single-line `PROMPT:`. 0.9.35 shipped with a bulleted exemplar last
+and the model answered in prose instead of JSON. Position is behaviour, and
+three assertions now hold that slot.
 
 ### One filter, three ways to fail
 
