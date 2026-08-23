@@ -7,6 +7,94 @@ free to diverge, and the settings page labels them separately for that reason.
 
 ---
 
+## 0.9.34 — Extension and Backend
+
+*Two honesty fixes, found the same way: by following one real symptom back to
+the line that produced it.*
+
+### An interview payload is not a rough ask
+
+Found by reading two real interviews side by side.
+
+A finished interview sends the user's clicked answers to the composer as
+`Tegobe: Da\nProbiotik: Da\nImunitet: Ne`, labelled **`ROUGH ASK:`** — the same
+label a typed rough ask gets. But a list of facts has **no verb in it.** The
+composer's whole job is "rewrite this ask", so handed something with no ask, it
+manufactured one — and the only supply of ready-made asks nearby was Claude's
+reply. It produced a prompt asking Claude to re-explain what Claude had just
+said, and an answer that restated the one above it.
+
+The tell was the composer's own words: *"kao što si pomenuo"* — "as you
+mentioned". **It knew it was asking for a repeat and said so.** 36% of that
+prompt was invented, and the invented half generated a section whose conclusion
+was that the question didn't matter.
+
+The second specimen is why this fix is narrow. Its answers contained a
+**decision** — *"Which piece do you want built first?"* — so the identical
+reply-mining behaviour produced legitimate specification instead of a re-run.
+Length was never the defect. **Length is only a defect when the answer
+restates.**
+
+So `EXPAND_SYSTEM` now distinguishes the two input shapes. A decision among the
+clicked answers **is** the ask, and the rest are constraints on it. If every
+answer is only a fact, there is no ask in the list — and the missing ask is the
+user's own last message, re-asked with the facts folded in. The reply is for
+naming things accurately, never a source of follow-up questions.
+
+Two exemplars carry it, because 0.9.25 established that rules alone get ignored:
+one facts-only case that collapses to a short re-ask, and one decision case that
+still expands into constraints — the contrast is the point. **The specimen that
+produced this rule was a medical result and is deliberately not the exemplar:
+this prompt ships on every call and lives in a public repo.**
+
+### A dead service stops blaming the user's network
+
+### What a hosted user saw when the key ran dry
+
+Anthropic returns 400 → the worker sent `upstream_400` → every client back to
+0.9.27 renders `upstream_*` as **"Couldn't reach the CONTEXA service. Check your
+connection and try again in a moment."**
+
+Both halves of that sentence are false. The connection is fine, and "in a
+moment" will never arrive — the balance does not refill because someone waited.
+This is the project's most expensive recurring shape: **a total outage wearing
+the mask of a transient blip.** Third time it has appeared, first time it was
+pointed at strangers rather than at us.
+
+### The fix, and why it needs no store review
+
+A revoked key and an empty balance are both *nothing the user can fix* — which
+is exactly what the existing `server_not_configured` code already says, in every
+client ever shipped: *"The CONTEXA service isn't set up correctly right now.
+Nothing you can fix — try again later."*
+
+So the worker now returns that code for an upstream 401, or an upstream 400
+whose body names a billing problem. **No new wire code, no client change, no
+coupling across the store-review clock** — one `wrangler deploy` repairs the
+sentence for the entire installed base.
+
+The upstream body is still never forwarded; it is read to pick a code and
+nothing more. Account details stay in `wrangler tail`, where they were.
+
+The narrowing is deliberate. An ordinary 400 stays `upstream_400`, and a 429
+stays `upstream_429` — rate limiting **is** transient, so "try again in a
+moment" is true there. Calling every failure a misconfiguration would send the
+next debugger to the wrong file.
+
+### Why both artifacts move together this time
+
+The credit fix alone would have been worker-only — a free deploy, no store
+review. The composer fix is not: `EXPAND_SYSTEM` is byte-identical across the
+worker and the extension by build guard, and the own-key path reads the
+extension's copy. A prompt change there cannot be worker-only without splitting
+hosted and own-key behaviour silently, which is the exact failure the identity
+guard exists to prevent.
+
+So 0.9.34 ships as one number on both sides. **0.9.33 was tagged but never
+submitted; 0.9.34 supersedes it before it ever reached the store.**
+
+---
+
 ## Extension 0.9.33 — Backend 0.9.33
 
 *One rule about what may be asked, and three changes to how the card behaves

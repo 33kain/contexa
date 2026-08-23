@@ -4,6 +4,12 @@
    unless the request passed origin, token, size and quota checks. */
 
 const w = (await import('./src/index.js')).default;
+const { readFileSync } = await import('node:fs');
+/* Resolve sibling files against THIS FILE, never the cwd: release-commit.ps1
+   runs `node worker\\test.mjs` from the repo root while the header above says
+   to run it from worker/. A bare '../extension/...' is correct in exactly one
+   of those and silently wrong in the other. */
+const rel = p => new URL(p, import.meta.url);
 
 /* fake KV: enough of the interface for bumpQuota */
 function makeKV(seed = {}) {
@@ -44,6 +50,7 @@ const t = (name, cond, extra = '') => {
 /* 1. health */
 let r = await w.fetch(new Request('https://x/v1/health'), { ANTHROPIC_API_KEY: 'k', MODEL: 'claude-sonnet-5' });
 let b = await r.json();
+const BUILD_SEEN = b.version;
 t('health reports version', /^\d+\.\d+\.\d+$/.test(b.version || ''), b.version);
 t('health is uncacheable', r.headers.get('cache-control') === 'no-store', String(r.headers.get('cache-control')));
 t('health reports model', b.model === 'claude-sonnet-5', b.model);
@@ -574,6 +581,71 @@ function postExpand(body = { intent: 'optimize seo', prompt: 'p', reply: 'r'.rep
   t('empty draft becomes no_prompt with diag', r.status === 502 && b.error === 'no_prompt' && !!b.diag,
     JSON.stringify(b));
 }
+
+/* ---- v0.9.34: a dead service must not blame the user's network -----------
+   Every client renders 'upstream_*' as "Couldn't reach the CONTEXA service.
+   Check your connection and try again in a moment." When the service key is
+   revoked or the balance hits zero, that sentence is false in both halves and
+   false forever — a total outage wearing the mask of a transient blip, which
+   is this project's most expensive recurring failure shape.
+
+   'server_not_configured' is the honest code and every client back to 0.9.27
+   already renders it as "Nothing you can fix — try again later." Choosing it
+   here fixes the sentence for the entire installed base on ONE deploy, with
+   no store review and nothing to couple across the client boundary. */
+{
+  const dead = msg => async () => ({ ok: false, status: 400,
+    async text() { return JSON.stringify({ error: { message: msg } }); },
+    async json() { return {}; } });
+
+  globalThis.fetch = dead('Your credit balance is too low to access the Anthropic API.');
+  let r = await w.fetch(postV(), { ANTHROPIC_API_KEY: 'k', CX_KV: makeKV(), IP_SALT: 's' });
+  let b = await r.json();
+  t('an empty balance is not reported as a network problem', b.error === 'server_not_configured', b.error);
+  t('and it is 503, not 502', r.status === 503, String(r.status));
+  t('the upstream body still never reaches the client',
+    !/credit balance/i.test(JSON.stringify(b)), JSON.stringify(b));
+
+  globalThis.fetch = async () => ({ ok: false, status: 401,
+    async text() { return '{"error":{"message":"invalid x-api-key"}}'; },
+    async json() { return {}; } });
+  r = await w.fetch(postV(), { ANTHROPIC_API_KEY: 'k', CX_KV: makeKV(), IP_SALT: 's' });
+  b = await r.json();
+  t('a revoked service key is also nothing the user can fix', b.error === 'server_not_configured', b.error);
+
+  // The narrowing matters: a genuine bad request is still a bad request, and
+  // calling it "not configured" would send the next debugger to the wrong file.
+  globalThis.fetch = dead('max_tokens is too large');
+  r = await w.fetch(postV(), { ANTHROPIC_API_KEY: 'k', CX_KV: makeKV(), IP_SALT: 's' });
+  b = await r.json();
+  t('an ordinary 400 is untouched', b.error === 'upstream_400', b.error);
+  t('and stays a 502', r.status === 502, String(r.status));
+
+  // Rate limiting IS transient, so "try again in a moment" is true there.
+  globalThis.fetch = async () => ({ ok: false, status: 429,
+    async text() { return '{"error":{"message":"rate_limit_error"}}'; },
+    async json() { return {}; } });
+  r = await w.fetch(postV(), { ANTHROPIC_API_KEY: 'k', CX_KV: makeKV(), IP_SALT: 's' });
+  b = await r.json();
+  t('a rate limit stays transient, not a misconfiguration', b.error === 'upstream_429', b.error);
+
+  // The code is only honest if the clients actually render it that way. This
+  // reaches across into the extension deliberately: the worker picking a code
+  // no client maps would be a silent regression on the far side of the wire.
+  const ce = readFileSync(rel('../extension/content.js'), 'utf8');
+  const branch = ce.indexOf("server_not_configured");
+  t('the shipped client renders this code as an honest sentence',
+    branch > 0 && /nothing you can fix/i.test(ce.slice(branch, branch + 300)));
+  t('and does not tell the reader to check their connection',
+    branch > 0 && !/check your connection/i.test(ce.slice(branch, branch + 300)));
+
+  // 0.9.34 ships both artifacts together — EXPAND_SYSTEM is byte-identical
+  // across them by build guard, so a prompt fix cannot be worker-only.
+  const mv = JSON.parse(readFileSync(rel('../extension/manifest.json'), 'utf8')).version;
+  t('worker and extension ship the same number this release', BUILD_SEEN === mv,
+    'worker ' + BUILD_SEEN + ' vs extension ' + mv);
+}
+
 
 globalThis.fetch = realFetch;
 console.log(fails.length ? '\nFAILED: ' + fails.join(', ') : '\nall worker checks passed');

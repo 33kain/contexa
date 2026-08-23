@@ -530,6 +530,52 @@ const settle = () => new Promise(r => setTimeout(r, 0));
   t('expand prompt: viewport marker rule present', (SRC.match(/edge of your viewport/g) || []).length >= 2);
 }
 
+/* ---- v0.9.34: an interview payload is not a rough ask ---------------------
+   Found by reading two real interviews side by side. A facts-only answer set
+   contains no verb, so the composer had nothing to expand and manufactured an
+   ask out of Claude's reply — producing a prompt that asked Claude to
+   re-explain what it had just said, and an answer that restated the one above
+   it. The tell was the composer writing "kao sto si pomenuo" ("as you
+   mentioned"): it knew, and said so.
+
+   The second specimen is why this fix is narrow. Its answers contained a
+   DECISION ("which piece do you want built first"), so the same reply-mining
+   produced legitimate specification, not a re-run. Those must stay untouched —
+   hence a contrast exemplar, not just a shortening rule. */
+{
+  t('expand prompt: the click-list input shape is named',
+    SRC.includes('a click list is not an ask'));
+  t('expand prompt: a decision among the answers IS the ask',
+    /a line naming what to do next[\s\S]{0,80}IS the ask/.test(SRC));
+  t('expand prompt: facts-only falls back to the user\'s own question',
+    SRC.includes('the ask you are missing is THEIR LAST MESSAGE'));
+  t('expand prompt: and stops there rather than adding more',
+    /re-ask their own question with those facts folded in, and stop there/.test(SRC));
+  t('expand prompt: the reply is never a source of asks',
+    SRC.includes("Never take an ask from CLAUDE'S REPLY"));
+  t('expand prompt: re-explaining the reply is banned outright',
+    /never ask claude to explain, justify, restate or expand anything the reply already said/i.test(SRC));
+  t('expand prompt: the "as you mentioned" tell is named as proof',
+    SRC.includes('as you mentioned') && /in any language, is proof/.test(SRC));
+
+  // Exemplars, because 0.9.25 established that rules alone get ignored.
+  t('expand prompt: a facts-only exemplar exists',
+    SRC.includes('all facts, no decision among them'));
+  t('expand prompt: it re-asks the user\'s own question, short',
+    SRC.includes('Which database should I use for a small side project?'));
+  t('expand prompt: a decision exemplar exists as the contrast',
+    SRC.includes('one of which decides what to do next'));
+  t('expand prompt: the decision case still expands into constraints',
+    /Piece: The candidate generator[\s\S]{0,400}- what the screen looks like/.test(SRC));
+
+  /* The specimen that produced this rule was a stool-test result. It is
+     deliberately NOT the exemplar: EXPAND_SYSTEM ships on every call and lives
+     in a public repo, so a real medical detail here would be a privacy leak
+     with no way to recall it. */
+  t('no medical specimen leaked into the shipped prompt',
+    !/cerevisiae|Enterol|Normia|stolic/i.test(SRC));
+}
+
 /* ---- v0.9.26: the beginner release ---------------------------------------- */
 {
   const c = readFileSync('./content.js', 'utf8');
