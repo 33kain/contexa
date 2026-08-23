@@ -7,6 +7,45 @@ free to diverge, and the settings page labels them separately for that reason.
 
 ---
 
+## 0.9.45 — Extension only (Backend stays 0.9.41)
+
+*The card was scrolling the page, and then reacting to it.*
+
+### A feature whose effect was its own input
+
+Owner-reported as flicker, and the frames confirm it: the conversation jumping
+several times a second.
+
+Collapsing the card changes the height of the composer stack. The conversation
+re-anchors to the bottom. **That fires a scroll** — which hid the card again,
+which reflowed again. 0.9.42 turned motion into the trigger without asking where
+the motion came from, and the answer was: from the card.
+
+Every scroll that follows a real change to the `away` class is now ignored for
+300ms. The window opens **only on an actual change**, so a reader who keeps
+scrolling while it is already hidden is never ignored — the loop is cut without
+making the card deaf.
+
+### The fixture had to learn that time passes
+
+The behavioural tests fired scrolls with no time between them, which is a
+perfect model of the bug and a useless model of a person. They now separate the
+two: `userScroll()` advances past the quiet window first, and a deliberate raw
+repeat asserts that a scroll **inside** the window changes nothing.
+
+Twenty-four cases, three of them new and specifically about self-inflicted
+motion.
+
+### Five source-shape assertions rewritten
+
+Moving three `classList` calls behind one `setAway()` broke five assertions that
+matched the old inline shapes. They match behaviour-bearing lines now, but the
+lesson is the count: **an assertion that pins how something is written breaks
+every time it is written differently, and never once tells you the behaviour
+changed.**
+
+---
+
 ## 0.9.44 — Extension only (Backend stays 0.9.41)
 
 *The render path had no voice.*

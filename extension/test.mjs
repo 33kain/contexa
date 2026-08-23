@@ -1110,14 +1110,22 @@ const settle = () => new Promise(r => setTimeout(r, 0));
      "invisible while scrolling through text" and twice got a card that only
      vanished after the whole turn had left the screen. */
   t('any scroll hides it outright, without consulting position',
-    /wrap\.classList\.add\('away'\);\r?\n\s*if \(settleTimer\) clearTimeout\(settleTimer\);/.test(c33));
+    /setAway\(true, 'page moving'\);\r?\n\s*if \(settleTimer\) clearTimeout\(settleTimer\);/.test(c33));
   t('it comes back only after the page has been still',
     /settleTimer = setTimeout\(settle, SETTLE_MS\)/.test(c33));
   t('the settle delay is a named constant, not a magic number',
     /const SETTLE_MS = \d+;/.test(c33));
   t('the resting decision is still both directions of off-screen',
-    /const off = r\.bottom < 0 \|\| r\.top > vh;/.test(c33)
-    && /wrap\.classList\.toggle\('away', off\)/.test(c33));
+    /const off = r\.bottom < 0 \|\| r\.top > vh;/.test(c33) && /setAway\(off\)/.test(c33));
+
+  /* 0.9.45 — the flicker. Collapsing the card reflows the composer stack, the
+     conversation re-anchors, and that fires a scroll — which hid it again. The
+     feature's own effect was its own input, and it blinked on screen. */
+  t('the card ignores scrolls its own reflow caused',
+    /if \(Date\.now\(\) < quietUntil\) return;/.test(c33));
+  t('the quiet window opens only on a REAL change, never on a repeat',
+    /if \(wrap\.classList\.contains\('away'\) === on\) return;/.test(c33));
+  t('and it is a named constant too', /const SELF_QUIET_MS = \d+;/.test(c33));
 
   /* 0.9.44 — the render path had no voice. `[CONTEXA] grounding` proved a card
      was EARNED and nothing said whether one was ever SEEN, so a card that was
@@ -1128,7 +1136,7 @@ const settle = () => new Promise(r => setTimeout(r, 0));
   t('mounting a card is announced, with the anchor geometry that decides its fate',
     c33.includes('[CONTEXA] card mounted') && /anchor top=/.test(c33) && /viewport=/.test(c33));
   t('every hide says which kind it is',
-    c33.includes('[CONTEXA] hidden — page moving') && c33.includes('[CONTEXA] settled —'));
+    /setAway\(true, 'page moving'\)/.test(c33) && c33.includes('[CONTEXA] settled —'));
   t('the settle log carries the numbers, not just the verdict',
     /'top=' \+ Math\.round\(r\.top\), 'bottom=' \+ Math\.round\(r\.bottom\)/.test(c33));
   t('a watcher that finds no .wrap says so rather than returning quietly',
@@ -1138,9 +1146,9 @@ const settle = () => new Promise(r => setTimeout(r, 0));
   t('it is passive and rAF-throttled, so scrolling stays smooth',
     /capture: true, passive: true/.test(c33) && /requestAnimationFrame\(evaluate\)/.test(c33));
   t('it never hides someone mid-answer',
-    /if \(busy\(\)\) \{ wrap\.classList\.remove\('away'\); return; \}/.test(c33));
+    /if \(busy\(\)\) \{ setAway\(false, 'answering'\); return; \}/.test(c33));
   t('and that guard sits in BOTH the motion path and the resting path',
-    (c33.match(/if \(busy\(\)\) \{ wrap\.classList\.remove\('away'\); return; \}/g) || []).length === 2);
+    (c33.match(/if \(busy\(\)\) \{ setAway\(false, 'answering'\); return; \}/g) || []).length === 2);
   t('busy means focus in the card OR typed text', /root\.activeElement/.test(c33) && /el\.value\.trim\(\)/.test(c33));
   t('it unbinds itself when the card goes',
     /const unbind = \(\) => \{[\s\S]{0,200}scrollWatch = null;/.test(c33));
@@ -1212,7 +1220,8 @@ const settle = () => new Promise(r => setTimeout(r, 0));
     if (cw[i] === '{') depth++;
     else if (cw[i] === '}' && --depth === 0) { end = i + 1; break; }
   }
-  const fnsrc = 'let scrollWatch = null, settleTimer = null;\nconst SETTLE_MS = 450;\n'
+  const fnsrc = 'let scrollWatch = null, settleTimer = null;\n'
+    + 'const SETTLE_MS = 450, SELF_QUIET_MS = 300;\n'
     + cw.slice(start, end)
     + '\nout.watchScroll = watchScroll;\nout.peek = () => scrollWatch;';
 
@@ -1227,7 +1236,9 @@ const settle = () => new Promise(r => setTimeout(r, 0));
     setTimeout: (fn, ms) => timers.push({ fn, at: clock + ms, live: true }),
     clearTimeout: id => { const t = timers[id - 1]; if (t) t.live = false; },
     innerHeight: 800,
-    document: { documentElement: { clientHeight: 800 } }
+    document: { documentElement: { clientHeight: 800 } },
+    // 0.9.45: the quiet window reads a clock, so the fixture owns that too.
+    Date: { now: () => clock }
   };
   vm.createContext(ctx);
   vm.runInContext(fnsrc, ctx);
@@ -1256,6 +1267,9 @@ const settle = () => new Promise(r => setTimeout(r, 0));
   const away = () => cls.has('away');
   const scroll = () => { const b = bound.filter(x => x.live).pop(); if (b) b.fn(); };
   const live = () => bound.filter(x => x.live).length;
+  /* A reader's scroll arrives after the card has stopped reacting to its own
+     reflow; only a rapid repeat inside the quiet window is deliberately raw. */
+  const userScroll = () => { advance(300); scroll(); };
 
   place(INVIEW);
   ctx.out.watchScroll(anchor, holder);
@@ -1274,19 +1288,26 @@ const settle = () => new Promise(r => setTimeout(r, 0));
   t('run: and returns once the page has been still for the settle delay', !away());
 
   // Rest position still matters: stop mid-history and it stays gone.
-  scroll();
-  place(BELOW);
-  advance(450);
+  userScroll(); place(BELOW); advance(450);
   t('run: settling with the turn off the bottom leaves it hidden', away());
-  scroll(); place(INVIEW); advance(450);
+  userScroll(); place(INVIEW); advance(450);
   t('run: settling with the turn back on screen restores it', !away());
-  scroll(); place(ABOVE); advance(450);
+  userScroll(); place(ABOVE); advance(450);
   t('run: off the top counts as off screen too', away());
-  scroll(); place(-100); advance(450);
+  userScroll(); place(-100); advance(450);
   t('run: a reply straddling the whole viewport counts as on screen', !away());
 
-  // Each scroll restarts the delay, so a long gesture never flickers.
-  scroll(); advance(300); scroll(); advance(300);
+  /* A rapid repeat INSIDE the quiet window is the self-inflicted case: it must
+     be ignored entirely rather than treated as a fresh gesture. */
+  userScroll();
+  t('run: the gesture hides it', away());
+  scroll(); scroll();
+  t('run: a repeat inside the quiet window changes nothing', away());
+  advance(450);
+  t('run: and it settles normally once the page is still', !away());
+
+  // A long gesture keeps resetting the delay rather than flickering.
+  userScroll(); advance(300); scroll(); advance(300);
   t('run: a continuing scroll keeps resetting the delay', away());
   advance(450);
   t('run: and only settles once it truly stops', !away());
@@ -1294,22 +1315,22 @@ const settle = () => new Promise(r => setTimeout(r, 0));
   /* Mid-answer outranks everything, including motion — this is the one case
      where hiding would be worse than the problem being solved. */
   holder.shadowRoot.activeElement = {};
-  scroll();
+  userScroll();
   t('run: focus in the card survives a scroll', !away());
   advance(450);
   t('run: and survives the settle', !away());
   holder.shadowRoot.activeElement = null;
 
   inputs = [{ value: '   ' }];
-  scroll();
+  userScroll();
   t('run: whitespace typed is not answering', away());
   inputs = [{ value: ' a rough ask ' }];
-  scroll();
+  userScroll();
   t('run: real typed text survives a scroll', !away());
   inputs = [];
 
   holder.isConnected = false;
-  scroll();
+  userScroll();
   t('run: it unbinds itself when the card is gone', live() === 0);
   t('run: and clears its own handle', ctx.out.peek() === null);
 
@@ -1325,7 +1346,7 @@ const settle = () => new Promise(r => setTimeout(r, 0));
   cls.clear(); place(BELOW);
   ctx.out.watchScroll(anchor, holder);
   t('run: a card is never born hidden, even with its turn off screen', !away());
-  scroll();
+  userScroll();
   t('run: but the very next scroll still hides it', away());
   advance(450);
   t('run: and it settles back to hidden, because the turn is off screen', away());
