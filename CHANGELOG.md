@@ -7,6 +7,72 @@ free to diverge, and the settings page labels them separately for that reason.
 
 ---
 
+## 0.9.47 — Extension only (Backend stays 0.9.41)
+
+*A pre-launch audit of the surfaces, not the code. The product moved sixteen
+releases ago and three of its descriptions never followed.*
+
+### The settings page was advertising chips
+
+`options.html`, the first thing a new install shows:
+
+> *"When the answer finishes, **a row of suggestions appears under it**. Each one
+> is a good next thing to ask. Click one and the full message is written into
+> your message box."*
+
+Every sentence is pre-0.9.30. **"Under it" was wrong from 0.9.30 too**, when the
+card moved above the composer. It now describes what actually happens: one short
+question at a time, above the message box, never more than four, answers already
+written, quiet when the reply left nothing worth asking.
+
+**The gap that let it live four months: nothing in this suite had ever read a
+user-facing sentence.** Ids, counts, selectors, storage, behaviour — all
+covered. Prose, never. Ten assertions now check it, including a dead-vocabulary
+list; restoring the old sentence fails four of them.
+
+Same defect, same day, three surfaces: this page, both promo tiles (rebuilt —
+the marquee had a literal `SUGGESTED NEXT STEPS` header), and every screenshot
+in `publishing/screenshots/`, which is now fronted by a README saying so.
+
+### A hidden card could still be tabbed into
+
+`.wrap.away` set `opacity:0` and `pointer-events:none` — **neither removes an
+element from the tab order.** Clipped content stays focusable, so Tab could land
+on a button nobody can see. And it self-amplified: focus inside the shadow root
+makes `busy()` true, which **forces the card open again**. Tabbing past a hidden
+card could pop it back.
+
+`visibility:hidden`, delayed 0.2s so it lands after the fade rather than cutting
+it.
+
+### The fold never folded
+
+`.wrap` had no base `max-height`, so it computed to `none`. **`none → 0` does
+not interpolate**: the height snapped shut while opacity spent 0.22s fading
+something already zero-tall. The CSS described an animation it never performed
+for fourteen releases. A 600px base gives it something to animate from — clear
+of a four-option card on any screen, and it cannot clip, since the base rule
+sets no overflow.
+
+### The theme froze at mount
+
+Decided once in `shell()` and never revisited, so switching claude.ai between
+light and dark left an open card in the old palette. Now follows both the media
+query and a `MutationObserver` on the root element — because the app toggles
+theme itself, which a media query alone would miss.
+
+### LISTING.md
+
+Replaced with a pointer to the project doc, **keeping the one argument worth
+preserving**: it had reasoned that "Claude" should be absent from the extension
+name on store-policy grounds. Checked against the policy — the rule targets
+impersonation and false endorsement, not naming the service you work with — the
+name leads with our own brand and the description carries the mandatory
+non-affiliation line. Over-cautious, and the reasoning is recorded along with
+what *would* make it a real risk.
+
+---
+
 ## 0.9.46 — Extension only (Backend stays 0.9.41)
 
 *Fourth rule, and the first one that is about the reader instead of the page.*

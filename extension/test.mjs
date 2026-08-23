@@ -1137,6 +1137,19 @@ const settle = () => new Promise(r => setTimeout(r, 0));
     /if \(wrap\.classList\.contains\('away'\) === on\) return;/.test(c33)
     && /console\.log\('\[CONTEXA\]', on \? 'hidden —' : 'shown —', why\)/.test(c33));
   t('a card is never born hidden', /setAway\(false\);\r?\n  \}/.test(c33));
+  /* 0.9.47 — three defects found by auditing surfaces rather than code. */
+  t('a hidden card is unreachable, not merely invisible',
+    /\.wrap\.away\{[^}]*visibility:hidden/.test(c33));
+  t('visibility waits for the fade instead of cutting it',
+    /visibility 0s linear \.2s/.test(c33));
+  t('the fold has a height to animate FROM, so it actually animates',
+    /\.wrap\{max-height:600px/.test(c33));
+  t('the theme follows a live switch instead of freezing at mount',
+    /matchMedia\('\(prefers-color-scheme: dark\)'\)/.test(c33)
+    && /mq\.addEventListener\('change', sync\)/.test(c33));
+  t('and watches the root element too, because the app toggles theme itself',
+    /themeObserver\.observe\(document\.documentElement/.test(c33));
+
   t('away COLLAPSES height, it does not merely fade',
     /\.wrap\.away\{[^}]*max-height:0/.test(c33));
 
@@ -1375,6 +1388,38 @@ const settle = () => new Promise(r => setTimeout(r, 0));
   t('an empty answer is no_prompt', out.error === 'no_prompt', JSON.stringify(out.error));
 }
 
+
+/* ---- v0.9.47: does the product still describe itself? --------------------
+   The gap that let a dead mechanism survive sixteen releases: nothing in this
+   suite had ever read a user-facing SENTENCE. Ids, counts, selectors, storage,
+   behaviour — all covered. Prose, never. So options.html went on telling every
+   new install that "a row of suggestions appears under it" for four months
+   after the suggestions became an interview and moved above the composer.
+
+   These assertions are cheap and they are the only thing standing between a
+   mechanism change and a lying onboarding page. */
+{
+  const opts = readFileSync('./options.html', 'utf8');
+  const DEAD = [
+    [/row of suggestions/i, 'the chip row'],
+    [/next thing to ask/i, 'chip framing'],
+    [/appears under it/i, 'the card moved ABOVE the composer in 0.9.30'],
+    [/prompt like a pro/i, 'retired title'],
+    [/make bad prompts good|bad prompts/i, 'retired framing']
+  ];
+  for (const [re, why] of DEAD) {
+    t('settings page has no dead copy: ' + why, !re.test(opts));
+  }
+  t('settings page describes the interview it actually runs',
+    /asks you a short question/i.test(opts));
+  t('and puts the card where it really is',
+    /above your message box/i.test(opts));
+  t('and says the answers are written for you, which is the product',
+    /answers already written/i.test(opts));
+  t('and that silence is a real outcome, not a failure',
+    /stays quiet/i.test(opts));
+  t('and does not overstate the count', /never more than four/i.test(opts));
+}
 
 console.log(fails.length ? '\nFAILED: ' + fails.join(', ') : '\nall extension checks passed');
 process.exit(fails.length ? 1 : 0);

@@ -152,10 +152,27 @@
   .skip:hover{color:var(--accent);border-color:var(--accent)}
   .cxbusy{padding:12px;font-size:12px;color:var(--text2);animation:cxpulse 1.4s ease-in-out infinite}
   /* 0.9.33 — collapse rather than fade. A transparent card still occupies its
-     height, and the complaint was about reading space, not visibility. */
-  .wrap.away{opacity:0;pointer-events:none;max-height:0;margin:0;overflow:hidden;
-    transform:translateY(4px)}
-  .wrap{transition:opacity .22s ease,transform .22s ease,max-height .24s ease,margin .24s ease}
+     height, and the complaint was about reading space, not visibility.
+
+     0.9.47 — two corrections. "visibility:hidden" because opacity and
+     pointer-events do NOT remove an element from the tab order: clipped content
+     stays focusable, so Tab could land on a button nobody can see — and focus
+     inside the card makes busy() true, which forces the card open again. A
+     hidden card that reappears when you tab past it is worse than one that
+     never hid. The delay lets the fade finish before it becomes unreachable.
+
+     And ".wrap" needs a real max-height to animate FROM: the base value was
+     "none", "none -> 0" does not interpolate, so the height snapped shut while
+     opacity spent .22s fading something already zero-tall. The CSS described a
+     fold it never performed. 600px clears a four-option card on any screen and
+     never clips, because the base rule sets no overflow. */
+  .wrap.away{opacity:0;pointer-events:none;visibility:hidden;
+    max-height:0;margin:0;overflow:hidden;transform:translateY(4px);
+    transition:opacity .2s ease,transform .2s ease,max-height .22s ease,
+      margin .22s ease,visibility 0s linear .2s}
+  .wrap{max-height:600px;
+    transition:opacity .22s ease,transform .22s ease,max-height .24s ease,
+      margin .24s ease,visibility 0s linear 0s}
   /* 0.9.33 — touch. Confirmed working on Edge, Lemur, Mises and Quetta, where
      the desktop row heights were under the 44px minimum and the nav glyphs were
      roughly 14px of tappable area. */
@@ -277,6 +294,10 @@
      `dismissStreak` resets on any USE (answering, composing, a rough ask),
      because two dismissals separated by a real interaction are not a pattern. */
   let hiddenForSession = false;
+  /* claude.ai flips theme by mutating the root element, not only by OS
+     preference, so a media query alone would miss an in-app toggle. */
+  let themeSync = null;
+  const themeObserver = new MutationObserver(() => { if (themeSync) themeSync(); });
   let dismissStreak = 0;
   const usedIt = () => { dismissStreak = 0; };
 
@@ -549,6 +570,18 @@
     const wrap = document.createElement('div');
     wrap.className = 'wrap';
     wrap.dataset.theme = isDark() ? 'dark' : 'light';
+    /* 0.9.47 — the theme was decided once and never revisited, so switching
+       claude.ai between light and dark left the open card in the old palette
+       until the next reply. Follow it instead. */
+    if (window.matchMedia) {
+      const mq = window.matchMedia('(prefers-color-scheme: dark)');
+      const sync = () => { if (wrap.isConnected) wrap.dataset.theme = isDark() ? 'dark' : 'light'; };
+      if (mq.addEventListener) mq.addEventListener('change', sync);
+      themeObserver.disconnect();
+      themeObserver.observe(document.documentElement,
+        { attributes: true, attributeFilter: ['class', 'style', 'data-mode', 'data-theme'] });
+      themeSync = sync;
+    }
     root.appendChild(wrap);
     host.before(holder);
     /* 0.9.44 — the render path had no voice. `[CONTEXA] grounding` proved a card
