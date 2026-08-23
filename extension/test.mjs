@@ -629,29 +629,42 @@ const settle = () => new Promise(r => setTimeout(r, 0));
      regex over the source cannot tell those apart. */
   const liveExpand = new Function('return `' +
     SRC.match(/const EXPAND_SYSTEM = `([\s\S]*?)`;/)[1] + '`')();
-  const wrapper = liveExpand.split('\n').find(l => l.startsWith('{"prompt":"'));
+  /* 0.9.39 SUPERSEDES the 0.9.37 wrapper checks. The composer returns ONE
+     string, so the JSON wrapper was pure ceremony — and it was the only part of
+     this path that ever failed, three sessions running: a well-formed prompt
+     arriving as plain text scored `bad_json` and rendered as an error card.
 
-  t('the composer prompt demonstrates its own JSON wrapper at least once', !!wrapper);
-  t('and that demonstration is the LAST thing the model reads',
-    liveExpand.trim().split('\n').pop().startsWith('{"prompt":"'));
-  t('the demonstration is valid JSON', (() => {
-    try { return typeof JSON.parse(wrapper).prompt === 'string'; } catch { return false; }
-  })());
-  t('it encodes newlines as \\n rather than breaking the line',
-    /\.\\n- inline/.test(wrapper) && JSON.parse(wrapper).prompt.split('\n').length === 4);
-  t('the prompt names the gap it is closing',
-    /not one of them shows the wrapper/.test(liveExpand));
-  t('and forbids anything outside the braces',
-    /no text before the brace, none after it/i.test(liveExpand));
-  t('the wrapper example is scoped to shape, not content',
-    /Copy its SHAPE, never its content/.test(liveExpand));
+     The neat part is what it did to the exemplars. Nine of them show
+     `PROMPT: <plain text>`. Under the old contract those were nine
+     demonstrations of the WRONG shape, which is why adding one JSON example
+     could not outvote them. Under this one they are nine demonstrations of
+     exactly the right shape. The vote is not won — it stops existing. */
+  t('the composer asks for the prompt text and nothing else',
+    /Reply with the prompt text and NOTHING else/.test(liveExpand));
+  t('it names every way a model dresses up an answer',
+    /no JSON, no wrapper, no quotes around it, no code fence, no preamble, no sign-off/.test(liveExpand));
+  t('it points at the exemplars as whole answers, not fragments',
+    /Every PROMPT: line above shows exactly what a whole answer looks like/.test(liveExpand));
+  t('no JSON wrapper example survives to contradict that',
+    !/\{"prompt":"/.test(liveExpand));
+  t('the newline rule no longer asks for escaping',
+    /real line breaks, nothing to escape/.test(liveExpand) && !/inside the JSON string/.test(liveExpand));
+  t('every worked exemplar now demonstrates the required form',
+    liveExpand.split('\n').filter(l => l.startsWith('PROMPT:')).length >= 9,
+    String(liveExpand.split('\n').filter(l => l.startsWith('PROMPT:')).length));
 
   /* Both prompts now carry a filled answer. Assert it as one rule so the next
      person adding a required field is told where it also has to appear. */
   const liveQuestions = new Function('return `' +
     SRC.match(/const QUESTIONS_SYSTEM = `([\s\S]*?)`;/)[1] + '`')();
-  t('BOTH system prompts demonstrate a complete filled answer',
-    /\{"questions":\[\{"label"/.test(liveQuestions) && /\{"prompt":"/.test(liveExpand));
+  /* Each prompt must demonstrate ITS OWN output form. They are no longer the
+     same form: the questionnaire is a structured array and genuinely needs JSON
+     shown; the composer is one string and needs plain text shown. The invariant
+     is "demonstrate what you require", never "both use JSON". */
+  t('the questionnaire demonstrates a complete filled JSON answer',
+    /\{"questions":\[\{"label"/.test(liveQuestions));
+  t('the composer demonstrates plain-text answers, which is now what it requires',
+    liveExpand.includes('PROMPT: ') && !/\{"prompt":"/.test(liveExpand));
 
   /* 0.9.38 — the vote, not just the presence. 0.9.35 added ONE filled answer
      showing "evidence" and the failure went from every-call to occasional; it
@@ -1197,6 +1210,62 @@ const settle = () => new Promise(r => setTimeout(r, 0));
   cls.clear(); bottom = -10;
   ctx.out.watchScroll(anchor, holder);
   t('run: a card born below the fold starts hidden, without waiting for a scroll', away());
+}
+
+
+/* ---- v0.9.39: the composer answers in text -------------------------------
+   Driven, not read. readDraft is three lines of judgement about what the model
+   actually sends back, and every one of the shims exists because of a real
+   observed shape. The last case is the one that would bite silently: a prompt
+   is allowed to begin with a brace, and treating that as a failed JSON parse
+   would eat it. */
+{
+  const h = load({ storage: { apiKey: 'sk-x' } });
+  await settle();
+  const rd = h.sandbox.readDraft;
+  t('readDraft is reachable', typeof rd === 'function');
+
+  t('plain text is the answer, untouched',
+    rd('  Write the thing.\n- one constraint  ') === 'Write the thing.\n- one constraint');
+  t('the old JSON wrapper is still understood',
+    rd('{"prompt":"Write the thing.\\n- one constraint"}') === 'Write the thing.\n- one constraint');
+  t('a fenced answer loses its fence',
+    rd('\`\`\`\nWrite the thing.\n\`\`\`') === 'Write the thing.');
+  t('a fenced JSON answer loses both',
+    rd('\`\`\`json\n{"prompt":"Write the thing."}\n\`\`\`') === 'Write the thing.');
+  t('a prompt that merely opens with a brace is NOT eaten',
+    rd('{count} is the placeholder — replace it before sending.')
+      === '{count} is the placeholder — replace it before sending.');
+  t('nothing in, nothing out', rd('') === '' && rd('   ') === '' && rd(null) === '');
+
+  /* End to end on the shape that used to fail: a model answering in prose.
+     Three sessions of "Couldn't write suggestions for this reply" came from
+     exactly this response, with a perfectly good prompt inside it. */
+  h.sandbox.fetch = async () => ({ ok: true, status: 200,
+    async json() { return { stop_reason: 'end_turn',
+      content: [{ text: 'Write my wedding toast at five minutes.\n- open on a story, not a joke\n- no in-jokes about the stag night' }] }; },
+    async text() { return ''; } });
+  let out = await h.send({ type: 'expandPrompt', intent: 'toast', prompt: 'p', reply: 'r'.repeat(80) });
+  t('a prose answer is now the draft, not an error',
+    out.prompt === 'Write my wedding toast at five minutes.\n- open on a story, not a joke\n- no in-jokes about the stag night',
+    JSON.stringify(out).slice(0, 70));
+  t('and carries no error', !out.error);
+
+  // Truncation stays a failure: half a prompt in the box is worse than an error.
+  h.sandbox.fetch = async () => ({ ok: true, status: 200,
+    async json() { return { stop_reason: 'max_tokens',
+      usage: { input_tokens: 100, output_tokens: 1200 },
+      content: [{ text: 'Write my wedding toast at five minutes and then' }] }; },
+    async text() { return ''; } });
+  out = await h.send({ type: 'expandPrompt', intent: 'toast', prompt: 'p', reply: 'r'.repeat(80) });
+  t('a truncated draft is still refused', out.error === 'truncated', JSON.stringify(out.error));
+  t('and carries a diag', !!out.diag);
+
+  h.sandbox.fetch = async () => ({ ok: true, status: 200,
+    async json() { return { stop_reason: 'end_turn', content: [{ text: '   ' }] }; },
+    async text() { return ''; } });
+  out = await h.send({ type: 'expandPrompt', intent: 'toast', prompt: 'p', reply: 'r'.repeat(80) });
+  t('an empty answer is no_prompt', out.error === 'no_prompt', JSON.stringify(out.error));
 }
 
 

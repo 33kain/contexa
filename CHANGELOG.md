@@ -7,6 +7,74 @@ free to diverge, and the settings page labels them separately for that reason.
 
 ---
 
+## 0.9.39 — Extension and Backend
+
+*The composer answers in text. There is no parse step, so there is no parse
+failure.*
+
+### Why this was never a prompt problem
+
+The composer returns **one string**. It was wrapped in JSON for sixteen
+releases, and the wrapper was the only part of that path that ever failed —
+three separate sessions of `bad_json` where the model wrote a **perfectly good
+prompt** and simply handed it over unescaped:
+
+```
+parse failure {stop:'end_turn', out:99, in:3278, ceiling:1200, len:288}
+text= I want a line edit on my web/landing page copy — tighten sentences and
+      improve flow. … Here it is: <paste the copy> …
+```
+
+`end_turn`, no truncation, correct content, slot and all. Rendered to the user
+as *"Couldn't write suggestions for this reply."*
+
+Two fixes were aimed at it. 0.9.35 moved the exemplars; 0.9.37 added a filled
+JSON example. Both improved the odds and neither removed the cause, because the
+cause was a required wrapper that the response never needed. The questionnaire
+returns an array of objects and genuinely needs JSON. This returns a sentence.
+
+### The exemplars change sides
+
+Nine worked exemplars show `PROMPT: <plain text>`. Under the old contract those
+were **nine demonstrations of the wrong shape** — which is exactly why one JSON
+example could not outvote them, and why 0.9.38's five-exemplar fix worked next
+door while this one kept slipping.
+
+Under the new contract they are nine demonstrations of exactly the right shape.
+**The vote is not won; it stops existing.** The prompt now ends: *reply with the
+prompt text and NOTHING else — no JSON, no wrapper, no quotes, no code fence, no
+preamble, no sign-off*, and points at the `PROMPT:` lines as whole answers.
+The `\n`-escaping rule is gone; real line breaks need no escaping.
+
+### `readDraft`, and what it deliberately does not do
+
+Both copies gain the same three lines: strip a code fence if one is there,
+unwrap `{"prompt":"…"}` if the model still wraps out of habit, otherwise the
+text **is** the draft.
+
+The shims are for habit, not for failure — and one case matters: **a prompt is
+allowed to begin with a brace.** `{count} is the placeholder…` parses as
+nothing and must survive untouched. There is a test for exactly that.
+
+**Truncation is still refused.** `stop_reason: max_tokens` returns `truncated`
+with its diag, because half a prompt sitting in someone's message box is worse
+than an error they can retry. This is not the salvage that was rejected earlier
+today: that would have hidden a broken contract. This removes a contract that
+bought nothing.
+
+**No client boundary is crossed.** The worker and `background.js` both parse
+Anthropic's reply and hand `{prompt}` onward exactly as before.
+
+### The suite had never seen the failing shape
+
+Every previous expand test fed the stub JSON — which is precisely why three
+sessions of real failures passed through a green suite. Twelve behavioural
+cases now drive `readDraft` and the handler directly, hosted and own-key,
+including a model answering in prose, a model still wrapping, a fenced answer,
+a brace-leading prompt, a truncated draft, and an empty one.
+
+---
+
 ## 0.9.38 — Extension and Backend
 
 *Finishes what 0.9.35 started. Adding one demonstration was not the same as

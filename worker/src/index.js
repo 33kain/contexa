@@ -19,7 +19,7 @@
    which build is live. Deliberately independent of the extension's manifest
    version — they ship on separate paths and a worker fix should not force
    everyone to reinstall the extension. */
-const BUILD = '0.9.38';
+const BUILD = '0.9.39';
 
 const ANTHROPIC_URL = 'https://api.anthropic.com/v1/messages';
 /* Sonnet 5 rather than Haiku, on measured evidence: in a controlled three-model
@@ -153,7 +153,7 @@ Rules, in order of force:
 - Never use filler quality words: thorough, careful, carefully, properly, really, robust, comprehensive, high-quality, detailed, best. They change nothing. Constraints change things.
 - If the rough ask is already a good prompt, return it nearly verbatim with only mechanical fixes. Longer without more decidable is failure.
 - If expansion would need more than two slots, the ask is not expandable. Output instead, in the user's voice: "I want help with <topic>. Ask me everything you need to know to get this right — one focused list, then wait for my answers before continuing."
-- At most 700 characters. Short sentences. When constraints deserve their own lines, start each with "- " and put a real newline between lines by writing \\n inside the JSON string.
+- At most 700 characters. Short sentences. When constraints deserve their own lines, start each with "- " on a line of its own — real line breaks, nothing to escape.
 Examples of the right shape:
 ROUGH ASK: optimize seo & meta (Claude just built a landing page)
 PROMPT: Optimize the SEO of the page you just built. Work only inside <head> and the heading structure — leave the visible copy unchanged.
@@ -198,9 +198,8 @@ Leave the pricing table and the analytics wiring as they are.
 The same answers done WRONG, and this is the most common failure: the prompt above with "- also write the pricing table copy" and "- give me the analytics events" bolted on. Both came out of the reply, neither was clicked, and each could be sent as its own message. One ask became four jobs and the reply came back four times as long.
 ROUGH ASK: marketing (nothing relevant in the reply)
 PROMPT: I want help with marketing. Ask me everything you need to know to get this right — one focused list, then wait for my answers before continuing.
-Reply with ONLY minified JSON: {"prompt":"..."} — no text before the brace, none after it.
-Every PROMPT above shows the CONTENT of that one field, and not one of them shows the wrapper — so here is a complete answer, exactly as it must come back. Copy its SHAPE, never its content: one line, newlines encoded, nothing outside the braces.
-{"prompt":"Build the email capture form for the landing page, before launch.\\n- inline validation, error text under the field\\n- one success state, no redirect\\nLeave the pricing table and the analytics wiring as they are."}`;
+Reply with the prompt text and NOTHING else: no JSON, no wrapper, no quotes around it, no code fence, no preamble, no sign-off, no explanation of what you wrote or why. The first character you write is the first character of the message the user is about to send. Every PROMPT: line above shows exactly what a whole answer looks like.
+`;
 
 
 /* ---------------------------------------------------------------- helpers */
@@ -331,6 +330,28 @@ function extractJson(text) {
 /* Same clean-boundary trim for the fifth chip's drafted prompt, at its own cap.
    A draft that blows the cap is a prompt-discipline failure upstream; trimming
    at a line or sentence keeps what ships readable either way. */
+/* The composer returns ONE string, so there is nothing to parse and nothing
+   parses it. It was wrapped in JSON for sixteen releases and the wrapper was the
+   only part that ever failed: a well-formed prompt arriving as plain text scored
+   `bad_json` and rendered to the user as "Couldn't write suggestions for this
+   reply", three sessions running.
+
+   The two shims are for habit, not for failure. A model that still emits the old
+   wrapper, or fences its answer, is understood rather than punished — and a
+   prompt that merely begins with a brace is left alone. */
+function readDraft(text) {
+  let t = String(text || '').trim();
+  const fence = t.match(/^```[a-z]*\n([\s\S]*?)\n?```$/i);
+  if (fence) t = fence[1].trim();
+  if (t.startsWith('{')) {
+    try {
+      const o = JSON.parse(t);
+      if (o && typeof o.prompt === 'string') return o.prompt.trim();
+    } catch { /* not JSON — a prompt is allowed to open with a brace */ }
+  }
+  return t;
+}
+
 function trimExpansion(value) {
   const t = String(value || '').trim();
   if (t.length <= MAX_EXPANSION_CHARS) return t;
@@ -526,6 +547,22 @@ export default {
     let data;
     try { data = await upstream.json(); } catch { return json({ error: 'upstream_bad_json' }, 502, request, env); }
     const text = (data.content || []).map(b => b.text || '').join('');
+
+    /* The composer never reaches extractJson: its answer IS the draft. A
+       truncated one is still a failure — half a prompt in someone's message box
+       is worse than an error they can retry. */
+    if (wantExpand) {
+      const drafted = trimExpansion(readDraft(text));
+      if (data.stop_reason === 'max_tokens' || !drafted) {
+        const diag = diagnose(data, text, EXPAND_MAX_TOKENS);
+        console.log('[CONTEXA] expand produced no usable draft', JSON.stringify(diag),
+          'text[0,300]=', JSON.stringify(text.slice(0, 300)));
+        return json({ error: data.stop_reason === 'max_tokens' ? 'truncated' : 'no_prompt', diag },
+          502, request, env);
+      }
+      return json({ prompt: drafted, quota: { used: quota.used, limit: DEVICE_DAILY_LIMIT } },
+        200, request, env);
+    }
 
     let parsed;
     try { parsed = extractJson(text); } catch (e) {

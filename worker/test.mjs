@@ -647,6 +647,61 @@ function postExpand(body = { intent: 'optimize seo', prompt: 'p', reply: 'r'.rep
 }
 
 
+/* ---- v0.9.39: hosted composer answers in text ----------------------------
+   The existing expand tests above all feed JSON, which is exactly why the real
+   failure survived them: the model was answering in prose and nothing in the
+   suite had ever seen prose. */
+{
+  globalThis.fetch = async () => ({ ok: true, status: 200,
+    async json() { return { stop_reason: 'end_turn',
+      usage: { input_tokens: 10, output_tokens: 10 },
+      content: [{ type: 'text', text: 'Write my wedding toast at five minutes.\n- open on a story, not a joke' }] }; },
+    async text() { return ''; } });
+  let r = await w.fetch(postExpand({ intent: 'toast', prompt: 'p', reply: 'r'.repeat(120) }),
+    { ANTHROPIC_API_KEY: 'k', CX_KV: makeKV(), IP_SALT: 's' });
+  let b = await r.json();
+  t('hosted: a prose answer is the draft, not a parse failure',
+    r.status === 200 && b.prompt === 'Write my wedding toast at five minutes.\n- open on a story, not a joke',
+    r.status + ' ' + JSON.stringify(b.prompt || b.error));
+  t('hosted: it still reports quota', b.quota && b.quota.limit === 20);
+
+  // Habit shim: a model that still wraps is understood rather than punished.
+  globalThis.fetch = async () => ({ ok: true, status: 200,
+    async json() { return { stop_reason: 'end_turn',
+      usage: { input_tokens: 10, output_tokens: 10 },
+      content: [{ type: 'text', text: '{"prompt":"Wrapped out of habit."}' }] }; },
+    async text() { return ''; } });
+  r = await w.fetch(postExpand({ intent: 'x', prompt: 'p', reply: 'r'.repeat(120) }),
+    { ANTHROPIC_API_KEY: 'k', CX_KV: makeKV(), IP_SALT: 's' });
+  b = await r.json();
+  t('hosted: the old wrapper is still unwrapped', b.prompt === 'Wrapped out of habit.', JSON.stringify(b.prompt));
+
+  // Truncation stays an error — half a prompt is worse than one to retry.
+  globalThis.fetch = async () => ({ ok: true, status: 200,
+    async json() { return { stop_reason: 'max_tokens',
+      usage: { input_tokens: 100, output_tokens: 1200 },
+      content: [{ type: 'text', text: 'Write my wedding toast and then' }] }; },
+    async text() { return ''; } });
+  r = await w.fetch(postExpand({ intent: 'x', prompt: 'p', reply: 'r'.repeat(120) }),
+    { ANTHROPIC_API_KEY: 'k', CX_KV: makeKV(), IP_SALT: 's' });
+  b = await r.json();
+  t('hosted: a truncated draft is refused, with a diag', b.error === 'truncated' && !!b.diag,
+    JSON.stringify(b.error));
+
+  // The questionnaire path is untouched: it genuinely needs JSON.
+  globalThis.fetch = async () => ({ ok: true, status: 200,
+    async json() { return { stop_reason: 'end_turn',
+      usage: { input_tokens: 10, output_tokens: 10 },
+      content: [{ type: 'text', text: 'Two or three quick things and I can get to a real draft.' }] }; },
+    async text() { return ''; } });
+  r = await w.fetch(postV(), { ANTHROPIC_API_KEY: 'k', CX_KV: makeKV(), IP_SALT: 's' });
+  b = await r.json();
+  t('the questionnaire still refuses prose, because it needs structure',
+    r.status === 502 && (b.error === 'bad_json' || b.error === 'truncated'),
+    r.status + ' ' + JSON.stringify(b.error));
+}
+
+
 globalThis.fetch = realFetch;
 console.log(fails.length ? '\nFAILED: ' + fails.join(', ') : '\nall worker checks passed');
 process.exit(fails.length ? 1 : 0);
