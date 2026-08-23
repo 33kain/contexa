@@ -7,6 +7,60 @@ free to diverge, and the settings page labels them separately for that reason.
 
 ---
 
+## 0.9.40 — Extension and Backend
+
+*When the reply names the candidates, those names are the options.*
+
+### The specimen
+
+Claude's reply asked: *"Is this for **CONTEXA**, **ŠRAF**, something else, or a
+new project?"*
+
+The question shipped as:
+
+> **What is this documentation for?**
+> 1. A specific product/feature I have in mind
+> 2. A new project I'm starting
+
+**The names were right there and got paraphrased into buckets.** Clicking option
+one conveys nothing — it is the purest possible category — so the subject stayed
+unknown, so the composer had nothing to build on and emitted *"Ask me everything
+you need to know to get this right."* **The interview asking for the clarifying
+round it exists to replace.**
+
+A second specimen in the same session is the same failure one step earlier: the
+reply named the candidates, the interview didn't ask at all, and the composer
+bolted the question on as a bullet aimed at the user.
+
+### Why the existing rule wasn't enough
+
+`QUESTIONS_SYSTEM` already said *"a concrete answer rather than a category"* and
+a test already asserted the rule was present. **The rule was being ignored**, and
+the reason is now familiar: three of its four exemplars demonstrate **invented
+buckets** and only one lifts named things out of the reply.
+
+**Third instance today of the same defect** — the prompt requires one thing and
+demonstrates another. Evidence, the JSON wrapper, and now this.
+
+Added: the rule, with a test the model can apply to its own output — *after the
+user clicks, does anyone reading the answer know WHICH thing they meant?
+"Ledger" passes; "An existing product" tells the next reader nothing* — and a
+worked exemplar that shows the named version **and the bucket version being
+refused beside it**.
+
+**What is deliberately not changed:** the bucket options in the other exemplars.
+A speech's occasion is named nowhere in the reply, so inventing the ground there
+is correct. The rule is conditional, and what was missing was a demonstration of
+the conditional case — not a correction of the unconditional ones.
+
+### Why this one costs more than the other option defects
+
+Every other question in an interview is a **modifier** — length, tone, audience,
+format. A modifier on an unknown subject is worth nothing. Get the subject wrong
+and the rest of the questionnaire cannot recover, however good it is.
+
+---
+
 ## 0.9.39 — Extension and Backend
 
 *The composer answers in text. There is no parse step, so there is no parse

@@ -705,6 +705,37 @@ const settle = () => new Promise(r => setTimeout(r, 0));
        demonstrates that two questions must not share one quote. */
     t('an exemplar shows several questions taking different slices of one sentence',
       /three DIFFERENT slices of the same sentence/.test(liveQuestions));
+    /* 0.9.40 — the reply names the answers; do not paraphrase them into
+       buckets. Field specimen: the reply asked "Is this for CONTEXA, ŠRAF,
+       something else, or a new project?" and the question shipped as
+       ["A specific product/feature I have in mind","A new project I'm
+       starting"]. Clicking the first conveys nothing, so the subject stayed
+       unknown and the composer emitted "Ask me everything you need to know" —
+       the interview requesting the clarifying round it exists to replace.
+
+       "Concrete, not a category" was already a rule and was being ignored,
+       because three of four exemplars demonstrated invented buckets and one
+       lifted names out of the reply. Third instance of the same defect today:
+       the prompt required one thing and demonstrated another.
+
+       Note what is NOT wrong: the bucket options in the other exemplars. A
+       speech's occasion is not named anywhere in the reply, so inventing the
+       ground there is correct. The rule is conditional — when the reply names
+       them, use the names — and what was missing was a demonstration of the
+       conditional case, not a correction of the unconditional ones. */
+    t('the named-candidates rule exists',
+      /WHEN THE REPLY NAMES THE CANDIDATES, THOSE NAMES ARE THE OPTIONS/.test(liveQuestions));
+    t('it forbids the paraphrase specifically',
+      /verbatim, not a paraphrase of them/.test(liveQuestions));
+    t('it carries a test the model can apply after the fact',
+      /does anyone reading the answer know WHICH thing they meant/.test(liveQuestions));
+    t('a worked exemplar keeps the reply\'s names as options',
+      /options \["Ledger","Atlas","A new one"\]/.test(liveQuestions));
+    t('and shows the bucket version being refused beside it',
+      /\["An existing product","Something new"\][\s\S]{0,120}learns nothing/.test(liveQuestions));
+    t('it says why this one costs more than the others',
+      /a modifier on an unknown subject is worth nothing/.test(liveQuestions));
+
     t('no exemplar reuses the same evidence string twice', (() => {
       for (const l of rows) {
         const found = (l.match(/evidence "([^"]+)"/g) || []);
