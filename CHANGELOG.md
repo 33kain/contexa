@@ -7,6 +7,91 @@ free to diverge, and the settings page labels them separately for that reason.
 
 ---
 
+## 0.9.35 — Extension and Backend
+
+*Repairs a regression 0.9.34 shipped. The rule was right; its position was the
+bug.*
+
+### The composer stopped answering in JSON
+
+0.9.34 added two click-list exemplars to `EXPAND_SYSTEM` by **appending them to
+the end** of the examples block. That put a five-line bulleted block of raw
+prose immediately before `Reply with ONLY minified JSON`.
+
+The model answered with a five-line bulleted block of raw prose and no JSON
+wrapper. `extractJson` failed, and every compose returned `bad_json` — rendered
+in the card as *"Couldn't write suggestions for this reply."*
+
+```
+[CONTEXA] parse failure {stop:'end_turn', out:288, in:2880, ceiling:1200, len:808}
+text[0,300]= Write the English versions of the three Reddit posts now — …
+```
+
+`stop_reason` was `end_turn`, not `max_tokens` — nothing truncated. The model
+finished normally, produced a **perfectly good prompt**, and simply gave it the
+shape of the last thing it had been shown.
+
+The exemplars now sit before the degenerate `marketing` case, restoring the tail
+the prompt had for eleven releases: a **single-line** `PROMPT:` followed by the
+JSON instruction. Three assertions pin it, and putting the bulleted exemplar
+back on the end fails two of them.
+
+**The transferable lesson: in a prompt, position is behaviour.** Adding correct
+content in the wrong place is a functional change, and no amount of reading the
+rule would have caught it.
+
+### The interview prompt never showed the field it requires
+
+Found by the log added below, within a minute of it shipping — and it is the
+**same defect in the other prompt**, which is the part worth remembering.
+
+`QUESTIONS_SYSTEM` has five worked exemplars. Every one demonstrates
+`label`, `question`, `options`. **Not one demonstrates `evidence`.** The field
+existed only as a rule near the top and a schema line at the bottom — five
+demonstrations of a three-field object against two lines of prose insisting
+there are four.
+
+`refineSteps` discards any question without evidence. So whenever the model
+followed the examples rather than the schema, the entire questionnaire was
+thrown away and the user got *"Couldn't write suggestions for this reply."*
+That is why **some conversations worked and some didn't**: it was a coin flip,
+and it always had been.
+
+```
+[CONTEXA] parsed but no usable questions — model returned 3, kept 0, grounded 0.
+None carried usable evidence.
+```
+
+The schema tail now ends with a **complete, filled, correct answer** — two
+questions, both carrying real evidence strings — plus what happens when the
+field is missing: the question is discarded before the user sees it, so omitting
+it is worse than asking nothing.
+
+**And it is immediately disclaimed.** A filled example in the last position
+teaches a *count* as readily as a shape, which would quietly kill the
+zero-questions outcome — the oldest invariant in this product. The final line
+says the example fixes the shape and never the count, and restates
+`{"questions":[]}`. Two assertions pin exactly that.
+
+0.9.33 added a fifth evidence-free exemplar and ~1,470 characters between the
+evidence rule and the schema. Whether that tipped a marginal behaviour is not
+provable from one afternoon — but it moved the odds the wrong way, and the
+underlying weakness was there from the start.
+
+### The own-key path now says why it gave up
+
+`[CONTEXA] evidence []` was logged both when the model deliberately returned
+nothing — a quiet row, correct — and when the gate ate everything — an error
+card. **Identical output, opposite meanings**, and no way to tell them apart
+from the console. The worker has logged the distinction since 0.9.29; the
+extension never did, and the gap cost a diagnosis round trip.
+
+`[CONTEXA] parsed but no usable questions — model returned N, kept 0, grounded
+M` now names which filter emptied the list: no usable evidence, or the option
+guard.
+
+---
+
 ## 0.9.34 — Extension and Backend
 
 *Two honesty fixes, found the same way: by following one real symptom back to

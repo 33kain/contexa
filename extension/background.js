@@ -85,7 +85,10 @@ Each question has FOUR parts:
 - "text": the question itself, up to 90 characters, ending in a question mark.
 - "options": TWO TO FOUR answers, each under 40 characters, most likely first, never including an "other" or "skip" choice. Fewer than two means the question is not askable — drop it.
 - "evidence": the verbatim reply fragment that earned this question, at most 90 characters.
-Reply with ONLY minified JSON: {"questions":[{"label":"...","text":"...","options":["...","..."],"evidence":"..."}]} — zero to four items.`;
+Reply with ONLY minified JSON: {"questions":[{"label":"...","text":"...","options":["...","..."],"evidence":"..."}]} — zero to four items.
+All four keys are required on EVERY question, "evidence" included. A question missing it is discarded before the user ever sees it, and a questionnaire where every question is discarded shows the user an error instead of an interview — so omitting evidence is worse than asking nothing. Here is a complete answer, exactly as it must come back:
+{"questions":[{"label":"Occasion","text":"What's the occasion?","options":["Wedding / toast","Work or product talk","Award or farewell"],"evidence":"two or three quick things and I can get to a real draft"},{"label":"Length","text":"How long should it run?","options":["~2 min","~5 min","~10-15 min"],"evidence":"a real draft rather than a generic one"}]}
+That example fixes the SHAPE, never the count: the reply decides how many, and a reply that left nothing open still returns {"questions":[]}.`;
 
 /* The fifth chip (0.9.23): rough ask in, well-formed prompt out. Fixes FORM
    (scope, format, anti-goals, inert adjectives), never invents CONTENT —
@@ -129,8 +132,6 @@ Assume: this is my first written request.
 ROUGH ASK: deployed, works (after a reply that listed five checks to run)
 PROMPT: Deployed and the worker is live. Go ahead with the release ceremony next.\nAssume: all five field checks passed as you listed them — I will say so if any did not.
 
-ROUGH ASK: marketing (nothing relevant in the reply)
-PROMPT: I want help with marketing. Ask me everything you need to know to get this right — one focused list, then wait for my answers before continuing.
 ROUGH ASK: three clicked answers, all facts, no decision among them (their last message was "which database should i use for a small side project")
 Team size: Just me
 Budget: Free tier only
@@ -144,6 +145,8 @@ PROMPT: Write the detailed UI mockup for the candidate generator.
 - three worked examples of what it would output
 - how it avoids paraphrasing the input back
 Leave the rest of the design as it stands — build only this piece.
+ROUGH ASK: marketing (nothing relevant in the reply)
+PROMPT: I want help with marketing. Ask me everything you need to know to get this right — one focused list, then wait for my answers before continuing.
 Reply with ONLY minified JSON: {"prompt":"..."}`;
 
 
@@ -425,6 +428,20 @@ function cleanOptions(v) {
   };
 }
 
+/* Why the own-key path went quiet-but-angry. The worker has logged this since
+   0.9.29; the extension never did, and the absence cost a diagnosis: the log
+   line `[CONTEXA] evidence []` is emitted BOTH when the model deliberately
+   returned nothing (correct, a quiet row) and when the gate ate everything
+   (an error card). Identical output, opposite meanings. */
+function logNoSteps(grounding) {
+  console.warn('[CONTEXA] parsed but no usable questions —',
+    'model returned', grounding.total + ',', 'kept 0,', 'grounded', grounding.grounded + '.',
+    grounding.grounded === 0
+      ? 'None carried usable evidence.'
+      : 'Evidence was fine; the option guard dropped them all.');
+  return { error: 'no_steps' };
+}
+
 /* tiny in-memory cache (service worker lifetime) */
 const stepsCache = new Map();
 function cachePut(map, k, v) { map.set(k, v); if (map.size > 60) map.delete(map.keys().next().value); }
@@ -457,7 +474,7 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
           ? Object.assign(refined, r.partial ? { partial: true } : null)
           : refined.grounding.total === 0
             ? Object.assign(refined, { quiet: true })
-            : { error: 'no_steps' };
+            : logNoSteps(refined.grounding);
       } else {
         out = r.partial ? Object.assign({}, r.data, { partial: true }) : r.data;
       }

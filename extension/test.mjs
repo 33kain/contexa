@@ -574,6 +574,54 @@ const settle = () => new Promise(r => setTimeout(r, 0));
      with no way to recall it. */
   t('no medical specimen leaked into the shipped prompt',
     !/cerevisiae|Enterol|Normia|stolic/i.test(SRC));
+
+  /* 0.9.35 — the tail invariant, learned the expensive way. The two exemplars
+     above were first appended to the END of the block, so the last thing the
+     model read before "Reply with ONLY minified JSON" was a five-line bulleted
+     block of raw prose. It answered with a five-line bulleted block of raw
+     prose and no JSON wrapper, and every compose failed. The rule was fine;
+     its POSITION was the bug. */
+  const EX = SRC.match(/const EXPAND_SYSTEM = `([\s\S]*?)`;/)[1].trim().split('\n');
+  t('the JSON instruction is the final line of the composer prompt',
+    /^Reply with ONLY minified JSON/.test(EX[EX.length - 1]), EX[EX.length - 1].slice(0, 40));
+  t('the exemplar just before it is a single-line PROMPT, not a bulleted block',
+    /^PROMPT: /.test(EX[EX.length - 2]) && !/^- /.test(EX[EX.length - 2]),
+    EX[EX.length - 2].slice(0, 48));
+  t('a multi-line exemplar never sits last',
+    !/^- /.test(EX[EX.length - 2]) && !/^- /.test(EX[EX.length - 3]));
+
+  // And the diagnostic whose absence made this cost an extra round trip.
+  t('the own-key no_steps branch says WHY, like the worker does',
+    SRC.includes('[CONTEXA] parsed but no usable questions'));
+  t('it distinguishes an evidence failure from an option failure',
+    /None carried usable evidence/.test(SRC) && /option guard dropped them all/.test(SRC));
+
+  /* 0.9.35 — the same lesson, found in the OTHER prompt an hour later. All five
+     worked exemplars in QUESTIONS_SYSTEM demonstrate {label, question, options}
+     and NONE of them demonstrates "evidence" — a field refineSteps discards the
+     whole questionnaire for missing. Five demonstrations of a three-field
+     object against two lines of prose saying there are four. Field symptom:
+     "some chats worked, some didn't", and
+     `model returned 3, kept 0, grounded 0. None carried usable evidence.` */
+  const QS = SRC.match(/const QUESTIONS_SYSTEM = `([\s\S]*?)`;/)[1].trim();
+  const QL = QS.split('\n');
+  t('a complete filled answer is shown, not just a schema',
+    /\{"questions":\[\{"label":"Occasion"/.test(QS));
+  t('that answer carries evidence on every question',
+    (QS.match(/"evidence":"[^"]{10,}"/g) || []).length >= 2,
+    String((QS.match(/"evidence":"[^"]{10,}"/g) || []).length));
+  t('the prompt states what happens when evidence is missing',
+    /discarded before the user ever sees it/.test(QS));
+  t('and that an all-discarded questionnaire is worse than silence',
+    /omitting evidence is worse than asking nothing/.test(QS));
+
+  /* The filled example sits last, which is where shape is learned — so it must
+     be immediately disclaimed, or it teaches a COUNT as well and quietly kills
+     the zero-questions outcome. Zero is a product outcome; guard it here. */
+  t('the filled example is explicitly about shape, not count',
+    /fixes the SHAPE, never the count/.test(QS));
+  t('and zero is restated in the final position',
+    /\{"questions":\[\]\}/.test(QL[QL.length - 1]), QL[QL.length - 1].slice(-40));
 }
 
 /* ---- v0.9.26: the beginner release ---------------------------------------- */
