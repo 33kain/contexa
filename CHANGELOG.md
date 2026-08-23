@@ -7,6 +7,115 @@ free to diverge, and the settings page labels them separately for that reason.
 
 ---
 
+## 0.9.49 — Extension and Backend
+
+*The other half of the heuristic 0.9.48 borrowed. 0.9.48 taught CONTEXA when
+**not** to ask. This teaches it that a question dropped because the conversation
+already answered it should be **stated**, not silently lost.*
+
+### The gap was structural, not a missing rule
+
+The heuristic is one sentence: *would a different answer change what happens
+next? No → don't ask, pick, and say what you picked.* 0.9.48 shipped the first
+clause. The second was not weakly implemented — it was **impossible**. The
+questions call and the expand call are independent: `expandPrompt` receives the
+click list, the last message, and the reply, and never learns a question existed
+and was dropped. A dropped question did not become an assumption. It evaporated.
+
+So this is a wire change, not a prompt change: the questions response gained a
+top-level `assume` array, and it travels through `content.js` into the expand
+call, where `EXPAND_SYSTEM` renders each entry verbatim as an `Assume:` line in
+the composed prompt.
+
+### Not every dropped question earns one
+
+0.9.48 drops questions for two different reasons and they are **not**
+equivalent:
+
+- **No answer would change the outcome.** The assumption is worthless too.
+  Writing it into the prompt relocates decoration from the card into the user's
+  message. Silence stays correct.
+- **Not clickable, or the options cannot be ranked.** Here the answer *would*
+  have changed the outcome; CONTEXA simply could not write options for it. This
+  is the one worth stating.
+
+Before 0.9.49 both disappeared identically. The prompt now names the
+distinction, and the enforcement is blunt on purpose: a statement ending in `?`
+is discarded, because an `Assume:` line that is really a question puts CONTEXA's
+question inside the message the user is about to send to Claude.
+
+### The standalone case
+
+An assumption can now ride with **zero** questions — a reply that left nothing
+to ask but did settle something. That row already rendered (the 0.9.29 quiet
+row draws the shell and the Rough ask chip); it gains **one** chip,
+`→ Write my next message`, which composes with no typing and no clicking.
+
+Two properties are deliberate. The chip is **mute about the assumption** — the
+card stays one line, and the `Assume:` line lands in the message box, which is
+the only place the user can edit it. And it appears only when the model actually
+stated something: **there is no floor here.** A reply that settled nothing keeps
+the 0.9.29 quiet row exactly as quiet as it was. Dismissing an interview does
+not produce the chip either — a closed card coming back as a one-click button
+reads as the card refusing to leave.
+
+### Both directions, without a deploy order
+
+A wire change couples two artifacts that ship on different clocks, and 0.9.30
+broke in both directions for exactly this reason. Here neither direction
+depends on ordering:
+
+- **New worker, old extension** — the extra `assume` key is ignored. The worker
+  can deploy the moment it is ready.
+- **New extension, old worker** — the standalone chip sends the same facts
+  *twice*: in `assume`, and in the intent as `Assumed:` lines. A pre-0.9.49
+  worker drops the field it does not know and reads the intent as a click list
+  holding no decision, which it already handles — so it composes a correct
+  prompt with the facts folded into the body instead of rejecting an empty
+  intent. `EXPAND_SYSTEM` is told the two are one fact arriving twice and to
+  state it once.
+
+The legacy `steps` shape is never sent an `assume` field: a pre-0.9.30 client
+has no code that reads it.
+
+### An inert instruction, found while checking
+
+`QUESTIONS_SYSTEM` told the model, about a question it had just refused, that
+*"the story itself goes into the composed prompt as `<paste here>`"* — and, in
+the click-only rule, that material the user must supply *"belongs in the composed
+prompt as `<paste here>` or `<attach here>`."* Neither was true. That prompt
+emits JSON questions and has no channel to the composer. Two sentences
+instructing a model to do something it structurally cannot.
+
+`EXPAND_SYSTEM` is the only place that can, so the obligation moved there and is
+now pinned by a test. Same family as *required but never demonstrated*: an
+instruction that reads like a mechanism with no mechanism behind it.
+
+### Tests
+
+The whole risk of this release is one sentence: **it adds an array a model is
+rewarded for filling, next to a product rule that says an empty row is correct.**
+Every defect in the pattern file came from something that guaranteed a non-empty
+row. So the new assertions are weighted toward absence — what keeps `assume`
+empty, and what must never quietly make it non-empty — including the
+demonstration count itself: at least one worked exemplar shows `assume`, but no
+more than a third may, and the primary complete-answer example must **not**
+carry it.
+
+That count test earned itself immediately. The first draft appended the
+standalone JSON example to the end of `QUESTIONS_SYSTEM`, displacing the
+zero-questions restatement from the final position — so the last thing a model
+read would have been *"no questions, therefore add an assumption."* The
+final-position assertion from 0.9.29 caught it before it ran once.
+
+Three source-shape assertions failed on this refactor and were rewritten to
+assert the requirement instead of the syntax — the seventh, eighth and ninth of
+that class. `renderSteps` no longer has its signature pinned; the requirement
+was always that *nothing about a partial salvage reaches the renderer*, which is
+now what is checked.
+
+---
+
 ## 0.9.48 — Extension and Backend
 
 *Three rules borrowed from how Claude decides to ask a clarifying question at

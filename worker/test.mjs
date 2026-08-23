@@ -712,6 +712,115 @@ function postExpand(body = { intent: 'optimize seo', prompt: 'p', reply: 'r'.rep
 }
 
 
+/* ---- v0.9.49: "pick, and say what you picked" -----------------------------
+   The questions call may now return an "assume" array — facts it chose to
+   STATE rather than ask — and the expand call renders them as "Assume:" lines.
+   The risk is entirely one-directional: this is an array a model is rewarded
+   for filling, sitting next to a product rule that says an empty row is a
+   correct outcome. So these check what keeps it empty, and what must never
+   quietly make it non-empty. */
+{
+  const reply = 'r'.repeat(120);
+  const upstreamJson = obj => async () => ({
+    ok: true, status: 200,
+    async json() {
+      return { stop_reason: 'end_turn', usage: { input_tokens: 10, output_tokens: 10 },
+        content: [{ type: 'text', text: JSON.stringify(obj) }] };
+    },
+    async text() { return ''; }
+  });
+
+  // A modern client gets the assumption alongside whatever questions survived.
+  globalThis.fetch = upstreamJson({
+    questions: [{ label: 'A', text: 'Which one?', options: ['x', 'y'], evidence: reply.slice(0, 20) }],
+    assume: ["I'm on Windows"]
+  });
+  let r = await w.fetch(postV({ prompt: 'p', reply }), { ANTHROPIC_API_KEY: 'k', CX_KV: makeKV(), IP_SALT: 's' });
+  let b = await r.json();
+  t('a modern client receives the assumption', JSON.stringify(b.assume) === '["I\'m on Windows"]',
+    JSON.stringify(b.assume));
+
+  // Zero questions plus an assumption — the standalone case, and the only path
+  // on which the feature reaches a reply that left nothing to ask.
+  globalThis.fetch = upstreamJson({ questions: [], assume: ["I'm on Windows"] });
+  r = await w.fetch(postV({ prompt: 'p', reply }), { ANTHROPIC_API_KEY: 'k', CX_KV: makeKV(), IP_SALT: 's' });
+  b = await r.json();
+  t('an assumption survives a zero-question result',
+    b.quiet === true && JSON.stringify(b.assume) === '["I\'m on Windows"]', JSON.stringify(b));
+
+  // And the floor, from both directions.
+  globalThis.fetch = upstreamJson({ questions: [] });
+  r = await w.fetch(postV({ prompt: 'p', reply }), { ANTHROPIC_API_KEY: 'k', CX_KV: makeKV(), IP_SALT: 's' });
+  b = await r.json();
+  t('a quiet row with no assumption stays exactly as quiet as it was',
+    b.quiet === true && Array.isArray(b.assume) && b.assume.length === 0, JSON.stringify(b));
+
+  globalThis.fetch = upstreamJson({ questions: [], assume: ['Which shell are you using?', '', '  '] });
+  r = await w.fetch(postV({ prompt: 'p', reply }), { ANTHROPIC_API_KEY: 'k', CX_KV: makeKV(), IP_SALT: 's' });
+  b = await r.json();
+  t('a question-shaped assumption never reaches the client',
+    Array.isArray(b.assume) && b.assume.length === 0, JSON.stringify(b.assume));
+
+  globalThis.fetch = upstreamJson({ questions: [], assume: ['a', 'b', 'c', 'd'] });
+  r = await w.fetch(postV({ prompt: 'p', reply }), { ANTHROPIC_API_KEY: 'k', CX_KV: makeKV(), IP_SALT: 's' });
+  b = await r.json();
+  t('and two is the ceiling the prompt promises', (b.assume || []).length === 2, JSON.stringify(b.assume));
+
+  /* A pre-0.9.30 client is on the legacy `steps` shape and has no code that
+     reads this. Sending it there is noise on a wire we keep frozen on purpose. */
+  globalThis.fetch = upstreamJson({ steps: [{ label: 'A', text: 'Do it.', evidence: reply.slice(0, 20) }], assume: ['x'] });
+  r = await w.fetch(post({ prompt: 'p', reply }), { ANTHROPIC_API_KEY: 'k', CX_KV: makeKV(), IP_SALT: 's' });
+  b = await r.json();
+  t('a legacy client is not sent an assume field at all', !('assume' in b), JSON.stringify(Object.keys(b)));
+
+  /* /v1/expand: an empty rough ask became legal in 0.9.49 — but ONLY beside an
+     assumption. If that guard ever becomes an OR, an empty request composes a
+     prompt out of nothing at all. */
+  let sent = null;
+  globalThis.fetch = async (url, opts) => {
+    sent = JSON.parse(opts.body);
+    return { ok: true, status: 200, async json() { return { stop_reason: 'end_turn',
+      usage: { input_tokens: 10, output_tokens: 10 },
+      content: [{ type: 'text', text: 'Drafted.' }] }; }, async text() { return ''; } };
+  };
+  r = await w.fetch(postExpand({ intent: '', prompt: 'p', reply, assume: ["I'm on Windows"] }),
+    { ANTHROPIC_API_KEY: 'k', CX_KV: makeKV(), IP_SALT: 's' });
+  t('an assumption alone makes an empty rough ask legal', r.status === 200, String(r.status));
+  t('and it reaches the model under the pinned section label',
+    /\n\nASSUMED:\nI'm on Windows$/.test(sent.messages[0].content),
+    JSON.stringify(String(sent.messages[0].content).slice(-40)));
+
+  sent = null;
+  r = await w.fetch(postExpand({ intent: '', prompt: 'p', reply, assume: ['Which shell?'] }),
+    { ANTHROPIC_API_KEY: 'k', CX_KV: makeKV(), IP_SALT: 's' });
+  t('but a question dressed as an assumption does not make it legal',
+    r.status === 400 && sent === null, r.status + ' upstream=' + (sent ? 'called' : 'none'));
+
+  sent = null;
+  r = await w.fetch(postExpand({ intent: '', prompt: 'p', reply }),
+    { ANTHROPIC_API_KEY: 'k', CX_KV: makeKV(), IP_SALT: 's' });
+  t('and genuinely empty is still refused, as it was before 0.9.49',
+    r.status === 400 && sent === null, String(r.status));
+
+  /* Backward compatibility in the direction store review makes unavoidable: a
+     0.9.49 EXTENSION can meet a pre-0.9.49 WORKER for days. It sends the same
+     facts in the intent as well, so the old worker sees a click list holding no
+     decision rather than rejecting an empty one. This asserts the new worker
+     handles that duplicated shape without complaint. */
+  sent = null;
+  r = await w.fetch(postExpand({ intent: "Assumed: I'm on Windows", prompt: 'p', reply, assume: ["I'm on Windows"] }),
+    { ANTHROPIC_API_KEY: 'k', CX_KV: makeKV(), IP_SALT: 's' });
+  t('the duplicated shape the client sends is accepted', r.status === 200, String(r.status));
+  t('and the prompt is told the two are one fact arriving twice',
+    /one fact reaching you twice/.test(sent.system));
+
+  sent = null;
+  r = await w.fetch(postExpand({ intent: 'make it shorter', prompt: 'p', reply }),
+    { ANTHROPIC_API_KEY: 'k', CX_KV: makeKV(), IP_SALT: 's' });
+  t('no ASSUMED section appears when nothing was assumed',
+    r.status === 200 && !/ASSUMED/.test(sent.messages[0].content));
+}
+
 globalThis.fetch = realFetch;
 console.log(fails.length ? '\nFAILED: ' + fails.join(', ') : '\nall worker checks passed');
 process.exit(fails.length ? 1 : 0);

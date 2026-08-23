@@ -426,12 +426,25 @@
     /* 0.9.29: zero is a real answer. An empty array reaches renderSteps on
        purpose — it draws the shell and the Rough ask chip and no suggestion,
        which is what "nothing here was worth a click" looks like. */
-    const ctx = { prompt: promptText, reply: replyText };
+    /* 0.9.49 — statements the model chose to STATE instead of asking. Cleaned
+       here as well as in the background: the page must never render or send
+       something no gate touched, and a hosted worker older than 0.9.49 omits
+       the key entirely, which lands as [] and changes nothing anywhere. */
+    const assume = (Array.isArray(resp.assume) ? resp.assume : [])
+      .map(a => String(a == null ? '' : a).replace(/\s+/g, ' ').trim())
+      .filter(a => a && !a.endsWith('?'))
+      .slice(0, 2);
+    if (assume.length) console.log('[CONTEXA] assumed', assume);
+    const ctx = { prompt: promptText, reply: replyText, assume };
     if (!questions.length) {
-      // Zero is a real answer. The row falls back to the Rough ask chip alone —
-      // an empty questionnaire, not an error card.
-      console.log('[CONTEXA] quiet row — nothing to ask');
-      return renderSteps(anchor, [], ctx);
+      /* Zero is still a real answer, and it still renders as the Rough ask chip
+         alone — UNLESS the model stated something instead of asking it, which
+         is the one case that earns the standalone compose chip. The fourth
+         argument is what earns it: nothing here invents an assumption, so a
+         reply that settled nothing keeps exactly the 0.9.29 quiet row. */
+      console.log('[CONTEXA] quiet row — nothing to ask',
+        assume.length ? '(something stated instead)' : '');
+      return renderSteps(anchor, [], ctx, assume.length > 0);
     }
     renderInterview(anchor, questions.slice(0, 4), ctx);
   }
@@ -636,9 +649,14 @@
     function dismiss() {
       /* Falls back to the Rough ask chip: closing the questions must never
          leave the user with less than they had. Two dismissals in a row earn
-         the session-hide offer — see renderSteps. */
+         the session-hide offer — see renderSteps.
+         No standalone compose chip here (0.9.49): the user just closed this
+         card, and putting a new one-click button in its place would read as
+         the card refusing to go away. ctx.assume itself is NOT stripped — it
+         is a fact about them, not a suggestion they rejected, so a rough ask
+         typed afterwards still carries it. */
       dismissStreak++;
-      renderSteps(anchor, [], ctx);
+      renderSteps(anchor, [], ctx, false);
     }
 
     function answer(value) {
@@ -662,7 +680,11 @@
           type: 'expandPrompt',
           intent: parts.join('\n'),
           prompt: ctx.prompt || '',
-          reply: ctx.reply || ''
+          reply: ctx.reply || '',
+          // What they clicked and what CONTEXA settled for them travel together:
+          // both end up in the same composed prompt, answers in the body and
+          // assumptions on "Assume:" lines they can edit before sending.
+          assume: Array.isArray(ctx.assume) ? ctx.assume : []
         });
       } catch (e) { thrown = String(e && e.message || e); }
       if (!card.isConnected) return;
@@ -748,7 +770,7 @@
     draw();
   }
 
-  function renderSteps(anchor, steps, ctx) {
+  function renderSteps(anchor, steps, ctx, offerAssume) {
     const wrap = shell(anchor, 'ai');
     if (!wrap) return;
     wrap.innerHTML = `<div class="label"><b>✦ CONTEXA</b></div>` +
@@ -764,6 +786,12 @@
       chip.title = full;                       // hover shows what will be sent
       chip.addEventListener('click', () => insertPrompt(full));
       row.appendChild(chip);
+    }
+    /* Both conditions, always. offerAssume alone would put the chip on a
+       dismissed card; a non-empty ctx.assume alone would put it beside a full
+       row of suggestions, where it duplicates what the interview already does. */
+    if (offerAssume && Array.isArray(ctx && ctx.assume) && ctx.assume.length) {
+      appendAssumeChip(row, ctx, anchor);
     }
     appendOwnChip(row, ctx || {}, anchor);
 
@@ -784,6 +812,76 @@
         for (const old of document.querySelectorAll('[data-contexa]')) old.remove();
       });
       row.appendChild(hide);
+    }
+  }
+
+  /* 0.9.49 — the standalone half of "say what you picked". When a reply left
+     nothing worth asking but DID settle something worth stating, the row earns
+     one chip that composes with no typing and no clicking. Two deliberate
+     properties. It is mute about the assumption itself: the card stays one
+     line, and the "Assume:" line lands in the message box where it can be read
+     and edited before sending, which is the only place the user can act on it.
+     And it appears ONLY when the model sent an assumption — there is no floor
+     here, and a reply that settled nothing keeps the 0.9.29 quiet row exactly
+     as quiet as it was. */
+  function appendAssumeChip(row, ctx, anchor) {
+    const slot = document.createElement('span');
+    row.appendChild(slot);
+    idle();
+
+    function idle() {
+      const chip = document.createElement('button');
+      chip.className = 'chip own';
+      chip.textContent = '→ Write my next message';
+      chip.title = 'CONTEXA drafts it from the conversation — you edit before sending';
+      chip.addEventListener('click', go);
+      slot.replaceChildren(chip);
+    }
+
+    function fail(err) {
+      const chip = document.createElement('button');
+      chip.className = 'chip cxerr';
+      chip.textContent = err === 'quota' ? '→ daily limit reached' : '→ couldn’t write it — retry';
+      chip.title = 'Click to try again';
+      chip.addEventListener('click', go);
+      slot.replaceChildren(chip);
+    }
+
+    async function go() {
+      usedIt();
+      if (!contextAlive()) return goStale(anchor);
+      const busy = document.createElement('span');
+      busy.className = 'chip busy';
+      busy.textContent = '→ writing…';
+      slot.replaceChildren(busy);
+      const assume = Array.isArray(ctx.assume) ? ctx.assume : [];
+      let resp = null, thrown = null;
+      try {
+        resp = await chrome.runtime.sendMessage({
+          type: 'expandPrompt',
+          /* The rough ask carries the same facts the assume field does, and the
+             duplication is the point: a worker older than 0.9.49 drops the
+             assume field but still reads these as a click list holding no
+             decision, so it composes a correct prompt with the facts folded in
+             rather than rejecting an empty intent. EXPAND_SYSTEM is told the
+             two are one fact arriving twice and to state it once. */
+          intent: assume.map(a => 'Assumed: ' + a).join('\n'),
+          prompt: ctx.prompt || '',
+          reply: ctx.reply || '',
+          assume
+        });
+      } catch (e) { thrown = String(e && e.message || e); }
+      if (!slot.isConnected) return;
+      if (isStaleError(thrown) || (!resp && !contextAlive())) return goStale(anchor);
+      if (resp && typeof resp.prompt === 'string' && resp.prompt.trim()) {
+        insertPrompt(resp.prompt);
+        idle();
+        return;
+      }
+      const err = (resp && resp.error) || thrown || 'empty response';
+      console.warn('[CONTEXA] assume compose failed', err,
+        (resp && (resp.detail || JSON.stringify(resp.diag || ''))) || '');
+      fail(err);
     }
   }
 
@@ -849,7 +947,11 @@
       let resp = null, thrown = null;
       try {
         resp = await chrome.runtime.sendMessage({
-          type: 'expandPrompt', intent, prompt: ctx.prompt || '', reply: ctx.reply || ''
+          type: 'expandPrompt', intent, prompt: ctx.prompt || '', reply: ctx.reply || '',
+          // Survives a dismissal on purpose: what CONTEXA settled about them is
+          // a fact, not a suggestion they closed, so a rough ask typed after
+          // the card is gone still gets it.
+          assume: Array.isArray(ctx.assume) ? ctx.assume : []
         });
       } catch (e) { thrown = String(e && e.message || e); }
       if (!slot.isConnected) return;

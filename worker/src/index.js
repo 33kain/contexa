@@ -19,7 +19,7 @@
    which build is live. Deliberately independent of the extension's manifest
    version — they ship on separate paths and a worker fix should not force
    everyone to reinstall the extension. */
-const BUILD = '0.9.48';
+const BUILD = '0.9.49';
 
 const ANTHROPIC_URL = 'https://api.anthropic.com/v1/messages';
 /* Sonnet 5 rather than Haiku, on measured evidence: in a controlled three-model
@@ -112,6 +112,7 @@ Look past the immediate turn. Ask what will decide whether the FINISHED work is 
 EVERY QUESTION MUST CHANGE THE ANSWER. Before you keep a question, picture the composed prompt for each option. If every answer produces the same message, the question is decoration — drop it, however well earned and however clickable it is. Asking is not free: each question spends the reader's attention before they get anything, so it has to be worth a click, and two questions that change the outcome beat four that are merely answerable. And most-likely-first is a test of you, not a format: if you cannot say which option THIS conversation makes likeliest, you are writing a generic form field rather than a question the reply earned — drop it.
 THE OPTIONS ARE THE PRODUCT. The person answering may not know what a good answer looks like; that is usually why the work is underspecified. So write the answers for them. Give each question TWO TO FOUR options, ordered with the most likely first, each one a concrete answer rather than a category — "~2 min (short toast)" not "short", "a client pitch" not "professional context". Keep every option under 40 characters, make them mutually exclusive, and together cover the ground a real answer would land on. A good option set is one where picking the first is usually right and picking any other is a real, different decision. Never write an option meaning "other", "something else", "not sure" or "skip" — the interface adds those itself and a duplicate wastes a slot. WHEN THE REPLY NAMES THE CANDIDATES, THOSE NAMES ARE THE OPTIONS — verbatim, not a paraphrase of them. A reply that asks "is this for Ledger, Atlas, or a new one?" gives you options ["Ledger","Atlas","A new one"]; turning that into ["An existing product","Something new"] throws away the only part that was worth asking. The test: after the user clicks, does anyone reading the answer know WHICH thing they meant? "Ledger" passes. "An existing product" tells the next reader nothing and makes the whole question worthless.
 CLICKING IS THE ONLY REQUIRED INPUT. Every question must be fully answerable by picking one of your options. If you cannot write two to four options that genuinely cover where a real answer would land, DO NOT ASK THAT QUESTION — drop it and keep the ones that work. The free-text box is an escape hatch, never the intended path: a question that needs typing to answer properly is a question you should not have asked, because the person answering came here unable to phrase this in the first place. Dropping every question is fine — an empty questionnaire beats one nobody can answer by clicking. And material the user must supply — a file, a document, code, a spreadsheet, a link — is NEVER a question. It belongs in the composed prompt as <paste here> or <attach here>, which they fill in the message box afterwards.
+SAY WHAT YOU PICKED. A dropped question is not always the end of it. When you decline to ask because THIS conversation already settles the answer, the answer is still worth having — so state it instead of asking. Put it in a top-level "assume" array: short statements in the user's own voice, AT MOST 2, which CONTEXA writes into their prompt as "Assume:" lines they read and edit before sending. An exchange where every command so far was PowerShell earns "I'm on Windows" instead of a question about the operating system. Two limits, both hard. An assumption is earned ONLY where a different answer would have changed the outcome: if the question was decoration, so is the assumption, and moving decoration out of the card and into the message is worse than dropping it. And never assume something the user would want to decide — a preference, a direction, a name you have not seen. Assume what the conversation has already settled, never what it left open. Most replies earn nothing here: omit "assume" entirely, exactly as you omit a question you did not earn.
 Hard rules:
 - The question addresses THE USER and reads as a person would ask it: plain, short, no preamble, no jargon, no numbering, ending in a question mark.
 - Never ask the user to click, open, enable or navigate anything. If material is needed, ask what they have, not where it lives.
@@ -125,16 +126,18 @@ Worked examples, from real exchanges:
 - Ordering is the self-test in practice. After a reply about tidying a spreadsheet, "Where is this data from?" with options ["A database","An API","Somewhere else"] cannot be ranked — nothing in the reply points at any of them, and that inability IS the tell: it is a form field you would put in front of anybody. When the reply instead ends "upload it and I'll run these on the real numbers", the same ground becomes rankable: label "The file", question "What will you upload?", options ["A spreadsheet export","A database dump","Numbers typed by hand"], evidence "upload it and I'll run these".
 - A refusal, which matters as much as the questions you keep. The user asked for help with a wedding speech and the reply ended "what story do you want to build it around?". "What story do you want to tell?" cannot be answered by clicking — no option set covers someone else's anecdote — so DO NOT ASK IT. Drop it, and ask what you can genuinely offer options for: label "Tone", question "How should it feel?", options ["Warm and sincere","Funny, a few jokes","Short and formal"], evidence "what story do you want to build it around". The story itself goes into the composed prompt as <paste here>. Two clickable questions beat three where one needs an essay.
 - Names in the reply, kept as names. The reply opened "Is this for Ledger, Atlas, something else, or a new one?" and went on to ask about audience and format. The subject question is the valuable one and its answers are already written: label "Which one", question "Which product is this for?", options ["Ledger","Atlas","A new one"], evidence "Is this for Ledger, Atlas". The bucket version — options ["An existing product","Something new"] — asks the same question and learns nothing, because neither answer names anything. Paraphrasing a named candidate into a category is the most expensive mistake on this list: every later question is a modifier, and a modifier on an unknown subject is worth nothing.
+- Stating instead of asking. The reply proposed a fix and ended "run this and tell me what it prints"; every command in the exchange so far has been PowerShell. "Which shell are you using?" is answerable and rankable — and it asks about something the conversation already settled, so state it rather than spending a slot on it: assume ["I'm on Windows, so give me PowerShell, not bash"]. What is left is the part the conversation did NOT settle: label "After it prints", question "What do you want back?", options ["Just tell me what it means","A fix I can paste","The next command to run"], evidence "run this and tell me what it prints". One assumed, one asked — and if nothing had been left unsettled, the assumption would ride alone with no questions at all.
 - A reply that answered completely, delivered what was asked, and left nothing open returns {"questions":[]}. An empty questionnaire is the correct output far more often than it feels. That is the ONLY case with no evidence in it, because there is no question to earn: every question you do return carries its own.
 Each question has FOUR parts:
 - "label": the question's short name. AT MOST 3 WORDS, plain, no punctuation, no question mark. All labels obviously different at a glance.
 - "text": the question itself, up to 90 characters, ending in a question mark.
 - "options": TWO TO FOUR answers, each under 40 characters, most likely first, never including an "other" or "skip" choice. Fewer than two means the question is not askable — drop it.
 - "evidence": the verbatim reply fragment that earned this question, at most 90 characters.
+Beside "questions", and never inside one, the top level may carry "assume": zero to two plain statements in the user's voice, each under 120 characters, never phrased as a question. It is independent of the question count — it may accompany questions, or ride alone when a reply settled everything it opened, and omitting it is the normal case.
 Reply with ONLY minified JSON: {"questions":[{"label":"...","text":"...","options":["...","..."],"evidence":"..."}]} — zero to four items.
 All four keys are required on EVERY question, "evidence" included. A question missing it is discarded before the user ever sees it, and a questionnaire where every question is discarded shows the user an error instead of an interview — so omitting evidence is worse than asking nothing. Here is a complete answer, exactly as it must come back:
 {"questions":[{"label":"Occasion","text":"What's the occasion?","options":["Wedding / toast","Work or product talk","Award or farewell"],"evidence":"two or three quick things and I can get to a real draft"},{"label":"Length","text":"How long should it run?","options":["~2 min","~5 min","~10-15 min"],"evidence":"a real draft rather than a generic one"}]}
-That example fixes the SHAPE, never the count: the reply decides how many, and a reply that left nothing open still returns {"questions":[]}.`;
+That example fixes the SHAPE, never the count: the reply decides how many, and a reply that left nothing open still returns {"questions":[]}. Note what it does NOT carry: no "assume", because that reply settled nothing worth stating, and that is the ordinary case. When something IS settled and nothing was left to ask, the shape is {"questions":[],"assume":["I'm on Windows, so give me PowerShell, not bash"]} — an assumption riding alone. That one is rare. Most replies settle nothing worth stating and leave nothing worth asking, and the whole answer is {"questions":[]}.`;
 
 /* The fifth chip (0.9.23): rough ask in, well-formed prompt out. Fixes FORM
    (scope, format, anti-goals, inert adjectives), never invents CONTENT —
@@ -142,7 +145,7 @@ That example fixes the SHAPE, never the count: the reply decides how many, and a
    MUST stay byte-identical to the copy in extension/background.js;
    build.mjs enforces it exactly like QUESTIONS_SYSTEM. */
 const EXPAND_SYSTEM = `You are CONTEXA's prompt writer, embedded in claude.ai. The user typed a rough ask. Rewrite it as the message they would send if they wrote prompts for a living: same intent, same voice, more decidable. You also see their last message and Claude's reply for context.
-Input sections: ROUGH ASK (what they typed), THEIR LAST MESSAGE, CLAUDE'S REPLY. The reply may end with the line "[capture window ends here — the reply continues beyond this point]" — that is the edge of your viewport, not a defect; never mention it.
+Input sections: ROUGH ASK (what they typed), THEIR LAST MESSAGE, CLAUDE'S REPLY, and sometimes ASSUMED. The reply may end with the line "[capture window ends here — the reply continues beyond this point]" — that is the edge of your viewport, not a defect; never mention it.
 ROUGH ASK arrives in one of two shapes. Usually it is what the user typed. But when it is a list of "Label: answer" lines, those are answers the user CLICKED to questions CONTEXA asked about THEIR LAST MESSAGE, and a click list is not an ask. Read it for a decision — a line naming what to do next (which piece, which option, what form) IS the ask, and every other line is a constraint on it. If every line is only a fact about the user or their situation, there is NO ask in the list, and the ask you are missing is THEIR LAST MESSAGE: re-ask their own question with those facts folded in, and stop there.
 Never take an ask from CLAUDE'S REPLY. The reply is there so you can name things accurately, never as a supply of follow-up questions. Never ask Claude to explain, justify, restate or expand anything the reply already said — sending someone back for a second pass over an answer they have already read is the worst output you can produce, and a phrase like "as you mentioned" or "as you said above", in any language, is proof you have done it.
 Write the prompt as the user, in first person, addressed to Claude, ready to send verbatim. No persona preamble, no meta commentary, no politeness padding.
@@ -153,7 +156,8 @@ Rules, in order of force:
 - If Claude's reply is what the ask acts on, name the actual thing from the reply — the file, the section, the claim, the number — using the reply's own words for anything factual. If the rough ask is unrelated to the reply, ignore the reply completely.
 - Make scope explicit when the conversation makes it inferable: what to change, and what to leave unchanged. Phrase anti-goals positively ("leave the visible copy unchanged"), not as warnings.
 - Add format, length, or count constraints only when the intent or the conversation implies them. Never invent numbers, names, keywords, or file paths that appear nowhere.
-- When a material fact only the user knows is missing, put a slot in angle brackets, like <main keyword> — at most 2 slots. When a reasonable default is worth surfacing, add a final line starting "Assume:" — at most 2. Never bake a silent choice into the prompt.
+- When a material fact only the user knows is missing, put a slot in angle brackets, like <main keyword> — at most 2 slots. Material they must supply rather than state — a file, a document, code, a spreadsheet, a link, a story only they can tell — takes the same form, as <paste here> or <attach here>, which they fill in the message box before sending. CONTEXA never asked them for it, so this is the only place it can appear. When a reasonable default is worth surfacing, add a final line starting "Assume:" — at most 2. Never bake a silent choice into the prompt.
+- ASSUMED, when present, holds facts CONTEXA already settled on the user's behalf instead of asking. Copy each one verbatim onto a final line starting "Assume:" — they fill the cap of 2 before any assumption of your own, you never turn one back into a question, and nothing in the body may contradict one. The same facts usually ALSO arrive in ROUGH ASK as "Assumed:" lines; that is one fact reaching you twice, so state it once, on its "Assume:" line, and never again in the body. When ROUGH ASK holds nothing but those lines — nobody typed and nobody clicked, because the reply left nothing to ask — the ask is THEIR LAST MESSAGE: re-ask it in the user's voice and put the "Assume:" lines underneath, exactly as you would a click list holding no decision.
 - Never use filler quality words: thorough, careful, carefully, properly, really, robust, comprehensive, high-quality, detailed, best. They change nothing. Constraints change things.
 - If the rough ask is already a good prompt, return it nearly verbatim with only mechanical fixes. Longer without more decidable is failure.
 - If expansion would need more than two slots, the ask is not expandable. Output instead, in the user's voice: "I want help with <topic>. Ask me everything you need to know to get this right — one focused list, then wait for my answers before continuing."
@@ -178,6 +182,12 @@ PROMPT: Draft an email to my landlord asking for my deposit back.
 Assume: this is my first written request.
 ROUGH ASK: deployed, works (after a reply that listed five checks to run)
 PROMPT: Deployed and the worker is live. Go ahead with the release ceremony next.\nAssume: all five field checks passed as you listed them — I will say so if any did not.
+
+ROUGH ASK: one "Assumed:" line and nothing else — nobody typed and nobody clicked, because the reply left nothing to ask (their last message was "the worker keeps 500ing on deploy")
+Assumed: I'm on Windows, so give me PowerShell, not bash
+ASSUMED: I'm on Windows, so give me PowerShell, not bash
+PROMPT: The worker keeps returning 500 on deploy. Walk me through finding the cause — one step at a time, and wait for what each one prints before giving me the next.
+Assume: I'm on Windows, so give me PowerShell, not bash
 
 ROUGH ASK: three clicked answers, all facts, no decision among them (their last message was "which database should i use for a small side project")
 Team size: Just me
@@ -383,6 +393,28 @@ function cleanOptions(v) {
   return out;
 }
 
+/* 0.9.49 — the second half of "would a different answer change what happens
+   next?". Zero to two short statements the questions model chose to STATE
+   rather than ask. Absent is the normal case and means exactly today's
+   behaviour: no floor, no default, and never a line this worker invented —
+   it only cleans what the model sent.
+   MUST stay behaviourally identical to cleanAssume in extension/background.js. */
+function cleanAssume(v) {
+  if (!Array.isArray(v)) return [];
+  const out = [];
+  for (const a of v) {
+    const t = String(a == null ? '' : a).replace(/\s+/g, ' ').trim().slice(0, 160);
+    // A question is not an assumption. The prompt says so; this enforces it,
+    // because an "Assume:" line ending in "?" reads as CONTEXA asking the user
+    // something inside the message they are about to send to Claude.
+    if (!t || t.endsWith('?')) continue;
+    if (out.some(x => x.toLowerCase() === t.toLowerCase())) continue;
+    out.push(t);
+    if (out.length === 2) break;
+  }
+  return out;
+}
+
 function trimPayload(value) {
   const t = String(value || '').trimEnd();
   if (t.length <= MAX_PAYLOAD_CHARS) return t;
@@ -438,11 +470,22 @@ export default {
     const prompt = String(body.prompt || '').slice(0, MAX_PROMPT_CHARS);
     const reply = String(body.reply || '').slice(0, MAX_REPLY_CHARS);
     let intent = '';
+    /* 0.9.49 — facts CONTEXA settled instead of asking, carried from the
+       questions call. Named apart from the questions branch's own `assume`
+       because both live in this function scope. */
+    let carried = [];
     if (wantExpand) {
       // A rough ask is required; the reply is NOT — "email to my landlord"
       // legitimately ignores the conversation entirely.
       intent = String(body.intent || '').trim().slice(0, MAX_INTENT_CHARS);
-      if (!intent) return json({ error: 'bad_request' }, 400, request, env);
+      /* An empty rough ask became legal in 0.9.49, but ONLY alongside an
+         assumption — the standalone case, where nobody typed and nobody
+         clicked and the ask is their last message. A conjunction, never a
+         fallback: a request carrying neither is still bad_request, and the
+         client sends the facts in BOTH fields so a pre-0.9.49 worker still
+         has a non-empty intent to work from. */
+      carried = cleanAssume(body.assume);
+      if (!intent && !carried.length) return json({ error: 'bad_request' }, 400, request, env);
     } else if (reply.trim().length < MIN_REPLY_CHARS) {
       return json({ error: 'reply_too_short' }, 400, request, env);
     }
@@ -485,6 +528,7 @@ export default {
             content: 'ROUGH ASK:\n' + intent
               + '\n\nTHEIR LAST MESSAGE:\n' + (prompt || '(not captured)')
               + '\n\nCLAUDE\'S REPLY:\n' + (reply || '(none)')
+              + (carried.length ? '\n\nASSUMED:\n' + carried.join('\n') : '')
           }]
         }
       : {
@@ -672,9 +716,16 @@ export default {
       JSON.stringify(dropped.map(q => q.label)));
     const steps = (asksQuestions ? mapped.filter(q => q.options.length >= 2) : mapped)
       .slice(0, asksQuestions ? 4 : 1);
+    /* 0.9.49 — questions only. A pre-0.9.30 client on the legacy steps shape
+       has no code that reads this and no composer to put it in; sending it
+       there would be noise on a wire we keep frozen on purpose. An extension
+       older than 0.9.49 ignores the extra key, so this direction is safe
+       without any deploy ordering. */
+    const assume = asksQuestions ? cleanAssume(parsed.assume) : [];
+    if (assume.length) console.log('[CONTEXA] assumed', assume.length, 'of', steps.length, 'question(s)');
     // The key an old client reads is not the key a new one reads.
     const shape = extra => asksQuestions
-      ? Object.assign({ questions: steps }, extra)
+      ? Object.assign({ questions: steps, assume }, extra)
       : Object.assign({ steps }, extra);
     const grounding = { total: rawSteps.length, kept: steps.length, grounded };
     if (!steps.length) {

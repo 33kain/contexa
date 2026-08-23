@@ -279,7 +279,20 @@ const settle = () => new Promise(r => setTimeout(r, 0));
 {
   const csrc3 = readFileSync('./content.js', 'utf8');
   t('no partial banner markup remains', !csrc3.includes('cut short'));
-  t('renderSteps no longer takes a partial flag', /function renderSteps\(anchor, steps, ctx\)/.test(csrc3));
+  /* 0.9.49 — this used to pin the exact signature `(anchor, steps, ctx)`, which
+     is the seventh source-shape assertion to break on a refactor without ever
+     catching a behaviour change: adding a fourth argument for something
+     unrelated to salvage failed it. The requirement was never the arity. It is
+     that NOTHING about a partial salvage reaches the renderer — no flag passed
+     in, no branch on one inside. Assert that instead, and it survives any
+     signature while still failing the day someone reintroduces the banner. */
+  const rsBody = csrc3.slice(csrc3.indexOf('function renderSteps('));
+  t('renderSteps takes no salvage flag',
+    !/function renderSteps\([^)]*partial/i.test(csrc3));
+  t('and never branches on one',
+    !/partial/i.test(rsBody.slice(0, rsBody.indexOf('\n  }\n'))));
+  t('and no call site passes one',
+    (csrc3.match(/renderSteps\([^)]*\)/g) || []).every(c => !/partial/i.test(c)));
   t('partial still logs to the console at log level', /resp\.partial === true[\s\S]{0,700}console\.log\('\[CONTEXA\] partial salvage/.test(csrc3));
   t('partial logger is not warn (Errors-badge fix)', !/console\.warn\('\[CONTEXA\] partial salvage/.test(csrc3));
 }
@@ -509,7 +522,12 @@ const settle = () => new Promise(r => setTimeout(r, 0));
   t('input keystrokes stopped at the shadow boundary',
     /\['keydown', 'keyup', 'keypress', 'input', 'paste'\][\s\S]{0,120}stopPropagation/.test(c));
   t('Enter submits, Escape collapses', /key === 'Enter'/.test(c) && /key === 'Escape'/.test(c));
-  t('the interview carries capture context', /renderInterview\(anchor, questions\.slice\(0, 4\), ctx\)/.test(c) && /const ctx = \{ prompt: promptText, reply: replyText \}/.test(c));
+  /* The requirement is that the interview can reach the captured pair when it
+     composes — not the literal object shape, which grew a third field in
+     0.9.49. Match the two keys it actually needs and let the object grow. */
+  t('the interview carries capture context',
+    /renderInterview\(anchor, questions\.slice\(0, 4\), ctx\)/.test(c)
+    && /const ctx = \{ prompt: promptText, reply: replyText\b/.test(c));
   t('expand failure stays inline (no second card)', /cxerr/.test(c) && /daily limit reached/.test(c));
   /* Design-review #4, verified real in 0.9.22: insertPrompt selected all and
      typed over the user's draft. The guard and the append branch must exist —
@@ -1062,7 +1080,14 @@ const settle = () => new Promise(r => setTimeout(r, 0));
   // Interaction: numbers pick, skip answers blank, dismiss loses nothing.
   t('number keys pick an option', /const n = parseInt\(e\.key, 10\)/.test(csrc7));
   t('skip records a blank answer', /skip\.addEventListener\('click', \(\) => answer\(''\)\)/.test(csrc7));
-  t('dismiss falls back to the Rough ask chip', /function dismiss\(\) \{[\s\S]{0,520}renderSteps\(anchor, \[\], ctx\)/.test(csrc7));
+  /* The requirement is "closing the card leaves the fallback row", not the
+     argument list — so match the empty steps array and stop caring what
+     follows it. 0.9.49 adds the second half: a dismissed card must NOT come
+     back as a one-click compose button, which is a falsy fourth argument. */
+  t('dismiss falls back to the Rough ask chip',
+    /function dismiss\(\) \{[\s\S]{0,900}renderSteps\(anchor, \[\], ctx\b/.test(csrc7));
+  t('and offers no standalone compose chip in its place',
+    /function dismiss\(\) \{[\s\S]{0,900}renderSteps\(anchor, \[\], ctx, false\)/.test(csrc7));
   t('everything skipped composes nothing', csrc7.includes('if (!parts.length) return dismiss();'));
   t('interview keystrokes stopped at the shadow boundary',
     /for \(const evt of \['keydown', 'keyup', 'keypress', 'input', 'paste'\]\)/.test(csrc7));
@@ -1070,8 +1095,36 @@ const settle = () => new Promise(r => setTimeout(r, 0));
 
   // Zero, end to end.
   t('zero questions renders the Rough ask chip alone',
-    /if \(!questions\.length\) \{[\s\S]{0,220}renderSteps\(anchor, \[\], ctx\)/.test(csrc7));
+    /if \(!questions\.length\) \{[\s\S]{0,600}renderSteps\(anchor, \[\], ctx\b/.test(csrc7));
   t('the quiet row is logged', csrc7.includes('[CONTEXA] quiet row'));
+
+  /* ---- 0.9.49: the standalone compose chip, and the floor it must not become.
+     Every defect in the pattern file came from something that guaranteed a
+     non-empty row. This chip is one click away from being exactly that, so the
+     assertions below are about what makes it NOT appear, not what makes it
+     appear. The gate is a conjunction of two independent facts — the model
+     actually stated something, AND this render is the zero-questions one
+     rather than a dismissal — and neither half may become a default. */
+  t('the standalone chip needs BOTH an assumption and the zero-questions render',
+    /if \(offerAssume && Array\.isArray\(ctx && ctx\.assume\) && ctx\.assume\.length\)/.test(csrc7));
+  t('zero questions offers it only when something was actually stated',
+    /renderSteps\(anchor, \[\], ctx, assume\.length > 0\)/.test(csrc7));
+  t('nothing in the page ever fabricates an assumption',
+    !/assume\s*=\s*\[\s*['"]/.test(csrc7) && !/ctx\.assume\s*\|\|\s*\[['"]/.test(csrc7));
+  t('a question-shaped assumption is refused before it can render',
+    /\.filter\(a => a && !a\.endsWith\('\?'\)\)/.test(csrc7));
+  t('and never more than the two the prompt allows', /\.slice\(0, 2\)/.test(csrc7));
+
+  /* Backward compatibility, in the one direction store review makes
+     unavoidable: a 0.9.49 extension can meet a worker that predates it. The
+     standalone chip therefore sends the same facts in the intent as well, so
+     an old worker sees a click list holding no decision instead of rejecting
+     an empty one. Losing this line turns the chip into a hard error for every
+     hosted user between the two ships. */
+  t('the standalone chip sends its facts in the intent too, for an older worker',
+    /intent: assume\.map\(a => 'Assumed: ' \+ a\)\.join\('\\n'\)/.test(csrc7));
+  t('the interview carries assumptions alongside the clicked answers',
+    /intent: parts\.join\('\\n'\),[\s\S]{0,400}assume: Array\.isArray\(ctx\.assume\)/.test(csrc7));
 
   /* An interview spends two calls, so the honest headline is half the counter.
      Three surfaces state the allowance and they must not disagree. */
@@ -1459,6 +1512,171 @@ const settle = () => new Promise(r => setTimeout(r, 0));
   t('and that silence is a real outcome, not a failure',
     /stays quiet/i.test(opts));
   t('and does not overstate the count', /never more than four/i.test(opts));
+}
+
+/* ---- 0.9.49: "pick, and say what you picked" ------------------------------
+   The second half of the heuristic 0.9.48 borrowed. 0.9.48 taught CONTEXA when
+   NOT to ask; this teaches it that a question dropped because the conversation
+   already settled it should be STATED rather than silently lost.
+
+   The whole risk of this feature is one sentence: it adds an array that a model
+   is rewarded for filling, next to a product rule that says an empty row is a
+   correct outcome. Every defect in the pattern file came from something that
+   guaranteed a non-empty row. So these tests are weighted toward absence — what
+   makes assume empty, and what must never quietly make it non-empty. */
+{
+  const h = load();
+  const clean = h.sandbox.cleanAssume;
+  t('cleanAssume is reachable', typeof clean === 'function');
+
+  // The floor, tested from every direction it could arrive.
+  t('nothing in is nothing out', JSON.stringify(clean([])) === '[]');
+  t('a missing field is nothing out', JSON.stringify(clean(undefined)) === '[]');
+  t('a non-array is nothing out', JSON.stringify(clean('I am on Windows')) === '[]');
+  t('an object is nothing out', JSON.stringify(clean({ 0: 'x', length: 1 })) === '[]');
+  t('blank strings are nothing out', JSON.stringify(clean(['', '   ', null])) === '[]');
+
+  // A question is not an assumption. An "Assume:" line ending in "?" would put
+  // CONTEXA's own question inside the message the user sends to Claude.
+  t('a question-shaped entry is dropped',
+    JSON.stringify(clean(['Which shell are you using?'])) === '[]');
+  t('but a statement about the same thing survives',
+    clean(["I'm on Windows"])[0] === "I'm on Windows");
+
+  t('two is the ceiling the prompt promises', clean(['a', 'b', 'c', 'd']).length === 2);
+  t('duplicates do not spend a slot',
+    JSON.stringify(clean(['On Windows', 'on windows'])) === '["On Windows"]');
+  t('whitespace is normalised, not preserved',
+    clean(['  I am   on Windows '])[0] === 'I am on Windows');
+  t('an overlong statement is cut, not dropped', clean(['x'.repeat(400)])[0].length === 160);
+
+  /* The wire, in the direction that actually breaks: an empty rough ask is
+     legal ONLY with an assumption beside it. If this ever becomes an OR, an
+     empty request composes a prompt out of nothing. */
+  const noKey = () => load({ storage: { apiKey: '' } });
+  {
+    const g = noKey();
+    const out = await g.send({ type: 'expandPrompt', intent: '', prompt: 'p', reply: 'r' });
+    t('genuinely empty is still refused', out && out.error === 'bad_request', JSON.stringify(out));
+  }
+  {
+    const g = noKey();
+    const out = await g.send({ type: 'expandPrompt', intent: '', prompt: 'p', reply: 'r', assume: ['Which one?'] });
+    t('and an assumption that is really a question does not rescue it',
+      out && out.error === 'bad_request', JSON.stringify(out));
+  }
+  {
+    const g = load({ storage: { apiKey: 'sk-x' } });
+    await g.send({ type: 'expandPrompt', intent: '', prompt: 'p', reply: 'r', assume: ["I'm on Windows"] });
+    const sent = g.requests[0]?.body?.messages?.[0]?.content || '';
+    t('an assumption alone is a legal request', !!g.requests.length);
+    t('and reaches the model under the pinned section label',
+      /\n\nASSUMED:\nI'm on Windows$/.test(sent), JSON.stringify(sent.slice(-40)));
+  }
+  {
+    const g = load({ storage: { apiKey: 'sk-x' } });
+    await g.send({ type: 'expandPrompt', intent: 'make it shorter', prompt: 'p', reply: 'r' });
+    const sent = g.requests[0]?.body?.messages?.[0]?.content || '';
+    t('and no ASSUMED section appears when nothing was assumed',
+      !/ASSUMED/.test(sent), JSON.stringify(sent.slice(-40)));
+  }
+
+  /* refineSteps must carry an assumption through the ZERO-questions path —
+     that pairing is the entire standalone case. A version of this that only
+     survived alongside questions would look like it worked and silently never
+     reach the case the feature was built for. */
+  {
+    const g = load({ storage: { apiKey: 'sk-x' } });
+    const r = g.sandbox.refineSteps({ questions: [], assume: ["I'm on Windows"] }, 'some reply');
+    t('an assumption survives a zero-question result',
+      r.questions.length === 0 && r.assume.length === 1, JSON.stringify(r.assume));
+    t('and zero is still reported as deliberate silence, not a fault',
+      r.grounding.total === 0, JSON.stringify(r.grounding));
+  }
+  {
+    const g = load({ storage: { apiKey: 'sk-x' } });
+    const r = g.sandbox.refineSteps({ questions: [] }, 'some reply');
+    t('and a result with no assumption carries an empty one, never a default',
+      Array.isArray(r.assume) && r.assume.length === 0, JSON.stringify(r.assume));
+  }
+}
+
+/* ---- 0.9.49: the prompt must DEMONSTRATE assume, but only just -------------
+   The lesson this repo has now paid for four times: a prompt requires one thing
+   and demonstrates another, and the demonstrations win. "evidence" was required
+   and shown zero times. The JSON wrapper was required and shown zero times
+   against nine plain-text demonstrations.
+
+   So assume needs at least one worked demonstration or it will never fire. But
+   the failure directions are NOT symmetric here. Under-firing lands exactly on
+   today's behaviour, which is a shipped product. Over-firing puts a fabricated
+   line inside a message the user is about to send. So the target is a clear
+   minority: enough to prove the shape, few enough that a model reading the
+   exemplar block sees assume as the exception it is. */
+{
+  const bgSrc = readFileSync('./background.js', 'utf8');
+  const grab = n => (bgSrc.match(new RegExp(n + ' = `([\\s\\S]*?)`;')) || [])[1] || '';
+  const liveQ = new Function('return `' + grab('QUESTIONS_SYSTEM') + '`')();
+  const liveE = new Function('return `' + grab('EXPAND_SYSTEM') + '`')();
+
+  const L = liveQ.split('\n');
+  const from = L.findIndex(l => l.startsWith('Worked examples'));
+  const to = L.findIndex(l => l.startsWith('Each question has'));
+  const rows = L.slice(from + 1, to);
+  const withAssume = rows.filter(l => /\bassume \[/.test(l));
+  t('at least one worked exemplar demonstrates assume', withAssume.length >= 1,
+    withAssume.length + ' of ' + rows.length);
+  t('but a clear minority do, so it reads as the exception',
+    withAssume.length * 3 <= rows.length, withAssume.length + ' of ' + rows.length);
+
+  t('the rule says omitting it is the normal case', /omit "assume" entirely/.test(liveQ));
+  t('and that it is earned only where the answer would have changed something',
+    /if the question was decoration, so is the assumption/.test(liveQ));
+  t('and refuses the case the whole feature could rot into',
+    /never assume something the user would want to decide/.test(liveQ));
+  t('the schema puts it beside questions, never inside one',
+    /Beside "questions", and never inside one/.test(liveQ));
+  t('and says outright that it can ride with no questions at all',
+    /ride alone/.test(liveQ));
+
+  /* The primary complete-answer example is the one a model copies. It must NOT
+     carry assume — that single demonstration would set the floor by itself. */
+  const primary = liveQ.split('\n').find(l => l.trim().startsWith('{"questions":[{')) || '';
+  t('there is a primary complete-answer example', !!primary, primary.slice(0, 40));
+  t('and it carries no assume — one demonstration there would set the floor alone',
+    !/assume/.test(primary), primary.slice(0, 60));
+  t('the standalone shape is demonstrated somewhere',
+    /\{"questions":\[\],"assume":\["/.test(liveQ));
+  t('and is named as the rare case, right where it is shown',
+    /an assumption riding alone\. That one is rare/.test(liveQ));
+  /* The last line is where a model learns what a default looks like, so zero
+     ALONE has to hold it — see the final-position assertion in the older block.
+     This is the paired half: the standalone example must not be what sits
+     last, because "no questions, so add an assumption" is the exact floor this
+     whole feature is one mistake away from becoming. */
+  t('and zero alone still gets the last word, not zero-plus-assume',
+    /\{"questions":\[\]\}\.$/.test(liveQ.trimEnd()), liveQ.trimEnd().slice(-40));
+
+  // EXPAND_SYSTEM's half of the contract.
+  t('expand lists ASSUMED as an input section', /and sometimes ASSUMED/.test(liveE));
+  t('and copies each one verbatim onto an "Assume:" line',
+    /Copy each one verbatim onto a final line starting "Assume:"/.test(liveE));
+  t('and is told the same fact arrives twice, so it states it once',
+    /one fact reaching you twice/.test(liveE));
+  t('and knows the rough ask may hold nothing but those lines',
+    /nobody typed and nobody clicked/.test(liveE));
+  t('and demonstrates the standalone shape, not just describes it',
+    /\nASSUMED: /.test(liveE) && /\nAssume: I'm on Windows/.test(liveE));
+
+  /* The inert-promise fix. QUESTIONS_SYSTEM told a model to put <paste here>
+     "in the composed prompt" — a prompt that emits JSON questions and has no
+     channel to the composer. Two sentences instructing a model to do something
+     it structurally cannot. EXPAND_SYSTEM is the only place that can, so the
+     obligation now lives there and this pins it. */
+  t('the slot the questions step promises is actually expand\'s job',
+    /<paste here> or <attach here>/.test(liveE));
+  t('and expand is told why it is the only place it can appear',
+    /CONTEXA never asked them for it/.test(liveE));
 }
 
 console.log(fails.length ? '\nFAILED: ' + fails.join(', ') : '\nall extension checks passed');
