@@ -19,7 +19,7 @@
    which build is live. Deliberately independent of the extension's manifest
    version — they ship on separate paths and a worker fix should not force
    everyone to reinstall the extension. */
-const BUILD = '0.9.35';
+const BUILD = '0.9.36';
 
 const ANTHROPIC_URL = 'https://api.anthropic.com/v1/messages';
 /* Sonnet 5 rather than Haiku, on measured evidence: in a controlled three-model
@@ -574,8 +574,19 @@ export default {
        behaviour, on the exact path that has no test coverage from real use. */
     const rawSteps = Array.isArray(parsed.questions) ? parsed.questions
       : Array.isArray(parsed.steps) ? parsed.steps : [];
-    const withEv = rawSteps.filter(s =>
-      s && typeof s.text === 'string' && s.text.trim() && normWs(s.evidence));
+    /* Three filters can empty this list and they need different fixes, so
+       the log must never guess between them. A question with no usable
+       "text", a question with no "evidence", and a question with fewer than
+       two options are three different defects. The first is the sneaky one:
+       the worked exemplars say "question" where the schema says "text", so a
+       model copying the exemplar lands HERE while looking like an evidence
+       failure. That misattribution is exactly what this counting prevents. */
+    let noText = 0, noEvidence = 0;
+    const withEv = rawSteps.filter(s => {
+      if (!(s && typeof s.text === 'string' && s.text.trim())) { noText++; return false; }
+      if (!normWs(s.evidence)) { noEvidence++; return false; }
+      return true;
+    });
     const normReply = normWs(reply);
     let grounded = 0;
     for (const s of withEv) {
@@ -620,14 +631,17 @@ export default {
          to return nothing: the reply closed the loop and no step was earned.
          That is a product outcome, it renders as a quiet row, and it is the
          whole point of the one-chip core. Anything else means steps WERE
-         produced and the evidence gate ate every one of them, which is a real
-         failure and keeps its diagnostic. */
+         produced and every one was filtered out — by the evidence gate, by a
+         missing "text", or by the option guard. Which of the three it was is in
+         the log line below; do not assume the evidence gate, that assumption
+         was wrong once already. */
       if (!rawSteps.length) {
         console.log('[CONTEXA] quiet row — nothing to ask', asksQuestions ? '(questions)' : '(legacy steps)');
         return json(shape({ grounding, quiet: true }), 200, request, env);
       }
       const diag = diagnose(data, text);
-      console.log('[CONTEXA] parsed but no usable steps', JSON.stringify(diag), 'rawSteps=' + rawSteps.length);
+      console.log('[CONTEXA] parsed but no usable steps', JSON.stringify(diag),
+        'rawSteps=' + rawSteps.length + '. ' + 'Dropped: ' + noText + ' with no usable "text", ' + noEvidence + ' with no "evidence", ' + dropped.length + ' with fewer than two options.');
       return json({ error: 'no_steps', diag }, 502, request, env);
     }
 

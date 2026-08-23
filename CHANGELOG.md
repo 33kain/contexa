@@ -7,6 +7,51 @@ free to diverge, and the settings page labels them separately for that reason.
 
 ---
 
+## 0.9.36 — Extension and Backend
+
+*Diagnostics only. No behaviour changes, and that is the point: the log shipped
+in 0.9.35 asserted a cause it could not know.*
+
+### One filter, three ways to fail
+
+`withEv` discards a question for a missing `text` **or** a missing `evidence`,
+and 0.9.35's new line reported both as *"None carried usable evidence."*
+
+That is not a rounding error, it is a wrong signpost. The worked exemplars in
+`QUESTIONS_SYSTEM` say `question` where the schema says `text` — so a model
+copying an exemplar lands in **exactly this filter while wearing an evidence
+failure's face.** The next person to read that console would have gone straight
+at the evidence rule, found it correct, and lost the afternoon.
+
+Both paths now count the three causes apart and name all three every time:
+
+> `parsed but no usable questions — model returned 3, kept 0. Dropped: 3 with no
+> usable "text", 0 with no "evidence", 0 with fewer than two options.`
+
+The worker's version rides on the existing `parsed but no usable steps` line, so
+`wrangler tail` gets the same breakdown for hosted users. A stale comment there
+claiming "the evidence gate ate every one of them" is corrected — it was the
+same assumption, written down as fact.
+
+### Tested by running it, not by reading it
+
+Six fixtures drive `refineSteps` directly and assert what it says: questions
+with no evidence, questions using the exemplars' `question` key, a
+single-option question, and two cases that must produce **no failure line at
+all** — a deliberate empty questionnaire, and a batch where one question
+survives. That second pair guards the oldest invariant in the product: a
+correct silence must never leave a fault in the log, or someone eventually
+"fixes" it and the floor comes back.
+
+### What this makes answerable
+
+Whether the `question`/`text` mismatch ever actually bites is now an
+observation rather than an argument. If `with no usable "text"` never appears in
+the field, the exemplars can keep their wording and the change costs nothing. If
+it does appear, the fix is obvious and we will have earned it.
+
+---
+
 ## 0.9.35 — Extension and Backend
 
 *Repairs a regression 0.9.34 shipped. The rule was right; its position was the

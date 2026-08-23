@@ -593,8 +593,66 @@ const settle = () => new Promise(r => setTimeout(r, 0));
   // And the diagnostic whose absence made this cost an extra round trip.
   t('the own-key no_steps branch says WHY, like the worker does',
     SRC.includes('[CONTEXA] parsed but no usable questions'));
-  t('it distinguishes an evidence failure from an option failure',
-    /None carried usable evidence/.test(SRC) && /option guard dropped them all/.test(SRC));
+  t('it names all three filters separately, and guesses at none of them',
+    /no usable "text"/.test(SRC) && /no "evidence"/.test(SRC) && /fewer than two options/.test(SRC));
+
+  /* 0.9.36 — run it, do not read it. The previous version of this log ASSERTED
+     a cause it could not know: withEv drops a question for a missing "text" or
+     a missing "evidence", and it reported both as "None carried usable
+     evidence." That matters because the exemplars say "question" where the
+     schema says "text" — a model copying the exemplar lands in this filter
+     while looking like an evidence failure, and the log would have sent the
+     next reader at the wrong rule. These cases are the proof it no longer can. */
+  {
+    const h = load({ storage: { apiKey: 'sk-x' } });
+    const said = [];
+    h.sandbox.console.warn = (...a) => said.push(a.join(' '));
+    h.sandbox.console.log = (...a) => said.push(a.join(' '));
+    const REPLY = 'the reply says something specific here and nothing else';
+    const run = q => { said.length = 0; h.sandbox.refineSteps(q, REPLY); return said.join('\n'); };
+
+    t('refineSteps is reachable for a behavioural test',
+      typeof h.sandbox.refineSteps === 'function');
+
+    let out = run({ questions: [
+      { label: 'A', text: 'What?', options: ['x', 'y'] },
+      { label: 'B', text: 'When?', options: ['x', 'y'] }
+    ] });
+    t('missing evidence is counted as missing evidence',
+      /2 with no "evidence"/.test(out), out.slice(-90));
+    t('and is NOT blamed on missing text', /0 with no usable "text"/.test(out));
+
+    // The case the owner asked to be able to see: the exemplar/schema mismatch.
+    out = run({ questions: [
+      { label: 'A', question: 'What?', options: ['x', 'y'], evidence: 'the reply says' },
+      { label: 'B', question: 'When?', options: ['x', 'y'], evidence: 'something specific' }
+    ] });
+    t('a question using the exemplars\' field name is counted as missing TEXT',
+      /2 with no usable "text"/.test(out), out.slice(-90));
+    t('and is NOT blamed on missing evidence', /0 with no "evidence"/.test(out));
+
+    out = run({ questions: [
+      { label: 'A', text: 'What?', options: ['only one'], evidence: 'the reply says' }
+    ] });
+    t('a single-option question is counted against the option guard',
+      /1 with fewer than two options/.test(out), out.slice(-90));
+    t('and against neither of the other two',
+      /0 with no usable "text"/.test(out) && /0 with no "evidence"/.test(out));
+
+    /* Zero is a product outcome. A deliberate empty questionnaire must not
+       produce a fault line — a future reader seeing one would "fix" the silence
+       and reintroduce the floor this product spent three releases removing. */
+    out = run({ questions: [] });
+    t('a deliberate zero logs no failure at all',
+      !/no usable questions/.test(out), JSON.stringify(out.slice(0, 60)));
+
+    out = run({ questions: [
+      { label: 'A', text: 'What?', options: ['x', 'y'], evidence: 'the reply says' },
+      { label: 'B', question: 'When?', options: ['x', 'y'], evidence: 'something specific' }
+    ] });
+    t('one survivor means no failure line, however many were dropped',
+      !/no usable questions/.test(out));
+  }
 
   /* 0.9.35 — the same lesson, found in the OTHER prompt an hour later. All five
      worked exemplars in QUESTIONS_SYSTEM demonstrate {label, question, options}

@@ -401,8 +401,19 @@ function cleanOptions(v) {
 }
 
   const raw = Array.isArray(parsed && parsed.questions) ? parsed.questions : [];
-  const withEv = raw.filter(s =>
-    s && typeof s.text === 'string' && s.text.trim() && normWs(s.evidence));
+  /* Three filters can empty this list and they need different fixes, so
+     the log must never guess between them. A question with no usable
+     "text", a question with no "evidence", and a question with fewer than
+     two options are three different defects. The first is the sneaky one:
+     the worked exemplars say "question" where the schema says "text", so a
+     model copying the exemplar lands HERE while looking like an evidence
+     failure. That misattribution is exactly what this counting prevents. */
+  let noText = 0, noEvidence = 0;
+  const withEv = raw.filter(s => {
+    if (!(s && typeof s.text === 'string' && s.text.trim())) { noText++; return false; }
+    if (!normWs(s.evidence)) { noEvidence++; return false; }
+    return true;
+  });
   const normReply = normWs(replyStr);
   let grounded = 0;
   for (const s of withEv) {
@@ -419,6 +430,13 @@ function cleanOptions(v) {
   if (unclickable.length) console.log('[CONTEXA] dropped unclickable question(s)',
     unclickable.map(q => q.label));
   const askable = mapped.filter(q => q.options.length >= 2);
+  /* The caller turns this into an error card, so say WHY here, where the counts
+     live. Emitted only when the model DID produce questions: zero questions is
+     a deliberate quiet row and must never look like a fault. */
+  if (raw.length && !askable.length) {
+    console.warn('[CONTEXA] parsed but no usable questions — model returned ' + raw.length +
+      ', kept 0. ' + 'Dropped: ' + noText + ' with no usable "text", ' + noEvidence + ' with no "evidence", ' + unclickable.length + ' with fewer than two options.');
+  }
   return {
     /* 0.9.33 — click-only, same rule as the worker so hosted and own-key users
        get one product. Map, drop, then slice: dropping after the slice would
@@ -426,20 +444,6 @@ function cleanOptions(v) {
     questions: askable.slice(0, 4),
     grounding: { total: raw.length, kept: Math.min(askable.length, 4), grounded }
   };
-}
-
-/* Why the own-key path went quiet-but-angry. The worker has logged this since
-   0.9.29; the extension never did, and the absence cost a diagnosis: the log
-   line `[CONTEXA] evidence []` is emitted BOTH when the model deliberately
-   returned nothing (correct, a quiet row) and when the gate ate everything
-   (an error card). Identical output, opposite meanings. */
-function logNoSteps(grounding) {
-  console.warn('[CONTEXA] parsed but no usable questions —',
-    'model returned', grounding.total + ',', 'kept 0,', 'grounded', grounding.grounded + '.',
-    grounding.grounded === 0
-      ? 'None carried usable evidence.'
-      : 'Evidence was fine; the option guard dropped them all.');
-  return { error: 'no_steps' };
 }
 
 /* tiny in-memory cache (service worker lifetime) */
@@ -474,7 +478,7 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
           ? Object.assign(refined, r.partial ? { partial: true } : null)
           : refined.grounding.total === 0
             ? Object.assign(refined, { quiet: true })
-            : logNoSteps(refined.grounding);
+            : { error: 'no_steps' };
       } else {
         out = r.partial ? Object.assign({}, r.data, { partial: true }) : r.data;
       }
