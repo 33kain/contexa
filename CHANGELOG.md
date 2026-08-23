@@ -7,6 +7,80 @@ free to diverge, and the settings page labels them separately for that reason.
 
 ---
 
+## Extension 0.9.33 — Backend 0.9.33
+
+*One rule about what may be asked, and three changes to how the card behaves
+when it is not being used.*
+
+### The interview is click-only
+
+**A question the user cannot answer by clicking is no longer asked.** Not
+softened, not given a better text box — dropped, and the clickable questions
+around it are kept. If none survive, the row goes quiet, which the product
+already does correctly.
+
+The audience is people who know roughly what they want but not how to say it.
+An empty text field asks them to do the exact thing they came here unable to do,
+so a question that *needs* typing is the product failing while appearing to
+work. `Something else…` stays as an escape hatch; its necessity, not its
+presence, was the defect.
+
+Material the user must supply — a file, code, a spreadsheet, a link — was never
+a question in the first place. It belongs in the composed prompt as
+`<paste here>` / `<attach here>`, filled in the message box afterwards.
+
+Enforced twice, because the 0.9.25 lesson is that a rule alone gets ignored:
+
+- **Prompt** — a rule plus a worked exemplar of a question *being refused*
+  (`QUESTIONS_SYSTEM`, byte-identical in both copies).
+- **Code** — any question left with fewer than two valid options is dropped
+  before the four-question slice, in both the worker and the own-key path, and
+  logged as `[CONTEXA] dropped unclickable question(s)`.
+
+Order matters: **map, drop, then slice.** Slicing first would spend the budget
+on questions that are about to be thrown away.
+
+### The card gets out of the way while you read
+
+0.9.30 moved the card above the composer, where it held ~150px of reading space
+permanently. It now collapses when the reply it belongs to scrolls off the top,
+and comes back when you scroll back down.
+
+It hides on the **anchor leaving the viewport**, not on scroll itself — hiding
+during scroll would also hide the card while you are scrolling *toward* it. It
+never hides anyone mid-answer: focus inside the card, or any typed text, pins it
+open. The listener is passive and rAF-throttled, and unbinds itself when the
+card goes.
+
+### Two dismissals in a row earn a way out
+
+Dismissing twice with nothing in between adds a muted `Hide for this session`
+chip. Any real use — answering, a rough ask, composing — resets the streak, so
+the offer only appears to someone who is actually being interrupted.
+
+Scope is the tab and the state is in memory, never stored: a reload always
+restores it. **There is no farewell message and no "reload to restore" hint.** A
+goodbye note explaining how to bring it back contradicts the act of hiding. One
+console line is kept for diagnosis.
+
+### Touch
+
+Confirmed working on Android in Edge, Lemur, Mises and Quetta, where the desktop
+row heights were under the 44px minimum and the `‹ 1 of 3 › ×` glyphs were far
+under. Option rows are now 46px, nav buttons 40×40, inputs 16px so mobile Safari
+does not zoom the page, and the selection arrow is always visible where there is
+no hover.
+
+### Title
+
+`CONTEXA - Claude prompts, without the writing`.
+
+The old title said "Prompt like a PRO", which reads as a paid tier on a free
+product, frames the user as deficient, and — worst — omitted **Claude**, the
+most obvious thing anyone would search the store for.
+
+---
+
 ## Extension 0.9.32 — Backend unchanged (0.9.31)
 
 *One selector. Found by DOM position after three string-based detectors got it wrong.*

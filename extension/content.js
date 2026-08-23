@@ -151,6 +151,30 @@
     padding:4px 10px;font-size:11px;color:var(--text2);cursor:pointer;font-family:inherit;flex-shrink:0}
   .skip:hover{color:var(--accent);border-color:var(--accent)}
   .cxbusy{padding:12px;font-size:12px;color:var(--text2);animation:cxpulse 1.4s ease-in-out infinite}
+  /* 0.9.33 — collapse rather than fade. A transparent card still occupies its
+     height, and the complaint was about reading space, not visibility. */
+  .wrap.away{opacity:0;pointer-events:none;max-height:0;margin:0;overflow:hidden;
+    transform:translateY(4px)}
+  .wrap{transition:opacity .22s ease,transform .22s ease,max-height .24s ease,margin .24s ease}
+  /* 0.9.33 — touch. Confirmed working on Edge, Lemur, Mises and Quetta, where
+     the desktop row heights were under the 44px minimum and the nav glyphs were
+     roughly 14px of tappable area. */
+  @media (pointer:coarse),(max-width:520px){
+    .card{border-radius:14px}
+    .chead{padding:13px 14px;gap:6px}
+    .q{font-size:15px}
+    .nav{gap:2px;font-size:12px}
+    .nav button{font-size:18px;padding:9px 10px;min-width:40px;min-height:40px;
+      display:inline-flex;align-items:center;justify-content:center}
+    .opt{padding:13px 14px;font-size:15px;min-height:46px;gap:12px}
+    .opt .n{width:22px;height:22px;font-size:11px}
+    .opt .tick{opacity:1}
+    .foot{padding:10px 12px;gap:8px}
+    .foot .own-input{font-size:16px;padding:9px 12px}
+    .skip{padding:9px 14px;font-size:13px;min-height:40px}
+    .chip{padding:9px 14px;font-size:13px;min-height:40px}
+    .own-input{width:100%;font-size:16px}
+  }
   @keyframes cxpulse{0%,100%{opacity:.55}50%{opacity:1}}`;
 
   const esc = s => { const d = document.createElement('div'); d.textContent = s || ''; return d.innerHTML; };
@@ -243,6 +267,19 @@
   /* ---------------- reply detection --------------------------------------- */
   const processed = new WeakSet();
 
+  /* 0.9.33 — two ways of going quiet, deliberately different in scope.
+
+     `hiddenForSession` is offered only after the user dismisses two cards in a
+     row: behaviour earns the offer, the same way evidence earns a question. It
+     lives in memory, not storage — someone who hides it and forgets would
+     otherwise conclude the extension is broken, and a reload always restores it.
+
+     `dismissStreak` resets on any USE (answering, composing, a rough ask),
+     because two dismissals separated by a real interaction are not a pattern. */
+  let hiddenForSession = false;
+  let dismissStreak = 0;
+  const usedIt = () => { dismissStreak = 0; };
+
   function watchReplies() {
     if (replyObserver) replyObserver.disconnect();
     const container = composer.closest('main') || document.body;
@@ -303,6 +340,7 @@
   }
 
   async function onReplyComplete(replyEl) {
+    if (hiddenForSession) return;          // 0.9.33: opted out for this tab
     if (!replyEl.isConnected) return;
     /* 0.9.30: the card no longer lives next to the reply, so a sibling check
        cannot tell us whether this reply was handled. The `processed` WeakSet in
@@ -397,6 +435,41 @@
     return n;
   }
 
+  /* 0.9.33 — the card mounts above the composer, which is sticky, so before
+     this it sat in view permanently and ate ~150px of reading space while you
+     scrolled back through a conversation. A regression introduced by 0.9.30's
+     placement and not noticed until the owner hit it.
+
+     Hide when the anchored reply leaves the viewport, NOT while scrolling:
+     hiding during scroll would also hide the card while you scroll down toward
+     it — exactly when you want it — and would flicker on every small nudge. */
+  let scrollWatch = null;
+  function watchScroll(anchor, holder) {
+    if (scrollWatch) { removeEventListener('scroll', scrollWatch, true); scrollWatch = null; }
+    if (!anchor || !anchor.getBoundingClientRect) return;
+    const wrap = holder.shadowRoot && holder.shadowRoot.querySelector('.wrap');
+    if (!wrap) return;
+    let queued = false;
+    const evaluate = () => {
+      queued = false;
+      if (!holder.isConnected || !anchor.isConnected) {
+        removeEventListener('scroll', scrollWatch, true); scrollWatch = null; return;
+      }
+      /* Never vanish under someone mid-answer. Focus inside the card, or a
+         partly-typed free-text answer, outranks scroll position — disappearing
+         while a person is typing is worse than the problem this fixes. */
+      const root = holder.shadowRoot;
+      const busy = root && (root.activeElement ||
+        [...root.querySelectorAll('input')].some(el => el.value.trim()));
+      if (busy) { wrap.classList.remove('away'); return; }
+      const r = anchor.getBoundingClientRect();
+      wrap.classList.toggle('away', r.bottom < 0);
+    };
+    scrollWatch = () => { if (!queued) { queued = true; requestAnimationFrame(evaluate); } };
+    addEventListener('scroll', scrollWatch, { capture: true, passive: true });
+    evaluate();
+  }
+
   function shell(anchor, mode) {
     const host = mountHost();
     if (!host) return null;
@@ -414,6 +487,7 @@
     root.appendChild(wrap);
     host.before(holder);
     requestAnimationFrame(() => requestAnimationFrame(() => wrap.classList.add('show')));
+    watchScroll(anchor, holder);
     return wrap;
   }
 
@@ -449,18 +523,22 @@
     };
 
     function dismiss() {
-      // Falls back to the Rough ask chip: closing the questions must never
-      // leave the user with less than they had.
+      /* Falls back to the Rough ask chip: closing the questions must never
+         leave the user with less than they had. Two dismissals in a row earn
+         the session-hide offer — see renderSteps. */
+      dismissStreak++;
       renderSteps(anchor, [], ctx);
     }
 
     function answer(value) {
+      usedIt();               // any real engagement breaks a dismissal streak
       answers[i] = String(value || '').trim();
       i++;
       draw();
     }
 
     async function compose() {
+      usedIt();
       const parts = questions
         .map((q, n) => (answers[n] ? `${q.label}: ${answers[n]}` : null))
         .filter(Boolean);
@@ -577,6 +655,25 @@
       row.appendChild(chip);
     }
     appendOwnChip(row, ctx || {}, anchor);
+
+    /* 0.9.33 — the offer is EARNED, never volunteered. Two dismissals in a row
+       is the user saying no twice; anything less is not a pattern and a
+       permanently visible off-switch would be clutter on a beginner surface.
+       Scope is this tab only, held in memory. No confirmation and no farewell
+       note: a goodbye explaining how to restore it contradicts the act of
+       hiding, and a reload brings it back anyway. */
+    if (dismissStreak >= 2) {
+      const hide = document.createElement('button');
+      hide.className = 'chip own';
+      hide.textContent = 'Hide for this session';
+      hide.title = 'CONTEXA stays quiet in this tab';
+      hide.addEventListener('click', () => {
+        hiddenForSession = true;
+        console.log('[CONTEXA] hidden for this tab - reload to restore');
+        for (const old of document.querySelectorAll('[data-contexa]')) old.remove();
+      });
+      row.appendChild(hide);
+    }
   }
 
   /* The fifth chip (0.9.23): an empty slot at the end of the row. The user
@@ -632,6 +729,7 @@
 
     async function submit(intent) {
       if (!intent) return;
+      usedIt();               // a rough ask is engagement too
       if (!contextAlive()) return goStale(anchor);
       const busy = document.createElement('span');
       busy.className = 'chip busy';

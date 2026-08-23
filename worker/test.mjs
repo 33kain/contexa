@@ -134,7 +134,7 @@ t('unknown route 404', r.status === 404, String(r.status));
 /* ---- 11. partial salvage carries the same evidence as a failure ---------- */
 {
   const five = Array.from({length: 5}, (_, i) =>
-    `{"label":"Step ${i+1} label","text":"Do thing ${i+1}.\\n- one constraint\\n- another","evidence":"rrrr"}`).join(',');
+    `{"label":"Step ${i+1} label","options":["A","B"],"text":"Do thing ${i+1}.\\n- one constraint\\n- another","evidence":"rrrr"}`).join(',');
   const cutSixth = `{"questions":[${five},{"label":"Six`;   // ceiling hit mid-6th step
   globalThis.fetch = async () => ({
     ok: true, status: 200,
@@ -168,9 +168,9 @@ t('unknown route 404', r.status === 404, String(r.status));
       stop_reason: 'end_turn',
       usage: { input_tokens: 500, output_tokens: 300 },
       content: [{ type: 'text', text: JSON.stringify({ questions: [
-        { label: 'Grounded', text: 'Do the thing.', evidence: 'rrrr' },
-        { label: 'Dropped', text: 'No evidence.' },
-        { label: 'Ungrounded', text: 'Renders anyway.', evidence: 'zzz not in reply' }
+        { label: 'Grounded', text: 'Do the thing.', options: ['A', 'B'], evidence: 'rrrr' },
+        { label: 'Dropped', text: 'No evidence.', options: ['A', 'B'] },
+        { label: 'Ungrounded', text: 'Renders anyway.', options: ['A', 'B'], evidence: 'zzz not in reply' }
       ] }) }]
     }; },
     async text() { return ''; }
@@ -246,7 +246,7 @@ t('unknown route 404', r.status === 404, String(r.status));
       stop_reason: 'end_turn',
       usage: { input_tokens: 500, output_tokens: 400 },
       content: [{ type: 'text', text: JSON.stringify({ questions: [
-        { label: 'Long one', text: long, evidence: 'rrrr' }
+        { label: 'Long one', text: long, options: ['A', 'B'], evidence: 'rrrr' }
       ] }) }]
     }; },
     async text() { return ''; }
@@ -352,6 +352,91 @@ t('unknown route 404', r.status === 404, String(r.status));
 }
 
 
+/* ---- v0.9.33: the interview is CLICK-ONLY ---------------------------------
+   Owner's invariant. A question the user cannot answer by clicking is not
+   asked — the audience is people who know roughly what they want but not how
+   to say it, so a bare text field asks them to do the exact thing they came
+   here unable to do.
+
+   Three things these pin, and each is a way the rule could be quietly lost:
+   (a) the drop happens at all — a question with no usable options used to
+       render as a lone text field, which is precisely the banned case;
+   (b) the drop is PER-QUESTION, never the whole interview, because material
+       the user must supply belongs in the composed prompt as a slot;
+   (c) map, drop, THEN slice — dropping after slicing would let an unaskable
+       question take a good one's place in the four. */
+{
+  const modelJson = obj => async () => ({
+    ok: true, status: 200,
+    async json() { return {
+      stop_reason: 'end_turn',
+      usage: { input_tokens: 500, output_tokens: 200 },
+      content: [{ type: 'text', text: JSON.stringify(obj) }]
+    }; },
+    async text() { return ''; }
+  });
+
+  // One clickable, one with a single option, one with none.
+  globalThis.fetch = modelJson({ questions: [
+    { label: 'Occasion', text: 'What is the occasion?', options: ['Wedding', 'Work talk'], evidence: 'rrrr' },
+    { label: 'The story', text: 'What story do you want to tell?', options: ['Anything'], evidence: 'rrrr' },
+    { label: 'Details', text: 'Anything else I should know?', evidence: 'rrrr' }
+  ] });
+  let r = await w.fetch(postV(), { ANTHROPIC_API_KEY: 'k', CX_KV: makeKV(), IP_SALT: 's' });
+  let b = await r.json();
+  t('a question with one option is dropped', b.questions && b.questions.length === 1,
+    'kept=' + (b.questions && b.questions.length));
+  t('the clickable question is the one that survives',
+    b.questions && b.questions[0] && b.questions[0].label === 'Occasion',
+    JSON.stringify(b.questions && b.questions[0]));
+  t('dropping some questions does NOT abort the interview', r.status === 200 && !b.error);
+
+  // Every question unclickable => nothing survives => this is a real failure of
+  // the model, not a quiet row: it produced steps and none were usable.
+  globalThis.fetch = modelJson({ questions: [
+    { label: 'Story', text: 'What story?', evidence: 'rrrr' },
+    { label: 'Details', text: 'What details?', options: ['Just one'], evidence: 'rrrr' }
+  ] });
+  r = await w.fetch(postV(), { ANTHROPIC_API_KEY: 'k', CX_KV: makeKV(), IP_SALT: 's' });
+  b = await r.json();
+  t('all-unclickable yields no questions', r.status === 502 && b.error === 'no_steps',
+    r.status + ' ' + JSON.stringify(b.error));
+  t('that is a failure, not flagged as a quiet row', b.quiet !== true);
+
+  /* Deliberate silence still reads as silence — the model returning {"questions":[]}
+     is the product working, and must not be confused with everything being dropped. */
+  globalThis.fetch = modelJson({ questions: [] });
+  r = await w.fetch(postV(), { ANTHROPIC_API_KEY: 'k', CX_KV: makeKV(), IP_SALT: 's' });
+  b = await r.json();
+  t('deliberate zero is still a quiet 200', r.status === 200 && b.quiet === true);
+
+  // Order: five questions, the second unaskable. All four survivors must appear.
+  globalThis.fetch = modelJson({ questions: [
+    { label: 'One',   text: 'q1?', options: ['a', 'b'], evidence: 'rrrr' },
+    { label: 'Bad',   text: 'q2?', options: [],         evidence: 'rrrr' },
+    { label: 'Three', text: 'q3?', options: ['a', 'b'], evidence: 'rrrr' },
+    { label: 'Four',  text: 'q4?', options: ['a', 'b'], evidence: 'rrrr' },
+    { label: 'Five',  text: 'q5?', options: ['a', 'b'], evidence: 'rrrr' }
+  ] });
+  r = await w.fetch(postV(), { ANTHROPIC_API_KEY: 'k', CX_KV: makeKV(), IP_SALT: 's' });
+  b = await r.json();
+  t('drop happens before the cap, so a bad question costs nobody a slot',
+    b.questions && b.questions.length === 4, 'kept=' + (b.questions && b.questions.length));
+  t('the dropped one is gone and the rest keep their order',
+    b.questions && b.questions.map(q => q.label).join(',') === 'One,Three,Four,Five',
+    b.questions && b.questions.map(q => q.label).join(','));
+
+  // Legacy clients never had options and must be untouched by any of this.
+  globalThis.fetch = modelJson({ steps: [
+    { label: 'Upload and decide', text: 'Here is the file.', evidence: 'rrrr' }
+  ] });
+  r = await w.fetch(post(), { ANTHROPIC_API_KEY: 'k', CX_KV: makeKV(), IP_SALT: 's' });
+  b = await r.json();
+  t('the legacy path is untouched by the option guard',
+    b.steps && b.steps.length === 1 && !('options' in b.steps[0]), JSON.stringify(b.steps));
+}
+
+
 /* ---- v0.9.20: thinking explicitly disabled on the hosted path ------------- */
 {
   let sentBody = null;
@@ -359,7 +444,7 @@ t('unknown route 404', r.status === 404, String(r.status));
     sentBody = JSON.parse(opts.body);
     return { ok: true, status: 200, async json() { return { stop_reason: 'end_turn',
       usage: { input_tokens: 10, output_tokens: 10 },
-      content: [{ type: 'text', text: JSON.stringify({ questions: [{ label: 'A', text: 'Do.', evidence: 'rrrr' }] }) }] }; },
+      content: [{ type: 'text', text: JSON.stringify({ questions: [{ label: 'A', text: 'Do.', options: ['x', 'y'], evidence: 'rrrr' }] }) }] }; },
       async text() { return ''; } };
   };
   await w.fetch(postV(), { ANTHROPIC_API_KEY: 'k', CX_KV: makeKV(), IP_SALT: 's' });
@@ -379,7 +464,7 @@ t('unknown route 404', r.status === 404, String(r.status));
       async json() { return {}; } };
     return { ok: true, status: 200, async json() { return { stop_reason: 'end_turn',
       usage: { input_tokens: 10, output_tokens: 10 },
-      content: [{ type: 'text', text: JSON.stringify({ questions: [{ label: 'A', text: 'Do.', evidence: 'rrrr' }] }) }] }; },
+      content: [{ type: 'text', text: JSON.stringify({ questions: [{ label: 'A', text: 'Do.', options: ['x', 'y'], evidence: 'rrrr' }] }) }] }; },
       async text() { return ''; } };
   };
   const r = await w.fetch(postV(), { ANTHROPIC_API_KEY: 'k', CX_KV: makeKV(), IP_SALT: 's' });

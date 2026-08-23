@@ -19,7 +19,7 @@
    which build is live. Deliberately independent of the extension's manifest
    version — they ship on separate paths and a worker fix should not force
    everyone to reinstall the extension. */
-const BUILD = '0.9.31';
+const BUILD = '0.9.33';
 
 const ANTHROPIC_URL = 'https://api.anthropic.com/v1/messages';
 /* Sonnet 5 rather than Haiku, on measured evidence: in a controlled three-model
@@ -110,6 +110,7 @@ EVERY question must be earned by a verbatim fragment of the reply — the thing 
 Ask what only the user can answer: their situation, their audience, their constraint, their preference, the material they hold. NEVER ask something Claude could work out for itself, something the user already said, or something the reply already delivered. If the reply asked vaguely — "a couple of quick things", "tell me more about your setup" — do not hand the vagueness back: name each thing precisely and separately, because turning one vague request into three answerable questions is most of the value you add.
 Look past the immediate turn. Ask what will decide whether the FINISHED work is right — the length, the audience, the format it must arrive in, the language it must be in, the constraint that would invalidate it — not only what unblocks the very next reply.
 THE OPTIONS ARE THE PRODUCT. The person answering may not know what a good answer looks like; that is usually why the work is underspecified. So write the answers for them. Give each question TWO TO FOUR options, ordered with the most likely first, each one a concrete answer rather than a category — "~2 min (short toast)" not "short", "a client pitch" not "professional context". Keep every option under 40 characters, make them mutually exclusive, and together cover the ground a real answer would land on. A good option set is one where picking the first is usually right and picking any other is a real, different decision. Never write an option meaning "other", "something else", "not sure" or "skip" — the interface adds those itself and a duplicate wastes a slot.
+CLICKING IS THE ONLY REQUIRED INPUT. Every question must be fully answerable by picking one of your options. If you cannot write two to four options that genuinely cover where a real answer would land, DO NOT ASK THAT QUESTION — drop it and keep the ones that work. The free-text box is an escape hatch, never the intended path: a question that needs typing to answer properly is a question you should not have asked, because the person answering came here unable to phrase this in the first place. Dropping every question is fine — an empty questionnaire beats one nobody can answer by clicking. And material the user must supply — a file, a document, code, a spreadsheet, a link — is NEVER a question. It belongs in the composed prompt as <paste here> or <attach here>, which they fill in the message box afterwards.
 Hard rules:
 - The question addresses THE USER and reads as a person would ask it: plain, short, no preamble, no jargon, no numbering, ending in a question mark.
 - Never ask the user to click, open, enable or navigate anything. If material is needed, ask what they have, not where it lives.
@@ -119,11 +120,12 @@ Worked examples, from real exchanges:
 - The user asked for speech drafts; the reply said "two or three quick things and I can get to a real draft rather than a generic one". Its request is vague, so name the pieces, and reach past the draft to the things that decide whether it lands: label "Occasion", question "What's the occasion?", options ["Wedding / toast","Work, launch or product talk","Ceremony (award, farewell, graduation)"] — label "Length", question "How long should it run?", options ["~2 min (short toast)","~5 min","~10-15 min","20+ min"] — label "Language", question "Which language?", options ["English","Serbian","Both versions"].
 - The user asked for a creative brainstorm; the reply said "pick a lane and I'll come back with a proper spread of ideas plus something visual to react to". One thing is genuinely missing, and the second question aims at the finished output rather than the next turn: label "The lane", question "What's this brainstorm for?", options ["A product or feature launch","A side project of mine","A client pitch","Content or social"] — label "How wild", question "How far out should the ideas go?", options ["Safe and usable","Mostly safe, a few risky","Give me the ones that scare me"].
 - The reply laid out a full design, named its own hard part, and asked for nothing. Nothing blocks the next turn, but the destination is open: label "Build first", question "Which piece do you want built first?", options ["The candidate generator","The reject-pile UI","The terminal handoff"]. That is ONE question. Do not invent two more to fill the questionnaire.
+- A refusal, which matters as much as the questions you keep. The user asked for help with a wedding speech and the reply asked what story to build it around. "What story do you want to tell?" cannot be answered by clicking — no option set covers someone else's anecdote — so DO NOT ASK IT. Drop it, and ask what you can genuinely offer options for: label "Tone", question "How should it feel?", options ["Warm and sincere","Funny, a few jokes","Short and formal"]. The story itself goes into the composed prompt as <paste here>. Two clickable questions beat three where one needs an essay.
 - A reply that answered completely, delivered what was asked, and left nothing open returns {"questions":[]}. An empty questionnaire is the correct output far more often than it feels.
 Each question has FOUR parts:
 - "label": the question's short name. AT MOST 3 WORDS, plain, no punctuation, no question mark. All labels obviously different at a glance.
 - "text": the question itself, up to 90 characters, ending in a question mark.
-- "options": TWO TO FOUR answers, each under 40 characters, most likely first, never including an "other" or "skip" choice.
+- "options": TWO TO FOUR answers, each under 40 characters, most likely first, never including an "other" or "skip" choice. Fewer than two means the question is not askable — drop it.
 - "evidence": the verbatim reply fragment that earned this question, at most 90 characters.
 Reply with ONLY minified JSON: {"questions":[{"label":"...","text":"...","options":["...","..."],"evidence":"..."}]} — zero to four items.`;
 
@@ -550,15 +552,29 @@ export default {
     /* One chip for a legacy client, up to four questions for a new one — the
        two products have different caps and a legacy client would render four
        question-shaped chips as four pasteable prompts, which is nonsense. */
-    const steps = withEv
-      .slice(0, asksQuestions ? 4 : 1)
-      .map(s => asksQuestions
-        ? {
-            label: String(s.label || '').slice(0, 80),
-            text: trimPayload(s.text),
-            options: cleanOptions(s.options)
-          }
-        : { label: String(s.label || '').slice(0, 80), text: trimPayload(s.text) });
+    /* 0.9.33 — the click-only invariant, enforced in code as well as in the
+       prompt. A question the user cannot answer by CLICKING is not asked: the
+       audience is people who know roughly what they want but not how to say it,
+       and a bare text field asks them to do the exact thing they came here
+       unable to do. Under two usable options, the question is dropped.
+
+       Order matters. Map first, drop second, slice last — slicing to four
+       before dropping would let one unaskable question cost a good one its
+       place. And the drop is per-question, never the whole interview: the case
+       that would justify aborting (material the user must supply) belongs in
+       the composed prompt as a slot, not in the questionnaire. */
+    const mapped = withEv.map(s => asksQuestions
+      ? {
+          label: String(s.label || '').slice(0, 80),
+          text: trimPayload(s.text),
+          options: cleanOptions(s.options)
+        }
+      : { label: String(s.label || '').slice(0, 80), text: trimPayload(s.text) });
+    const dropped = asksQuestions ? mapped.filter(q => q.options.length < 2) : [];
+    if (dropped.length) console.log('[CONTEXA] dropped unclickable question(s)',
+      JSON.stringify(dropped.map(q => q.label)));
+    const steps = (asksQuestions ? mapped.filter(q => q.options.length >= 2) : mapped)
+      .slice(0, asksQuestions ? 4 : 1);
     // The key an old client reads is not the key a new one reads.
     const shape = extra => asksQuestions
       ? Object.assign({ questions: steps }, extra)

@@ -320,9 +320,9 @@ const settle = () => new Promise(r => setTimeout(r, 0));
   h.sandbox.fetch = async (url, opts) => ({
     ok: true, status: 200,
     async json() { return { stop_reason: 'end_turn', content: [{ text: JSON.stringify({ questions: [
-      { label: 'Grounded step', text: 'Do the grounded thing.', evidence: 'beta gamma' },
-      { label: 'No evidence step', text: 'Should be dropped.' },
-      { label: 'Ungrounded step', text: 'Renders but logged.', evidence: 'zzz never said' }
+      { label: 'Grounded step', text: 'Do the grounded thing.', options: ['A', 'B'], evidence: 'beta gamma' },
+      { label: 'No evidence step', text: 'Should be dropped.', options: ['A', 'B'] },
+      { label: 'Ungrounded step', text: 'Renders but logged.', options: ['A', 'B'], evidence: 'zzz never said' }
     ] }) }] }; },
     async text() { return ''; }
   });
@@ -398,7 +398,7 @@ const settle = () => new Promise(r => setTimeout(r, 0));
       async text() { return '{"error":{"message":"thinking cannot be disabled on this model"}}'; },
       async json() { return {}; } };
     return { ok: true, status: 200,
-      async json() { return { stop_reason: 'end_turn', content: [{ text: JSON.stringify({ questions: [{ label: 'A', text: 'Do.', evidence: 'rrrr' }] }) }] }; },
+      async json() { return { stop_reason: 'end_turn', content: [{ text: JSON.stringify({ questions: [{ label: 'A', text: 'Do.', options: ['x', 'y'], evidence: 'rrrr' }] }) }] }; },
       async text() { return ''; } };
   };
   const out = await h.send({ type: 'nextSteps', prompt: 'p', reply: 'r'.repeat(80) });
@@ -695,7 +695,7 @@ const settle = () => new Promise(r => setTimeout(r, 0));
   t('option sanitiser present in background', bsrc.includes('function cleanOptions'));
   t('sanitiser strips an other/skip choice', /OTHER_RE = \/\^\(other\|something else/.test(bsrc));
   t('sanitiser caps options at four', /out\.length === 4/.test(bsrc));
-  t('background returns questions, not steps', bsrc.includes('questions: withEv.slice(0, 4)'));
+  t('background returns questions, not steps', bsrc.includes('questions: askable.slice(0, 4)'));
   t('background still splits the two silences', /grounding\.total === 0[\s\S]{0,80}quiet: true/.test(bsrc));
 
   /* The card mounts above the composer as ONE node for the page. A regression
@@ -712,7 +712,7 @@ const settle = () => new Promise(r => setTimeout(r, 0));
   // Interaction: numbers pick, skip answers blank, dismiss loses nothing.
   t('number keys pick an option', /const n = parseInt\(e\.key, 10\)/.test(csrc7));
   t('skip records a blank answer', /skip\.addEventListener\('click', \(\) => answer\(''\)\)/.test(csrc7));
-  t('dismiss falls back to the Rough ask chip', /function dismiss\(\) \{[\s\S]{0,220}renderSteps\(anchor, \[\], ctx\)/.test(csrc7));
+  t('dismiss falls back to the Rough ask chip', /function dismiss\(\) \{[\s\S]{0,520}renderSteps\(anchor, \[\], ctx\)/.test(csrc7));
   t('everything skipped composes nothing', csrc7.includes('if (!parts.length) return dismiss();'));
   t('interview keystrokes stopped at the shadow boundary',
     /for \(const evt of \['keydown', 'keyup', 'keypress', 'input', 'paste'\]\)/.test(csrc7));
@@ -758,6 +758,184 @@ const settle = () => new Promise(r => setTimeout(r, 0));
   t('a duplicate option is stripped', Array.isArray(opts) && opts.filter(o => o === '~2 min').length === 1);
   t('options are capped at four', Array.isArray(opts) && opts.length <= 4, 'len=' + (opts && opts.length));
 }
+
+/* ---- v0.9.33: click-only, scroll-away, session hide, touch ----------------
+   Four changes, and three of them are invisible in a screenshot — which is
+   exactly why they need pinning. A scroll watcher that silently stops firing,
+   a dismissal streak that never resets, and a media query that gets refactored
+   away all fail quietly and look fine. */
+{
+  const c33 = readFileSync('./content.js', 'utf8');
+  const b33 = readFileSync('./background.js', 'utf8');
+
+  /* --- the click-only invariant. Owner's rule: a question the user cannot
+     answer by CLICKING is not asked, and material they must supply belongs in
+     the composed prompt as a slot rather than as a question. --- */
+  t('prompt: clicking is the only required input', SRC.includes('CLICKING IS THE ONLY REQUIRED INPUT'));
+  t('prompt: an uncoverable question is dropped, not asked',
+    SRC.includes('DO NOT ASK THAT QUESTION'));
+  t('prompt: free text is an escape hatch, not the path',
+    SRC.includes('escape hatch, never the intended path'));
+  t('prompt: dropping every question is allowed',
+    SRC.includes('Dropping every question is fine'));
+  t('prompt: material is never a question',
+    SRC.includes('is NEVER a question'));
+  t('prompt: the refusal exemplar is present',
+    SRC.includes('A refusal, which matters as much as the questions you keep'));
+  t('prompt: the schema line repeats the drop rule',
+    SRC.includes('Fewer than two means the question is not askable'));
+
+  // Enforced in code as well, in both copies, or hosted and own-key diverge.
+  t('background drops questions with under two options',
+    /askable = mapped\.filter\(q => q\.options\.length >= 2\)/.test(b33));
+  t('background logs what it dropped', b33.includes('[CONTEXA] dropped unclickable question'));
+
+  /* --- scroll-away. Hides when the anchored reply leaves the viewport, NOT
+     while scrolling: hiding during scroll would also hide the card while you
+     scroll down toward it, which is when you want it. --- */
+  t('a scroll watcher exists', c33.includes('function watchScroll'));
+  t('it is registered on shell, so every card gets one', c33.includes('watchScroll(anchor, holder)'));
+  t('it hides on the reply leaving the viewport, not on scroll itself',
+    /wrap\.classList\.toggle\('away', r\.bottom < 0\)/.test(c33));
+  t('it is passive and rAF-throttled, so scrolling stays smooth',
+    /capture: true, passive: true/.test(c33) && /requestAnimationFrame\(evaluate\)/.test(c33));
+  t('it never hides someone mid-answer', /if \(busy\) \{ wrap\.classList\.remove\('away'\); return; \}/.test(c33));
+  t('busy means focus in the card OR typed text', /root\.activeElement/.test(c33) && /el\.value\.trim\(\)/.test(c33));
+  t('it unbinds itself when the card goes', /removeEventListener\('scroll', scrollWatch, true\); scrollWatch = null; return;/.test(c33));
+  t('away COLLAPSES height, it does not merely fade',
+    /\.wrap\.away\{[^}]*max-height:0/.test(c33));
+
+  /* --- session hide. Earned by two dismissals in a row, scoped to the tab,
+     never stored, and with no farewell message — owner's call, and right: a
+     goodbye explaining how to restore it contradicts the act of hiding. --- */
+  t('the offer is earned by two dismissals', /if \(dismissStreak >= 2\)/.test(c33));
+  t('dismissing increments the streak', /dismissStreak\+\+;/.test(c33));
+  t('any real use resets it', /const usedIt = \(\) => \{ dismissStreak = 0; \};/.test(c33));
+  t('answering resets it', /function answer\(value\) \{\n\s*usedIt\(\);/.test(c33));
+  t('a rough ask resets it', /if \(!intent\) return;\n\s*usedIt\(\);/.test(c33));
+  t('composing resets it', /async function compose\(\) \{\n\s*usedIt\(\);/.test(c33));
+  t('hidden state is in memory, never persisted',
+    /let hiddenForSession = false;/.test(c33) && !/hiddenForSession[\s\S]{0,80}storage/.test(c33));
+  t('nothing renders once hidden', /if \(hiddenForSession\) return;/.test(c33));
+  t('hiding removes the row outright', /hiddenForSession = true;[\s\S]{0,220}old\.remove\(\)/.test(c33));
+  t('no farewell message is shown to the user',
+    !/reload to restore[\s\S]{0,60}textContent/i.test(c33));
+  t('but it is logged for diagnosis', c33.includes('[CONTEXA] hidden for this tab'));
+
+  /* --- touch. Confirmed working on Edge, Lemur, Mises and Quetta; the desktop
+     row heights were under 44px and the nav glyphs were far under. --- */
+  t('a coarse-pointer stylesheet exists', /@media \(pointer:coarse\),\(max-width:520px\)/.test(c33));
+  t('option rows clear the 44px minimum', /\.opt\{[^}]*min-height:46px/.test(c33));
+  t('the nav arrows get a real hit area', /\.nav button\{[^}]*min-width:40px;min-height:40px/.test(c33));
+  t('inputs are 16px so mobile Safari does not zoom the page',
+    /\.foot \.own-input\{font-size:16px/.test(c33));
+  t('the arrow is always visible on touch, where there is no hover',
+    /@media \(pointer:coarse\)[\s\S]{0,700}\.opt \.tick\{opacity:1\}/.test(c33));
+
+  // The title is what the store search actually indexes.
+  const mf = JSON.parse(readFileSync('./manifest.json', 'utf8'));
+  t('title names Claude, the obvious store search term', /claude/i.test(mf.name), mf.name);
+  t('title no longer says PRO', !/\bPRO\b/.test(mf.name));
+  t('title fits the store limit', mf.name.length <= 75, String(mf.name.length));
+
+  /* The subtitle is printed directly under the title in store search, and it
+     described the chip-era product for four releases after the chips were
+     gone. "ready to send" was the tell: nothing is sent, the prompt lands in
+     the box to be read first. */
+  t('subtitle fits the store limit', mf.description.length <= 132, String(mf.description.length));
+  t('subtitle does not promise something ready to send', !/ready to send/i.test(mf.description));
+  t('subtitle describes clicking, which is the product', /click/i.test(mf.description));
+  t('subtitle carries no retired vocabulary',
+    !/prompt like a pro|bad prompts?/i.test(mf.description));
+}
+
+
+/* ---- v0.9.33: the scroll watcher, actually run ----------------------------
+   The seven assertions above match on source text, and this project has paid
+   for that lesson twice: text about a thing is not the thing. Reorder the busy
+   check after the toggle and every regex above still passes while the card
+   vanishes out from under someone mid-answer. So the function is extracted and
+   driven here — fake viewport, fake shadow root, real control flow. */
+{
+  const cw = readFileSync('./content.js', 'utf8');
+  const start = cw.indexOf('function watchScroll');
+  let depth = 0, end = -1;
+  for (let i = cw.indexOf('{', start); i < cw.length; i++) {
+    if (cw[i] === '{') depth++;
+    else if (cw[i] === '}' && --depth === 0) { end = i + 1; break; }
+  }
+  const fnsrc = 'let scrollWatch = null;\n' + cw.slice(start, end)
+    + '\nout.watchScroll = watchScroll;\nout.peek = () => scrollWatch;';
+
+  const bound = [];
+  const ctx = {
+    out: {},
+    addEventListener: (type, fn, opts) => bound.push({ type, fn, opts, live: true }),
+    removeEventListener: (type, fn) => { for (const b of bound) if (b.fn === fn) b.live = false; },
+    requestAnimationFrame: fn => fn()          // synchronous, so a fire() settles at once
+  };
+  vm.createContext(ctx);
+  vm.runInContext(fnsrc, ctx);
+
+  const cls = new Set();
+  const wrap = { classList: {
+    add: c => cls.add(c),
+    remove: c => cls.delete(c),
+    toggle: (c, on) => { if (on) cls.add(c); else cls.delete(c); },
+    contains: c => cls.has(c)
+  } };
+  let inputs = [];
+  const holder = { isConnected: true, shadowRoot: {
+    activeElement: null,
+    querySelector: s => (s === '.wrap' ? wrap : null),
+    querySelectorAll: () => inputs
+  } };
+  let bottom = 500;
+  const anchor = { isConnected: true, getBoundingClientRect: () => ({ bottom }) };
+  const away = () => cls.has('away');
+  const fire = () => { const b = bound.filter(x => x.live).pop(); if (b) b.fn(); };
+  const liveCount = () => bound.filter(x => x.live).length;
+
+  ctx.out.watchScroll(anchor, holder);
+  t('run: it binds exactly one scroll listener', liveCount() === 1, String(liveCount()));
+  t('run: bound passive and capture-phase',
+    bound[0].opts.passive === true && bound[0].opts.capture === true);
+  t('run: a reply still on screen is not hidden', !away());
+
+  bottom = -10; fire();
+  t('run: the reply scrolling off the top hides the card', away());
+
+  bottom = 500; fire();
+  t('run: scrolling back down brings it straight back', !away());
+
+  bottom = -10; holder.shadowRoot.activeElement = {}; fire();
+  t('run: focus inside the card outranks scroll position', !away());
+
+  holder.shadowRoot.activeElement = null; fire();
+  t('run: and it hides again once focus leaves', away());
+
+  bottom = 500; fire();
+  inputs = [{ value: '   ' }]; bottom = -10; fire();
+  t('run: whitespace in the box does not count as answering', away());
+
+  inputs = [{ value: ' a rough ask ' }]; fire();
+  t('run: real typed text pins it open', !away());
+
+  inputs = [];
+  holder.isConnected = false; fire();
+  t('run: it unbinds itself when the card is gone', liveCount() === 0);
+  t('run: and clears its own handle', ctx.out.peek() === null);
+
+  holder.isConnected = true;
+  ctx.out.watchScroll(anchor, holder);
+  ctx.out.watchScroll(anchor, holder);
+  t('run: rebinding never leaves two listeners on the page', liveCount() === 1, String(liveCount()));
+
+  cls.clear(); bottom = -10;
+  ctx.out.watchScroll(anchor, holder);
+  t('run: a card born below the fold starts hidden, without waiting for a scroll', away());
+}
+
 
 console.log(fails.length ? '\nFAILED: ' + fails.join(', ') : '\nall extension checks passed');
 process.exit(fails.length ? 1 : 0);

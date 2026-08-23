@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
-  "name": "CONTEXA - Prompt like a PRO",
-  "version": "0.9.32",
-  "description": "Reads the reply and hands you your next prompt, tailored in AI language, ready to send. No API key, no account, no setup.",
+  "name": "CONTEXA - Claude prompts, without the writing",
+  "version": "0.9.33",
+  "description": "Claude replies. CONTEXA asks a few short questions you answer by clicking, then writes the whole prompt into your message box.",
   "permissions": [
     "storage"
   ],
