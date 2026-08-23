@@ -7,6 +7,60 @@ free to diverge, and the settings page labels them separately for that reason.
 
 ---
 
+## 0.9.41 — Extension (Backend: version bump only)
+
+*Scroll-away has been inert since 0.9.33. Owner-reported, and the tests were
+green the whole time.*
+
+### The half that never happens
+
+```js
+wrap.classList.toggle('away', r.bottom < 0);      // 0.9.33
+```
+
+That hides the card when the anchored reply has scrolled off the **top**. The
+anchor is the **newest** reply — the last thing in the conversation — so there
+is nothing below it to scroll down into and `bottom < 0` is a state real use
+hardly reaches. Reading back through history pushes it off the **bottom**, where
+`bottom` is a large positive number.
+
+**The direction that was implemented is the direction that almost never
+happens.** The feature did nothing for eight releases.
+
+```js
+const vh = innerHeight || (document.documentElement || {}).clientHeight || 0;
+wrap.classList.toggle('away', r.bottom < 0 || r.top > vh);   // 0.9.41
+```
+
+A reply taller than the viewport still counts as on-screen while you read
+through it, and focus or typed text still outranks position — in the new
+direction as well as the old.
+
+### Why thirteen behavioural tests missed it
+
+0.9.33 extracted the function and *ran* it, which was the right instinct and
+caught two real defects at the time. But the fake rect it drove had **no `top`
+and no viewport** — only `bottom`, poked to `-10` and `500`.
+
+**It modelled the implementation instead of the requirement.** A test built from
+the code can only ever confirm the code. The fixture now places a 400px reply in
+an 800px viewport and moves it: above, below, straddling, and in view.
+
+Putting the single-direction condition back now fails **two** assertions — the
+source check and the behavioural one — where before it passed both.
+
+That is the third time today a test encoded a belief rather than a requirement
+(see 0.9.37's retired tail check). The pattern is worth more than any of the
+three fixes.
+
+### Backend
+
+Unchanged apart from `BUILD`. Bumped and redeployed only so `/v1/health` and
+`manifest.json` report the same number — after `v0.9.36` ended up tagged on the
+wrong commit, matching version numbers are worth more than a saved deploy.
+
+---
+
 ## 0.9.40 — Extension and Backend
 
 *When the reply names the candidates, those names are the options.*

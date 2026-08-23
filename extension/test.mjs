@@ -1102,8 +1102,13 @@ const settle = () => new Promise(r => setTimeout(r, 0));
      scroll down toward it, which is when you want it. --- */
   t('a scroll watcher exists', c33.includes('function watchScroll'));
   t('it is registered on shell, so every card gets one', c33.includes('watchScroll(anchor, holder)'));
+  /* 0.9.41 — both directions, asserted separately so it cannot quietly lose one
+     again. The single-direction version passed for eight releases while the
+     feature did nothing in the field. */
   t('it hides on the reply leaving the viewport, not on scroll itself',
-    /wrap\.classList\.toggle\('away', r\.bottom < 0\)/.test(c33));
+    /wrap\.classList\.toggle\('away', r\.bottom < 0 \|\| r\.top > vh\)/.test(c33));
+  t('it reads a real viewport height rather than assuming one',
+    /const vh = innerHeight \|\|/.test(c33));
   t('it is passive and rAF-throttled, so scrolling stays smooth',
     /capture: true, passive: true/.test(c33) && /requestAnimationFrame\(evaluate\)/.test(c33));
   t('it never hides someone mid-answer', /if \(busy\) \{ wrap\.classList\.remove\('away'\); return; \}/.test(c33));
@@ -1179,7 +1184,12 @@ const settle = () => new Promise(r => setTimeout(r, 0));
     out: {},
     addEventListener: (type, fn, opts) => bound.push({ type, fn, opts, live: true }),
     removeEventListener: (type, fn) => { for (const b of bound) if (b.fn === fn) b.live = false; },
-    requestAnimationFrame: fn => fn()          // synchronous, so a fire() settles at once
+    requestAnimationFrame: fn => fn(),         // synchronous, so a fire() settles at once
+    /* The 0.9.33 fake had no viewport and no rect `top`, which is exactly why
+       it could not see the bug: it modelled the implementation instead of the
+       requirement. */
+    innerHeight: 800,
+    document: { documentElement: { clientHeight: 800 } }
   };
   vm.createContext(ctx);
   vm.runInContext(fnsrc, ctx);
@@ -1197,8 +1207,13 @@ const settle = () => new Promise(r => setTimeout(r, 0));
     querySelector: s => (s === '.wrap' ? wrap : null),
     querySelectorAll: () => inputs
   } };
-  let bottom = 500;
-  const anchor = { isConnected: true, getBoundingClientRect: () => ({ bottom }) };
+  let top = 100;
+  const HEIGHT = 400;
+  const anchor = { isConnected: true, getBoundingClientRect: () => ({ top, bottom: top + HEIGHT }) };
+  const place = t => { top = t; };        // where the reply sits in a 800px viewport
+  const ABOVE = -500;                     // scrolled past it: bottom = -100
+  const BELOW = 900;                      // scrolled back up: top = 900, below the fold
+  const INVIEW = 100;
   const away = () => cls.has('away');
   const fire = () => { const b = bound.filter(x => x.live).pop(); if (b) b.fn(); };
   const liveCount = () => bound.filter(x => x.live).length;
@@ -1209,20 +1224,20 @@ const settle = () => new Promise(r => setTimeout(r, 0));
     bound[0].opts.passive === true && bound[0].opts.capture === true);
   t('run: a reply still on screen is not hidden', !away());
 
-  bottom = -10; fire();
+  place(ABOVE); fire();
   t('run: the reply scrolling off the top hides the card', away());
 
-  bottom = 500; fire();
+  place(INVIEW); fire();
   t('run: scrolling back down brings it straight back', !away());
 
-  bottom = -10; holder.shadowRoot.activeElement = {}; fire();
+  place(ABOVE); holder.shadowRoot.activeElement = {}; fire();
   t('run: focus inside the card outranks scroll position', !away());
 
   holder.shadowRoot.activeElement = null; fire();
   t('run: and it hides again once focus leaves', away());
 
-  bottom = 500; fire();
-  inputs = [{ value: '   ' }]; bottom = -10; fire();
+  place(INVIEW); fire();
+  inputs = [{ value: '   ' }]; place(ABOVE); fire();
   t('run: whitespace in the box does not count as answering', away());
 
   inputs = [{ value: ' a rough ask ' }]; fire();
@@ -1238,9 +1253,31 @@ const settle = () => new Promise(r => setTimeout(r, 0));
   ctx.out.watchScroll(anchor, holder);
   t('run: rebinding never leaves two listeners on the page', liveCount() === 1, String(liveCount()));
 
-  cls.clear(); bottom = -10;
+  cls.clear(); place(ABOVE);
   ctx.out.watchScroll(anchor, holder);
   t('run: a card born below the fold starts hidden, without waiting for a scroll', away());
+
+  /* 0.9.41 — the direction that actually happens. The anchor is the NEWEST
+     reply, the last thing in the conversation: you cannot scroll down past it,
+     so `bottom < 0` is a state real use hardly reaches. Reading back through
+     history pushes it off the BOTTOM, which the shipped condition ignored, so
+     the card never hid and the whole feature was inert in the field while
+     thirteen green tests said otherwise. */
+  place(INVIEW); fire();
+  t('run: reading position, card visible', !away());
+  place(BELOW); fire();
+  t('run: scrolling UP past the reply hides it too — the case that shipped broken', away());
+  place(INVIEW); fire();
+  t('run: and scrolling back down to the reply restores it', !away());
+
+  // A reply taller than the viewport is still ON screen while you read through it.
+  place(-100); fire();
+  t('run: a reply straddling the whole viewport is not hidden', !away());
+
+  // Mid-answer still outranks position, in the new direction as well as the old.
+  place(BELOW); holder.shadowRoot.activeElement = {}; fire();
+  t('run: focus outranks being off the bottom, not just off the top', !away());
+  holder.shadowRoot.activeElement = null;
 }
 
 

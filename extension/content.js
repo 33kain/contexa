@@ -462,8 +462,16 @@
       const busy = root && (root.activeElement ||
         [...root.querySelectorAll('input')].some(el => el.value.trim()));
       if (busy) { wrap.classList.remove('away'); return; }
+      /* Out of view in EITHER direction. 0.9.33 tested only `bottom < 0` — the
+         reply having scrolled off the TOP — which for the newest reply is a
+         state you can hardly reach: it is the last thing in the conversation,
+         so there is nothing below it to scroll down into. Reading back through
+         history pushes it off the BOTTOM, and that is the case the card was
+         asked to get out of the way for. The half that was implemented is the
+         half that almost never happens. */
       const r = anchor.getBoundingClientRect();
-      wrap.classList.toggle('away', r.bottom < 0);
+      const vh = innerHeight || (document.documentElement || {}).clientHeight || 0;
+      wrap.classList.toggle('away', r.bottom < 0 || r.top > vh);
     };
     scrollWatch = () => { if (!queued) { queued = true; requestAnimationFrame(evaluate); } };
     addEventListener('scroll', scrollWatch, { capture: true, passive: true });
