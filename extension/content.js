@@ -601,10 +601,24 @@
        had been EARNED, and nothing said whether one was ever SEEN. Two states
        that look identical from the console are exactly what this project keeps
        paying for, so both ends of the pipe now speak. */
+    /* 0.9.51 — the version, stamped where every reading starts. Two separate
+       measurements were lost without it. First, a Web Store install (0.9.32)
+       ran alongside the unpacked build for two sessions, double-billing every
+       reply and interleaving two sets of counts in one console; it was caught
+       only by noticing that `grounding` printed at two different LINE NUMBERS
+       and grepping every shipped zip to date them. Second, 0.9.50 changed
+       prompt text only — content.js stayed byte-identical to 0.9.49, so the
+       line numbers were the same and no reading taken that evening could say
+       which prompt produced it.
+       Line numbers were doing this job by accident and they only work when the
+       code moves. This says it outright, and a second CONTEXA in the page now
+       announces itself on the first card it mounts. */
     {
       const r = anchor && anchor.getBoundingClientRect
         ? anchor.getBoundingClientRect() : null;
-      console.log('[CONTEXA] card mounted', mode,
+      let v = '?';
+      try { v = chrome.runtime.getManifest().version; } catch (e) { /* orphaned script */ }
+      console.log('[CONTEXA] card mounted', 'v' + v, mode,
         r ? 'anchor top=' + Math.round(r.top) + ' bottom=' + Math.round(r.bottom)
           : 'no anchor rect',
         'viewport=' + (innerHeight || 0),

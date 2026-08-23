@@ -1075,6 +1075,21 @@ const settle = () => new Promise(r => setTimeout(r, 0));
     /const host = mountHost\(\);\r?\n\s*if \(!host\) \{[\s\S]{0,120}return null;/.test(csrc7));
   t('and says so, instead of failing silently',
     csrc7.includes('[CONTEXA] no composer found'));
+
+  /* 0.9.51 — every console reading must say which build produced it.
+     Line numbers were doing this by accident: they dated the rogue 0.9.32
+     install, and they were useless for 0.9.50, which moved no code in this
+     file. Three properties, and the third is the one that is easy to lose in
+     a refactor: an ORPHANED content script throws on getManifest(), so the
+     call must be guarded or the mount log dies silently on exactly the tabs
+     that most need to be identified. */
+  t('the mount log stamps the running version',
+    /console\.log\('\[CONTEXA\] card mounted', 'v' \+ v/.test(csrc7));
+  t('and reads it from the manifest, never a hardcoded literal',
+    /chrome\.runtime\.getManifest\(\)\.version/.test(csrc7)
+    && !/'v0\.9\./.test(csrc7));
+  t('and an orphaned script degrades to "v?" instead of throwing',
+    /let v = '\?';\s*\r?\n\s*try \{ v = chrome\.runtime\.getManifest\(\)\.version; \} catch/.test(csrc7));
   t('the stale sibling dedupe is gone', !csrc7.includes("nextElementSibling?.getAttribute?.('data-contexa')"));
 
   // Interaction: numbers pick, skip answers blank, dismiss loses nothing.

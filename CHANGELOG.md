@@ -7,6 +7,43 @@ free to diverge, and the settings page labels them separately for that reason.
 
 ---
 
+## 0.9.51 — Extension
+
+*One line. Every console reading now says which build produced it.*
+
+### Two measurements were lost for the same reason
+
+**The rogue install.** A Web Store copy (0.9.32) ran alongside the unpacked
+build for two sessions — double-billing every reply and interleaving two sets
+of counts in one console. It was caught only by noticing that `grounding`
+printed at two different *line numbers* and grepping every shipped zip to date
+`358` to v0.9.32.
+
+**0.9.50.** A prompt-only change: `content.js` stayed byte-identical to 0.9.49,
+so every line number was the same in both, and **no reading taken that evening
+could say which prompt produced it.** Four runs, zero `assumed`, and no way to
+rule out that all four were 0.9.49.
+
+Line numbers were doing this job by accident. They only work when the code
+moves, and the changes most worth measuring are exactly the ones that move no
+code in the file you are watching.
+
+```
+[CONTEXA] card mounted v0.9.51 ai anchor top=208 bottom=687 viewport=1063 connected=true
+```
+
+A second CONTEXA in the page now announces itself on the first card it mounts.
+
+### `v?` is a signal, not a fallback
+
+An orphaned content script — one left behind by an extension reload without a
+tab refresh — throws on `chrome.runtime.getManifest()`. Guarded, so the log
+survives and prints `v?`, which is precisely the tab that needs a Ctrl+R. Pinned
+by a test, because losing the guard in a refactor would silently kill the mount
+log on exactly the tabs it exists to identify.
+
+---
+
 ## 0.9.50 — Extension and Backend
 
 *One exemplar. 0.9.49's `assume` fires on the case it was built for — but only
