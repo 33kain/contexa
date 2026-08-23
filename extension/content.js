@@ -501,7 +501,12 @@
 
     scrollWatch = () => { if (!queued) { queued = true; requestAnimationFrame(evaluate); } };
     addEventListener('scroll', scrollWatch, { capture: true, passive: true });
-    settle();     // a freshly mounted card is judged on position, never hidden for a scroll nobody made
+    /* 0.9.43 — never born hidden. 0.9.42 judged a new card on position at mount,
+       so a card arriving while the reader was scrolled elsewhere was created
+       already invisible — and a card that never appears is indistinguishable
+       from a broken extension, which is the exact failure shape this project
+       keeps paying for. MOTION hides the card. Arrival never does. */
+    wrap.classList.remove('away');
   }
 
   function shell(anchor, mode) {

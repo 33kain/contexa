@@ -7,6 +7,30 @@ free to diverge, and the settings page labels them separately for that reason.
 
 ---
 
+## 0.9.43 — Extension only (Backend stays 0.9.41)
+
+*A card is never born hidden.*
+
+0.9.42 judged a new card on **position** the moment it mounted. A card that
+arrived while the reader was scrolled somewhere else was therefore created
+already invisible — and it could not recover until a scroll-and-settle cycle,
+because `.away` outranks the `.show` class added two frames later.
+
+**An invisible card is indistinguishable from a dead extension.** That is the
+single most expensive failure shape in this project — six instances of it are
+catalogued in the pattern file — and 0.9.42 quietly added a seventh.
+
+Motion hides the card. **Arrival never does.** The first scroll still hides it
+immediately, and the settle that follows still puts it away if its turn is off
+screen, so nothing about the intended behaviour changes: only the one state
+where the product looked broken is gone.
+
+The mount assertion is inverted to match: it used to require that a card
+mounting off-screen starts hidden. It now requires the opposite, plus the two
+follow-ons that prove the rest of the mechanic still works from that state.
+
+---
+
 ## 0.9.42 — Extension only (Backend stays 0.9.41)
 
 *Motion hides the card. Position only decides where it comes to rest.*

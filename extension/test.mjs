@@ -1300,9 +1300,16 @@ const settle = () => new Promise(r => setTimeout(r, 0));
   ctx.out.watchScroll(anchor, holder);
   t('run: rebinding never leaves two listeners on the page', live() === 1, String(live()));
 
+  /* 0.9.43 — arrival never hides. 0.9.42 judged position at mount, so a card
+     that landed while the reader was scrolled elsewhere was created invisible,
+     and an invisible card is indistinguishable from a dead extension. */
   cls.clear(); place(BELOW);
   ctx.out.watchScroll(anchor, holder);
-  t('run: a card mounted while its turn is off screen starts hidden', away());
+  t('run: a card is never born hidden, even with its turn off screen', !away());
+  scroll();
+  t('run: but the very next scroll still hides it', away());
+  advance(450);
+  t('run: and it settles back to hidden, because the turn is off screen', away());
 }
 
 /* ---- v0.9.39: the composer answers in text -------------------------------
