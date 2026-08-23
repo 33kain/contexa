@@ -7,6 +7,39 @@ free to diverge, and the settings page labels them separately for that reason.
 
 ---
 
+## 0.9.44 — Extension only (Backend stays 0.9.41)
+
+*The render path had no voice.*
+
+`[CONTEXA] grounding {total: 1, kept: 1, grounded: 1}` proved a card had been
+**earned**. Nothing anywhere said whether one was ever **seen**. So a card that
+was built and then hidden looked, from the console, exactly like no card at all
+— and three rounds of diagnosis went into guessing which it was.
+
+That is the worker's two-silences rule, unapplied on the client for eleven
+releases: **if a state can be reached two ways and only one of them is a defect,
+the two must be distinguishable at the end of the pipe.**
+
+Now they are:
+
+- `[CONTEXA] card mounted <mode> anchor top=… bottom=… viewport=… connected=…`
+  — fires the moment a card is inserted, carrying the exact geometry that
+  decides whether it will be hidden.
+- `[CONTEXA] hidden — page moving` — the motion path, logged once per hide
+  rather than once per scroll event.
+- `[CONTEXA] settled — hidden, turn off screen | visible  top=… bottom=… vh=…`
+  — the resting decision, with the numbers, not just the verdict.
+- `[CONTEXA] no composer found — card not mounted` and
+  `[CONTEXA] scroll watcher found no .wrap — not watching` — two silent early
+  returns that could each have explained everything and said nothing.
+
+Four assertions pin the logs, and two older ones were rewritten: the
+missing-composer check matched the exact single-line `if (!host) return null;`
+and broke the moment that gained a body — **a source-shape assertion again**,
+the fifth of the day.
+
+---
+
 ## 0.9.43 — Extension only (Backend stays 0.9.41)
 
 *A card is never born hidden.*

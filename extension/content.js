@@ -463,7 +463,7 @@
     if (settleTimer) { clearTimeout(settleTimer); settleTimer = null; }
     if (!anchor || !anchor.getBoundingClientRect) return;
     const wrap = holder.shadowRoot && holder.shadowRoot.querySelector('.wrap');
-    if (!wrap) return;
+    if (!wrap) { console.warn('[CONTEXA] scroll watcher found no .wrap — not watching'); return; }
     let queued = false;
 
     /* Never vanish under someone mid-answer. Focus inside the card, or a
@@ -487,13 +487,17 @@
       if (busy()) { wrap.classList.remove('away'); return; }
       const r = anchor.getBoundingClientRect();
       const vh = innerHeight || (document.documentElement || {}).clientHeight || 0;
-      wrap.classList.toggle('away', r.bottom < 0 || r.top > vh);
+      const off = r.bottom < 0 || r.top > vh;
+      wrap.classList.toggle('away', off);
+      console.log('[CONTEXA] settled —', off ? 'hidden, turn off screen' : 'visible',
+        'top=' + Math.round(r.top), 'bottom=' + Math.round(r.bottom), 'vh=' + vh);
     };
 
     const evaluate = () => {
       queued = false;
       if (!holder.isConnected || !anchor.isConnected) return unbind();
       if (busy()) { wrap.classList.remove('away'); return; }
+      if (!wrap.classList.contains('away')) console.log('[CONTEXA] hidden — page moving');
       wrap.classList.add('away');
       if (settleTimer) clearTimeout(settleTimer);
       settleTimer = setTimeout(settle, SETTLE_MS);
@@ -511,7 +515,10 @@
 
   function shell(anchor, mode) {
     const host = mountHost();
-    if (!host) return null;
+    if (!host) {
+      console.warn('[CONTEXA] no composer found — card not mounted');
+      return null;
+    }
     for (const old of document.querySelectorAll('[data-contexa]')) old.remove();
     const holder = document.createElement('div');
     holder.setAttribute('data-contexa', 'steps');
@@ -525,6 +532,19 @@
     wrap.dataset.theme = isDark() ? 'dark' : 'light';
     root.appendChild(wrap);
     host.before(holder);
+    /* 0.9.44 — the render path had no voice. `[CONTEXA] grounding` proved a card
+       had been EARNED, and nothing said whether one was ever SEEN. Two states
+       that look identical from the console are exactly what this project keeps
+       paying for, so both ends of the pipe now speak. */
+    {
+      const r = anchor && anchor.getBoundingClientRect
+        ? anchor.getBoundingClientRect() : null;
+      console.log('[CONTEXA] card mounted', mode,
+        r ? 'anchor top=' + Math.round(r.top) + ' bottom=' + Math.round(r.bottom)
+          : 'no anchor rect',
+        'viewport=' + (innerHeight || 0),
+        'connected=' + holder.isConnected);
+    }
     requestAnimationFrame(() => requestAnimationFrame(() => wrap.classList.add('show')));
     watchScroll(anchor, holder);
     return wrap;

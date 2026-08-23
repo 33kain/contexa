@@ -1013,7 +1013,10 @@ const settle = () => new Promise(r => setTimeout(r, 0));
     csrc7.includes('host.before(holder)') && !csrc7.includes('anchor.after(holder)'));
   t('exactly one card survives at a time',
     /for \(const old of document\.querySelectorAll\('\[data-contexa\]'\)\) old\.remove\(\)/.test(csrc7));
-  t('a missing composer is survived, not thrown', /const host = mountHost\(\);\n\s*if \(!host\) return null;/.test(csrc7));
+  t('a missing composer is survived, not thrown',
+    /const host = mountHost\(\);\r?\n\s*if \(!host\) \{[\s\S]{0,120}return null;/.test(csrc7));
+  t('and says so, instead of failing silently',
+    csrc7.includes('[CONTEXA] no composer found'));
   t('the stale sibling dedupe is gone', !csrc7.includes("nextElementSibling?.getAttribute?.('data-contexa')"));
 
   // Interaction: numbers pick, skip answers blank, dismiss loses nothing.
@@ -1113,7 +1116,23 @@ const settle = () => new Promise(r => setTimeout(r, 0));
   t('the settle delay is a named constant, not a magic number',
     /const SETTLE_MS = \d+;/.test(c33));
   t('the resting decision is still both directions of off-screen',
-    /wrap\.classList\.toggle\('away', r\.bottom < 0 \|\| r\.top > vh\)/.test(c33));
+    /const off = r\.bottom < 0 \|\| r\.top > vh;/.test(c33)
+    && /wrap\.classList\.toggle\('away', off\)/.test(c33));
+
+  /* 0.9.44 — the render path had no voice. `[CONTEXA] grounding` proved a card
+     was EARNED and nothing said whether one was ever SEEN, so a card that was
+     built and then hidden looked identical, from the console, to no card at
+     all. Same rule as the worker's two silences: if a state can be reached two
+     ways and only one is a defect, they must be distinguishable at the end of
+     the pipe. */
+  t('mounting a card is announced, with the anchor geometry that decides its fate',
+    c33.includes('[CONTEXA] card mounted') && /anchor top=/.test(c33) && /viewport=/.test(c33));
+  t('every hide says which kind it is',
+    c33.includes('[CONTEXA] hidden — page moving') && c33.includes('[CONTEXA] settled —'));
+  t('the settle log carries the numbers, not just the verdict',
+    /'top=' \+ Math\.round\(r\.top\), 'bottom=' \+ Math\.round\(r\.bottom\)/.test(c33));
+  t('a watcher that finds no .wrap says so rather than returning quietly',
+    c33.includes('scroll watcher found no .wrap'));
   t('it reads a real viewport height rather than assuming one',
     /const vh = innerHeight \|\|/.test(c33));
   t('it is passive and rAF-throttled, so scrolling stays smooth',
