@@ -1102,18 +1102,31 @@ const settle = () => new Promise(r => setTimeout(r, 0));
      scroll down toward it, which is when you want it. --- */
   t('a scroll watcher exists', c33.includes('function watchScroll'));
   t('it is registered on shell, so every card gets one', c33.includes('watchScroll(anchor, holder)'));
-  /* 0.9.41 — both directions, asserted separately so it cannot quietly lose one
-     again. The single-direction version passed for eight releases while the
-     feature did nothing in the field. */
-  t('it hides on the reply leaving the viewport, not on scroll itself',
+  /* 0.9.42 — motion hides, position decides where it rests. 0.9.33 and 0.9.41
+     both tested POSITION on every scroll, which is why the owner asked twice for
+     "invisible while scrolling through text" and twice got a card that only
+     vanished after the whole turn had left the screen. */
+  t('any scroll hides it outright, without consulting position',
+    /wrap\.classList\.add\('away'\);\r?\n\s*if \(settleTimer\) clearTimeout\(settleTimer\);/.test(c33));
+  t('it comes back only after the page has been still',
+    /settleTimer = setTimeout\(settle, SETTLE_MS\)/.test(c33));
+  t('the settle delay is a named constant, not a magic number',
+    /const SETTLE_MS = \d+;/.test(c33));
+  t('the resting decision is still both directions of off-screen',
     /wrap\.classList\.toggle\('away', r\.bottom < 0 \|\| r\.top > vh\)/.test(c33));
   t('it reads a real viewport height rather than assuming one',
     /const vh = innerHeight \|\|/.test(c33));
   t('it is passive and rAF-throttled, so scrolling stays smooth',
     /capture: true, passive: true/.test(c33) && /requestAnimationFrame\(evaluate\)/.test(c33));
-  t('it never hides someone mid-answer', /if \(busy\) \{ wrap\.classList\.remove\('away'\); return; \}/.test(c33));
+  t('it never hides someone mid-answer',
+    /if \(busy\(\)\) \{ wrap\.classList\.remove\('away'\); return; \}/.test(c33));
+  t('and that guard sits in BOTH the motion path and the resting path',
+    (c33.match(/if \(busy\(\)\) \{ wrap\.classList\.remove\('away'\); return; \}/g) || []).length === 2);
   t('busy means focus in the card OR typed text', /root\.activeElement/.test(c33) && /el\.value\.trim\(\)/.test(c33));
-  t('it unbinds itself when the card goes', /removeEventListener\('scroll', scrollWatch, true\); scrollWatch = null; return;/.test(c33));
+  t('it unbinds itself when the card goes',
+    /const unbind = \(\) => \{[\s\S]{0,200}scrollWatch = null;/.test(c33));
+  t('and unbinding also cancels a pending settle',
+    /const unbind = \(\) => \{[\s\S]{0,200}clearTimeout\(settleTimer\)/.test(c33));
   t('away COLLAPSES height, it does not merely fade',
     /\.wrap\.away\{[^}]*max-height:0/.test(c33));
 
@@ -1162,12 +1175,16 @@ const settle = () => new Promise(r => setTimeout(r, 0));
 }
 
 
-/* ---- v0.9.33: the scroll watcher, actually run ----------------------------
-   The seven assertions above match on source text, and this project has paid
-   for that lesson twice: text about a thing is not the thing. Reorder the busy
-   check after the toggle and every regex above still passes while the card
-   vanishes out from under someone mid-answer. So the function is extracted and
-   driven here — fake viewport, fake shadow root, real control flow. */
+/* ---- v0.9.42: the scroll watcher, actually run --------------------------
+   Rewritten because the RULE changed, not the code. 0.9.33 hid the card once
+   the anchored turn left the viewport; 0.9.41 fixed that to cover both
+   directions; both were the wrong rule. The owner asked twice for "invisible
+   while scrolling through text" and got a position test both times.
+
+   Now: motion hides, and position only decides where it comes to rest. That
+   makes it time-dependent, so the fixture drives a clock rather than assuming
+   one — a fake rect with no viewport is exactly what certified the inert
+   version for eight releases. */
 {
   const cw = readFileSync('./content.js', 'utf8');
   const start = cw.indexOf('function watchScroll');
@@ -1176,28 +1193,33 @@ const settle = () => new Promise(r => setTimeout(r, 0));
     if (cw[i] === '{') depth++;
     else if (cw[i] === '}' && --depth === 0) { end = i + 1; break; }
   }
-  const fnsrc = 'let scrollWatch = null;\n' + cw.slice(start, end)
+  const fnsrc = 'let scrollWatch = null, settleTimer = null;\nconst SETTLE_MS = 450;\n'
+    + cw.slice(start, end)
     + '\nout.watchScroll = watchScroll;\nout.peek = () => scrollWatch;';
 
   const bound = [];
+  let clock = 0;
+  const timers = [];
   const ctx = {
     out: {},
     addEventListener: (type, fn, opts) => bound.push({ type, fn, opts, live: true }),
     removeEventListener: (type, fn) => { for (const b of bound) if (b.fn === fn) b.live = false; },
-    requestAnimationFrame: fn => fn(),         // synchronous, so a fire() settles at once
-    /* The 0.9.33 fake had no viewport and no rect `top`, which is exactly why
-       it could not see the bug: it modelled the implementation instead of the
-       requirement. */
+    requestAnimationFrame: fn => fn(),
+    setTimeout: (fn, ms) => timers.push({ fn, at: clock + ms, live: true }),
+    clearTimeout: id => { const t = timers[id - 1]; if (t) t.live = false; },
     innerHeight: 800,
     document: { documentElement: { clientHeight: 800 } }
   };
   vm.createContext(ctx);
   vm.runInContext(fnsrc, ctx);
+  const advance = ms => {
+    clock += ms;
+    for (const t of timers) if (t.live && t.at <= clock) { t.live = false; t.fn(); }
+  };
 
   const cls = new Set();
   const wrap = { classList: {
-    add: c => cls.add(c),
-    remove: c => cls.delete(c),
+    add: c => cls.add(c), remove: c => cls.delete(c),
     toggle: (c, on) => { if (on) cls.add(c); else cls.delete(c); },
     contains: c => cls.has(c)
   } };
@@ -1210,76 +1232,78 @@ const settle = () => new Promise(r => setTimeout(r, 0));
   let top = 100;
   const HEIGHT = 400;
   const anchor = { isConnected: true, getBoundingClientRect: () => ({ top, bottom: top + HEIGHT }) };
-  const place = t => { top = t; };        // where the reply sits in a 800px viewport
-  const ABOVE = -500;                     // scrolled past it: bottom = -100
-  const BELOW = 900;                      // scrolled back up: top = 900, below the fold
-  const INVIEW = 100;
+  const place = t => { top = t; };
+  const ABOVE = -500, BELOW = 900, INVIEW = 100;
   const away = () => cls.has('away');
-  const fire = () => { const b = bound.filter(x => x.live).pop(); if (b) b.fn(); };
-  const liveCount = () => bound.filter(x => x.live).length;
+  const scroll = () => { const b = bound.filter(x => x.live).pop(); if (b) b.fn(); };
+  const live = () => bound.filter(x => x.live).length;
 
+  place(INVIEW);
   ctx.out.watchScroll(anchor, holder);
-  t('run: it binds exactly one scroll listener', liveCount() === 1, String(liveCount()));
-  t('run: bound passive and capture-phase',
-    bound[0].opts.passive === true && bound[0].opts.capture === true);
-  t('run: a reply still on screen is not hidden', !away());
+  t('run: one scroll listener, passive and capture-phase',
+    live() === 1 && bound[0].opts.passive === true && bound[0].opts.capture === true);
+  t('run: a freshly mounted card is not hidden for a scroll nobody made', !away());
 
-  place(ABOVE); fire();
-  t('run: the reply scrolling off the top hides the card', away());
+  /* The requirement, in one assertion: the page moves, the card goes. Position
+     is not consulted — the reply is fully on screen here and it hides anyway. */
+  scroll();
+  t('run: ANY scroll hides it immediately, even with the reply fully on screen', away());
 
-  place(INVIEW); fire();
-  t('run: scrolling back down brings it straight back', !away());
+  advance(449);
+  t('run: it stays hidden while the scrolling continues', away());
+  advance(1);
+  t('run: and returns once the page has been still for the settle delay', !away());
 
-  place(ABOVE); holder.shadowRoot.activeElement = {}; fire();
-  t('run: focus inside the card outranks scroll position', !away());
+  // Rest position still matters: stop mid-history and it stays gone.
+  scroll();
+  place(BELOW);
+  advance(450);
+  t('run: settling with the turn off the bottom leaves it hidden', away());
+  scroll(); place(INVIEW); advance(450);
+  t('run: settling with the turn back on screen restores it', !away());
+  scroll(); place(ABOVE); advance(450);
+  t('run: off the top counts as off screen too', away());
+  scroll(); place(-100); advance(450);
+  t('run: a reply straddling the whole viewport counts as on screen', !away());
 
-  holder.shadowRoot.activeElement = null; fire();
-  t('run: and it hides again once focus leaves', away());
+  // Each scroll restarts the delay, so a long gesture never flickers.
+  scroll(); advance(300); scroll(); advance(300);
+  t('run: a continuing scroll keeps resetting the delay', away());
+  advance(450);
+  t('run: and only settles once it truly stops', !away());
 
-  place(INVIEW); fire();
-  inputs = [{ value: '   ' }]; place(ABOVE); fire();
-  t('run: whitespace in the box does not count as answering', away());
+  /* Mid-answer outranks everything, including motion — this is the one case
+     where hiding would be worse than the problem being solved. */
+  holder.shadowRoot.activeElement = {};
+  scroll();
+  t('run: focus in the card survives a scroll', !away());
+  advance(450);
+  t('run: and survives the settle', !away());
+  holder.shadowRoot.activeElement = null;
 
-  inputs = [{ value: ' a rough ask ' }]; fire();
-  t('run: real typed text pins it open', !away());
-
+  inputs = [{ value: '   ' }];
+  scroll();
+  t('run: whitespace typed is not answering', away());
+  inputs = [{ value: ' a rough ask ' }];
+  scroll();
+  t('run: real typed text survives a scroll', !away());
   inputs = [];
-  holder.isConnected = false; fire();
-  t('run: it unbinds itself when the card is gone', liveCount() === 0);
+
+  holder.isConnected = false;
+  scroll();
+  t('run: it unbinds itself when the card is gone', live() === 0);
   t('run: and clears its own handle', ctx.out.peek() === null);
 
   holder.isConnected = true;
+  place(INVIEW);
   ctx.out.watchScroll(anchor, holder);
   ctx.out.watchScroll(anchor, holder);
-  t('run: rebinding never leaves two listeners on the page', liveCount() === 1, String(liveCount()));
+  t('run: rebinding never leaves two listeners on the page', live() === 1, String(live()));
 
-  cls.clear(); place(ABOVE);
+  cls.clear(); place(BELOW);
   ctx.out.watchScroll(anchor, holder);
-  t('run: a card born below the fold starts hidden, without waiting for a scroll', away());
-
-  /* 0.9.41 — the direction that actually happens. The anchor is the NEWEST
-     reply, the last thing in the conversation: you cannot scroll down past it,
-     so `bottom < 0` is a state real use hardly reaches. Reading back through
-     history pushes it off the BOTTOM, which the shipped condition ignored, so
-     the card never hid and the whole feature was inert in the field while
-     thirteen green tests said otherwise. */
-  place(INVIEW); fire();
-  t('run: reading position, card visible', !away());
-  place(BELOW); fire();
-  t('run: scrolling UP past the reply hides it too — the case that shipped broken', away());
-  place(INVIEW); fire();
-  t('run: and scrolling back down to the reply restores it', !away());
-
-  // A reply taller than the viewport is still ON screen while you read through it.
-  place(-100); fire();
-  t('run: a reply straddling the whole viewport is not hidden', !away());
-
-  // Mid-answer still outranks position, in the new direction as well as the old.
-  place(BELOW); holder.shadowRoot.activeElement = {}; fire();
-  t('run: focus outranks being off the bottom, not just off the top', !away());
-  holder.shadowRoot.activeElement = null;
+  t('run: a card mounted while its turn is off screen starts hidden', away());
 }
-
 
 /* ---- v0.9.39: the composer answers in text -------------------------------
    Driven, not read. readDraft is three lines of judgement about what the model

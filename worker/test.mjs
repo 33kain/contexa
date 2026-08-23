@@ -639,10 +639,20 @@ function postExpand(body = { intent: 'optimize seo', prompt: 'p', reply: 'r'.rep
   t('and does not tell the reader to check their connection',
     branch > 0 && !/check your connection/i.test(ce.slice(branch, branch + 300)));
 
-  // 0.9.34 ships both artifacts together — EXPAND_SYSTEM is byte-identical
-  // across them by build guard, so a prompt fix cannot be worker-only.
+  /* 0.9.42 RETIRES the equality check added in 0.9.34. It asserted that the
+     worker and the extension ship the same number, which was true that day and
+     was never the requirement — BUILD's own comment says it is "deliberately
+     independent of the extension's manifest version", because a worker fix must
+     not force a store resubmission and a content.js fix must not force a deploy.
+     The check blocked exactly that second case the first time it arose.
+
+     What actually matters is that both are well-formed and that /v1/health
+     reports the worker's own build, so a deploy can always be proven to have
+     landed. Byte-identity of the two prompts is enforced by build.mjs, which is
+     the coupling that genuinely exists. */
   const mv = JSON.parse(readFileSync(rel('../extension/manifest.json'), 'utf8')).version;
-  t('worker and extension ship the same number this release', BUILD_SEEN === mv,
+  t('both artifacts carry a well-formed version, independently',
+    /^\d+\.\d+\.\d+$/.test(BUILD_SEEN) && /^\d+\.\d+\.\d+$/.test(mv),
     'worker ' + BUILD_SEEN + ' vs extension ' + mv);
 }
 

@@ -7,6 +7,62 @@ free to diverge, and the settings page labels them separately for that reason.
 
 ---
 
+## 0.9.42 — Extension only (Backend stays 0.9.41)
+
+*Motion hides the card. Position only decides where it comes to rest.*
+
+### Two fixes to the wrong rule
+
+0.9.33 hid the card once the anchored turn left the viewport. 0.9.41 fixed that
+rule to cover both directions — and it worked, confirmed in the field.
+
+**It was still the wrong rule.** The request, twice: *"invisible while scrolling
+through text"*, then *"invisible as soon as she appears over the text."* Both
+times it was built as a **position** test, and 0.9.41's own success is what made
+that visible: the card now hides correctly, after you have scrolled a long way.
+Which is not what was asked for.
+
+The card sits over the conversation. **Any scroll is someone trying to read what
+is behind it.** Position is not the question; motion is.
+
+- Any scroll → hidden immediately, whatever the position.
+- 450ms of stillness → judged on position, and returns only if its turn is
+  actually on screen.
+- Focus in the card or typed text outranks both, in the motion path and the
+  resting path.
+
+So reading back through history leaves it hidden, scrolling down to the newest
+reply brings it back, and a continuing gesture keeps resetting the delay rather
+than flickering.
+
+### Two assertions retired, and the pattern they share
+
+The fixture had to be rebuilt around a **clock**, because the behaviour is now
+time-dependent. Twenty behavioural cases drive it: hides with the reply fully on
+screen, stays hidden mid-gesture, returns on settle, stays hidden when settling
+mid-history, survives focus, unbinds cleanly.
+
+And the worker's **version-equality check is gone.** Added in 0.9.34, it
+asserted that both artifacts ship the same number — true that day, never the
+requirement. `BUILD`'s own comment says it is *"deliberately independent"*,
+because a worker fix must not force a store resubmission **and a `content.js`
+fix must not force a deploy.** It blocked precisely that second case the first
+time it arose. Replaced with what actually matters: both versions well-formed,
+independently.
+
+**That is the fourth assertion retired today for encoding a belief rather than a
+requirement** — after 0.9.37's tail check and 0.9.41's single-direction rect.
+The tests are the most reliable thing in this repo and they have been wrong four
+times in one day, always in the same way: written from the implementation
+instead of the ask.
+
+### No deploy
+
+`content.js` only. The backend stays on 0.9.41 and does not need redeploying —
+which is the case the retired assertion would have refused.
+
+---
+
 ## 0.9.41 — Extension (Backend: version bump only)
 
 *Scroll-away has been inert since 0.9.33. Owner-reported, and the tests were

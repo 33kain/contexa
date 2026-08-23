@@ -443,39 +443,65 @@
      Hide when the anchored reply leaves the viewport, NOT while scrolling:
      hiding during scroll would also hide the card while you scroll down toward
      it — exactly when you want it — and would flicker on every small nudge. */
-  let scrollWatch = null;
+  /* 0.9.42 — hidden the moment the page moves, back when it stops.
+
+     0.9.33 hid the card once the anchored turn left the viewport, and 0.9.41
+     fixed that rule to cover both directions. Both were the wrong RULE. The
+     owner's requirement, twice stated and twice built around: "invisible while
+     scrolling through text", "invisible as soon as she appears over the text."
+     The card sits over the conversation, so ANY scroll is someone trying to
+     read what is behind it — position is not the question, motion is.
+
+     Position still decides the resting state: after scrolling stops, the card
+     returns only if the turn it belongs to is actually on screen. So reading
+     back through history leaves it hidden, and scrolling down to the newest
+     reply brings it back. */
+  const SETTLE_MS = 450;                  // long enough that a flick does not flicker
+  let scrollWatch = null, settleTimer = null;
   function watchScroll(anchor, holder) {
     if (scrollWatch) { removeEventListener('scroll', scrollWatch, true); scrollWatch = null; }
+    if (settleTimer) { clearTimeout(settleTimer); settleTimer = null; }
     if (!anchor || !anchor.getBoundingClientRect) return;
     const wrap = holder.shadowRoot && holder.shadowRoot.querySelector('.wrap');
     if (!wrap) return;
     let queued = false;
-    const evaluate = () => {
-      queued = false;
-      if (!holder.isConnected || !anchor.isConnected) {
-        removeEventListener('scroll', scrollWatch, true); scrollWatch = null; return;
-      }
-      /* Never vanish under someone mid-answer. Focus inside the card, or a
-         partly-typed free-text answer, outranks scroll position — disappearing
-         while a person is typing is worse than the problem this fixes. */
+
+    /* Never vanish under someone mid-answer. Focus inside the card, or a
+       partly-typed free-text answer, outranks everything below — disappearing
+       while a person is typing is worse than the problem this fixes. */
+    const busy = () => {
       const root = holder.shadowRoot;
-      const busy = root && (root.activeElement ||
-        [...root.querySelectorAll('input')].some(el => el.value.trim()));
-      if (busy) { wrap.classList.remove('away'); return; }
-      /* Out of view in EITHER direction. 0.9.33 tested only `bottom < 0` — the
-         reply having scrolled off the TOP — which for the newest reply is a
-         state you can hardly reach: it is the last thing in the conversation,
-         so there is nothing below it to scroll down into. Reading back through
-         history pushes it off the BOTTOM, and that is the case the card was
-         asked to get out of the way for. The half that was implemented is the
-         half that almost never happens. */
+      return !!(root && (root.activeElement ||
+        [...root.querySelectorAll('input')].some(el => el.value.trim())));
+    };
+
+    const unbind = () => {
+      removeEventListener('scroll', scrollWatch, true); scrollWatch = null;
+      if (settleTimer) { clearTimeout(settleTimer); settleTimer = null; }
+    };
+
+    // The resting decision: on screen or not.
+    const settle = () => {
+      settleTimer = null;
+      if (!holder.isConnected || !anchor.isConnected) return unbind();
+      if (busy()) { wrap.classList.remove('away'); return; }
       const r = anchor.getBoundingClientRect();
       const vh = innerHeight || (document.documentElement || {}).clientHeight || 0;
       wrap.classList.toggle('away', r.bottom < 0 || r.top > vh);
     };
+
+    const evaluate = () => {
+      queued = false;
+      if (!holder.isConnected || !anchor.isConnected) return unbind();
+      if (busy()) { wrap.classList.remove('away'); return; }
+      wrap.classList.add('away');
+      if (settleTimer) clearTimeout(settleTimer);
+      settleTimer = setTimeout(settle, SETTLE_MS);
+    };
+
     scrollWatch = () => { if (!queued) { queued = true; requestAnimationFrame(evaluate); } };
     addEventListener('scroll', scrollWatch, { capture: true, passive: true });
-    evaluate();
+    settle();     // a freshly mounted card is judged on position, never hidden for a scroll nobody made
   }
 
   function shell(anchor, mode) {
