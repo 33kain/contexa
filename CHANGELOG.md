@@ -7,6 +7,66 @@ free to diverge, and the settings page labels them separately for that reason.
 
 ---
 
+## 0.9.50 — Extension and Backend
+
+*One exemplar. 0.9.49's `assume` fires on the case it was built for — but only
+about half the time, measured on the same conversation twice.*
+
+### What was measured
+
+0.9.49 shipped and was field-proven the same day: a PowerShell prompt and a
+build error in the user's message, a reply asking her to run two commands, and
+
+```
+[CONTEXA] grounding {total: 0, kept: 0, grounded: 0}
+[CONTEXA] assumed ["I'm on Windows using PowerShell, not bash"]
+[CONTEXA] quiet row — nothing to ask (something stated instead)
+```
+
+**Twenty minutes later the same exchange produced a plain quiet row.** Same
+input, no `assumed`, no standalone chip.
+
+A miss costs nothing — it lands exactly on pre-0.9.49 behaviour, and nothing is
+fabricated. But a feature that fires half the time on its own best case is not
+really shipped.
+
+### The knob was the demonstration count, not a rule
+
+`assume` was demonstrated in **1 of 9** worked exemplars. That was deliberate —
+pattern-file Defect A′ — because it is optional output a model is rewarded for
+producing, and over-demonstrating it builds the floor that §2a forbids. The
+minimum was set too low.
+
+Now **2 of 10**, and the test's ceiling of one third is untouched. No rule was
+weakened; the guards that keep it from becoming a floor are all still in place.
+
+The second exemplar is deliberately **not** another shell fact — two
+demonstrations of the same subject would teach "assume is for operating
+systems". It is a spreadsheet sample that settles a currency, and it demonstrates
+the **standalone shape** (`{"questions":[],"assume":[…]}`), which is the shape
+that actually missed: in both the hit and the miss the model returned zero
+questions, so the only variable was whether it added the assumption.
+
+### A test that measured a syntax
+
+The exemplar counter matched only the prose form `assume ["…"]`. The new
+exemplar is written in the literal output form `{"questions":[],"assume":[…]}`,
+and the counter read the addition as **zero**.
+
+Same defect as the three source-shape assertions retired in 0.9.49, one release
+later, in a test written *by* that release. The requirement is "how many
+exemplars show the model producing an assumption"; the shape it is written in is
+not part of it. The counter now matches both forms.
+
+### Also confirmed, and correct
+
+The Serbian test **did not** fire `assume`, and should not have. The composed
+prompt came back entirely in Serbian with slots. An `Assume: Serbian` line on a
+prompt already written in Serbian changes nothing — which is the definition of
+decoration the rule already refuses. It carried the fact by using it.
+
+---
+
 ## 0.9.49 — Extension and Backend
 
 *The other half of the heuristic 0.9.48 borrowed. 0.9.48 taught CONTEXA when

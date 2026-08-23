@@ -1623,7 +1623,14 @@ const settle = () => new Promise(r => setTimeout(r, 0));
   const from = L.findIndex(l => l.startsWith('Worked examples'));
   const to = L.findIndex(l => l.startsWith('Each question has'));
   const rows = L.slice(from + 1, to);
-  const withAssume = rows.filter(l => /\bassume \[/.test(l));
+  /* Counts BOTH forms an exemplar can demonstrate it in: the prose form
+     `assume ["…"]` and the literal output form `{"questions":[],"assume":[…]}`.
+     0.9.50 added an exemplar in the second form and this counter read it as
+     zero — measuring a syntax instead of the requirement, which is the same
+     defect as the three source-shape assertions retired in 0.9.49. The
+     requirement is "how many exemplars show the model producing an
+     assumption", and the shape it is written in is not part of it. */
+  const withAssume = rows.filter(l => /\bassume \[|"assume":\[/.test(l));
   t('at least one worked exemplar demonstrates assume', withAssume.length >= 1,
     withAssume.length + ' of ' + rows.length);
   t('but a clear minority do, so it reads as the exception',
