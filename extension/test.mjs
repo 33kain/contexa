@@ -1105,55 +1105,38 @@ const settle = () => new Promise(r => setTimeout(r, 0));
      scroll down toward it, which is when you want it. --- */
   t('a scroll watcher exists', c33.includes('function watchScroll'));
   t('it is registered on shell, so every card gets one', c33.includes('watchScroll(anchor, holder)'));
-  /* 0.9.42 — motion hides, position decides where it rests. 0.9.33 and 0.9.41
-     both tested POSITION on every scroll, which is why the owner asked twice for
-     "invisible while scrolling through text" and twice got a card that only
-     vanished after the whole turn had left the screen. */
-  t('any scroll hides it outright, without consulting position',
-    /setAway\(true, 'page moving'\);\r?\n\s*if \(settleTimer\) clearTimeout\(settleTimer\);/.test(c33));
-  t('it comes back only after the page has been still',
-    /settleTimer = setTimeout\(settle, SETTLE_MS\)/.test(c33));
-  t('the settle delay is a named constant, not a magic number',
-    /const SETTLE_MS = \d+;/.test(c33));
-  t('the resting decision is still both directions of off-screen',
-    /const off = r\.bottom < 0 \|\| r\.top > vh;/.test(c33) && /setAway\(off\)/.test(c33));
+  /* 0.9.46 — the rule is now geometric and has no clock in it. Three earlier
+     versions keyed off MOTION or off the anchored turn's position; the owner's
+     complaint was that one wheel notch made it blink, and that what should hide
+     it is a wall of conversation pressed against it.
 
-  /* 0.9.45 — the flicker. Collapsing the card reflows the composer stack, the
-     conversation re-anchors, and that fires a scroll — which hid it again. The
-     feature's own effect was its own input, and it blinked on screen. */
-  t('the card ignores scrolls its own reflow caused',
-    /if \(Date\.now\(\) < quietUntil\) return;/.test(c33));
-  t('the quiet window opens only on a REAL change, never on a repeat',
-    /if \(wrap\.classList\.contains\('away'\) === on\) return;/.test(c33));
-  t('and it is a named constant too', /const SELF_QUIET_MS = \d+;/.test(c33));
-
-  /* 0.9.44 — the render path had no voice. `[CONTEXA] grounding` proved a card
-     was EARNED and nothing said whether one was ever SEEN, so a card that was
-     built and then hidden looked identical, from the console, to no card at
-     all. Same rule as the worker's two silences: if a state can be reached two
-     ways and only one is a defect, they must be distinguishable at the end of
-     the pipe. */
-  t('mounting a card is announced, with the anchor geometry that decides its fate',
-    c33.includes('[CONTEXA] card mounted') && /anchor top=/.test(c33) && /viewport=/.test(c33));
-  t('every hide says which kind it is',
-    /setAway\(true, 'page moving'\)/.test(c33) && c33.includes('[CONTEXA] settled —'));
-  t('the settle log carries the numbers, not just the verdict',
-    /'top=' \+ Math\.round\(r\.top\), 'bottom=' \+ Math\.round\(r\.bottom\)/.test(c33));
-  t('a watcher that finds no .wrap says so rather than returning quietly',
-    c33.includes('scroll watcher found no .wrap'));
-  t('it reads a real viewport height rather than assuming one',
-    /const vh = innerHeight \|\|/.test(c33));
-  t('it is passive and rAF-throttled, so scrolling stays smooth',
-    /capture: true, passive: true/.test(c33) && /requestAnimationFrame\(evaluate\)/.test(c33));
+     The load-bearing detail is the hysteresis. Every earlier rule measured
+     something the card itself changed — collapse it, the reading reverses, it
+     shows, it collapses again. That loop WAS the flicker. Separating the two
+     thresholds by more than the card's own height makes the loop impossible by
+     construction rather than by timer. */
+  t('the rule is distance from the bottom of the conversation',
+    /const fromBottom = scroller\.scrollHeight - scroller\.scrollTop - scroller\.clientHeight;/.test(c33));
+  t('hiding and showing use DIFFERENT thresholds',
+    /if \(fromBottom > hideAt\)/.test(c33) && /else if \(fromBottom < SHOW_WITHIN\)/.test(c33));
+  t('the gap between them is wider than the card, which is what kills the loop',
+    /const hideAt = SHOW_WITHIN \+ cardH \+ HYSTERESIS;/.test(c33));
+  t('the card measures its own height while it still has one',
+    /if \(!wrap\.classList\.contains\('away'\)\)[\s\S]{0,140}if \(h > 40\) cardH = h;/.test(c33));
+  t('no timers survive — the hysteresis IS the debounce',
+    !/setTimeout/.test(c33.slice(c33.indexOf('function watchScroll'), c33.indexOf('function shell'))));
+  t('it finds the real scrolling element rather than assuming the window',
+    /function findScroller/.test(c33) && /overflowY/.test(c33));
   t('it never hides someone mid-answer',
     /if \(busy\(\)\) \{ setAway\(false, 'answering'\); return; \}/.test(c33));
-  t('and that guard sits in BOTH the motion path and the resting path',
-    (c33.match(/if \(busy\(\)\) \{ setAway\(false, 'answering'\); return; \}/g) || []).length === 2);
-  t('busy means focus in the card OR typed text', /root\.activeElement/.test(c33) && /el\.value\.trim\(\)/.test(c33));
+  t('busy means focus in the card OR typed text',
+    /root\.activeElement/.test(c33) && /el\.value\.trim\(\)/.test(c33));
   t('it unbinds itself when the card goes',
-    /const unbind = \(\) => \{[\s\S]{0,200}scrollWatch = null;/.test(c33));
-  t('and unbinding also cancels a pending settle',
-    /const unbind = \(\) => \{[\s\S]{0,200}clearTimeout\(settleTimer\)/.test(c33));
+    /const unbind = \(\) => \{ removeEventListener\('scroll', scrollWatch, true\); scrollWatch = null; \};/.test(c33));
+  t('a class change is announced, and a no-op change is not',
+    /if \(wrap\.classList\.contains\('away'\) === on\) return;/.test(c33)
+    && /console\.log\('\[CONTEXA\]', on \? 'hidden —' : 'shown —', why\)/.test(c33));
+  t('a card is never born hidden', /setAway\(false\);\r?\n  \}/.test(c33));
   t('away COLLAPSES height, it does not merely fade',
     /\.wrap\.away\{[^}]*max-height:0/.test(c33));
 
@@ -1202,50 +1185,38 @@ const settle = () => new Promise(r => setTimeout(r, 0));
 }
 
 
-/* ---- v0.9.42: the scroll watcher, actually run --------------------------
-   Rewritten because the RULE changed, not the code. 0.9.33 hid the card once
-   the anchored turn left the viewport; 0.9.41 fixed that to cover both
-   directions; both were the wrong rule. The owner asked twice for "invisible
-   while scrolling through text" and got a position test both times.
-
-   Now: motion hides, and position only decides where it comes to rest. That
-   makes it time-dependent, so the fixture drives a clock rather than assuming
-   one — a fake rect with no viewport is exactly what certified the inert
-   version for eight releases. */
+/* ---- v0.9.46: the scroll watcher, actually run --------------------------
+   Fourth rewrite of this fixture, and the first one whose model matches the
+   requirement instead of the implementation. No clock: the rule has no timers.
+   The fixture drives a fake scroller, and the case that matters most is the one
+   that used to flicker — collapsing the card changes the reading, and the two
+   thresholds must be far enough apart that it cannot cross back. */
 {
   const cw = readFileSync('./content.js', 'utf8');
-  const start = cw.indexOf('function watchScroll');
-  let depth = 0, end = -1;
-  for (let i = cw.indexOf('{', start); i < cw.length; i++) {
-    if (cw[i] === '{') depth++;
-    else if (cw[i] === '}' && --depth === 0) { end = i + 1; break; }
-  }
-  const fnsrc = 'let scrollWatch = null, settleTimer = null;\n'
-    + 'const SETTLE_MS = 450, SELF_QUIET_MS = 300;\n'
-    + cw.slice(start, end)
+  const grab = name => {
+    const start = cw.indexOf('function ' + name);
+    let depth = 0, end = -1;
+    for (let i = cw.indexOf('{', start); i < cw.length; i++) {
+      if (cw[i] === '{') depth++;
+      else if (cw[i] === '}' && --depth === 0) { end = i + 1; break; }
+    }
+    return cw.slice(start, end);
+  };
+  const fnsrc = 'let scrollWatch = null;\nconst SHOW_WITHIN = 140, HYSTERESIS = 60;\n'
+    + grab('findScroller') + '\n' + grab('watchScroll')
     + '\nout.watchScroll = watchScroll;\nout.peek = () => scrollWatch;';
 
   const bound = [];
-  let clock = 0;
-  const timers = [];
   const ctx = {
     out: {},
     addEventListener: (type, fn, opts) => bound.push({ type, fn, opts, live: true }),
     removeEventListener: (type, fn) => { for (const b of bound) if (b.fn === fn) b.live = false; },
     requestAnimationFrame: fn => fn(),
-    setTimeout: (fn, ms) => timers.push({ fn, at: clock + ms, live: true }),
-    clearTimeout: id => { const t = timers[id - 1]; if (t) t.live = false; },
-    innerHeight: 800,
-    document: { documentElement: { clientHeight: 800 } },
-    // 0.9.45: the quiet window reads a clock, so the fixture owns that too.
-    Date: { now: () => clock }
+    getComputedStyle: () => ({ overflowY: 'auto' }),
+    document: { body: {}, scrollingElement: null, documentElement: {} }
   };
   vm.createContext(ctx);
   vm.runInContext(fnsrc, ctx);
-  const advance = ms => {
-    clock += ms;
-    for (const t of timers) if (t.live && t.at <= clock) { t.live = false; t.fn(); }
-  };
 
   const cls = new Set();
   const wrap = { classList: {
@@ -1253,103 +1224,100 @@ const settle = () => new Promise(r => setTimeout(r, 0));
     toggle: (c, on) => { if (on) cls.add(c); else cls.delete(c); },
     contains: c => cls.has(c)
   } };
+  const CARD_H = 160;
   let inputs = [];
-  const holder = { isConnected: true, shadowRoot: {
-    activeElement: null,
-    querySelector: s => (s === '.wrap' ? wrap : null),
-    querySelectorAll: () => inputs
-  } };
-  let top = 100;
-  const HEIGHT = 400;
-  const anchor = { isConnected: true, getBoundingClientRect: () => ({ top, bottom: top + HEIGHT }) };
-  const place = t => { top = t; };
-  const ABOVE = -500, BELOW = 900, INVIEW = 100;
+  const holder = {
+    isConnected: true,
+    getBoundingClientRect: () => ({ height: cls.has('away') ? 0 : CARD_H }),
+    shadowRoot: {
+      activeElement: null,
+      querySelector: s => (s === '.wrap' ? wrap : null),
+      querySelectorAll: () => inputs
+    }
+  };
+
+  /* A scroller whose visible height GROWS when the card collapses — the exact
+     coupling that made every previous version oscillate. */
+  const scroller = {
+    isConnected: true, scrollHeight: 10000, scrollTop: 0,
+    get clientHeight() { return 800 + (cls.has('away') ? CARD_H : 0); },
+    parentElement: null
+  };
+  const anchor = { isConnected: true, getBoundingClientRect: () => ({ top: 0, bottom: 100 }),
+    parentElement: scroller };
+  // findScroller walks up from the anchor; give it something to find.
+  scroller.scrollHeight = 10000;
+
+  const fromBottom = () => scroller.scrollHeight - scroller.scrollTop - scroller.clientHeight;
+  const scrollTo = d => { scroller.scrollTop = scroller.scrollHeight - scroller.clientHeight - d; };
   const away = () => cls.has('away');
   const scroll = () => { const b = bound.filter(x => x.live).pop(); if (b) b.fn(); };
   const live = () => bound.filter(x => x.live).length;
-  /* A reader's scroll arrives after the card has stopped reacting to its own
-     reflow; only a rapid repeat inside the quiet window is deliberately raw. */
-  const userScroll = () => { advance(300); scroll(); };
 
-  place(INVIEW);
+  scrollTo(0);
   ctx.out.watchScroll(anchor, holder);
   t('run: one scroll listener, passive and capture-phase',
     live() === 1 && bound[0].opts.passive === true && bound[0].opts.capture === true);
-  t('run: a freshly mounted card is not hidden for a scroll nobody made', !away());
+  t('run: a card is never born hidden', !away());
 
-  /* The requirement, in one assertion: the page moves, the card goes. Position
-     is not consulted — the reply is fully on screen here and it hides anyway. */
-  scroll();
-  t('run: ANY scroll hides it immediately, even with the reply fully on screen', away());
+  /* The complaint, as an assertion: one notch of the wheel near the bottom must
+     do nothing at all. */
+  scrollTo(60); scroll();
+  t('run: a single small scroll does NOT hide it', !away());
+  scrollTo(120); scroll();
+  t('run: nor does a second one, while still near the bottom', !away());
 
-  advance(449);
-  t('run: it stays hidden while the scrolling continues', away());
-  advance(1);
-  t('run: and returns once the page has been still for the settle delay', !away());
-
-  // Rest position still matters: stop mid-history and it stays gone.
-  userScroll(); place(BELOW); advance(450);
-  t('run: settling with the turn off the bottom leaves it hidden', away());
-  userScroll(); place(INVIEW); advance(450);
-  t('run: settling with the turn back on screen restores it', !away());
-  userScroll(); place(ABOVE); advance(450);
-  t('run: off the top counts as off screen too', away());
-  userScroll(); place(-100); advance(450);
-  t('run: a reply straddling the whole viewport counts as on screen', !away());
-
-  /* A rapid repeat INSIDE the quiet window is the self-inflicted case: it must
-     be ignored entirely rather than treated as a fresh gesture. */
-  userScroll();
-  t('run: the gesture hides it', away());
+  scrollTo(500); scroll();
+  t('run: scrolling up into the conversation hides it', away());
   scroll(); scroll();
-  t('run: a repeat inside the quiet window changes nothing', away());
-  advance(450);
-  t('run: and it settles normally once the page is still', !away());
+  t('run: and it STAYS hidden — no blink, no timer bringing it back', away());
 
-  // A long gesture keeps resetting the delay rather than flickering.
-  userScroll(); advance(300); scroll(); advance(300);
-  t('run: a continuing scroll keeps resetting the delay', away());
-  advance(450);
-  t('run: and only settles once it truly stops', !away());
+  /* The flicker, reproduced deliberately: the card collapsing gives the scroller
+     160px more height, so fromBottom drops by 160. Every earlier rule crossed
+     back on exactly that and oscillated. */
+  t('run: collapsing changed the reading, as it always did', fromBottom() === 340);
+  scroll();
+  t('run: but the reading is still past the hide threshold, so nothing flips', away());
 
-  /* Mid-answer outranks everything, including motion — this is the one case
-     where hiding would be worse than the problem being solved. */
+  scrollTo(200); scroll();
+  t('run: partway back is inside the dead band, so it holds its state', away());
+  scrollTo(100); scroll();
+  t('run: returning to the bottom brings it back', !away());
+  /* The other direction of the same loop: showing the card takes 160px of
+     height back, so the reading jumps from 100 to 260. hideAt is 360, so it
+     cannot cross back — which is the whole reason the gap is wider than the
+     card. Assert the number, not the vibe. */
+  t('run: showing it moved the reading by exactly the card height', fromBottom() === 260);
+  scroll();
+  t('run: and 260 is still short of the hide threshold, so it holds', !away());
+
+  scrollTo(500); scroll();
+  t('run: hides again', away());
   holder.shadowRoot.activeElement = {};
-  userScroll();
-  t('run: focus in the card survives a scroll', !away());
-  advance(450);
-  t('run: and survives the settle', !away());
+  scroll();
+  t('run: focus in the card outranks the geometry', !away());
   holder.shadowRoot.activeElement = null;
 
-  inputs = [{ value: '   ' }];
-  userScroll();
+  scrollTo(500); scroll();
+  inputs = [{ value: '   ' }]; scroll();
   t('run: whitespace typed is not answering', away());
-  inputs = [{ value: ' a rough ask ' }];
-  userScroll();
-  t('run: real typed text survives a scroll', !away());
+  inputs = [{ value: ' a rough ask ' }]; scroll();
+  t('run: real typed text outranks the geometry too', !away());
   inputs = [];
 
   holder.isConnected = false;
-  userScroll();
+  scroll();
   t('run: it unbinds itself when the card is gone', live() === 0);
   t('run: and clears its own handle', ctx.out.peek() === null);
 
   holder.isConnected = true;
-  place(INVIEW);
+  cls.clear(); scrollTo(2000);
   ctx.out.watchScroll(anchor, holder);
+  t('run: even mounted deep in history it arrives visible', !away());
+  scroll();
+  t('run: and the first scroll is what hides it', away());
   ctx.out.watchScroll(anchor, holder);
-  t('run: rebinding never leaves two listeners on the page', live() === 1, String(live()));
-
-  /* 0.9.43 — arrival never hides. 0.9.42 judged position at mount, so a card
-     that landed while the reader was scrolled elsewhere was created invisible,
-     and an invisible card is indistinguishable from a dead extension. */
-  cls.clear(); place(BELOW);
-  ctx.out.watchScroll(anchor, holder);
-  t('run: a card is never born hidden, even with its turn off screen', !away());
-  userScroll();
-  t('run: but the very next scroll still hides it', away());
-  advance(450);
-  t('run: and it settles back to hidden, because the turn is off screen', away());
+  t('run: rebinding never leaves two listeners', live() === 1, String(live()));
 }
 
 /* ---- v0.9.39: the composer answers in text -------------------------------

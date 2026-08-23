@@ -456,77 +456,79 @@
      returns only if the turn it belongs to is actually on screen. So reading
      back through history leaves it hidden, and scrolling down to the newest
      reply brings it back. */
-  const SETTLE_MS = 450;                  // long enough that a flick does not flicker
-  const SELF_QUIET_MS = 300;              // our own reflow is not someone scrolling
-  let scrollWatch = null, settleTimer = null;
+  /* 0.9.46 — the card hides because text is up against it, not because the page
+     moved. Three rules were tried and all three were about MOTION or about the
+     anchored turn's position; the owner's actual complaint was that a single
+     wheel notch made it blink, and that what should hide it is having a wall of
+     conversation pressed against it.
+
+     Why it cannot collapse. Every earlier version measured something the card
+     itself changes: collapse it and the conversation area grows, so the reading
+     that caused the hide reverses, so it shows, so it collapses again. The
+     flicker was that loop. The fix is not a timer — it is measuring how far the
+     reader is from the BOTTOM of the conversation, and separating the two
+     thresholds by more than the card's own height. A collapse can move the
+     reading by at most the card's height, which is by construction not enough
+     to cross back. No timers, no debounce, no quiet window: the hysteresis is
+     the whole mechanism. */
+  const SHOW_WITHIN = 140;       // this close to the bottom, nothing is in the way
+  const HYSTERESIS = 60;         // margin on top of the card's height
+  let scrollWatch = null;
+
+  function findScroller(from) {
+    let n = from;
+    while (n && n !== document.body) {
+      const st = getComputedStyle(n);
+      if (/(auto|scroll|overlay)/.test(st.overflowY) && n.scrollHeight - n.clientHeight > 40) return n;
+      n = n.parentElement;
+    }
+    return document.scrollingElement || document.documentElement;
+  }
+
   function watchScroll(anchor, holder) {
     if (scrollWatch) { removeEventListener('scroll', scrollWatch, true); scrollWatch = null; }
-    if (settleTimer) { clearTimeout(settleTimer); settleTimer = null; }
     if (!anchor || !anchor.getBoundingClientRect) return;
     const wrap = holder.shadowRoot && holder.shadowRoot.querySelector('.wrap');
     if (!wrap) { console.warn('[CONTEXA] scroll watcher found no .wrap — not watching'); return; }
-    let queued = false;
-    let quietUntil = 0;
-
-    /* 0.9.45 — never react to our own reflow. Collapsing the card changes the
-       height of the composer stack, the conversation re-anchors to the bottom,
-       and THAT fires a scroll — which hid the card again, which reflowed again.
-       A visible flicker, and entirely self-inflicted: the feature's own effect
-       was its own input. Only a real change opens the quiet window, so a reader
-       who keeps scrolling while it is already hidden is never ignored. */
-    const setAway = (on, why) => {
-      if (wrap.classList.contains('away') === on) return;
-      wrap.classList.toggle('away', on);
-      quietUntil = Date.now() + SELF_QUIET_MS;
-      if (why) console.log('[CONTEXA]', on ? 'hidden —' : 'shown —', why);
-    };
+    let queued = false, cardH = 160, scroller = null;
 
     /* Never vanish under someone mid-answer. Focus inside the card, or a
-       partly-typed free-text answer, outranks everything below — disappearing
-       while a person is typing is worse than the problem this fixes. */
+       partly-typed free-text answer, outranks the geometry entirely. */
     const busy = () => {
       const root = holder.shadowRoot;
       return !!(root && (root.activeElement ||
         [...root.querySelectorAll('input')].some(el => el.value.trim())));
     };
 
-    const unbind = () => {
-      removeEventListener('scroll', scrollWatch, true); scrollWatch = null;
-      if (settleTimer) { clearTimeout(settleTimer); settleTimer = null; }
+    const setAway = (on, why) => {
+      if (wrap.classList.contains('away') === on) return;
+      wrap.classList.toggle('away', on);
+      if (why) console.log('[CONTEXA]', on ? 'hidden —' : 'shown —', why);
     };
 
-    // The resting decision: on screen or not.
-    const settle = () => {
-      settleTimer = null;
-      if (!holder.isConnected || !anchor.isConnected) return unbind();
-      if (busy()) { setAway(false, 'answering'); return; }
-      const r = anchor.getBoundingClientRect();
-      const vh = innerHeight || (document.documentElement || {}).clientHeight || 0;
-      const off = r.bottom < 0 || r.top > vh;
-      setAway(off);
-      console.log('[CONTEXA] settled —', off ? 'hidden, turn off screen' : 'visible',
-        'top=' + Math.round(r.top), 'bottom=' + Math.round(r.bottom), 'vh=' + vh);
-    };
+    const unbind = () => { removeEventListener('scroll', scrollWatch, true); scrollWatch = null; };
 
     const evaluate = () => {
       queued = false;
       if (!holder.isConnected || !anchor.isConnected) return unbind();
       if (busy()) { setAway(false, 'answering'); return; }
-      setAway(true, 'page moving');
-      if (settleTimer) clearTimeout(settleTimer);
-      settleTimer = setTimeout(settle, SETTLE_MS);
+      // Remember the card's real height while it still has one.
+      if (!wrap.classList.contains('away')) {
+        const h = holder.getBoundingClientRect().height;
+        if (h > 40) cardH = h;
+      }
+      if (!scroller || !scroller.isConnected) scroller = findScroller(anchor);
+      const fromBottom = scroller.scrollHeight - scroller.scrollTop - scroller.clientHeight;
+      const hideAt = SHOW_WITHIN + cardH + HYSTERESIS;
+      if (fromBottom > hideAt) setAway(true, 'conversation is up against the card');
+      else if (fromBottom < SHOW_WITHIN) setAway(false, 'nothing in the way');
+      // Between the two: leave it exactly as it is. That gap is the mechanism.
     };
 
-    scrollWatch = () => {
-      if (Date.now() < quietUntil) return;      // the card's own reflow, not the reader
-      if (!queued) { queued = true; requestAnimationFrame(evaluate); }
-    };
+    scrollWatch = () => { if (!queued) { queued = true; requestAnimationFrame(evaluate); } };
     addEventListener('scroll', scrollWatch, { capture: true, passive: true });
-    /* 0.9.43 — never born hidden. 0.9.42 judged a new card on position at mount,
-       so a card arriving while the reader was scrolled elsewhere was created
-       already invisible — and a card that never appears is indistinguishable
-       from a broken extension, which is the exact failure shape this project
-       keeps paying for. MOTION hides the card. Arrival never does. */
+    /* 0.9.43 — never born hidden: an invisible card is indistinguishable from a
+       dead extension. The first scroll decides its fate, not its arrival. */
     setAway(false);
   }
 

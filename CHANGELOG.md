@@ -7,6 +7,60 @@ free to diverge, and the settings page labels them separately for that reason.
 
 ---
 
+## 0.9.46 — Extension only (Backend stays 0.9.41)
+
+*Fourth rule, and the first one that is about the reader instead of the page.*
+
+### What was actually wrong
+
+Owner's words: *"everytime you do a single scroll it dissapears for a moment,
+after every scroll it does it, looks stupid and like a bug"* and *"make her
+invisible or transparent when she catches a lot of text."*
+
+Three rules had been tried. 0.9.33 and 0.9.41 keyed off the **anchored turn's
+position**; 0.9.42 keyed off **motion**. All three answered "is the page
+moving/where is the turn", and the question was always **"is there a wall of
+conversation pressed up against this card."**
+
+Motion is gone. There is no timer anywhere in the watcher now. The rule is the
+reader's distance from the bottom of the conversation: past it, hidden and
+staying hidden; near it, visible. A single wheel notch near the bottom does
+**nothing at all**, which was the complaint.
+
+### The hysteresis is the mechanism, not a polish
+
+Every earlier version measured a quantity **the card itself changes**. Collapse
+it, the conversation area grows by the card's height, the reading that caused
+the hide reverses, it shows, it collapses again. **That loop was the flicker**,
+and 0.9.45 patched it with a 300ms deaf window.
+
+The two thresholds are now separated by more than the card's own height:
+
+```
+show when  fromBottom < 140
+hide when  fromBottom > 140 + cardHeight + 60
+```
+
+A collapse can move the reading by at most `cardHeight`, which is by
+construction not enough to cross back. **The loop is impossible rather than
+suppressed** — no debounce, no quiet window, no timers at all. `cardHeight` is
+measured from the live card while it still has one, so a taller card on a phone
+widens its own dead band.
+
+### The fixture models the coupling on purpose
+
+Its fake scroller **grows by 160px when the card collapses** — the exact
+coupling that made three versions oscillate — and two assertions pin the
+arithmetic in both directions: hiding drops the reading from 500 to 340 and 340
+is still past `hideAt`; showing lifts it from 100 to 260 and 260 is still short
+of it. Twenty-two cases, including the complaint itself: *a single small scroll
+does NOT hide it.*
+
+Fourth rewrite of this fixture, and the first whose model is the requirement
+rather than the implementation.
+
+---
+
 ## 0.9.45 — Extension only (Backend stays 0.9.41)
 
 *The card was scrolling the page, and then reacting to it.*
