@@ -736,6 +736,46 @@ const settle = () => new Promise(r => setTimeout(r, 0));
     t('it says why this one costs more than the others',
       /a modifier on an unknown subject is worth nothing/.test(liveQuestions));
 
+    /* 0.9.48 — the reasoning behind Claude's own clarifying-question card,
+       ported. Three gaps the prompt had no version of:
+
+       DECIDABILITY. Every existing gate tests whether a question is EARNED
+       (evidence) or ANSWERABLE (click-only). None tested whether it MATTERS.
+       That is precisely the hole pattern-file Class 3 fell through — a
+       perfectly grounded, perfectly clickable question about something
+       inconsequential passed every check.
+
+       COST. "The reply decides the number" never said a question has to be
+       worth a click, so "I could ask this" and "I should ask this" were the
+       same sentence.
+
+       ORDERING AS A SELF-TEST. Most-likely-first existed as a format rule and
+       never as a diagnostic. Stated carefully: the tell is not "I cannot rank
+       these" in the abstract — CONTEXA asks about facts only the user knows,
+       and sometimes none is likelier. It is "this CONVERSATION gives me nothing
+       to rank by", which means the question is a form field the reply never
+       earned. The looser version would have dropped good questions. */
+    t('a question must change the composed prompt to survive',
+      /EVERY QUESTION MUST CHANGE THE ANSWER/.test(liveQuestions));
+    t('it names the mechanical check: picture the prompt for each option',
+      /picture the composed prompt for each option/.test(liveQuestions));
+    t('and calls a question that cannot change it decoration',
+      /the question is decoration/.test(liveQuestions));
+    t('asking is priced, not free',
+      /Asking is not free/.test(liveQuestions) && /worth a click/.test(liveQuestions));
+    t('two that change the outcome beat four that are merely answerable',
+      /two questions that change the outcome beat four that are merely answerable/.test(liveQuestions));
+    t('ordering is framed as a test of comprehension, not formatting',
+      /most-likely-first is a test of you, not a format/.test(liveQuestions));
+    t('and it is scoped to THIS conversation, so user-fact questions survive',
+      /which option THIS conversation makes likeliest/.test(liveQuestions));
+    t('a decidability refusal is worked through',
+      /Add the predicted failure to the release notes\?/.test(liveQuestions));
+    t('that refusal names why it passes the other gates and still fails',
+      /earned by the reply and perfectly clickable/.test(liveQuestions));
+    t('an ordering refusal is worked through, with the rankable contrast',
+      /cannot be ranked/.test(liveQuestions) && /the same ground becomes rankable/.test(liveQuestions));
+
     t('no exemplar reuses the same evidence string twice', (() => {
       for (const l of rows) {
         const found = (l.match(/evidence "([^"]+)"/g) || []);

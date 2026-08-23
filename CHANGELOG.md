@@ -7,6 +7,69 @@ free to diverge, and the settings page labels them separately for that reason.
 
 ---
 
+## 0.9.48 — Extension and Backend
+
+*Three rules borrowed from how Claude decides to ask a clarifying question at
+all. Two of them close pattern-file classes that have been open and unbuilt
+since 2026-08-22.*
+
+### Decidability — the gate nothing tested
+
+Every existing check asks whether a question is **earned** (evidence) or
+**answerable** (click-only). **None asked whether it matters.**
+
+That is exactly the hole **Class 3 — the timid chip** fell through: a perfectly
+grounded, perfectly clickable question about the least consequential open thing
+passes every gate in the prompt.
+
+> **EVERY QUESTION MUST CHANGE THE ANSWER.** Picture the composed prompt for
+> each option. If every answer produces the same message, the question is
+> decoration — drop it, however well earned and however clickable it is.
+
+Worked through as a refusal built from the Class 3 specimen: a reply names a
+blocking store submission and the failure it expects, and *"Add the predicted
+failure to the release notes?"* is earned, clickable **and worthless**, because
+a line in a document does not change the release. The exemplar shows the
+question that does decide the outcome taking its place.
+
+### Asking is priced
+
+*"The reply decides the number"* never said a question has to be **worth a
+click**, which made "I could ask this" and "I should ask this" the same
+sentence. Now: each question spends the reader's attention before they get
+anything, and **two questions that change the outcome beat four that are merely
+answerable.**
+
+### Ordering is a self-test, not a format
+
+Most-likely-first existed only as a formatting instruction. It is a diagnostic:
+if you cannot say which option is likeliest, you probably do not understand the
+situation.
+
+**Stated carefully, because the loose version does harm.** CONTEXA asks about
+facts only the user knows, and sometimes no answer genuinely is likelier —
+dropping on "I cannot rank these" would lose good questions. The tell is
+narrower: **"this CONVERSATION gives me nothing to rank by"**, which means the
+question is a form field the reply never earned.
+
+The exemplar shows both sides of that line. After a reply about tidying a
+spreadsheet, *"Where is this data from?"* with `["A database","An API",
+"Somewhere else"]` cannot be ranked — nothing in the reply points anywhere.
+When the reply ends *"upload it and I'll run these on the real numbers"*, the
+same ground becomes rankable, and the question is earned.
+
+### Notes
+
+`QUESTIONS_SYSTEM` goes 10,163 → 12,080 characters. Ten assertions pin the three
+rules and both refusals; the one-evidence-per-question invariant still holds
+across all eight exemplars, and the zero-questions guard is still the last line.
+
+**Backend jumps 0.9.41 → 0.9.48.** The prompt is byte-identical across both
+copies, so this is not extension-only — it needs a deploy, and hosted users get
+it the moment that lands.
+
+---
+
 ## 0.9.47 — Extension only (Backend stays 0.9.41)
 
 *A pre-launch audit of the surfaces, not the code. The product moved sixteen

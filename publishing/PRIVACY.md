@@ -1,9 +1,11 @@
 # CONTEXA — Privacy Policy
 
-**Last updated: 19 August 2026**
+**Last updated: 23 August 2026**
 
-CONTEXA is a browser extension that suggests next-step prompts inside
-conversations on claude.ai. This policy describes exactly what data the
+CONTEXA is a browser extension that helps you write your next prompt inside
+conversations on claude.ai. After Claude replies, it asks you a few short
+questions with the answers already written, and composes the prompt you pick
+into your message box. This policy describes exactly what data the
 extension handles, where it goes, and how long it is kept.
 
 CONTEXA is an independent project. It is not affiliated with, endorsed by, or
@@ -13,10 +15,10 @@ sponsored by Anthropic.
 
 ## The short version
 
-- To suggest next steps, CONTEXA sends **your most recent message and Claude's
-  reply for that one exchange** to be processed by Anthropic's API.
-- Your conversation text is **never stored** — it is used to generate the
-  suggestions in that moment and then discarded.
+- To work out what to ask you, CONTEXA sends **your most recent message and
+  Claude's reply for that one exchange** to be processed by Anthropic's API.
+- Your conversation text is **never stored** — it is used to write the questions
+  and the prompt in that moment and then discarded.
 - There are **no accounts, no profiles, no tracking, no analytics, and no
   advertising**. Nothing is sold or shared for marketing.
 - If you supply your own Anthropic API key, the text goes **directly** from your
@@ -33,7 +35,7 @@ When a Claude reply finishes, CONTEXA sends two pieces of text:
 1. Your most recent message in that conversation (up to 2,500 characters).
 2. Claude's reply you just received (up to 6,000 characters).
 
-This is the minimum needed to suggest what to ask next. CONTEXA does **not**
+This is the minimum needed to work out what is worth asking you. CONTEXA does **not**
 read your conversation history, your other conversations, your account details,
 or any other page. It sends nothing until a reply has finished, and nothing at
 all in a conversation where you have not sent a message.
@@ -80,7 +82,8 @@ a counter key. The original IP address cannot be recovered from it.
 
 Your message and Claude's reply are sent to the CONTEXA backend, which runs on
 Cloudflare Workers. The backend forwards that text to Anthropic's API to generate
-suggestions, returns the suggestions to your browser, and discards the text.
+the questions or the composed prompt, returns them to your browser, and discards
+the text.
 The backend does not write your conversation content to any database, log, or
 file.
 
@@ -91,7 +94,8 @@ CONTEXA backend is not involved and receives nothing.
 
 ### Third parties
 
-- **Anthropic PBC** — processes the text to generate suggestions, under
+- **Anthropic PBC** — processes the text to generate the questions and the
+  composed prompt, under
   Anthropic's own API terms and privacy policy. When you use your own key, this
   usage falls under your own agreement with Anthropic.
 - **Cloudflare, Inc.** — provides the hosting for the backend and handles the
@@ -107,7 +111,7 @@ advertising networks, and no data brokers involved.
 | Data | Retention |
 |---|---|
 | Conversation text (your message, Claude's reply) | Not stored. Held in memory only for the duration of the request. |
-| Suggestions generated | Not stored server-side. Cached in memory briefly so re-reading a reply does not repeat a request. |
+| Questions and composed prompts | Not stored server-side. Cached in memory briefly so re-reading a reply does not repeat a request. |
 | Anonymous device token | Stored on your device until you clear storage or uninstall. |
 | Daily usage counters (token and hashed IP) | Automatically deleted after 48 hours. |
 | Your API key and settings | Stored on your device only, until you remove them. |
