@@ -518,7 +518,13 @@ const settle = () => new Promise(r => setTimeout(r, 0));
 /* ---- v0.9.23: fifth-chip UI + the insert guard (source assertions) --------- */
 {
   const c = readFileSync('./content.js', 'utf8');
-  t('rough-ask chip present', c.includes('Rough ask'));
+  /* 0.9.52 — this used to be c.includes('Rough ask'), which pinned the CHIP'S
+     COPY while claiming to check the chip exists. Renaming the label broke it,
+     and the same string match would have passed on a build where the chip was
+     deleted and the words survived in a comment. Match the structure that
+     renders it instead: the function, and the class the row styles it by. */
+  t('the fifth chip renders with its own class',
+    /function appendOwnChip\([\s\S]{0,400}chip\.className = 'chip own'/.test(c));
   t('input keystrokes stopped at the shadow boundary',
     /\['keydown', 'keyup', 'keypress', 'input', 'paste'\][\s\S]{0,120}stopPropagation/.test(c));
   t('Enter submits, Escape collapses', /key === 'Enter'/.test(c) && /key === 'Escape'/.test(c));
@@ -1099,7 +1105,7 @@ const settle = () => new Promise(r => setTimeout(r, 0));
      argument list — so match the empty steps array and stop caring what
      follows it. 0.9.49 adds the second half: a dismissed card must NOT come
      back as a one-click compose button, which is a falsy fourth argument. */
-  t('dismiss falls back to the Rough ask chip',
+  t('dismiss falls back to the fifth chip',
     /function dismiss\(\) \{[\s\S]{0,900}renderSteps\(anchor, \[\], ctx\b/.test(csrc7));
   t('and offers no standalone compose chip in its place',
     /function dismiss\(\) \{[\s\S]{0,900}renderSteps\(anchor, \[\], ctx, false\)/.test(csrc7));
@@ -1109,7 +1115,7 @@ const settle = () => new Promise(r => setTimeout(r, 0));
   t('focus is not stolen from someone mid-sentence', csrc7.includes('const typing = active &&'));
 
   // Zero, end to end.
-  t('zero questions renders the Rough ask chip alone',
+  t('zero questions renders the fifth chip alone',
     /if \(!questions\.length\) \{[\s\S]{0,600}renderSteps\(anchor, \[\], ctx\b/.test(csrc7));
   t('the quiet row is logged', csrc7.includes('[CONTEXA] quiet row'));
 

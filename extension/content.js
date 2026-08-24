@@ -912,8 +912,11 @@
     function idle() {
       const chip = document.createElement('button');
       chip.className = 'chip own';
-      chip.textContent = '✎ Rough ask…';
-      chip.title = 'Type it rough — CONTEXA writes it properly';
+      /* 0.9.52 — the label carries both jobs: what to do (type) and what comes
+         back (magic). The tooltip that used to sit here repeated it in other
+         words, never fired on touch, and the instruction that actually matters
+         is the input's own placeholder below. Do not add a title back. */
+      chip.textContent = '✎ Type & create magic';
       chip.addEventListener('click', arm);
       slot.replaceChildren(chip);
     }

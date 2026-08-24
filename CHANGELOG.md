@@ -7,6 +7,52 @@ free to diverge, and the settings page labels them separately for that reason.
 
 ---
 
+## 0.9.52 — Extension
+
+*Three words on a button, and one test that was lying about what it checked.*
+
+### "Rough ask" was jargon
+
+`✎ Rough ask…` → **`✎ Type & create magic`**. *Ask* as a noun is startup-speak,
+and the audience is people who have never opened a terminal. The new label does
+two jobs at once: it says what to do (type) and what comes back.
+
+The tooltip that sat beside it — *"Type it rough — CONTEXA writes it properly"* —
+is **gone, not reworded.** It restated the label in other words, it never fires
+on touch, and a tooltip that repeats its own button is the interface version of
+a floor. There is a comment where it used to be saying not to add one back.
+
+**The input's placeholder is untouched, deliberately.** *"Type it rough — I'll
+write it properly"* is the only line in the product that tells a beginner they
+are allowed to write badly, and it appears at the one moment that matters:
+staring at an empty box. The chip sells the outcome; the placeholder gives
+permission. Matching them would have been consistency bought with the only
+instruction doing real work.
+
+`options.html` follows the label. `LISTING.md` never mentioned it.
+
+### A string match wearing a structural check's clothes
+
+```js
+t('rough-ask chip present', c.includes('Rough ask'));      // before
+```
+
+That assertion claimed to check the chip exists. It checked its **copy** — so
+renaming three words broke it, and it would have passed just as happily on a
+build where the chip was deleted and the phrase survived in a comment.
+
+```js
+t('the fifth chip renders with its own class',              // after
+  /function appendOwnChip\([\s\S]{0,400}chip\.className = 'chip own'/.test(c));
+```
+
+Same family as the chrome-detection probes and watch criterion J: **matching on
+text cannot distinguish a thing from prose about that thing.** Two neighbouring
+assertions had stale names for the same reason and were already structural
+underneath — those got their labels corrected and nothing else.
+
+---
+
 ## 0.9.51 — Extension
 
 *One line. Every console reading now says which build produced it.*
