@@ -7,6 +7,86 @@ free to diverge, and the settings page labels them separately for that reason.
 
 ---
 
+## 0.9.54 — Extension
+
+*The questionnaire stopped being the only answer.*
+
+### One call, two shapes, never both
+
+Until now every click produced an interview. That is the right output when the
+reply left something **only the user can decide**. It was the wrong one — four
+clicks and two calls — when the reply had simply left a **move** on the table.
+
+`QUESTIONS_SYSTEM` now forks: needs something only they can supply → **ask**;
+left a move → **offer** one to four, ids `deeper` `choose` `risk` `why`; settled
+something → **state** it; left nothing → **silence**.
+
+**Most of the fork was already written.** *"Ask what only the user can answer"*
+had been a filter on questions since 0.9.30; promoting it makes it the branch,
+and the model learns no new concept. Five more rules only needed rewording to
+admit moves — the evidence gate, look-past-the-turn, must-change,
+acting-is-priced, and named-candidates, which is exactly why a move says
+*"Why Vite rather than Webpack?"* and never *"Why that approach?"*
+
+**Cost: +3,298 characters, +21%.** More than the +1,336 that brought back a
+fixed bug in 0.9.36. That is the number to remember if something misbehaves.
+
+### Three of four moves spend nothing
+
+`choose`, `risk` and `why` arrive as finished messages and go straight into the
+composer — **no second call.** Only `deeper` carries an intent rather than a
+message, and only `deeper` reaches `EXPAND_SYSTEM`, because slots, `Assume:`
+lines and the one-verb rule are what that prompt is for.
+
+Those rules were deliberately NOT copied across to save the call: 0.9.36 added
+1,336 characters to a prompt and undid a fix. Short moves need three composition
+rules, not thirty.
+
+**An assumption survives either branch.** `deeper` hands it to the composer. A
+direct insert has no composer, so `withAssume` appends the lines client-side —
+plain text, same convention, nothing invented on the way.
+
+### What the renderer refuses
+
+Moves get **`.chip move`**, not `.chip.own` — that class belongs to the fallback
+and already carries four controls. Left otherwise unstyled on purpose; the
+visual direction is unresolved.
+
+**No standalone assume chip beside them**: two mechanisms competing for one slot
+would put five chips in a row. Moves are the offer; assumptions ride into
+whichever is clicked. And a move whose id the renderer cannot label is dropped
+before it draws — a dead button is a defect the user can see and we cannot.
+
+### The client finally announces
+
+`accepts: ['chips']` ships now, and only now: **a client that announces what it
+cannot draw gets back buttons that do nothing.** The negotiation and the
+validator have been live and dormant since worker 0.9.52 precisely so this could
+be the only moving part.
+
+### Two assertions failed and neither had found a bug
+
+Both pinned wording that was deliberately broadened. Rewritten to assert the
+**broadening** — the must-change rule is now two assertions where it was one.
+Then twenty-two more, including one per id: **Defect A applied to a value rather
+than a field.** An id with no worked demonstration will never be produced,
+however clearly the list names it.
+
+**The best result came from breaking it on purpose.** Moving the filled move
+example below the zero restatement — exactly what 0.9.49 did by accident — was
+caught by the **0.9.29 final-position assertion**, written six releases ago for
+a different reason. That position now has two independent guards.
+
+### The known risk, stated before shipping
+
+Questions are demonstrated ten times in the prompt; moves three. **A
+demonstration count is a floor on capability, not a dial on frequency** — 0.9.50
+proved that. What those three buy is that moves *can* fire, not that they will at
+any rate. **The branch condition is the only thing deciding the split.** If the
+field shows moves never appearing, the condition is wrong, not the count.
+
+---
+
 ## 0.9.52 — Backend
 
 *A third client generation, negotiated and deliberately empty.*
