@@ -58,6 +58,35 @@ still gets `steps`.
 
 **Mili tests on own-key and would never have seen any of this.**
 
+### `cleanChips`, and one honest flag
+
+The validator lands in both artifacts at once, byte-identical, like `cleanAssume`
+— **but unlike `cleanAssume` it is pinned by a test rather than by convention.**
+A validator that drifts between artifacts is two products wearing one name, and
+the assertion earned itself immediately: adding a fifth id to one copy failed it
+on the first run.
+
+The id list is **closed**: `deeper`, `choose`, `risk`, `why`. An id the renderer
+has no case for is worse than no chip, because it draws a button that does
+nothing — a defect the user can see and we cannot. `simpler` is cut from v1 and
+is the likeliest improvisation, so it is the one the test names.
+
+Same gate as questions: **no evidence, no chip.** One of each id at most. Text
+capped at 300, evidence at 90.
+
+**One or the other, enforced in the pipeline on both paths** — not in the
+renderer. A row holding an interview card *and* a chip row is two products on
+screen, which is the shape claude.ai's own Cowork widget already produces by
+accident, and the client must not be the only thing between us and shipping it
+deliberately.
+
+**And `quiet` stopped lying.** The worker flagged `quiet: true` whenever no
+questions were earned. A row with chips has earned something, so flagging it
+quiet would collapse the 0.9.29 split between *nothing was earned* and
+*something was* — in the one field whose entire job is telling the truth about
+silence. Identical to before on every call where chips is empty, which is all of
+them until the prompt earns one.
+
 ---
 
 ## 0.9.53 — Extension

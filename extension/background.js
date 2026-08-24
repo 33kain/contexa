@@ -471,6 +471,37 @@ function cleanAssume(v) {
   return out;
 }
 
+/* v1 chips. The id list is CLOSED, and that is the point: an id the client does
+   not know how to render is worse than no chip at all, because it renders as a
+   dead button rather than as silence. A client older than this omits the key
+   entirely, which lands as [] and changes nothing anywhere.
+
+   Byte-identical with the extension's copy, like cleanAssume — neither side may
+   render or send something no gate has touched. */
+const CHIP_IDS = ['deeper', 'choose', 'risk', 'why'];
+
+function cleanChips(v) {
+  if (!Array.isArray(v)) return [];
+  const out = [];
+  for (const c of v) {
+    if (!c || typeof c !== 'object') continue;
+    const id = String(c.id == null ? '' : c.id).trim();
+    if (!CHIP_IDS.includes(id)) continue;
+    // One of each, at most. Two "why" chips are two buttons doing the same job,
+    // which reads as a bug even when both texts are fine on their own.
+    if (out.some(x => x.id === id)) continue;
+    const text = String(c.text == null ? '' : c.text).replace(/\s+/g, ' ').trim().slice(0, 300);
+    const evidence = String(c.evidence == null ? '' : c.evidence).replace(/\s+/g, ' ').trim().slice(0, 90);
+    // No quotable evidence, no chip — the gate questions already pass, for the
+    // same reason: a move nothing in the reply earned is decoration, and
+    // decoration is what every floor in this product started as.
+    if (!text || !evidence) continue;
+    out.push({ id, text, evidence });
+    if (out.length === CHIP_IDS.length) break;
+  }
+  return out;
+}
+
 function refineSteps(parsed, replyStr) {
 const OTHER_RE = /^(other|something else|not sure|skip|none|n\/a)\b/i;
 function cleanOptions(v) {
@@ -532,6 +563,11 @@ function cleanOptions(v) {
        case, and it is the only path on which "pick, and say what you picked"
        reaches a reply that left nothing to ask. */
     assume: cleanAssume(parsed && parsed.assume),
+    /* One or the other, never both — the same rule the worker enforces, in the
+       same place in the pipeline, so own-key and hosted stay one product. The
+       renderer must not be the only thing keeping an interview card and a chip
+       row off the screen together. Empty until the prompt earns any. */
+    chips: askable.length ? [] : cleanChips(parsed && parsed.chips),
     grounding: { total: raw.length, kept: Math.min(askable.length, 4), grounded }
   };
 }

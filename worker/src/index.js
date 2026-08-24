@@ -432,6 +432,37 @@ function cleanAssume(v) {
   return out;
 }
 
+/* v1 chips. The id list is CLOSED, and that is the point: an id the client does
+   not know how to render is worse than no chip at all, because it renders as a
+   dead button rather than as silence. A client older than this omits the key
+   entirely, which lands as [] and changes nothing anywhere.
+
+   Byte-identical with the extension's copy, like cleanAssume — neither side may
+   render or send something no gate has touched. */
+const CHIP_IDS = ['deeper', 'choose', 'risk', 'why'];
+
+function cleanChips(v) {
+  if (!Array.isArray(v)) return [];
+  const out = [];
+  for (const c of v) {
+    if (!c || typeof c !== 'object') continue;
+    const id = String(c.id == null ? '' : c.id).trim();
+    if (!CHIP_IDS.includes(id)) continue;
+    // One of each, at most. Two "why" chips are two buttons doing the same job,
+    // which reads as a bug even when both texts are fine on their own.
+    if (out.some(x => x.id === id)) continue;
+    const text = String(c.text == null ? '' : c.text).replace(/\s+/g, ' ').trim().slice(0, 300);
+    const evidence = String(c.evidence == null ? '' : c.evidence).replace(/\s+/g, ' ').trim().slice(0, 90);
+    // No quotable evidence, no chip — the gate questions already pass, for the
+    // same reason: a move nothing in the reply earned is decoration, and
+    // decoration is what every floor in this product started as.
+    if (!text || !evidence) continue;
+    out.push({ id, text, evidence });
+    if (out.length === CHIP_IDS.length) break;
+  }
+  return out;
+}
+
 function trimPayload(value) {
   const t = String(value || '').trimEnd();
   if (t.length <= MAX_PAYLOAD_CHARS) return t;
@@ -740,6 +771,12 @@ export default {
        older than 0.9.49 ignores the extra key, so this direction is safe
        without any deploy ordering. */
     const assume = asksQuestions ? cleanAssume(parsed.assume) : [];
+    /* One or the other, never both — and enforced HERE, not only in the client.
+       A row holding an interview card AND a chip row is two products on screen,
+       which is the shape claude.ai's own Cowork widget already produces by
+       accident. The client must not be the only thing standing between us and
+       shipping it on purpose. */
+    const chips = acceptsChips && !steps.length ? cleanChips(parsed.chips) : [];
     if (assume.length) console.log('[CONTEXA] assumed', assume.length, 'of', steps.length, 'question(s)');
     /* The key an old client reads is not the key a new one reads.
 
@@ -754,7 +791,7 @@ export default {
     const shape = extra => {
       if (!asksQuestions) return Object.assign({ steps }, extra);
       const base = { questions: steps, assume };
-      if (acceptsChips) base.chips = [];
+      if (acceptsChips) base.chips = chips;
       return Object.assign(base, extra);
     };
     const grounding = { total: rawSteps.length, kept: steps.length, grounded };
@@ -769,8 +806,16 @@ export default {
          the log line below; do not assume the evidence gate, that assumption
          was wrong once already. */
       if (!rawSteps.length) {
-        console.log('[CONTEXA] quiet row — nothing to ask', asksQuestions ? '(questions)' : '(legacy steps)');
-        return json(shape({ grounding, quiet: true }), 200, request, env);
+        /* `quiet` means NOTHING was earned, and chips are something. Flagging a
+           chip row quiet would conflate the two states the 0.9.29 split exists
+           to keep apart — and the client reads this flag, so it would be a lie
+           told in the one field whose whole job is telling the truth about
+           silence. Identical to before whenever chips is empty, which is every
+           call until the prompt earns one. */
+        console.log('[CONTEXA] quiet row — nothing to ask',
+          asksQuestions ? '(questions)' : '(legacy steps)',
+          chips.length ? '— offering ' + chips.length + ' chip(s)' : '');
+        return json(shape({ grounding, quiet: !chips.length }), 200, request, env);
       }
       const diag = diagnose(data, text);
       console.log('[CONTEXA] parsed but no usable steps', JSON.stringify(diag),

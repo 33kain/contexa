@@ -1608,6 +1608,64 @@ const settle = () => new Promise(r => setTimeout(r, 0));
     clean(['  I am   on Windows '])[0] === 'I am on Windows');
   t('an overlong statement is cut, not dropped', clean(['x'.repeat(400)])[0].length === 160);
 
+/* ---- v1 chips: cleanChips ---------------------------------------------------
+   The validator is the only thing between a model's improvisation and a button
+   the renderer has no case for. Everything below is about what it REFUSES —
+   what it accepts is one assertion, because that half was never the risk. */
+  const chips = h.sandbox.cleanChips;
+  t('cleanChips is reachable', typeof chips === 'function');
+  t('nothing in is nothing out', chips([]).length === 0);
+  t('a non-array is nothing out', chips('why').length === 0 && chips(null).length === 0);
+  t('a non-object entry is nothing out', chips(['why', 7, null]).length === 0);
+
+  const ok = { id: 'why', text: 'Why Vite rather than Webpack?', evidence: 'the reply said Vite' };
+  t('a complete chip survives', chips([ok]).length === 1 && chips([ok])[0].id === 'why');
+  t('all four v1 ids are accepted, and only those',
+    chips(['deeper', 'choose', 'risk', 'why'].map(id => Object.assign({}, ok, { id }))).length === 4);
+
+  /* The id list is CLOSED. An id the renderer has no case for is worse than no
+     chip: it draws a button that does nothing, which is a defect the user can
+     see and we cannot. `simpler` is the one cut from v1 and the likeliest
+     improvisation, so it is the one named here. */
+  t('an id outside the list is refused', chips([Object.assign({}, ok, { id: 'simpler' })]).length === 0);
+  t('and so is a missing one', chips([{ text: 't', evidence: 'e' }]).length === 0);
+
+  // Same gate questions pass, for the same reason.
+  t('no evidence, no chip', chips([{ id: 'why', text: 'Why that?' }]).length === 0);
+  t('no text, no chip', chips([{ id: 'why', text: '   ', evidence: 'e' }]).length === 0);
+
+  t('one of each id at most',
+    chips([ok, Object.assign({}, ok, { text: 'Why not the other?' })]).length === 1);
+  t('whitespace is normalised, not preserved',
+    chips([Object.assign({}, ok, { text: '  Why   Vite? ' })])[0].text === 'Why Vite?');
+  t('an overlong chip is cut, not dropped',
+    chips([Object.assign({}, ok, { text: 'x'.repeat(500) })])[0].text.length === 300);
+  t('and its evidence is held to the same 90 as a question\'s',
+    chips([Object.assign({}, ok, { evidence: 'e'.repeat(200) })])[0].evidence.length === 90);
+
+  /* One or the other, enforced in the pipeline and not only in the renderer.
+     A card and a chip row on screen together is two products. */
+  const refine = h.sandbox.refineSteps;
+  const Q = { questions: [{ label: 'L', text: 'What is the occasion?', options: ['A', 'B'], evidence: 'rrrr' }],
+              chips: [ok] };
+  t('questions win: chips are emptied before they reach the renderer',
+    refine(Q, 'rrrr').questions.length === 1 && refine(Q, 'rrrr').chips.length === 0);
+  t('and with no questions they survive',
+    refine({ questions: [], chips: [ok] }, 'rrrr').chips.length === 1);
+
+  /* Byte-identity with the worker's copy. cleanAssume was only ever asked to
+     match by convention; this one is asked by a test, because a validator that
+     drifts between artifacts is two products wearing one name. */
+  const wsrc = readFileSync(new URL('../worker/src/index.js', import.meta.url), 'utf8');
+  const cut = src => {
+    const i = src.indexOf('const CHIP_IDS');
+    const j = src.indexOf('  return out;\n}\n', i);
+    return i < 0 || j < 0 ? null : src.slice(i, j);
+  };
+  const bsrc = readFileSync(new URL('./background.js', import.meta.url), 'utf8');
+  t('cleanChips is byte-identical across both artifacts',
+    !!cut(wsrc) && cut(wsrc) === cut(bsrc));
+
   /* The wire, in the direction that actually breaks: an empty rough ask is
      legal ONLY with an assumption beside it. If this ever becomes an OR, an
      empty request composes a prompt out of nothing. */

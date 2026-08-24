@@ -386,6 +386,71 @@ t('unknown route 404', r.status === 404, String(r.status));
   t('a legacy client announcing chips still gets steps, never chips',
     Array.isArray(b.steps) && !('chips' in b) && !('questions' in b), Object.keys(b).join(','));
 
+  /* ---- worker 0.9.52: cleanChips -------------------------------------------
+     The prompt earns none yet, so these inject them through the model stub.
+     The validator is the only thing between a model's improvisation and a
+     button the client cannot render. */
+  const CHIPS = { questions: [], chips: [
+    { id: 'why',    text: 'Why Vite rather than Webpack?', evidence: 'rrrr' },
+    { id: 'risk',   text: 'What are you assuming about the build step?', evidence: 'rrrr' }
+  ] };
+
+  globalThis.fetch = modelJson(CHIPS);
+  r = await w.fetch(postC(), { ANTHROPIC_API_KEY: 'k', CX_KV: makeKV(), IP_SALT: 's' });
+  b = await r.json();
+  t('chips reach a chip-aware client', b.chips && b.chips.length === 2, JSON.stringify(b.chips));
+  t('and carry id, text and evidence',
+    b.chips[0].id === 'why' && b.chips[0].text.startsWith('Why Vite') && !!b.chips[0].evidence);
+  /* A row with chips is NOT quiet. Conflating them would collapse the 0.9.29
+     split between "nothing was earned" and "something was". */
+  t('a chip row is not flagged quiet', b.quiet !== true, 'quiet=' + b.quiet);
+
+  globalThis.fetch = modelJson({ questions: [], chips: [] });
+  r = await w.fetch(postC(), { ANTHROPIC_API_KEY: 'k', CX_KV: makeKV(), IP_SALT: 's' });
+  b = await r.json();
+  t('and a row with neither still is', b.quiet === true, 'quiet=' + b.quiet);
+
+  // One or the other. The client must not be the only thing enforcing it.
+  globalThis.fetch = modelJson({ questions: THREE.questions, chips: CHIPS.chips });
+  r = await w.fetch(postC(), { ANTHROPIC_API_KEY: 'k', CX_KV: makeKV(), IP_SALT: 's' });
+  b = await r.json();
+  t('questions win: chips are emptied server-side, never sent alongside',
+    b.questions.length === 3 && Array.isArray(b.chips) && b.chips.length === 0,
+    'q=' + b.questions.length + ' c=' + b.chips.length);
+
+  // A model improvising an id the client has no renderer for.
+  globalThis.fetch = modelJson({ questions: [], chips: [
+    { id: 'simpler', text: 'Same thing, shorter.', evidence: 'rrrr' },
+    { id: 'why', text: 'Why that one?', evidence: 'rrrr' }
+  ] });
+  r = await w.fetch(postC(), { ANTHROPIC_API_KEY: 'k', CX_KV: makeKV(), IP_SALT: 's' });
+  b = await r.json();
+  t('an id outside the closed list is dropped, not rendered as a dead button',
+    b.chips.length === 1 && b.chips[0].id === 'why', JSON.stringify(b.chips.map(c => c.id)));
+
+  globalThis.fetch = modelJson({ questions: [], chips: [
+    { id: 'why', text: 'Why that one?' },
+    { id: 'risk', text: '', evidence: 'rrrr' }
+  ] });
+  r = await w.fetch(postC(), { ANTHROPIC_API_KEY: 'k', CX_KV: makeKV(), IP_SALT: 's' });
+  b = await r.json();
+  t('no evidence, no chip — and no text, no chip', b.chips.length === 0, JSON.stringify(b.chips));
+
+  globalThis.fetch = modelJson({ questions: [], chips: [
+    { id: 'why', text: 'Why Vite?', evidence: 'rrrr' },
+    { id: 'why', text: 'Why not Webpack?', evidence: 'rrrr' }
+  ] });
+  r = await w.fetch(postC(), { ANTHROPIC_API_KEY: 'k', CX_KV: makeKV(), IP_SALT: 's' });
+  b = await r.json();
+  t('one of each id at most', b.chips.length === 1, JSON.stringify(b.chips.map(c => c.id)));
+
+  // The outage guard again, this time with something real to leak.
+  globalThis.fetch = modelJson(CHIPS);
+  r = await w.fetch(postV(), { ANTHROPIC_API_KEY: 'k', CX_KV: makeKV(), IP_SALT: 's' });
+  b = await r.json();
+  t('a client that never announced chips is not sent them even when earned',
+    !('chips' in b), Object.keys(b).join(','));
+
   // The two prompts must actually differ, or the shim is decorative.
   globalThis.fetch = async (url, opts) => {
     sent = JSON.parse(opts.body).system;
