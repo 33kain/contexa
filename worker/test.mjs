@@ -29,6 +29,13 @@ function postV(body = { prompt: 'ship it', reply: 'r'.repeat(120) }) {
   return post(Object.assign({ v: '0.9.31' }, body));
 }
 
+/* The third generation. `v` is documentation here — `accepts` is what actually
+   gates, so the version string could say anything and the negotiation would be
+   unchanged. That is the property being tested. */
+function postC(body = { prompt: 'ship it', reply: 'r'.repeat(120) }) {
+  return post(Object.assign({ v: '0.9.54', accepts: ['chips'] }, body));
+}
+
 function post(body = { prompt: 'ship it', reply: 'r'.repeat(120) }) {
   return new Request('https://x/v1/next-steps', {
     method: 'POST',
@@ -328,6 +335,56 @@ t('unknown route 404', r.status === 404, String(r.status));
     { ANTHROPIC_API_KEY: 'k', CX_KV: makeKV(), IP_SALT: 's' });
   b = await r.json();
   t('a blank version is treated as a legacy client', Array.isArray(b.steps) && !('questions' in b));
+
+  /* ---- worker 0.9.52: the THIRD generation ---------------------------------
+     Every assertion here is about a client that did NOT ask for chips. A shape
+     it does not understand reads to it as nothing earned, and it renders a
+     quiet row forever: working product, permanent silence, nothing wrong in the
+     console. That is instance 3 of the theme and it is how 0.9.30 broke, with a
+     store twenty versions behind making the affected population real rather
+     than hypothetical. Mili is on own-key and would never see it. */
+  globalThis.fetch = modelJson(THREE);
+  r = await w.fetch(postV(), { ANTHROPIC_API_KEY: 'k', CX_KV: makeKV(), IP_SALT: 's' });
+  b = await r.json();
+  t('a client that did not announce chips is not sent the key at all',
+    !('chips' in b), Object.keys(b).join(','));
+  t('and still gets everything it did before', Array.isArray(b.questions) && b.questions.length === 3);
+
+  globalThis.fetch = modelJson(THREE);
+  r = await w.fetch(post(), { ANTHROPIC_API_KEY: 'k', CX_KV: makeKV(), IP_SALT: 's' });
+  b = await r.json();
+  t('nor is a legacy client', !('chips' in b), Object.keys(b).join(','));
+
+  // Announcing it is the whole handshake — nothing is parsed, nothing compared.
+  globalThis.fetch = modelJson(THREE);
+  r = await w.fetch(postC(), { ANTHROPIC_API_KEY: 'k', CX_KV: makeKV(), IP_SALT: 's' });
+  b = await r.json();
+  t('a chip-aware client gets the key', Array.isArray(b.chips), Object.keys(b).join(','));
+  t('and it is empty, because the prompt earns none yet', b.chips.length === 0);
+  t('and its questions are untouched by the channel existing',
+    Array.isArray(b.questions) && b.questions.length === 3);
+
+  /* `accepts` is a list so a fourth generation costs nothing. Anything that is
+     not that list, or does not name chips, is the old client. */
+  for (const [accepts, why] of [
+    [undefined, 'absent'], ['chips', 'a bare string'], [[], 'an empty list'],
+    [['assume'], 'a list naming something else'], [{ chips: true }, 'an object']
+  ]) {
+    globalThis.fetch = modelJson(THREE);
+    r = await w.fetch(post({ prompt: 'p', reply: 'r'.repeat(120), v: '0.9.54', accepts }),
+      { ANTHROPIC_API_KEY: 'k', CX_KV: makeKV(), IP_SALT: 's' });
+    b = await r.json();
+    t('accepts ignored when it is ' + why, !('chips' in b));
+  }
+
+  /* A client too old to read `questions` cannot render a chip either, so
+     announcing one must not be enough on its own. */
+  globalThis.fetch = modelJson(THREE);
+  r = await w.fetch(post({ prompt: 'p', reply: 'r'.repeat(120), accepts: ['chips'] }),
+    { ANTHROPIC_API_KEY: 'k', CX_KV: makeKV(), IP_SALT: 's' });
+  b = await r.json();
+  t('a legacy client announcing chips still gets steps, never chips',
+    Array.isArray(b.steps) && !('chips' in b) && !('questions' in b), Object.keys(b).join(','));
 
   // The two prompts must actually differ, or the shim is decorative.
   globalThis.fetch = async (url, opts) => {

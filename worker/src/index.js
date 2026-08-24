@@ -19,7 +19,7 @@
    which build is live. Deliberately independent of the extension's manifest
    version — they ship on separate paths and a worker fix should not force
    everyone to reinstall the extension. */
-const BUILD = '0.9.51';
+const BUILD = '0.9.52';
 
 const ANTHROPIC_URL = 'https://api.anthropic.com/v1/messages';
 /* Sonnet 5 rather than Haiku, on measured evidence: in a controlled three-model
@@ -97,6 +97,22 @@ Reply with ONLY minified JSON: {"steps":[{"label":"...","text":"...","evidence":
    questions", and sending the field IS the answer. */
 function wantsQuestions(body) {
   return typeof body.v === 'string' && body.v.trim() !== '';
+}
+
+/* Worker 0.9.52 — the THIRD client generation, and the presence-of-`v` trick
+   does not stretch to cover it: a 0.9.30 client and a chip-aware one both send
+   `v`, so separating them would mean comparing versions, and a naive string
+   compare puts "0.9.9" above "0.9.54". Zero benefit, a real bug class. Same
+   trick one field further out instead — announcing the capability IS the answer,
+   and there is nothing to parse.
+
+   A list rather than another boolean because there will be a fourth generation,
+   and this is the mechanism that survives it without growing a field each time.
+
+   Chips also require the questions generation. A client old enough to read only
+   `steps` cannot render a chip, so `accepts` alone is never enough. */
+function wantsChips(body) {
+  return Array.isArray(body.accepts) && body.accepts.includes('chips');
 }
 
 /* CAPABILITY-AUDIT: 2026-08-22 — re-check the capability moves in QUESTIONS_SYSTEM
@@ -468,6 +484,7 @@ export default {
 
     // clamp server-side: the client cannot make a request more expensive
     const asksQuestions = wantsQuestions(body);
+    const acceptsChips = asksQuestions && wantsChips(body);
     const prompt = String(body.prompt || '').slice(0, MAX_PROMPT_CHARS);
     const reply = String(body.reply || '').slice(0, MAX_REPLY_CHARS);
     let intent = '';
@@ -724,10 +741,22 @@ export default {
        without any deploy ordering. */
     const assume = asksQuestions ? cleanAssume(parsed.assume) : [];
     if (assume.length) console.log('[CONTEXA] assumed', assume.length, 'of', steps.length, 'question(s)');
-    // The key an old client reads is not the key a new one reads.
-    const shape = extra => asksQuestions
-      ? Object.assign({ questions: steps, assume }, extra)
-      : Object.assign({ steps }, extra);
+    /* The key an old client reads is not the key a new one reads.
+
+       Worker 0.9.52 — a chip-aware client also gets `chips`, and right now it is
+       always empty because the prompt does not produce any yet. That is the
+       point: the channel is proved end to end before anything travels down it,
+       and the worker can deploy today instead of waiting on a store review that
+       has not happened. A client that did not announce chips must never see the
+       key at all — it would read an unknown shape as nothing earned and render
+       a quiet row forever, which is a total outage wearing correct behaviour's
+       face and is exactly how 0.9.30 broke. */
+    const shape = extra => {
+      if (!asksQuestions) return Object.assign({ steps }, extra);
+      const base = { questions: steps, assume };
+      if (acceptsChips) base.chips = [];
+      return Object.assign(base, extra);
+    };
     const grounding = { total: rawSteps.length, kept: steps.length, grounded };
     if (!steps.length) {
       /* 0.9.29 — there are now TWO silences and conflating them would hide the

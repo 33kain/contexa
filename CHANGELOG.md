@@ -7,6 +7,59 @@ free to diverge, and the settings page labels them separately for that reason.
 
 ---
 
+## 0.9.52 — Backend
+
+*A third client generation, negotiated and deliberately empty.*
+
+### The trick that got us here does not stretch to three
+
+`wantsQuestions` works by presence alone: a client that sends `v` understands
+questions, and **sending the field IS the answer.** No parsing, nothing to get
+wrong.
+
+That does not extend. A 0.9.30 client and a chip-aware one both send `v`, so
+separating them would mean comparing versions — and a naive string compare puts
+`0.9.9` above `0.9.54`. Real bug class, zero benefit.
+
+So: the same trick, one field further out.
+
+```
+accepts: ['chips']
+```
+
+A list rather than another boolean, because there will be a fourth generation and
+this is the mechanism that survives it without growing a field each time. And
+chips require the questions generation too — a client old enough to read only
+`steps` cannot render a chip, so announcing one is never sufficient on its own.
+
+### The key is empty on purpose
+
+A chip-aware client now receives `chips: []`. The prompt does not earn any yet.
+
+**The channel gets proved end to end before anything travels down it**, and the
+worker can deploy today rather than waiting on a store review that has not
+happened. Nothing announces chip support yet, so nothing receives them — this
+ships dormant.
+
+### What the eleven new assertions are actually guarding
+
+Not the happy path. **A client that did not ask for chips must never see the
+key.** An unknown shape reads to it as nothing earned, and it renders a quiet row
+forever: working product, permanent silence, nothing wrong in the console. That
+is instance 3 of the theme, it is precisely how 0.9.30 broke, and with the store
+twenty versions behind the affected population is real rather than hypothetical.
+
+Verified by breaking it — removing the gate so the key leaks to everyone fails
+three assertions immediately, the outage-shaped one first.
+
+Also pinned: `accepts` as a bare string, an empty list, a list naming something
+else, an object, and absent — all ignored. And a legacy client announcing chips
+still gets `steps`.
+
+**Mili tests on own-key and would never have seen any of this.**
+
+---
+
 ## 0.9.53 — Extension
 
 *The questions call no longer happens for every reply. It happens when someone
