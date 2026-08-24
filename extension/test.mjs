@@ -781,8 +781,14 @@ const settle = () => new Promise(r => setTimeout(r, 0));
        and sometimes none is likelier. It is "this CONVERSATION gives me nothing
        to rank by", which means the question is a form field the reply never
        earned. The looser version would have dropped good questions. */
-    t('a question must change the composed prompt to survive',
-      /EVERY QUESTION MUST CHANGE THE ANSWER/.test(liveQuestions));
+    t('everything returned must change the next message',
+      /EVERYTHING YOU RETURN MUST CHANGE THE NEXT MESSAGE/.test(liveQuestions));
+    /* The rule was question-only until v1 chips. Broadening it is the point:
+       a move that gets the same reply they were already getting is decoration
+       by exactly the same argument, and decoration is what every floor in this
+       product started life as. */
+    t('and a move is held to that same test, not only a question',
+      /A move is held to the same test/.test(liveQuestions));
     t('it names the mechanical check: picture the prompt for each option',
       /picture the composed prompt for each option/.test(liveQuestions));
     t('and calls a question that cannot change it decoration',
@@ -1050,7 +1056,34 @@ const settle = () => new Promise(r => setTimeout(r, 0));
 
   // The untouchable rule, now guarding questions.
   t('prompt: evidence verbatim from the reply', SRC.includes('earned by a verbatim fragment of the reply'));
-  t('prompt: no evidence, no question', SRC.includes('No quotable evidence, no question.'));
+  t('prompt: no evidence, no question — and no move',
+    SRC.includes('No quotable evidence, no question and no move.'));
+
+  /* ---- v1 chips in the prompt ------------------------------------------------
+     Defect A, applied to a value rather than a field: an id with no worked
+     demonstration will never be produced, however clearly the list names it.
+     Four ids, four demonstrations, counted rather than eyeballed. */
+  for (const id of ['deeper', 'choose', 'risk', 'why']) {
+    t('prompt: the "' + id + '" move is demonstrated, not merely listed',
+      new RegExp('"id":"' + id + '","text":"').test(SRC));
+  }
+  t('prompt: the fork is stated as a condition, never as a frequency',
+    SRC.includes('When the next message needs something ONLY THEY CAN SUPPLY, ASK'));
+  /* The one that keeps deeper from swallowing the interview. Without it the
+     two branches overlap on every reply that leaves the ask open. */
+  t('prompt: deeper stops where a fact only the user holds begins',
+    SRC.includes('if it would need a fact only they hold, that is a QUESTION, not a move'));
+  t('prompt: one shape or the other, said in the schema line too',
+    SRC.includes('never both in one answer'));
+  t('prompt: and said again where the moves are defined',
+    SRC.includes('moves NEVER accompany questions'));
+  t('prompt: a filled chip answer is shown, not just a schema',
+    /\{"chips":\[\{"id":"why","text":"[^"]+","evidence":"[^"]+"\}\]\}/.test(SRC));
+  /* Defect B. The filled chip answer must sit ABOVE the zero restatement —
+     the last thing read is still that a reply which earned nothing returns
+     nothing. 0.9.49 put a new example in this exact position and built a floor. */
+  t('prompt: and it sits above the zero restatement, never after it',
+    SRC.indexOf('{"chips":[{"id":"why"') < SRC.lastIndexOf('the whole answer is {"questions":[]}'));
   t('prompt: label clamp stated at 3 words', SRC.includes('AT MOST 3 WORDS'));
 
   /* Exemplars over rules — the 0.9.25 lesson, and all four are real: three
