@@ -838,7 +838,12 @@
     function idle() {
       const chip = document.createElement('button');
       chip.className = 'chip own';
-      chip.textContent = '✎ Type & create magic';
+      /* 0.9.53 — this must NOT read like the fifth chip. Both are one click,
+         but this one spends a call and comes back with questions, while that
+         one opens a text box. The first draft copied the fifth chip's label
+         verbatim and the two sat in the same row saying the same words for
+         different actions. Star asks, pencil types. Pinned by a test. */
+      chip.textContent = '✦ What do I say next?';
       chip.addEventListener('click', () => { busy(); askNow(anchor, ctx); });
       slot.replaceChildren(chip);
     }

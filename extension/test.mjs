@@ -1150,6 +1150,16 @@ const settle = () => new Promise(r => setTimeout(r, 0));
   t('the trigger is its own machine, not the fifth chip wearing a hat',
     /function renderTrigger\(/.test(csrc7)
     && /function appendOwnChip\(row, ctx, anchor, openNow\)/.test(csrc7));
+  /* They can share a row — an assumption chip renders beside the fifth chip —
+     and one spends a call while the other opens a text box. Identical labels
+     shipped in the first draft and read as one button duplicated. This is the
+     rare case where pinning COPY is the requirement: not what either says, but
+     that they do not say the same thing. */
+  t('and does not borrow the fifth chip\'s label',
+    (() => {
+      const labels = [...csrc7.matchAll(/chip\.textContent = '([^']+)'/g)].map(m => m[1]);
+      return labels.length >= 2 && new Set(labels).size === labels.length;
+    })());
   t('the input opens ONLY when nothing at all was earned',
     /renderSteps\(anchor, \[\], ctx, assume\.length > 0, assume\.length === 0\)/.test(csrc7));
   t('and never on a render that did not ask for it',

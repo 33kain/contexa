@@ -60,6 +60,24 @@ with a second click handler. That state machine's whole job is idle → input �
 busy, and giving its idle state a second meaning would make every assertion
 about it ambiguous.
 
+### Two buttons cannot share a label
+
+The trigger's first draft copied the fifth chip's label verbatim —
+`✎ Type & create magic` on both. One spends a call and comes back with
+questions; the other opens a text box. They can appear in the same row, and
+0.9.52's whole argument for that label was that it says *what to do*. On the
+trigger it said the wrong thing: the action is a click, and typing is now the
+rare fallback rather than the path.
+
+The trigger is **`✦ What do I say next?`**. The fifth chip keeps
+`✎ Type & create magic`, because you really do type there. **Star asks, pencil
+types.**
+
+Pinned by an assertion that compares the two labels rather than checking either
+one — the rare case where the requirement genuinely is about copy: not what
+either button says, but that they do not say the same thing. It fails when they
+match.
+
 ### `watchScroll` and `dismissStreak` are untouched, on purpose
 
 Both were proposed for retirement on the grounds that nothing appears unbidden
