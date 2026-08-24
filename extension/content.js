@@ -376,12 +376,35 @@
     const promptText = lastUserMessage(replyEl);
     const replyText = clampCapture(captureText(replyEl));
 
+    /* 0.9.53 — CAPTURE is still eager. The CALL is not.
+       Every completed reply used to spend a questions call whether or not
+       anyone looked at the answer, and most replies are never asked about. The
+       row now arrives with one chip and nothing behind it; `askNow` runs when
+       the user asks. Two consequences beyond the bill: nothing about the
+       conversation leaves the page until a deliberate click, and the offer
+       stops being specific until it is opened — see CHANGELOG for that
+       trade, which is real and was argued before it shipped.
+
+       Capture stays here on purpose. It costs nothing, the DOM is settled at
+       completion, and deferring it would mean walking a reply claude.ai may
+       have re-rendered by the time the click lands. */
+    return renderTrigger(anchor, { prompt: promptText, reply: replyText, assume: [] });
+  }
+
+  /* 0.9.53 — everything below this line ran unconditionally before. The body is
+     unchanged apart from reading the captured pair off `ctx` instead of closing
+     over locals, and writing the cleaned assumptions back onto the same object
+     so the fifth chip keeps carrying them. */
+  async function askNow(anchor, ctx) {
+    if (!anchor.isConnected) return;
+    if (!contextAlive()) return goStale(anchor);
+
     let resp = null, thrown = null;
     try {
       resp = await chrome.runtime.sendMessage({
         type: 'nextSteps',
-        prompt: promptText,
-        reply: replyText
+        prompt: ctx.prompt,
+        reply: ctx.reply
       });
     } catch (e) { thrown = String(e && e.message || e); }
 
@@ -424,7 +447,7 @@
         resp.diag ? resp.diag : '(no diag from this path)');
     }
     /* 0.9.29: zero is a real answer. An empty array reaches renderSteps on
-       purpose — it draws the shell and the Rough ask chip and no suggestion,
+       purpose — it draws the shell and the fifth chip and no suggestion,
        which is what "nothing here was worth a click" looks like. */
     /* 0.9.49 — statements the model chose to STATE instead of asking. Cleaned
        here as well as in the background: the page must never render or send
@@ -435,16 +458,26 @@
       .filter(a => a && !a.endsWith('?'))
       .slice(0, 2);
     if (assume.length) console.log('[CONTEXA] assumed', assume);
-    const ctx = { prompt: promptText, reply: replyText, assume };
+    ctx.assume = assume;
     if (!questions.length) {
-      /* Zero is still a real answer, and it still renders as the Rough ask chip
+      /* Zero is still a real answer, and it still renders as the fifth chip
          alone — UNLESS the model stated something instead of asking it, which
          is the one case that earns the standalone compose chip. The fourth
          argument is what earns it: nothing here invents an assumption, so a
-         reply that settled nothing keeps exactly the 0.9.29 quiet row. */
+         reply that settled nothing keeps exactly the 0.9.29 quiet row.
+
+         0.9.53 adds the fifth. A quiet row used to be free — it arrived
+         unbidden, so silence cost the reader nothing. Now they ASKED, and a
+         chip that answers a click by sitting there is a dead end. Nothing is
+         invented to fill it: the input simply opens, which is the same thing
+         their next click would have done. Not a floor — no question, no
+         suggestion and no assumption is fabricated, and the row is still
+         empty. Only when there is genuinely nothing else, though: an
+         assumption on offer is a better answer than a blank box, and stealing
+         focus from it would bury the one thing the call earned. */
       console.log('[CONTEXA] quiet row — nothing to ask',
         assume.length ? '(something stated instead)' : '');
-      return renderSteps(anchor, [], ctx, assume.length > 0);
+      return renderSteps(anchor, [], ctx, assume.length > 0, assume.length === 0);
     }
     renderInterview(anchor, questions.slice(0, 4), ctx);
   }
@@ -640,7 +673,7 @@
   /* 0.9.30 — the interview, modelled on Claude's own clarifying-question card,
      which is what "ask questions like Claude" meant. One question at a time,
      numbered options WRITTEN FOR the user, per-question skip, free text, and a
-     dismiss that falls back to the Rough ask chip so nothing is ever lost.
+     dismiss that falls back to the fifth chip so nothing is ever lost.
 
      The options are the product. Someone who cannot specify the work usually
      cannot fill an empty box either — but they can recognise the right answer
@@ -661,7 +694,7 @@
     };
 
     function dismiss() {
-      /* Falls back to the Rough ask chip: closing the questions must never
+      /* Falls back to the fifth chip: closing the questions must never
          leave the user with less than they had. Two dismissals in a row earn
          the session-hide offer — see renderSteps.
          No standalone compose chip here (0.9.49): the user just closed this
@@ -784,7 +817,41 @@
     draw();
   }
 
-  function renderSteps(anchor, steps, ctx, offerAssume) {
+  /* 0.9.53 — the row before anything has been asked. One chip, no model call
+     behind it, and the captured pair already in hand so the chip is live the
+     moment it renders.
+
+     It is deliberately NOT `appendOwnChip` with a different click handler. That
+     state machine's whole job is idle -> input -> busy, and giving its idle
+     state a second meaning would make every assertion about it ambiguous. This
+     is a separate three-line machine that hands off and never comes back:
+     `askNow` re-renders the shell, so nothing here survives the click. */
+  function renderTrigger(anchor, ctx) {
+    const wrap = shell(anchor, 'ai');
+    if (!wrap) return;
+    wrap.innerHTML = `<div class="label"><b>✦ CONTEXA</b></div>` +
+      `<div class="chips"></div>`;
+    const slot = document.createElement('span');
+    wrap.querySelector('.chips').appendChild(slot);
+    idle();
+
+    function idle() {
+      const chip = document.createElement('button');
+      chip.className = 'chip own';
+      chip.textContent = '✎ Type & create magic';
+      chip.addEventListener('click', () => { busy(); askNow(anchor, ctx); });
+      slot.replaceChildren(chip);
+    }
+
+    function busy() {
+      const b = document.createElement('span');
+      b.className = 'chip busy';
+      b.textContent = '✦ reading…';
+      slot.replaceChildren(b);
+    }
+  }
+
+  function renderSteps(anchor, steps, ctx, offerAssume, openInput) {
     const wrap = shell(anchor, 'ai');
     if (!wrap) return;
     wrap.innerHTML = `<div class="label"><b>✦ CONTEXA</b></div>` +
@@ -807,7 +874,7 @@
     if (offerAssume && Array.isArray(ctx && ctx.assume) && ctx.assume.length) {
       appendAssumeChip(row, ctx, anchor);
     }
-    appendOwnChip(row, ctx || {}, anchor);
+    appendOwnChip(row, ctx || {}, anchor, openInput === true);
 
     /* 0.9.33 — the offer is EARNED, never volunteered. Two dismissals in a row
        is the user saying no twice; anything less is not a pattern and a
@@ -904,10 +971,15 @@
      Suggestions cover what we guessed they want — this covers everything we
      didn't. One small state machine in one <span>: idle -> input -> busy ->
      idle | inline error. Never a second card, never an auto-send. */
-  function appendOwnChip(row, ctx, anchor) {
+  function appendOwnChip(row, ctx, anchor, openNow) {
     const slot = document.createElement('span');
     row.appendChild(slot);
-    idle();
+    /* 0.9.53 — `openNow` is the one caller that starts armed: a click that
+       earned nothing at all, where the collapsed chip would be a dead end.
+       Everything else still starts idle, and `arm()` is otherwise reachable
+       only by the user's own click, so this cannot open a box nobody asked
+       for. Escape and an empty blur still collapse it back to the chip. */
+    if (openNow) arm(); else idle();
 
     function idle() {
       const chip = document.createElement('button');

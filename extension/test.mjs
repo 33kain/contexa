@@ -524,16 +524,18 @@ const settle = () => new Promise(r => setTimeout(r, 0));
      deleted and the words survived in a comment. Match the structure that
      renders it instead: the function, and the class the row styles it by. */
   t('the fifth chip renders with its own class',
-    /function appendOwnChip\([\s\S]{0,400}chip\.className = 'chip own'/.test(c));
+    /function appendOwnChip\([\s\S]{0,900}chip\.className = 'chip own'/.test(c));
   t('input keystrokes stopped at the shadow boundary',
     /\['keydown', 'keyup', 'keypress', 'input', 'paste'\][\s\S]{0,120}stopPropagation/.test(c));
   t('Enter submits, Escape collapses', /key === 'Enter'/.test(c) && /key === 'Escape'/.test(c));
   /* The requirement is that the interview can reach the captured pair when it
      composes — not the literal object shape, which grew a third field in
-     0.9.49. Match the two keys it actually needs and let the object grow. */
+     0.9.49, nor where the object is built, which moved in 0.9.53 when the call
+     went lazy and the pair had to exist before anything was asked. Match the
+     two keys it actually needs and let the rest move. */
   t('the interview carries capture context',
     /renderInterview\(anchor, questions\.slice\(0, 4\), ctx\)/.test(c)
-    && /const ctx = \{ prompt: promptText, reply: replyText\b/.test(c));
+    && /\{ prompt: promptText, reply: replyText\b/.test(c));
   t('expand failure stays inline (no second card)', /cxerr/.test(c) && /daily limit reached/.test(c));
   /* Design-review #4, verified real in 0.9.22: insertPrompt selected all and
      typed over the user's draft. The guard and the append branch must exist —
@@ -1116,7 +1118,7 @@ const settle = () => new Promise(r => setTimeout(r, 0));
 
   // Zero, end to end.
   t('zero questions renders the fifth chip alone',
-    /if \(!questions\.length\) \{[\s\S]{0,600}renderSteps\(anchor, \[\], ctx\b/.test(csrc7));
+    /if \(!questions\.length\) \{[\s\S]{0,1400}renderSteps\(anchor, \[\], ctx\b/.test(csrc7));
   t('the quiet row is logged', csrc7.includes('[CONTEXA] quiet row'));
 
   /* ---- 0.9.49: the standalone compose chip, and the floor it must not become.
@@ -1128,8 +1130,33 @@ const settle = () => new Promise(r => setTimeout(r, 0));
      rather than a dismissal — and neither half may become a default. */
   t('the standalone chip needs BOTH an assumption and the zero-questions render',
     /if \(offerAssume && Array\.isArray\(ctx && ctx\.assume\) && ctx\.assume\.length\)/.test(csrc7));
+  /* The trailing `\)` used to be part of this pattern, which pinned the ARITY
+     rather than the gate — 0.9.53 added a fifth argument and it failed on a
+     line whose fourth argument had not changed at all. `[,)]` keeps the teeth
+     (a bare `true` still fails) and lets the call grow. */
   t('zero questions offers it only when something was actually stated',
-    /renderSteps\(anchor, \[\], ctx, assume\.length > 0\)/.test(csrc7));
+    /renderSteps\(anchor, \[\], ctx, assume\.length > 0[,)]/.test(csrc7));
+  /* ---- 0.9.53: the call is lazy. These are about what must NOT happen.
+     The saving is real only if reply completion makes no model call at all,
+     and the dead-end fix is safe only if the input opens on genuinely nothing
+     rather than on every quiet row — which would be a floor wearing a
+     convenience's clothes. Both are one edit away from being lost. */
+  t('reply completion renders a trigger and makes no call',
+    /function onReplyComplete\([\s\S]{0,2000}return renderTrigger\(anchor, \{ prompt: promptText, reply: replyText/.test(csrc7)
+    && !/function onReplyComplete\([\s\S]{0,2000}type: 'nextSteps'/.test(csrc7));
+  t('the questions call moved behind a click',
+    /function askNow\([\s\S]{0,400}type: 'nextSteps'/.test(csrc7)
+    && /addEventListener\('click', \(\) => \{ busy\(\); askNow\(anchor, ctx\); \}\)/.test(csrc7));
+  t('the trigger is its own machine, not the fifth chip wearing a hat',
+    /function renderTrigger\(/.test(csrc7)
+    && /function appendOwnChip\(row, ctx, anchor, openNow\)/.test(csrc7));
+  t('the input opens ONLY when nothing at all was earned',
+    /renderSteps\(anchor, \[\], ctx, assume\.length > 0, assume\.length === 0\)/.test(csrc7));
+  t('and never on a render that did not ask for it',
+    /appendOwnChip\(row, ctx \|\| \{\}, anchor, openInput === true\)/.test(csrc7));
+  t('arming is still reachable by the user, not only by us',
+    /if \(openNow\) arm\(\); else idle\(\);/.test(csrc7));
+
   t('nothing in the page ever fabricates an assumption',
     !/assume\s*=\s*\[\s*['"]/.test(csrc7) && !/ctx\.assume\s*\|\|\s*\[['"]/.test(csrc7));
   t('a question-shaped assumption is refused before it can render',

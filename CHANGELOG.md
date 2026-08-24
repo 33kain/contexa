@@ -7,6 +7,90 @@ free to diverge, and the settings page labels them separately for that reason.
 
 ---
 
+## 0.9.53 — Extension
+
+*The questions call no longer happens for every reply. It happens when someone
+asks for it.*
+
+### What it was actually costing
+
+Every completed reply spent a call. `bumpQuota` in the worker sits in the shared
+gate **before** the endpoint split, so `/v1/next-steps` charges the pool exactly
+like `/v1/expand` does — which means the free tier's twenty were being eaten by
+replies nobody ever looked at. A twenty-turn conversation could exhaust the
+whole day without a single chip being clicked. *"Fair use is 10 prompts a day"*
+was only ever true for someone who used every card CONTEXA drew.
+
+Lazy-calling does not trim that cost. It moves it onto the replies someone
+actually asked about, which is the only place it was ever buying anything.
+
+**And nothing about the conversation leaves the page until a deliberate click.**
+That is the larger change and it was a side effect, not the goal.
+
+### The shape
+
+The row now arrives with one chip and no model call behind it. Clicking it runs
+`askNow`, which is the old body of `onReplyComplete` with nothing altered but
+where it reads the captured pair from.
+
+- **questions earned** → the interview card, unchanged
+- **nothing asked but something stated** → the standalone compose chip (0.9.49),
+  unchanged
+- **nothing at all** → the input opens
+
+**Capture stays eager, deliberately.** It is free, the DOM is settled at reply
+completion, and deferring it would mean walking a reply claude.ai may have
+re-rendered by the time the click lands. Only the *call* moved.
+
+### The quiet row had to change, and this is not a floor
+
+A quiet row used to be free: it arrived unbidden, so silence cost the reader
+nothing. Now they **asked**, and a chip that answers a click by sitting there is
+a dead end.
+
+Nothing is invented to fill it. No question, no suggestion and no assumption is
+fabricated — the input simply opens, which is what their next click would have
+done anyway, and the row is still empty. The gate is `assume.length === 0`, not
+`true`: an assumption on offer is a better answer than a blank box, and stealing
+focus from it would bury the one thing the call earned. Both halves are pinned,
+and the floor version fails the suite.
+
+`renderTrigger` is a separate three-line machine rather than `appendOwnChip`
+with a second click handler. That state machine's whole job is idle → input →
+busy, and giving its idle state a second meaning would make every assertion
+about it ambiguous.
+
+### `watchScroll` and `dismissStreak` are untouched, on purpose
+
+Both were proposed for retirement on the grounds that nothing appears unbidden
+any more. **That reasoning is wrong and the code says so.** `shell()` mounts with
+`host.before(holder)` where `host` is the composer — the card is pinned above a
+sticky composer and is on screen at every scroll position. It is in the way
+because of *where it lives*, not *how it arrived*, and on-demand changes only
+the second. Delete the watcher and 0.9.46's problem returns; `cardH` is measured
+live, so a short trigger row already gets a proportionally shorter hide zone
+with no change at all.
+
+`dismissStreak` keeps its mechanism and changes meaning: the trigger still
+appears unbidden, so *"stays quiet in this tab"* still has something to silence.
+A dismissal now means *I asked for this and it was useless*, which is a stronger
+signal than closing something nobody requested — if the threshold moves it
+should go up. **Open, not settled.**
+
+### Four assertions failed and none of them had found a bug
+
+All four pinned distance or arity: two `[\s\S]{0,N}` spans too short for a
+comment that grew, one `const ctx = ` that pinned *where* an object is built
+rather than that it carries the pair, and one trailing `\)` that pinned a call's
+argument count. Every requirement underneath survived the change intact.
+
+That is Defect C four times from one edit. Each was widened or loosened to the
+requirement it was written for — `[,)]` instead of `\)`, so a bare `true` still
+fails — and six assertions were added for the paths that are new, two of which
+were verified by breaking the code and watching them fail.
+
+---
+
 ## 0.9.52 — Extension
 
 *Three words on a button, and one test that was lying about what it checked.*
