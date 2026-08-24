@@ -63,6 +63,15 @@ shouldn't either; that contrast against the site's Archivo is authentic.
 
 ## 3. Behaviour to reproduce
 
+**0. The card does not appear on its own (0.9.53).** After a reply finishes the
+row holds **one dashed chip reading `✦ What do I say next?`** and nothing else —
+no card, no model call, nothing sent. Clicking it swaps the chip for a pulsing
+`✦ reading…`, and *then* the card arrives. **The mock must reproduce this step.**
+It is the first thing a visitor sees, it is the shape of the whole product, and a
+mock that opens straight into the card advertises a product that no longer
+exists. It is also the best moment on the page: the visitor clicks, and the card
+appears because *they asked*.
+
 1. One question at a time. Answering — click, or **number key 1–4**, or typing
    in the field and Enter — advances the counter. `‹` goes back; a previous
    answer shows its row highlighted (`.opt.on` = #FAF9F5 fill).
@@ -78,7 +87,10 @@ shouldn't either; that contrast against the site's Archivo is authentic.
 5. The card entrance: fades in and rises 4px over ~280ms (`opacity 0→1`,
    `translateY(4px)→0`). It appears above the message box, not under the reply.
 6. `×` dismisses. In the real product this falls back to a small dashed chip
-   reading `✎ Rough ask…`; the mock can simply restart instead.
+   reading `✎ Type & create magic`, which opens a text box — **a different
+   control from the `✦` trigger in step 0, and it must never carry the same
+   label.** Star asks CONTEXA; pencil types it yourself. The mock can simply
+   restart instead.
 
 ## 4. The message box in the mock
 
