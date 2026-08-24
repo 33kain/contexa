@@ -459,6 +459,18 @@
       .slice(0, 2);
     if (assume.length) console.log('[CONTEXA] assumed', assume);
     ctx.assume = assume;
+    /* v1 — a light structural guard, not a second copy of cleanChips. Everything
+       here has already passed the real validator in background.js, on both the
+       hosted and own-key paths. What this catches is a shape the renderer has no
+       case for, because a chip whose id it cannot label draws a button that does
+       nothing — a defect the user can see and we cannot. */
+    const chips = (Array.isArray(resp.chips) ? resp.chips : [])
+      .filter(c => c && CHIP_LABELS[c.id] && String(c.text || '').trim())
+      .slice(0, 4);
+    if (chips.length) {
+      console.log('[CONTEXA] moves', chips.map(c => c.id));
+      return renderChips(anchor, chips, ctx);
+    }
     if (!questions.length) {
       /* Zero is still a real answer, and it still renders as the fifth chip
          alone — UNLESS the model stated something instead of asking it, which
@@ -898,6 +910,102 @@
         for (const old of document.querySelectorAll('[data-contexa]')) old.remove();
       });
       row.appendChild(hide);
+    }
+  }
+
+  /* v1 — the four moves. Labels live here and nowhere else: the prompt names
+     the ids, the renderer names them for humans, and neither should be guessing
+     at the other's wording. */
+  const CHIP_LABELS = {
+    deeper: 'Take it further',
+    choose: 'You choose',
+    risk:   'What could go wrong?',
+    why:    'Why this way?'
+  };
+
+  /* An assumption is a fact about them and must survive whichever branch runs.
+     `deeper` hands it to the composer, which has written "Assume:" lines since
+     0.9.23. A direct insert has no composer, so the lines are appended here —
+     plain text, the same convention, and nothing invented on the way. */
+  function withAssume(text, ctx) {
+    const a = Array.isArray(ctx && ctx.assume) ? ctx.assume : [];
+    return a.length ? text + '\n' + a.map(x => 'Assume: ' + x).join('\n') : text;
+  }
+
+  /* v1 — the moves branch. The reply left something worth doing that needs
+     nothing from the user, so there is nothing to interview them about: one
+     click sends it.
+
+     Deliberately NOT `.chip.own`. That class belongs to the fallback and is
+     already shared by four controls; a move is a primary offer, not an escape
+     hatch. `.chip move` inherits the ordinary chip look and is otherwise
+     unstyled on purpose — the visual direction is Mili's and has not landed.
+
+     No standalone assume chip here. Moves ARE the offer; the assumptions ride
+     into whichever one is clicked rather than competing with them for a slot. */
+  function renderChips(anchor, chips, ctx) {
+    const wrap = shell(anchor, 'ai');
+    if (!wrap) return;
+    wrap.innerHTML = `<div class="label"><b>✦ CONTEXA</b></div>` +
+      `<div class="chips"></div>`;
+    const row = wrap.querySelector('.chips');
+    for (const c of chips) appendMoveChip(row, c, ctx, anchor);
+    appendOwnChip(row, ctx || {}, anchor, false);
+  }
+
+  function appendMoveChip(row, c, ctx, anchor) {
+    const slot = document.createElement('span');
+    row.appendChild(slot);
+    idle();
+
+    function idle() {
+      const chip = document.createElement('button');
+      chip.className = 'chip move';
+      chip.textContent = CHIP_LABELS[c.id];
+      chip.title = c.text;            // hover shows exactly what will be sent
+      chip.addEventListener('click', go);
+      slot.replaceChildren(chip);
+    }
+
+    function fail(err) {
+      const chip = document.createElement('button');
+      chip.className = 'chip cxerr';
+      chip.textContent = err === 'quota' ? 'daily limit reached' : 'couldn’t write it — retry';
+      chip.title = 'Click to try again';
+      chip.addEventListener('click', go);
+      slot.replaceChildren(chip);
+    }
+
+    async function go() {
+      usedIt();
+      /* Three of the four are already the message, so they go straight into the
+         composer and cost no second call — which is most of what this branch
+         buys. `deeper` carries an INTENT, not a finished message: the composer
+         writes that one, exactly as it does for a typed rough ask. */
+      if (c.id !== 'deeper') return insertPrompt(withAssume(c.text, ctx));
+      if (!contextAlive()) return goStale(anchor);
+      const busy = document.createElement('span');
+      busy.className = 'chip busy';
+      busy.textContent = 'writing…';
+      slot.replaceChildren(busy);
+      let resp = null, thrown = null;
+      try {
+        resp = await chrome.runtime.sendMessage({
+          type: 'expandPrompt',
+          intent: c.text,
+          prompt: ctx.prompt || '',
+          reply: ctx.reply || '',
+          assume: Array.isArray(ctx.assume) ? ctx.assume : []
+        });
+      } catch (e) { thrown = String(e && e.message || e); }
+      if (!slot.isConnected) return;
+      if (isStaleError(thrown) || (!resp && !contextAlive())) return goStale(anchor);
+      if (resp && typeof resp.prompt === 'string' && resp.prompt.trim()) {
+        insertPrompt(resp.prompt);
+        idle();
+        return;
+      }
+      fail(resp && resp.error);
     }
   }
 

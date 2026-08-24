@@ -1200,6 +1200,37 @@ const settle = () => new Promise(r => setTimeout(r, 0));
   t('arming is still reachable by the user, not only by us',
     /if \(openNow\) arm\(\); else idle\(\);/.test(csrc7));
 
+  /* ---- v1: the moves branch reaches the page ---------------------------------
+     Source assertions cannot see a click, so these pin the wiring and the field
+     test pins the behaviour. What they mostly guard is the row NOT becoming a
+     menu: moves replace the interview, they never sit beside it. */
+  t('chips render as their own control, never the fallback\'s class',
+    /chip\.className = 'chip move'/.test(csrc7) && /function renderChips\(/.test(csrc7));
+  t('and the labels live in one place, not guessed at twice',
+    /const CHIP_LABELS = \{[\s\S]{0,240}why:\s*'Why this way\?'/.test(csrc7));
+  t('a move the renderer cannot label is dropped before it draws a dead button',
+    /\.filter\(c => c && CHIP_LABELS\[c\.id\] && String\(c\.text \|\| ''\)\.trim\(\)\)/.test(csrc7));
+  t('moves take the row before the quiet row is even considered',
+    /if \(chips\.length\) \{[\s\S]{0,160}return renderChips\(anchor, chips, ctx\);[\s\S]{0,40}\}[\s\S]{0,20}if \(!questions\.length\)/.test(csrc7));
+  /* The saving lives here: three of four spend nothing. If every move starts
+     routing through expandPrompt, the branch has quietly become as expensive as
+     the interview it replaced and nothing about the product looks different. */
+  t('only "deeper" spends a second call; the other three insert directly',
+    /if \(c\.id !== 'deeper'\) return insertPrompt\(withAssume\(c\.text, ctx\)\);/.test(csrc7));
+  t('and an assumption survives the branch that has no composer',
+    /function withAssume\([\s\S]{0,320}'Assume: ' \+ x/.test(csrc7));
+  t('a move click counts as use, like every other real use',
+    /async function go\(\) \{\s*usedIt\(\);/.test(csrc7));
+  t('the fifth chip stays available beside the moves',
+    /for \(const c of chips\) appendMoveChip[\s\S]{0,120}appendOwnChip\(row, ctx \|\| \{\}, anchor, false\)/.test(csrc7));
+  /* Moves are the offer when they exist; the assumptions ride into whichever is
+     clicked. Rendering both would put five chips in one row and set two
+     mechanisms competing for the same slot. */
+  t('and the standalone assume chip does NOT also appear beside them',
+    !/function renderChips\([\s\S]{0,600}appendAssumeChip/.test(csrc7));
+  t('the client announces chip support, now that it can draw one',
+    /accepts: \['chips'\]/.test(bsrc));
+
   t('nothing in the page ever fabricates an assumption',
     !/assume\s*=\s*\[\s*['"]/.test(csrc7) && !/ctx\.assume\s*\|\|\s*\[['"]/.test(csrc7));
   t('a question-shaped assumption is refused before it can render',

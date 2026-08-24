@@ -399,7 +399,11 @@ async function callHosted(prompt, reply) {
       /* 0.9.31: the version IS the schema negotiation. A worker that receives
          no `v` knows it is talking to a pre-0.9.30 client and answers in the old
          shape. Never remove this before LEGACY_STEPS_SYSTEM is retired worker-side.  */
-      body: JSON.stringify({ prompt, reply, v: chrome.runtime.getManifest().version })
+      /* v1 — announcing chip support is the whole handshake; the worker parses
+           nothing and compares nothing. Sent only now that content.js can actually
+           render a move, because a client that announces what it cannot draw gets
+           back buttons that do nothing. */
+        body: JSON.stringify({ prompt, reply, v: chrome.runtime.getManifest().version, accepts: ['chips'] })
     });
   } catch (e) {
     return { error: 'network', detail: String(e) };
