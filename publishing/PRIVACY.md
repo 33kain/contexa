@@ -1,12 +1,16 @@
 # CONTEXA — Privacy Policy
 
-**Last updated: 23 August 2026**
+**Last updated: 26 August 2026**
 
 CONTEXA is a browser extension that helps you write your next prompt inside
-conversations on claude.ai. After Claude replies, it asks you a few short
-questions with the answers already written, and composes the prompt you pick
-into your message box. This policy describes exactly what data the
-extension handles, where it goes, and how long it is kept.
+conversations on claude.ai. When Claude finishes replying, CONTEXA offers you a
+button. If you press it, it either asks you a few short questions with the
+answers already written, or offers you a next move — and composes the prompt you
+pick into your message box.
+
+**Nothing about your conversation leaves your browser unless you press that
+button.** This policy describes exactly what data the extension handles, where
+it goes, and how long it is kept.
 
 CONTEXA is an independent project. It is not affiliated with, endorsed by, or
 sponsored by Anthropic.
@@ -15,8 +19,10 @@ sponsored by Anthropic.
 
 ## The short version
 
-- To work out what to ask you, CONTEXA sends **your most recent message and
-  Claude's reply for that one exchange** to be processed by Anthropic's API.
+- **Nothing is sent anywhere until you click.** After a reply, CONTEXA shows a
+  button and makes no request of any kind until you press it.
+- When you do, it sends **your most recent message and Claude's reply for that
+  one exchange** to be processed by Anthropic's API. One click, one request.
 - Your conversation text is **never stored** — it is used to write the questions
   and the prompt in that moment and then discarded.
 - There are **no accounts, no profiles, no tracking, no analytics, and no
@@ -30,15 +36,19 @@ sponsored by Anthropic.
 
 ### Conversation content
 
-When a Claude reply finishes, CONTEXA sends two pieces of text:
+CONTEXA reads the exchange in the page as you use it, so that it knows what the
+button would be about. **That reading never leaves your device.**
+
+When you click the button, CONTEXA sends two pieces of text:
 
 1. Your most recent message in that conversation (up to 2,500 characters).
 2. Claude's reply you just received (up to 6,000 characters).
 
 This is the minimum needed to work out what is worth asking you. CONTEXA does **not**
 read your conversation history, your other conversations, your account details,
-or any other page. It sends nothing until a reply has finished, and nothing at
-all in a conversation where you have not sent a message.
+or any other page. It sends nothing unless you click, nothing before a reply has
+finished, and nothing at all in a conversation where you have not sent a
+message. A reply you never click on is never transmitted anywhere.
 
 ### Settings stored on your device
 
@@ -80,10 +90,10 @@ a counter key. The original IP address cannot be recovered from it.
 
 ### If you use the hosted service (default)
 
-Your message and Claude's reply are sent to the CONTEXA backend, which runs on
-Cloudflare Workers. The backend forwards that text to Anthropic's API to generate
-the questions or the composed prompt, returns them to your browser, and discards
-the text.
+When you click, your message and Claude's reply are sent to the CONTEXA backend,
+which runs on Cloudflare Workers. The backend forwards that text to Anthropic's
+API to generate the questions or the composed prompt, returns them to your
+browser, and discards the text.
 The backend does not write your conversation content to any database, log, or
 file.
 
