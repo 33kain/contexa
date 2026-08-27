@@ -49,6 +49,14 @@ const realFetch = globalThis.fetch;
 globalThis.fetch = async () => { upstream++; throw new Error('upstream should not be reached in these tests'); };
 
 const fails = [];
+/* The system prompt travels as either a plain string or an array of cached
+   content blocks (see cachedSystem in the worker). Assertions about what the
+   prompt SAYS must not care which — otherwise every content test doubles as an
+   accidental transport test and breaks the day the transport changes, which is
+   exactly what happened on 2026-08-27. Shape is asserted separately and
+   explicitly below, so removing caching still fails loudly. */
+const sysText = (v) => Array.isArray(v) ? v.map(b => b && b.text || '').join('') : String(v || '');
+
 const t = (name, cond, extra = '') => {
   console.log((cond ? '  ok   ' : '  FAIL ') + name + (extra ? '  ' + extra : ''));
   if (!cond) fails.push(name);
@@ -58,6 +66,17 @@ const t = (name, cond, extra = '') => {
 let r = await w.fetch(new Request('https://x/v1/health'), { ANTHROPIC_API_KEY: 'k', MODEL: 'claude-sonnet-5' });
 let b = await r.json();
 const BUILD_SEEN = b.version;
+/* The device ceiling is READ FROM THE PRODUCT, never retyped here. It used to be
+   the literal 20 in three places; when PROMPTS_PER_DAY arrived and the call
+   ceiling became 40, all three failed — not because behaviour broke but because
+   the tests had pinned a VALUE where the requirement was a RULE. `/v1/health`
+   already reports the limit, so the suite asks rather than assumes, and the
+   next change to the allowance will not touch this file at all. */
+const LIMIT = b.limit;
+t('health reports the device limit as a positive number',
+  Number.isInteger(LIMIT) && LIMIT > 0, String(LIMIT));
+t('the call ceiling is an even number of calls — a finished prompt costs two',
+  LIMIT % 2 === 0, String(LIMIT));
 t('health reports version', /^\d+\.\d+\.\d+$/.test(b.version || ''), b.version);
 t('health is uncacheable', r.headers.get('cache-control') === 'no-store', String(r.headers.get('cache-control')));
 t('health reports model', b.model === 'claude-sonnet-5', b.model);
@@ -65,7 +84,7 @@ t('health reports configured', b.configured === true);
 
 /* 2. device quota exhausted -> 429, valid ISO, no spend */
 const day = new Date().toISOString().slice(0, 10);
-const kv = makeKV({ ['q:' + DEV + ':' + day]: '20' });
+const kv = makeKV({ ['q:' + DEV + ':' + day]: String(LIMIT) });
 upstream = 0;
 r = await w.fetch(postV(), { ANTHROPIC_API_KEY: 'k', CX_KV: kv, IP_SALT: 's' });
 b = await r.json();
@@ -453,7 +472,7 @@ t('unknown route 404', r.status === 404, String(r.status));
 
   // The two prompts must actually differ, or the shim is decorative.
   globalThis.fetch = async (url, opts) => {
-    sent = JSON.parse(opts.body).system;
+    sent = sysText(JSON.parse(opts.body).system);
     return (await modelJson(THREE)())
   };
   let sent = null;
@@ -625,7 +644,7 @@ function postExpand(body = { intent: 'optimize seo', prompt: 'p', reply: 'r'.rep
   const r = await w.fetch(postExpand(), { ANTHROPIC_API_KEY: 'k', CX_KV: kvE, IP_SALT: 's' });
   const b = await r.json();
   t('expand returns the draft', b.prompt === 'Drafted.', JSON.stringify(b));
-  t('expand uses the writer system', /prompt writer/.test(sent.system || ''), (sent.system || '').slice(0, 40));
+  t('expand uses the writer system', /prompt writer/.test(sysText(sent.system)), sysText(sent.system).slice(0, 40));
   t('expand ceiling is 1200', sent.max_tokens === 1200, String(sent.max_tokens));
   t('expand disables thinking', sent.thinking && sent.thinking.type === 'disabled');
   t('expand sections labeled', /^ROUGH ASK:\n/.test(sent.messages[0].content) &&
@@ -637,7 +656,7 @@ function postExpand(body = { intent: 'optimize seo', prompt: 'p', reply: 'r'.rep
   // one pool: a device that exhausted next-steps cannot expand
   upstream = 0;
   globalThis.fetch = async () => { upstream++; throw new Error('no'); };
-  const kvQ = makeKV({ ['q:' + DEV + ':' + day]: '20' });
+  const kvQ = makeKV({ ['q:' + DEV + ':' + day]: String(LIMIT) });
   const r = await w.fetch(postExpand(), { ANTHROPIC_API_KEY: 'k', CX_KV: kvQ, IP_SALT: 's' });
   t('expand 429s from the shared pool', r.status === 429, String(r.status));
   t('shared-pool 429 costs nothing upstream', upstream === 0, 'calls=' + upstream);
@@ -795,7 +814,7 @@ function postExpand(body = { intent: 'optimize seo', prompt: 'p', reply: 'r'.rep
   t('hosted: a prose answer is the draft, not a parse failure',
     r.status === 200 && b.prompt === 'Write my wedding toast at five minutes.\n- open on a story, not a joke',
     r.status + ' ' + JSON.stringify(b.prompt || b.error));
-  t('hosted: it still reports quota', b.quota && b.quota.limit === 20);
+  t('hosted: it still reports quota', b.quota && b.quota.limit === LIMIT);
 
   // Habit shim: a model that still wraps is understood rather than punished.
   globalThis.fetch = async () => ({ ok: true, status: 200,
@@ -934,13 +953,124 @@ function postExpand(body = { intent: 'optimize seo', prompt: 'p', reply: 'r'.rep
     { ANTHROPIC_API_KEY: 'k', CX_KV: makeKV(), IP_SALT: 's' });
   t('the duplicated shape the client sends is accepted', r.status === 200, String(r.status));
   t('and the prompt is told the two are one fact arriving twice',
-    /one fact reaching you twice/.test(sent.system));
+    /one fact reaching you twice/.test(sysText(sent.system)));
 
   sent = null;
   r = await w.fetch(postExpand({ intent: 'make it shorter', prompt: 'p', reply }),
     { ANTHROPIC_API_KEY: 'k', CX_KV: makeKV(), IP_SALT: 's' });
   t('no ASSUMED section appears when nothing was assumed',
     r.status === 200 && !/ASSUMED/.test(sent.messages[0].content));
+}
+
+
+/* ---------------- PROMPT CACHING (2026-08-27) ----------------
+   The system prompt is a large fixed prefix on every call and was re-billed in
+   full every time. These assertions pin the three things that can go wrong
+   without anything looking broken: the block never reaching the wire, the
+   cached text drifting from the constant, and the fallback failing to fall
+   back. Every one of them was verified by deliberately breaking it. */
+{
+  const cacheOf = (body) => JSON.parse(body).system;
+  let seenBody = null;
+  const okOnce = () => ({
+    ok: true, status: 200,
+    async json() { return {
+      stop_reason: 'end_turn',
+      usage: { input_tokens: 500, output_tokens: 200 },
+      content: [{ type: 'text', text: JSON.stringify({
+        questions: [{ label: 'L', text: 'T', options: ['a', 'b'], evidence: 'rrrr' }],
+        prompt: 'Drafted.'
+      }) }]
+    }; },
+    async text() { return ''; }
+  });
+
+  // --- both paths send a cached block, not a bare string ---
+  for (const [name, req] of [['questions', postV()], ['expand', postExpand()]]) {
+    seenBody = null;
+    globalThis.fetch = async (_u, o) => { seenBody = o.body; return okOnce(); };
+    await w.fetch(req, { ANTHROPIC_API_KEY: 'k', CX_KV: makeKV(), IP_SALT: 's' });
+    const sys = cacheOf(seenBody);
+    t(`${name}: system travels as content blocks`, Array.isArray(sys), typeof sys);
+    t(`${name}: exactly one system block`, Array.isArray(sys) && sys.length === 1, String(sys && sys.length));
+    t(`${name}: the block is marked cacheable`,
+      !!(sys && sys[0] && sys[0].cache_control && sys[0].cache_control.type === 'ephemeral'),
+      JSON.stringify(sys && sys[0] && sys[0].cache_control));
+    t(`${name}: the block is type text`, !!(sys && sys[0] && sys[0].type === 'text'));
+    /* A cache HIT needs a byte-identical prefix. Anything interpolated into the
+       system text — a build stamp, a date, the user's own words — would miss on
+       every single call while still looking perfectly correct in the logs. */
+    t(`${name}: nothing is interpolated into the cached text`,
+      sysText(sys).length > 1000 && !/\d{4}-\d{2}-\d{2}/.test(sysText(sys)),
+      String(sysText(sys).length));
+  }
+
+  // --- the fallback: caching must never be why a user gets nothing ---
+  {
+    let calls = 0; const systems = [];
+    globalThis.fetch = async (_u, o) => {
+      calls++; systems.push(JSON.parse(o.body).system);
+      if (calls === 1) return { ok: false, status: 400,
+        async text() { return '{"error":{"message":"cache_control: unsupported"}}'; } };
+      return okOnce();
+    };
+    const r = await w.fetch(postV(), { ANTHROPIC_API_KEY: 'k', CX_KV: makeKV(), IP_SALT: 's' });
+    t('a cache-rejecting 400 is retried', calls === 2, 'calls=' + calls);
+    t('the retry drops the block and sends a plain string', typeof systems[1] === 'string', typeof systems[1]);
+    t('the retry keeps the prompt byte-identical', systems[1] === sysText(systems[0]));
+    t('and the user still gets a 200', r.status === 200, String(r.status));
+  }
+
+  // --- the two degradations are independent, and order must not matter ---
+  {
+    let calls = 0; const payloads = [];
+    globalThis.fetch = async (_u, o) => {
+      calls++; const b = JSON.parse(o.body); payloads.push(b);
+      if (calls === 1) return { ok: false, status: 400,
+        async text() { return 'thinking cannot be disabled'; } };
+      if (calls === 2) return { ok: false, status: 400,
+        async text() { return 'cache_control not supported for this model'; } };
+      return okOnce();
+    };
+    const r = await w.fetch(postV(), { ANTHROPIC_API_KEY: 'k', CX_KV: makeKV(), IP_SALT: 's' });
+    t('thinking then cache: both degradations fire on one request', calls === 3, 'calls=' + calls);
+    t('thinking is gone by the second attempt', !payloads[1].thinking);
+    t('caching is gone by the third', typeof payloads[2].system === 'string');
+    t('and the request still succeeds', r.status === 200, String(r.status));
+  }
+
+  // --- an unrelated 400 must NOT be mistaken for a cache problem ---
+  {
+    let calls = 0;
+    globalThis.fetch = async () => { calls++; return { ok: false, status: 400,
+      async text() { return 'max_tokens is too large'; } }; };
+    const r = await w.fetch(postV(), { ANTHROPIC_API_KEY: 'k', CX_KV: makeKV(), IP_SALT: 's' });
+    t('an ordinary 400 is not retried as a cache failure', calls === 1, 'calls=' + calls);
+    t('and it still surfaces as upstream_400', (await r.json()).error === 'upstream_400');
+  }
+
+  // --- the derivation itself, asserted structurally ---
+  {
+    const src = readFileSync(rel('./src/index.js'), 'utf8');
+    t('DEVICE_DAILY_LIMIT is derived from PROMPTS_PER_DAY, never retyped',
+      /const DEVICE_DAILY_LIMIT = PROMPTS_PER_DAY \* 2;/.test(src));
+    t('and no bare call-count literal was left beside it',
+      !/const DEVICE_DAILY_LIMIT = \d+/.test(src));
+    /* The IP axis is derived too. It was a literal 300 chosen as ~15x a device
+       ceiling of 20; when that ceiling doubled the ratio silently halved and
+       shared addresses — a flat, an office, a mobile carrier's CGNAT — lost
+       half their headroom with nobody deciding it. Pinning the RELATIONSHIP
+       means the next allowance change carries this one with it. */
+    t('IP_DAILY_LIMIT is derived from the device ceiling, not a literal',
+      /const IP_DAILY_LIMIT = DEVICE_DAILY_LIMIT \* 10;/.test(src));
+    t('and no bare IP literal survives', !/const IP_DAILY_LIMIT = \d+/.test(src));
+    /* The public number is PROMPTS_PER_DAY. If it ever stops being half the call
+       ceiling the store copy silently becomes a lie again — which is the exact
+       defect this constant exists to prevent. */
+    const ppd = (src.match(/const PROMPTS_PER_DAY = (\d+);/) || [])[1];
+    t('PROMPTS_PER_DAY is the number safe to print in public copy',
+      ppd && Number(ppd) * 2 === LIMIT, `PROMPTS_PER_DAY=${ppd} LIMIT=${LIMIT}`);
+  }
 }
 
 globalThis.fetch = realFetch;

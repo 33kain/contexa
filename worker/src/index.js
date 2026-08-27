@@ -32,13 +32,63 @@ const ANTHROPIC_URL = 'https://api.anthropic.com/v1/messages';
 const MODEL = 'claude-sonnet-5';
 
 // Quotas. Client values are never trusted; these are the only limits that count.
-const DEVICE_DAILY_LIMIT = 20;
-// Second axis: blunts reinstall-for-a-fresh-token abuse. Deliberately generous
-// relative to the device limit, because legitimate users share IPs — an office or
-// a flat would otherwise block each other and it would look like a broken product.
-// Keep this at roughly 10x DEVICE_DAILY_LIMIT.
-const IP_DAILY_LIMIT = 300;
+/* PROMPTS_PER_DAY is the number a USER experiences, and the only one that may
+   ever appear in public copy. A finished prompt costs TWO upstream calls — the
+   questions call and the compose call — and both charge this same device
+   counter, so the call ceiling is twice the prompt ceiling.
+   Derived rather than written as 40 because the alternative already failed: the
+   store listing advertised "10 prompts a day" while the code enforced 20 calls,
+   which was simultaneously double and half the truth. A number in public copy
+   has one source of truth and this is it. */
+const PROMPTS_PER_DAY = 20;
+const DEVICE_DAILY_LIMIT = PROMPTS_PER_DAY * 2;
+/* Second axis: blunts reinstall-for-a-fresh-token abuse. Deliberately generous
+   relative to the device ceiling, because legitimate users share IPs — an
+   office, a flat, a university, and above all mobile carriers, where CGNAT puts
+   a great many phones behind one address. Blocking those looks like a broken
+   product, not like a defence.
+
+   DERIVED, for the same reason PROMPTS_PER_DAY is: the RELATIONSHIP was the
+   requirement and 300 was only ever the artifact of it. Left as a literal, the
+   ratio silently halved from ~15x to ~7.5x the moment the device ceiling
+   doubled — a real narrowing of headroom for shared addresses that nobody
+   decided and nothing would have reported.
+
+   And note what this counter is NOT. It shares the eventually-consistent KV
+   read-modify-write with the device counter, so it races and reduces blast
+   radius rather than capping it. The real ceiling on spend is the Anthropic
+   Workspace limit, which is a hard number set outside this file. Tuning this
+   constant for cost protection is theatre; tuning it for legitimate-user
+   headroom is the actual job, and that argues for generosity. */
+const IP_DAILY_LIMIT = DEVICE_DAILY_LIMIT * 10;
 const KV_TTL_SECONDS = 60 * 60 * 48;
+
+/* PROMPT CACHING. The system prompt is a large fixed prefix on every single
+   call — QUESTIONS_SYSTEM alone is ~4.7k tokens, EXPAND_SYSTEM ~2.4k — and
+   until 2026-08-27 every byte of it was re-sent and re-billed at full input
+   price on every request. Marking it cacheable is the largest cost lever
+   available and it changes nothing a user can see.
+
+   Two things about this that fail SILENTLY and so are written down rather than
+   assumed:
+
+   1. Caching has a minimum cacheable length. A prompt shorter than that
+      threshold is simply not cached — no error, no warning, no field in the
+      response saying so. All three system prompts are comfortably above it
+      today; a future trim could drop one below and the only symptom would be
+      the bill. If you shorten a system prompt, check `usage` on a live call
+      for cache_creation / cache_read tokens rather than trusting this comment.
+   2. A cache HIT requires the prefix to be byte-identical to the previous
+      call's. That is why the block is built from the constant alone, with
+      nothing interpolated into it — a version stamp or a timestamp spliced in
+      here would invalidate the cache on every request while still looking
+      correct.
+
+   Kept as a function rather than three inline literals so the shape exists in
+   exactly one place: the retry below has to be able to recognise and undo it. */
+function cachedSystem(text) {
+  return [{ type: 'text', text, cache_control: { type: 'ephemeral' } }];
+}
 
 // Cost guards: a request can never be larger than this, whatever the client sends.
 const MAX_PROMPT_CHARS = 2500;
@@ -579,7 +629,7 @@ export default {
           model: env.MODEL || MODEL,
           max_tokens: EXPAND_MAX_TOKENS,
           thinking: { type: 'disabled' },
-          system: EXPAND_SYSTEM,
+          system: cachedSystem(EXPAND_SYSTEM),
           messages: [{
             role: 'user',
             // Section labels MUST match extension/background.js byte-for-byte —
@@ -595,14 +645,21 @@ export default {
           model: env.MODEL || MODEL,
           max_tokens: MAX_TOKENS,
           thinking: { type: 'disabled' },
-          system: asksQuestions ? QUESTIONS_SYSTEM : LEGACY_STEPS_SYSTEM,
+          system: cachedSystem(asksQuestions ? QUESTIONS_SYSTEM : LEGACY_STEPS_SYSTEM),
           messages: [{
             role: 'user',
             content: 'USER MESSAGE:\n' + (prompt || '(not captured)') + '\n\nCLAUDE REPLY:\n' + reply
           }]
         };
     let upstream, upstreamErrBody = '';
-    for (let attempt = 0; attempt < 2; attempt++) {
+    /* Two independent degradations, each allowed once, tracked by FLAGS rather
+       than by attempt index. The old `attempt === 0` guard meant a thinking
+       rejection could only ever be recovered from if it was the FIRST failure;
+       with two possible degradations that is no longer a safe assumption, and
+       the flags make the order irrelevant. Three attempts because both can
+       legitimately fire on one request. */
+    let droppedThinking = false, droppedCache = false;
+    for (let attempt = 0; attempt < 3; attempt++) {
       try {
         upstream = await fetch(ANTHROPIC_URL, {
           method: 'POST',
@@ -621,9 +678,24 @@ export default {
       // Tail-only: the body can contain account details, so it never reaches
       // the client — but silence here cost a debugging cycle once already.
       console.log('[CONTEXA] upstream error', upstream.status, upstreamErrBody.slice(0, 300));
-      if (attempt === 0 && upstream.status === 400 && /thinking/i.test(upstreamErrBody) && upstreamPayload.thinking) {
+      if (!droppedThinking && upstream.status === 400 && /thinking/i.test(upstreamErrBody) && upstreamPayload.thinking) {
         console.log('[CONTEXA] model rejected the thinking config — retrying without it');
         delete upstreamPayload.thinking;
+        droppedThinking = true;
+        continue;
+      }
+      /* Caching is an optimisation and must never be the reason a user gets
+         nothing. If the endpoint or the configured model rejects the cached
+         block, flatten it back to a plain string and try once more: the request
+         then costs what it cost before 2026-08-27 and still succeeds.
+         The match is deliberately broad, exactly like the thinking branch above
+         — the wording of somebody else's 400 is not ours to predict, and a
+         narrow regex here would turn a recoverable request into a dead one. */
+      if (!droppedCache && upstream.status === 400 && /cache/i.test(upstreamErrBody)
+          && Array.isArray(upstreamPayload.system)) {
+        console.log('[CONTEXA] upstream rejected prompt caching — retrying uncached');
+        upstreamPayload.system = upstreamPayload.system.map(b => b.text).join('');
+        droppedCache = true;
         continue;
       }
       break;
