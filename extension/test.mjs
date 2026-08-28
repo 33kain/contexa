@@ -1177,9 +1177,14 @@ const settle = () => new Promise(r => setTimeout(r, 0));
   t('reply completion renders a trigger and makes no call',
     /function onReplyComplete\([\s\S]{0,2000}return renderTrigger\(anchor, \{ prompt: promptText, reply: replyText/.test(csrc7)
     && !/function onReplyComplete\([\s\S]{0,2000}type: 'nextSteps'/.test(csrc7));
+  /* 0.9.55 — the second pattern used to pin the handler's exact one-line
+     SHAPE. The mascot's handler grew a disabled guard and a hop, and the
+     requirement underneath — askNow fires from a click listener inside the
+     trigger machine, never from reply completion — did not change. Same
+     lesson as the `[,)]` note above: pin the gate, not the arity. */
   t('the questions call moved behind a click',
     /function askNow\([\s\S]{0,400}type: 'nextSteps'/.test(csrc7)
-    && /addEventListener\('click', \(\) => \{ busy\(\); askNow\(anchor, ctx\); \}\)/.test(csrc7));
+    && /function renderTrigger\([\s\S]{0,2400}addEventListener\('click', [\s\S]{0,700}askNow\(anchor, ctx\)/.test(csrc7));
   t('the trigger is its own machine, not the fifth chip wearing a hat',
     /function renderTrigger\(/.test(csrc7)
     && /function appendOwnChip\(row, ctx, anchor, openNow\)/.test(csrc7));
@@ -1199,6 +1204,44 @@ const settle = () => new Promise(r => setTimeout(r, 0));
     /appendOwnChip\(row, ctx \|\| \{\}, anchor, openInput === true\)/.test(csrc7));
   t('arming is still reachable by the user, not only by us',
     /if \(openNow\) arm\(\); else idle\(\);/.test(csrc7));
+
+  /* ---- 0.9.55: the mascot trigger. Structure, not text — the label lives in
+     a bubble and an aria-label now, and pinning its copy verbatim is what
+     Defect C warns about. What must hold: the trigger slot holds a real
+     mascot BUTTON wired as before; the bubble can never intercept the click;
+     reduced motion is honoured; the character winks with one eye; the mount
+     line stays the single mount record; and the star/pencil pair that cost
+     two releases still shares nothing — no class (criterion P's trigger
+     half) and no words. */
+  t('the trigger slot holds a mascot button, not a chip',
+    (() => {
+      /* Scope to the function's own body — a distance bound here would read
+         the NEXT renderer's 'chip own' as the trigger's (the 0.9.53 span
+         lesson, again). */
+      const body = (csrc7.match(/function renderTrigger\(anchor, ctx\) \{[\s\S]*?\n  \}/) || [''])[0];
+      return /createElement\('button'\)[\s\S]{0,600}className = 'ctxa-mas'/.test(body)
+        && !/className = 'chip own'/.test(body);
+    })());
+  t('the mascot and the pencil share no class',
+    (() => {
+      const mas = ((csrc7.match(/function renderTrigger[\s\S]{0,2400}?createElement\('button'\)[\s\S]{0,600}?className = '([^']+)'/) || [])[1] || '').split(/\s+/).filter(Boolean);
+      const pen = ((csrc7.match(/function appendOwnChip[\s\S]{0,900}className = '([^']+)'/) || [])[1] || '').split(/\s+/).filter(Boolean);
+      return mas.length > 0 && pen.length > 0 && !mas.some(c => pen.includes(c));
+    })());
+  t('nor a label — star asks, pencil types, in different words',
+    (() => {
+      const aria = (csrc7.match(/setAttribute\('aria-label', '([^']+)'\)/) || [])[1];
+      const pencil = (csrc7.match(/function appendOwnChip[\s\S]{0,1400}textContent = '([^']+)'/) || [])[1];
+      return !!aria && !!pencil && aria !== pencil;
+    })());
+  t('the bubble can never intercept the click',
+    /\.ctxa-mas-bubble\{[\s\S]{0,400}pointer-events:none/.test(csrc7));
+  t('reduced motion is honoured: fade entrance, idle animations off',
+    /@media \(prefers-reduced-motion:reduce\)\{[\s\S]{0,300}\.ctxa-mas\{animation:ctxa-fadein[\s\S]{0,300}\.ctxa-mas-wink,\.ctxa-mas-pup\{animation:none\}/.test(csrc7));
+  t('one eye winks — winks, never blinks',
+    ((csrc7.match(/const MASCOT_SVG = `([\s\S]*?)`;/) || ['', ''])[1].match(/ctxa-mas-wink/g) || []).length === 1);
+  t('the mount line stays the single mount record',
+    (csrc7.match(/card mounted/g) || []).length === 1);
 
   /* ---- v1: the moves branch reaches the page ---------------------------------
      Source assertions cannot see a click, so these pin the wiring and the field
@@ -1388,12 +1431,32 @@ const settle = () => new Promise(r => setTimeout(r, 0));
   /* --- touch. Confirmed working on Edge, Lemur, Mises and Quetta; the desktop
      row heights were under 44px and the nav glyphs were far under. --- */
   t('a coarse-pointer stylesheet exists', /@media \(pointer:coarse\),\(max-width:520px\)/.test(c33));
-  t('option rows clear the 44px minimum', /\.opt\{[^}]*min-height:46px/.test(c33));
+  /* 0.9.55 §2 — sentence rows became pills; the 44px requirement is the same
+     and moved selector. */
+  t('option pills clear the 44px minimum', /\.pill\{[^}]*min-height:46px/.test(c33));
   t('the nav arrows get a real hit area', /\.nav button\{[^}]*min-width:40px;min-height:40px/.test(c33));
+  /* 0.9.55 round 3 — the interview foot (and its input) is gone; the input
+     that SURVIVES is the fifth chip's rough-ask box, and the 16px
+     requirement moves to its coarse rule unchanged. */
   t('inputs are 16px so mobile Safari does not zoom the page',
-    /\.foot \.own-input\{font-size:16px/.test(c33));
-  t('the arrow is always visible on touch, where there is no hover',
-    /@media \(pointer:coarse\)[\s\S]{0,700}\.opt \.tick\{opacity:1\}/.test(c33));
+    /\.own-input\{width:100%;font-size:16px/.test(c33));
+  /* The interview itself renders no input anywhere — click-only with no
+     asterisk (owner, 2026-08-28: the typing affordance lives downstream in
+     the fifth chip, so the per-question box was a duplicate). Skip lives in
+     the options row. */
+  t('the interview renders no free-text input, and Skip rides the options row',
+    (() => {
+      const body = (c33.match(/function renderInterview\(anchor, questions, ctx\) \{[\s\S]*?\n  \}/) || [''])[0];
+      return body.length > 0
+        && !/createElement\('input'\)/.test(body)
+        && !/own-input/.test(body)
+        && /pills\.appendChild\(skip\)/.test(body);
+    })());
+  /* 0.9.55 §2 — the tick arrow died with the sentence rows. On touch the
+     affordance is the pill itself: a real border in the BASE rule, not in a
+     hover state, is what makes it read as tappable where there is no hover. */
+  t('pills read as tappable without hover',
+    /\.pill\{[^}]*border:1px solid/.test(c33));
 
   // The title is what the store search actually indexes.
   const mf = JSON.parse(readFileSync('./manifest.json', 'utf8'));

@@ -7,6 +7,166 @@ free to diverge, and the settings page labels them separately for that reason.
 
 ---
 
+## 0.9.55 — Extension
+
+*The doorknob got a face.*
+
+### The mascot IS the trigger (content spec §1)
+
+Same slot, same mount conditions, same click handler, same spends-one-call-on-
+click semantics — `renderTrigger` still renders once per completed reply, and
+nothing about the conversation leaves the page before a deliberate click. What
+changed is what stands in the slot: the 58×50 teal blob (§1c SVG, inline, one
+source constant), popping in once on mount, winking rarely with one eye, and
+whispering `What now? ✦` in a hover/focus bubble that can never intercept a
+click (`pointer-events:none`). Keyboard users get the same product: a real
+`<button>`, aria-label "What now?", Enter/Space fire natively, teal focus ring.
+
+**Criterion P's trigger half closes here, by construction.** The old trigger
+chip shared `chip own` with the pencil, the compose chip and *Hide for this
+session*, and 0.9.53 proved a shared label costs a release. The mascot carries
+`ctxa-mas-*` classes only and no text label at all — star asks, pencil types,
+and they no longer even share an alphabet. The pencil keeps its label, its
+classes and its box, untouched.
+
+During the in-flight call the mascot stays put (idle animations may keep
+running) and the existing `✦ reading…` presentation renders beside it; the
+double-click a replaced chip used to prevent is prevented by `disabled`.
+Reduced motion: entrance becomes a fade, idle animations off.
+
+### The card wears the locked form (content spec §2)
+
+Behavior byte-identical — same questions, same clicks, same composed prompt
+landing visibly in the message box, CONTEXA never sends. The skin:
+
+- **Pills, not sentences.** The pill shows a ≤4-word handle (`shortLabel`, the
+  clamp move chips already enforce); the full option sentence — written for
+  the user, delivered by the wire unchanged — rides the hover title and is
+  what a click actually answers with. Label ≠ composed, zero wire involvement.
+- **Dots, not "N of M".** One per question, current at full strength and the
+  rest dimmed — positional colours red → yellow → blue → white (owner's
+  order, field round 1; yellow is the site highlighter `#FFD84D`, blue the
+  swatch-row `#4F77C5`, white ringed so it survives light surfaces) — and a
+  cheap structural discriminator against claude.ai's own Cowork question
+  widget, which says "N of M" (Contaminant 2). The ✦ CONTEXA marker stays,
+  same reason.
+- **Answered questions collapse** to one quiet line each (label + clicked
+  answer); a skip collapses to nothing.
+- **Surfaces follow the host; accents are brand teal.** The spec's quiet hat
+  said coral accents with teal only on the small ✦ — the owner saw it live in
+  field round 1 (*"sve je narandžasto"*) and overruled: `--accent` is
+  `#15a594` light / `#2cc4ae` dark everywhere an accent goes (pill hover, nav
+  hover, input focus, the ✦s, the mascot focus ring). Coral `#D97757` is
+  claude.ai's send button, and the design brief bans it outright — the quiet
+  hat kept it only as "the host's own"; the owner chose identity over
+  camouflage. Error/amber states keep their own colour: a warning must not
+  wear the brand. The live-value sampling §2 asks for was blocked (browser
+  pane approval never arrived), so surfaces keep the shipped host-matching
+  values; the field eye carries the Karpathy check.
+
+Moves row, compose and the text box inherit the same tokens with zero behavior
+change.
+
+### The mascot reaches the manifest
+
+`contexa-mascot-icon-{16,32,48,128}.png` (exported in the design phase — blob
+face, square, RGBA, verified byte-for-byte into the zip) replace the coral
+star under the conventional `icons/iconNN.png` names, and **32 is new** — the
+queued 32px-icon item closes. The ring stays a brand asset (store, site); the
+manifest is the mascot's. `action.default_icon` picks up 16/32/48.
+
+### The last stale public surface
+
+The manifest short description now says the button exists: the 125-char
+replacement written in the listing doc §0, verbatim. NEXT-3 done. Store
+screenshots are now the remaining stale surface (NEXT-4, unchanged — every
+uploaded shot shows the old chip and card).
+
+### Tests
+
+Seven new structural assertions: mascot button in the trigger slot and not a
+chip; star/pencil disjoint classes; aria-vs-pencil words differ; bubble
+non-interactive; reduced motion honoured; one-eye wink (winks, never blinks);
+the mount line stays the single mount record. Two touch assertions moved
+selector with their requirement intact (44px minimum, affordance without
+hover). One 0.9.53 assertion pinned the trigger handler's one-line SHAPE and
+fired on the disabled-guard + hop; loosened to the gate it was written for —
+askNow fires from a click listener inside the trigger machine, never from
+reply completion. Suite green; the label-comparison assertion passes
+untouched.
+
+**Store clock only.** No wire, no prompts, no worker, no linter. Source
+assertions cannot see a click and this change is entirely interaction surface:
+field test per content spec §3 before store submit.
+
+### Field round 1 (2026-08-27, same day)
+
+Four findings; three design deltas ordered on sight, one diagnosis. The
+mascot renders **31% smaller** (40×34.5 by CSS; the §1c constant stays
+verbatim at 58×50). Accents flipped **coral → brand teal** (above). Dots took
+**positional colours** (above). And *"no hover animation"*: the mechanism was
+**executed, not argued** — a clean Chromium mounting the real CSS and DOM out
+of `content.js` reports `winkIdle → winkOnce`, whisper puff and bubble both
+at opacity 1 the moment :hover matches, at the new size too. The concluded
+gesture (wink + whisper + bubble; lean-in stays rejected from the tuning
+round) fires in isolation, and the bubble additionally gained a 3px rise so
+the hover response reads as motion, not appearance. If the live page still
+shows nothing on hover, the cause is environmental — an overlay eating
+:hover in that composer neighbourhood (Grammarly draws there) — and needs the
+recording, not the code.
+
+### Field round 2 (2026-08-27) — built, seen, REVERTED the same hour
+
+The full-brand card was ordered, built, seen live and pulled by the owner on
+sight (*"mnogo napadno, moja greška"*): pitch-black surface in both themes,
+teal frame, teal lettering turning white on click, every dash removed. It
+rendered exactly as ordered — and seeing it next to the conversation settled
+what the quiet hat had been arguing all along: the card is furniture, not a
+billboard. **Recorded as a deliberate rejection — do not re-brand the
+card.** The revert restores the round-1 skin verbatim: host surfaces and
+borders, teal accents, colored dots, 40px mascot, dashed fallback chips and
+the amber warning states included.
+
+What round 2 leaves behind is the hover work, which stays. The mystery was
+narrowed by execution: Grammarly ruled out by the owner, and a clean
+Chromium re-fires the gesture on every entry (three consecutive hovers
+probed, normal AND reduced-motion emulation) — so "once per refresh, never
+again" is environmental to that page. Two hardenings shipped and kept: the
+gesture is class-driven (`.ctxa-peek`) from the button's own
+mouseenter/focus with a forced-reflow restart — deterministic per entry,
+keyboard focus gets the gesture too — and the holder carries
+`position:relative; z-index:5`, the §1e-sanctioned modest lift. The owner
+then ran the discriminator: `elementFromPoint` at the mascot's center
+returns the CONTEXA holder — **nothing overlays the mascot; the overlay
+theory is dead.** What remains to observe live: whether the peek-driven
+gesture fires now; if not, Tab-focus vs mouse splits event delivery from
+everything else.
+
+### Field round 3 (2026-08-28) — the interview goes click-only, literally
+
+The "Something else…" free-text input is gone and Skip moved up into the
+options row, pushed to its right edge; the foot is no more. **This is the
+release's one deliberate behavior change** — the content spec said
+visual-only, and the owner re-scoped it in the field, which she can, because
+nothing has shipped. Her reason is structural, not aesthetic: the typing
+affordance already exists downstream — skipping everything lands on the
+fifth chip, and a click that earned nothing opens the box (0.9.53) — so the
+per-question input was a duplicate affordance wearing a different position.
+§2b stops carrying an asterisk: answers are clicks, Skip is the out, and the
+second button is where typing lives.
+
+What it cost, swept the same day: the store description's sentence promising
+the box ("There is a box for typing your own…") is deleted from the listing
+doc §1 — safe to paste any time, since against live 0.9.54 the copy merely
+under-promises and against 0.9.55 it is exact. In code, the dead
+zero-options placeholder branch ("Type your answer…") died with the input it
+decorated — the pipeline has guaranteed two-plus options per question since
+0.9.33. The 16px mobile-input assertion moved to the input that survives
+(the rough-ask box); a new structural assertion pins the interview
+rendering no input at all, with Skip riding the options row.
+
+---
+
 ## 0.9.54 — Extension
 
 *The questionnaire stopped being the only answer.*

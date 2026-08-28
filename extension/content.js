@@ -83,17 +83,30 @@
   :host{all:initial}
   *{box-sizing:border-box;margin:0;padding:0;
     font-family:ui-sans-serif,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
+  /* 0.9.55 field round 1 — the accent is BRAND TEAL, not host coral. The spec
+     said quiet-hat coral; the owner saw it live ("sve je narandžasto") and
+     overruled: our new colour everywhere the accent goes. Coral #D97757 is
+     claude.ai's send button — the design brief bans it outright. Light theme
+     gets brand #15a594, dark gets the mascot's bright stop #2cc4ae.
+     Field round 2 (same day) tried the FULL-BRAND card — pitch-black surface,
+     teal frame, teal lettering, white on click — and the owner reverted it on
+     sight: "mnogo napadno, moja greska." The quiet hat stands: surfaces and
+     borders follow the host, teal stays an accent. Do not re-brand the card. */
   .wrap{--surface:#FFFFFF;--surface2:#FAF9F5;--text:#3D3929;--text2:#73726C;
-    --border:#E8E6DE;--border2:#DEDCD1;--accent:#D97757;--accent-soft:#F5E9E4;
+    --border:#E8E6DE;--border2:#DEDCD1;--accent:#15a594;--accent-soft:#E0F2EF;
     --amber-bg:#F7F0DF;--amber-text:#8A6A1F;
     display:block;margin:8px 0 16px;max-width:680px;
     opacity:0;transform:translateY(4px);transition:opacity .28s ease,transform .28s ease}
   .wrap[data-theme="dark"]{--surface:#30302E;--surface2:#3A3A37;--text:#EDECE6;
-    --text2:#A6A49B;--border:#3F3F3C;--border2:#4A4A46;--accent:#D97757;--accent-soft:#453832;
+    --text2:#A6A49B;--border:#3F3F3C;--border2:#4A4A46;--accent:#2cc4ae;--accent-soft:#274641;
     --amber-bg:#403823;--amber-text:#E0C382}
   .wrap.show{opacity:1;transform:none}
   .label{display:flex;align-items:center;gap:6px;font-size:9.5px;letter-spacing:.15em;
     text-transform:uppercase;color:var(--text2);margin-bottom:6px}
+  /* 0.9.55 §2 — the ✦ rides the accent (brand teal since field round 1). The
+     marker text stays quiet (label color); the marker as a whole is a
+     documented structural discriminator against claude.ai's own question
+     widget (Contaminant 2) and must remain. */
   .label b{color:var(--accent);font-weight:700;letter-spacing:.17em}
   .chips{display:flex;flex-wrap:wrap;gap:6px}
   .chip{display:inline-flex;align-items:center;background:var(--surface);
@@ -127,6 +140,61 @@
     padding:5px 12px;font-size:12px;line-height:1.35;color:var(--text);width:250px;
     outline:none;font-family:inherit}
   .own-input::placeholder{color:var(--text2)}
+  /* 0.9.55 §1 — the mascot trigger. Everything under ctxa-mas-*; it shares no
+     class with the pencil chip (criterion P's trigger half closes here) and no
+     label (the comparison assertion keeps guarding the literals). */
+  .ctxa-mas-slot{display:inline-flex;align-items:center;gap:8px}
+  .ctxa-mas{background:none;border:none;padding:0;cursor:pointer;position:relative;
+    display:inline-flex;line-height:0}
+  /* field round 1 — owner: "bar 30% manja". The §1c constant stays verbatim at
+     58×50; the render shrinks to 40×34.5 (−31%) here, in CSS. */
+  .ctxa-mas svg{width:40px;height:34.5px;display:block}
+  .ctxa-mas:disabled{cursor:default}
+  .ctxa-mas:focus-visible{outline:2px solid var(--accent);outline-offset:3px;border-radius:12px}
+  .ctxa-mas-bubble{position:absolute;bottom:100%;left:50%;
+    transform:translateX(-50%) translateY(3px);
+    margin-bottom:7px;background:var(--surface);color:var(--text);
+    border:1px solid var(--border2);border-radius:999px;padding:4px 11px;
+    font-size:11px;line-height:1.35;white-space:nowrap;opacity:0;transition:.2s;
+    pointer-events:none;box-shadow:0 2px 8px rgba(0,0,0,.07)}
+  /* round 2 — every gesture selector also answers to .ctxa-peek, the class
+     the button toggles from its own mouseenter/focus (see renderTrigger):
+     deterministic restart per entry, independent of :hover cascade quirks. */
+  .ctxa-mas:hover .ctxa-mas-bubble,
+  .ctxa-mas:focus-visible .ctxa-mas-bubble,
+  .ctxa-mas.ctxa-peek .ctxa-mas-bubble{transform:translateX(-50%) translateY(0)}
+  .ctxa-mas-bubble b{color:var(--accent);font-weight:700}
+  .ctxa-mas:hover .ctxa-mas-bubble,
+  .ctxa-mas:focus-visible .ctxa-mas-bubble,
+  .ctxa-mas.ctxa-peek .ctxa-mas-bubble{opacity:1}
+  /* ENTRANCE — once, when the trigger mounts after a completed reply */
+  .ctxa-mas{animation:ctxa-popin .55s cubic-bezier(.3,1.2,.4,1);transform-origin:50% 100%}
+  @keyframes ctxa-popin{0%{transform:scale(0)}62%{transform:scale(1.12,.86)}
+                        82%{transform:scale(.95,1.06)}100%{transform:scale(1)}}
+  /* IDLE — rare snappy wink + occasional glance; nothing else */
+  .ctxa-mas-wink{animation:ctxa-winkIdle 6s infinite;transform-box:fill-box;transform-origin:center}
+  @keyframes ctxa-winkIdle{0%,93%,100%{transform:scaleY(1)}94.5%,96.5%{transform:scaleY(.08)}}
+  .ctxa-mas-pup{animation:ctxa-glance 8s ease-in-out infinite}
+  @keyframes ctxa-glance{0%,72%,100%{transform:translateX(0)}80%,90%{transform:translateX(1.5px)}}
+  /* HOVER / FOCUS — winks at you, hand to mouth, bubble whispers.
+     Round 2 adds the .ctxa-peek route; keyframes stay §1d verbatim. */
+  .ctxa-mas:hover .ctxa-mas-wink,
+  .ctxa-mas:focus-visible .ctxa-mas-wink,
+  .ctxa-mas.ctxa-peek .ctxa-mas-wink{animation:ctxa-winkOnce .4s ease}
+  @keyframes ctxa-winkOnce{0%,100%{transform:scaleY(1)}35%,65%{transform:scaleY(.08)}}
+  .ctxa-mas-whisp{opacity:0;transition:.2s}
+  .ctxa-mas:hover .ctxa-mas-whisp,
+  .ctxa-mas:focus-visible .ctxa-mas-whisp,
+  .ctxa-mas.ctxa-peek .ctxa-mas-whisp{opacity:1}
+  /* CLICK — small hop; then the existing flow runs unchanged */
+  .ctxa-mas.ctxa-hop{animation:ctxa-hop .35s ease}
+  @keyframes ctxa-hop{40%{transform:translateY(-8px)}}
+  /* REDUCED MOTION — entrance becomes a fade, idle animations off */
+  @media (prefers-reduced-motion:reduce){
+    .ctxa-mas{animation:ctxa-fadein .3s ease}
+    @keyframes ctxa-fadein{from{opacity:0}to{opacity:1}}
+    .ctxa-mas-wink,.ctxa-mas-pup{animation:none}
+  }
   .card{background:var(--surface);border:1px solid var(--border2);border-radius:12px;overflow:hidden}
   .chead{display:flex;align-items:center;gap:8px;padding:10px 12px;border-bottom:1px solid var(--border)}
   .q{flex:1;font-size:13px;font-weight:600;color:var(--text);line-height:1.3}
@@ -135,20 +203,41 @@
     padding:1px 5px;line-height:1;font-family:inherit;border-radius:4px}
   .nav button:hover:not(:disabled){color:var(--accent);background:var(--surface2)}
   .nav button:disabled{opacity:.3;cursor:default}
-  .opt{display:flex;align-items:center;gap:10px;width:100%;background:none;border:none;
-    border-bottom:1px solid var(--border);padding:9px 12px;cursor:pointer;text-align:left;
-    font-size:13px;color:var(--text);font-family:inherit;line-height:1.35}
-  .opt:hover,.opt.on{background:var(--surface2)}
-  .opt .n{display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;
-    border-radius:4px;background:var(--surface2);color:var(--text2);font-size:10px;flex-shrink:0}
-  .opt:hover .n,.opt.on .n{background:var(--accent-soft);color:var(--accent)}
-  .opt .tick{margin-left:auto;color:var(--accent);font-size:11px;opacity:0}
-  .opt:hover .tick,.opt.on .tick{opacity:1}
-  .foot{display:flex;align-items:center;gap:8px;padding:8px 10px}
-  .foot .own-input{flex:1;width:auto;border-radius:8px;border-color:var(--border2)}
-  .foot .own-input:focus{border-color:var(--accent)}
+  /* 0.9.55 §2 — pills, not sentences. The pill carries a short handle; the
+     full option sentence rides the hover title and is what a click composes
+     (label ≠ composed, zero wire involvement). Accents are brand teal —
+     field round 1 overruled the spec's quiet-hat coral. */
+  .pills{display:flex;flex-wrap:wrap;gap:6px;padding:10px 12px;border-bottom:1px solid var(--border)}
+  .pill{display:inline-flex;align-items:center;background:var(--surface);
+    border:1px solid var(--border2);border-radius:999px;padding:5px 12px;cursor:pointer;
+    font-size:12.5px;line-height:1.35;color:var(--text);font-family:inherit;
+    max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+    transition:border-color .14s,color .14s,transform .1s,background .14s}
+  .pill:hover{border-color:var(--accent);color:var(--accent);background:var(--surface2);
+    transform:translateY(-1px)}
+  /* §2 — an answered question collapses to one quiet line */
+  .done{display:flex;gap:6px;align-items:baseline;padding:7px 12px;
+    border-bottom:1px solid var(--border);font-size:11.5px;color:var(--text2);line-height:1.35}
+  .done b{font-weight:600;flex-shrink:0}
+  .done span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  /* §2 — progress dots, one per question, current at full strength;
+     deliberately not 'N of M' text (claude.ai's Cowork widget says 'N of M' —
+     Contaminant 2). Field round 1, owner's order: positional colours
+     red → yellow → blue → white. Yellow is the site highlighter #FFD84D,
+     blue the #4F77C5 from the icon swatch row; white carries a ring so it
+     exists on light surfaces too. */
+  .dots{display:inline-flex;gap:4px;align-items:center;margin:0 2px}
+  .dot{width:5px;height:5px;border-radius:50%;opacity:.35}
+  .dot:nth-child(1){background:#E5484D}
+  .dot:nth-child(2){background:#FFD84D}
+  .dot:nth-child(3){background:#4F77C5}
+  .dot:nth-child(4){background:#FFFFFF;box-shadow:0 0 0 1px var(--border2)}
+  .dot.on{opacity:1;transform:scale(1.25)}
+  /* round 3 — no foot: Skip lives at the end of the options row, pushed to
+     the right edge of its line. */
   .skip{background:var(--surface2);border:1px solid var(--border2);border-radius:6px;
-    padding:4px 10px;font-size:11px;color:var(--text2);cursor:pointer;font-family:inherit;flex-shrink:0}
+    padding:4px 10px;font-size:11px;color:var(--text2);cursor:pointer;font-family:inherit;
+    flex-shrink:0;margin-left:auto}
   .skip:hover{color:var(--accent);border-color:var(--accent)}
   .cxbusy{padding:12px;font-size:12px;color:var(--text2);animation:cxpulse 1.4s ease-in-out infinite}
   /* 0.9.33 — collapse rather than fade. A transparent card still occupies its
@@ -183,11 +272,9 @@
     .nav{gap:2px;font-size:12px}
     .nav button{font-size:18px;padding:9px 10px;min-width:40px;min-height:40px;
       display:inline-flex;align-items:center;justify-content:center}
-    .opt{padding:13px 14px;font-size:15px;min-height:46px;gap:12px}
-    .opt .n{width:22px;height:22px;font-size:11px}
-    .opt .tick{opacity:1}
-    .foot{padding:10px 12px;gap:8px}
-    .foot .own-input{font-size:16px;padding:9px 12px}
+    .pill{padding:11px 16px;font-size:14px;min-height:46px}
+    .pills{gap:8px;padding:12px 14px}
+    .done{padding:9px 14px;font-size:13px}
     .skip{padding:9px 14px;font-size:13px;min-height:40px}
     .chip{padding:9px 14px;font-size:13px;min-height:40px}
     .own-input{width:100%;font-size:16px}
@@ -621,6 +708,13 @@
     const holder = document.createElement('div');
     holder.setAttribute('data-contexa', 'steps');
     holder.setAttribute('data-cx-mode', mode);
+    /* round 2 — modest lift. claude.ai draws sticky/gradient chrome around
+       the composer, and a sibling overlay that catches pointer events would
+       eat :hover on the mascot while looking like nothing (field: gesture
+       fired once per load, never again; a clean Chromium re-fires every
+       time). Above page text, below claude.ai overlays/modals — §1e. */
+    holder.style.position = 'relative';
+    holder.style.zIndex = '5';
     const root = holder.attachShadow({ mode: 'open' });
     const style = document.createElement('style');
     style.textContent = CSS;
@@ -764,6 +858,18 @@
       const q = questions[i];
       card.replaceChildren();
 
+      /* 0.9.55 §2 — answered questions collapse to one quiet line each; the
+         current question is the only open one. A skip collapses to nothing:
+         an empty answer is not a fact worth a row. Purely a rendering of
+         state that already existed — answers[] is untouched. */
+      questions.forEach((pq, n) => {
+        if (n >= i || !answers[n]) return;
+        const d = mk('div', 'done');
+        d.appendChild(mk('b', null, pq.label));
+        d.appendChild(mk('span', null, answers[n]));
+        card.appendChild(d);
+      });
+
       const head = mk('div', 'chead');
       head.appendChild(mk('div', 'q', q.text));
       const nav = mk('div', 'nav');
@@ -774,49 +880,46 @@
       next.addEventListener('click', () => { i++; draw(); });
       const close = mk('button', null, '×');
       close.addEventListener('click', dismiss);
-      nav.append(prev, mk('span', null, `${i + 1} of ${questions.length}`), next, close);
+      /* §2 — dots, not `N of M`; see the CSS note (Contaminant 2). */
+      const dots = mk('span', 'dots');
+      questions.forEach((pq, n) => dots.appendChild(mk('span', n === i ? 'dot on' : 'dot')));
+      nav.append(prev, dots, next, close);
       head.appendChild(nav);
       card.appendChild(head);
 
+      /* §2 — pills, not sentences. shortLabel is the same ≤4-word handle the
+         move chips already enforce; the full sentence — written for the user,
+         delivered by the wire unchanged — sits on the title and is what a
+         click actually answers with. Number keys still pick from opts below. */
+      /* Field round 3 (2026-08-28, owner): the "Something else…" free-text
+         input is GONE and Skip moved up into the options row; the foot is no
+         more. The owner's reason, and it is structural: the typing
+         affordance already exists downstream anyway — skipping everything
+         lands on the fifth chip, and a click that earned nothing opens the
+         box (0.9.53) — so the per-question input was a duplicate. The
+         interview is click-only with no asterisk — §2b's law, literally.
+         Material only the user can supply still belongs in the composed
+         prompt as a slot (EXPAND_SYSTEM's job, 0.9.49). The store-listing
+         sentence promising the box was swept the same day. The fifth chip's
+         rough-ask box is untouched — that is the other button. */
       const opts = Array.isArray(q.options) ? q.options.slice(0, 4) : [];
-      opts.forEach((o, n) => {
-        const b = mk('button', 'opt');
-        b.appendChild(mk('span', 'n', String(n + 1)));
-        b.appendChild(mk('span', null, o));
-        b.appendChild(mk('span', 'tick', '→'));
+      const pills = mk('div', 'pills');
+      opts.forEach(o => {
+        const b = mk('button', 'pill', shortLabel(o));
+        b.title = o;
         b.addEventListener('click', () => answer(o));
-        card.appendChild(b);
+        pills.appendChild(b);
       });
-
-      const foot = mk('div', 'foot');
-      const input = document.createElement('input');
-      input.className = 'own-input';
-      input.type = 'text';
-      input.maxLength = 200;
-      input.placeholder = opts.length ? 'Something else…' : 'Type your answer…';
-      input.value = answers[i] && !opts.includes(answers[i]) ? answers[i] : '';
-      /* Keyboard events are composed and cross the shadow boundary, so without
-         this a keystroke here reaches claude.ai's document listeners and can
-         scroll the page or pull focus into the composer. */
-      for (const evt of ['keydown', 'keyup', 'keypress', 'input', 'paste']) {
-        input.addEventListener(evt, e => e.stopPropagation());
-      }
-      input.addEventListener('keydown', e => {
-        if (e.key === 'Enter') { e.preventDefault(); answer(input.value); }
-        else if (e.key === 'Escape') dismiss();
-      });
-      foot.appendChild(input);
       const skip = mk('button', 'skip', 'Skip');
       skip.addEventListener('click', () => answer(''));
-      foot.appendChild(skip);
-      card.appendChild(foot);
+      pills.appendChild(skip);
+      card.appendChild(pills);
 
       /* Number keys pick an option, the way the reference card does. Focus is
          only taken when the user is NOT typing in the composer — interrupting
          someone mid-sentence to offer them a questionnaire is not help. */
       card.tabIndex = -1;
       card.onkeydown = e => {
-        if (e.target === input) return;
         const n = parseInt(e.key, 10);
         if (n >= 1 && n <= opts.length) { e.preventDefault(); answer(opts[n - 1]); }
         else if (e.key === 'Escape') dismiss();
@@ -838,25 +941,82 @@
      state a second meaning would make every assertion about it ambiguous. This
      is a separate three-line machine that hands off and never comes back:
      `askNow` re-renders the shell, so nothing here survives the click. */
+  /* 0.9.55 §1c — the character, verbatim from the content spec. One source
+     constant, shipped inline; the manifest icon files are a separate export.
+     Character law: body shape locked; baby-schema eyes with catchlights;
+     winks, never blinks — one eye (viewer-right), rare and snappy; no idle
+     breathing; no lean-in on hover (offered, rejected); teal is the mascot's
+     color and the mascot is the one loud element in the page. */
+  const MASCOT_SVG = `<svg width="58" height="50" viewBox="0 0 58 50" aria-hidden="true">
+  <defs><linearGradient id="ctxaMg" x1="0" y1="0" x2="0" y2="1">
+    <stop offset="0" stop-color="#2cc4ae"/><stop offset="1" stop-color="#15a594"/>
+  </linearGradient></defs>
+  <path d="M29 3 C43 3 53 12 53 26 L53 50 L5 50 L5 26 C5 12 15 3 29 3 Z" fill="url(#ctxaMg)"/>
+  <g class="ctxa-mas-pup">
+    <g><ellipse cx="21" cy="25.5" rx="7.4" ry="8.6" fill="#fff"/>
+       <circle cx="22.9" cy="27.2" r="3.3" fill="#173b35"/>
+       <circle cx="21.9" cy="26.1" r="1.2" fill="#fff" opacity=".95"/></g>
+    <g class="ctxa-mas-wink"><ellipse cx="37" cy="25.5" rx="7.4" ry="8.6" fill="#fff"/>
+       <circle cx="38.9" cy="27.2" r="3.3" fill="#173b35"/>
+       <circle cx="37.9" cy="26.1" r="1.2" fill="#fff" opacity=".95"/></g>
+  </g>
+  <path d="M25 37 Q29 39.5 33 37" stroke="#0e6e63" stroke-width="2" fill="none" stroke-linecap="round"/>
+  <ellipse class="ctxa-mas-whisp" cx="41" cy="37" rx="4.6" ry="3.4" fill="#2cc4ae"/>
+</svg>`;
+
   function renderTrigger(anchor, ctx) {
     const wrap = shell(anchor, 'ai');
     if (!wrap) return;
-    wrap.innerHTML = `<div class="label"><b>✦ CONTEXA</b></div>` +
+    wrap.innerHTML = `<div class="label"><b>✦</b> CONTEXA</div>` +
       `<div class="chips"></div>`;
     const slot = document.createElement('span');
+    slot.className = 'ctxa-mas-slot';
     wrap.querySelector('.chips').appendChild(slot);
     idle();
 
     function idle() {
+      /* 0.9.55 §1 — the mascot IS the trigger: same slot, same mount
+         conditions, same click handler, same spends-one-call-on-click
+         semantics. Its appearance is pure DOM/CSS — no model call, no fetch,
+         nothing leaves the page before a click. It is a real <button>, so
+         Enter/Space fire natively; it must NOT read like the fifth chip, and
+         it no longer can: no chip class, no text label. Star asks, pencil
+         types — the bubble whispers 'What now? ✦' and the aria-label says the
+         same for keyboard and screen-reader users. */
       const chip = document.createElement('button');
-      chip.className = 'chip own';
-      /* 0.9.53 — this must NOT read like the fifth chip. Both are one click,
-         but this one spends a call and comes back with questions, while that
-         one opens a text box. The first draft copied the fifth chip's label
-         verbatim and the two sat in the same row saying the same words for
-         different actions. Star asks, pencil types. Pinned by a test. */
-      chip.textContent = '✦ What do I say next?';
-      chip.addEventListener('click', () => { busy(); askNow(anchor, ctx); });
+      chip.className = 'ctxa-mas';
+      chip.setAttribute('aria-label', 'What now?');
+      chip.innerHTML = MASCOT_SVG +
+        '<span class="ctxa-mas-bubble">What now? <b>✦</b></span>';
+      chip.addEventListener('click', () => {
+        if (chip.disabled) return;
+        /* §1d — small hop on the click, then the existing flow runs
+           unchanged. The mascot stays put (idle animations may keep running)
+           and the existing loading presentation renders beside it; askNow
+           re-renders the shell, so nothing here survives the response. */
+        chip.disabled = true;
+        chip.classList.add('ctxa-hop');
+        busy();
+        askNow(anchor, ctx);
+      });
+      /* round 2 — the field showed the hover gesture firing once per page
+         load and never again on that machine; a clean Chromium re-fires it
+         on every entry (probed three hovers, normal and reduced-motion), so
+         the cause is environmental. Harden anyway: the gesture is driven by
+         a class the button toggles itself, with a forced reflow between
+         remove and add so the one-shot wink RESTARTS deterministically on
+         every entry — and keyboard focus gets the same. Appearance only: no
+         call, no fetch, nothing leaves the page. */
+      const peekOn = () => {
+        chip.classList.remove('ctxa-peek');
+        void chip.offsetWidth;
+        chip.classList.add('ctxa-peek');
+      };
+      const peekOff = () => chip.classList.remove('ctxa-peek');
+      chip.addEventListener('mouseenter', peekOn);
+      chip.addEventListener('mouseleave', peekOff);
+      chip.addEventListener('focus', peekOn);
+      chip.addEventListener('blur', peekOff);
       slot.replaceChildren(chip);
     }
 
@@ -864,14 +1024,14 @@
       const b = document.createElement('span');
       b.className = 'chip busy';
       b.textContent = '✦ reading…';
-      slot.replaceChildren(b);
+      slot.appendChild(b);
     }
   }
 
   function renderSteps(anchor, steps, ctx, offerAssume, openInput) {
     const wrap = shell(anchor, 'ai');
     if (!wrap) return;
-    wrap.innerHTML = `<div class="label"><b>✦ CONTEXA</b></div>` +
+    wrap.innerHTML = `<div class="label"><b>✦</b> CONTEXA</div>` +
       `<div class="chips"></div>`;
     const row = wrap.querySelector('.chips');
     for (const s of steps) {
@@ -946,7 +1106,7 @@
   function renderChips(anchor, chips, ctx) {
     const wrap = shell(anchor, 'ai');
     if (!wrap) return;
-    wrap.innerHTML = `<div class="label"><b>✦ CONTEXA</b></div>` +
+    wrap.innerHTML = `<div class="label"><b>✦</b> CONTEXA</div>` +
       `<div class="chips"></div>`;
     const row = wrap.querySelector('.chips');
     for (const c of chips) appendMoveChip(row, c, ctx, anchor);
