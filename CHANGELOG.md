@@ -7,6 +7,214 @@ free to diverge, and the settings page labels them separately for that reason.
 
 ---
 
+## 0.9.56 — Extension + Worker
+
+*The questions stopped talking to her and started sounding like her.*
+
+### Register C — the interview speaks in the user's inner voice
+
+Spec: `CONTEXA-voice-spec.md`, decided in the design chat from three registers
+rendered on the same interview. The questions and the option labels are now
+written as the words she would use **thinking to herself**, never as a form
+addressing her. The trigger already spoke that way — *"What now? ✦"* is a
+thought, not an offer — so this makes the whole surface one voice: whisper,
+trigger, questions, labels, and the composed prompt, which was always first
+person because it *is* her draft.
+
+**Prompt-only, and `QUESTIONS_SYSTEM` only.** `EXPAND_SYSTEM` is untouched: the
+composed prompt's voice is a function, not a style. No wire change, no
+`content.js` change, no schema change.
+
+The register ships as a **rule plus re-voiced demonstrations**, in that order
+of importance — Defect A says rules lose to exemplars, so the four exemplar
+questions still written in second person were the actual work:
+
+- *"Which piece do you want built first?"* → *"Which piece do I want built first?"*
+- *"What will you upload?"* → *"What am I uploading?"*
+- *"What do you want back?"* → *"What do I want back?"* — which is the voice
+  spec's own worked example, arriving in the prompt by the shortest path
+- and the refused one, *"What story do you want to tell?"* → *"…do I want to
+  tell?"*, so that its refusal stays about clickability rather than voice
+
+The rule replaces the old *"the question addresses THE USER"* line and carries
+the register **as a test rather than an adjective**: would this line be at home
+in her own head? It names the two failure shapes (service voice — *"Would you
+like me to…"* is a waiter, not a thought; and second person — *"your device"*
+breaks the mirror), nails *"I"* to the user, and prescribes the want-anchor
+(*"What do I want this to say?"* over *"What should I write?"*) because this
+register's named failure mode is the I drifting onto the tool. It also states
+outright that a pronoun-free question is still in register, so nobody forces an
+*I* into *"When did the problem start?"*. Options were already largely hers
+(*"Give me the ones that scare me"*, *"A fix I can paste"*) and the rule now
+says so, quoting two of them.
+
+### The prompt stopped describing a UI that no longer exists
+
+Found while editing, not by a test: `QUESTIONS_SYSTEM` still told the model
+*"the free-text box is an escape hatch"* and that *"the interface adds those
+itself"* for other/skip options. **0.9.55 removed the interview's free-text box
+entirely.** The rule's conclusion was still right — drop a question you cannot
+write options for — but its premise had gone false, so the line was strengthened
+rather than deleted: **the card has NO PLACE TO TYPE**, options and a Skip are
+everything the person has, and a question needing typing cannot be answered at
+all. The header follows: *CLICKING IS THE ONLY REQUIRED INPUT* → **THE ONLY
+INPUT**. Same for the Skip note, which now credits the card instead of a
+vanished text field.
+
+This is the "public copy goes stale silently" rule finding a new surface: a
+system prompt is copy about the product too, and nothing sweeps it.
+
+### The register is now guarded structurally, not by adjective
+
+Nothing pinned the old voice rule, which is why four second-person exemplars
+survived it. A "reads like her head" assertion would be a vibes check, so the
+load-bearing one is **structural**: pull every question and option set the
+prompt demonstrates and assert none of them addresses the reader. It is scoped
+deliberately — **chip texts are excluded**, because a chip is a message she
+sends *to Claude*, where *"you"* means Claude and is correct.
+
+Mutation-verified, and the first attempt was a lesson: injecting *"your"* into
+an option appeared to leave the guard silent, and the guard was fine — the
+mutation had hit the wrong one of two identical strings (the other lives in the
+new rule, which quotes that very option). **Grade a control on what actually
+varied.** With the mutation on target, the guard fires.
+
+Two assertions that pinned the removed free-text box moved to the new truth
+rather than being loosened (Defect C: the failing test was the stale half, not
+the code).
+
+### Versions
+
+Extension **0.9.56**, worker `BUILD` **0.9.56**. The prompt lives byte-identical
+in both artifacts and the build enforces that, so a prompt change is never
+worker-only — but the two reach users on different clocks: hosted users get the
+voice from one `wrangler deploy`, own-key users when the package clears store
+review. The extension bumped rather than editing 0.9.55 in place because 0.9.55
+is *in review*: two different packages wearing one version would blind the mount
+line, which is the diagnostic that exists precisely because two builds once ran
+side by side. The worker `BUILD` bumped for the same reason one clock down —
+0.9.54 could not tell a pre-voice deploy from a post-voice one.
+
+**Field test before deploy, own-key first** (voice spec §5): a green suite proves
+the prompt says the right things, never that the model speaks them.
+
+### Field round 1, and the register's named failure arrived on day one
+
+Own-key, mount line `v0.9.56`, one build logging. Off a reply that ended
+*"javi ako hoćeš da to ubacim"* — an offer in **Claude's** first person — the
+interview asked **"Da ubacim skaliranje slika pre slanja?"**. The register was
+applied and the want-anchor was not: that *I* is the tool's, borrowed
+word-for-word from the reply, which is exactly **I-drift**, the failure this
+register was known to risk and was named for at decision time.
+
+The shape around it was fine and worth recording, because the first reading was
+wrong: this looked like the banned confirmation-yes/no on the reply's own
+proposal, and it is not. Voice spec §3.1 bans the *unprompted* confirmation —
+its specimen is a reply that had already settled the thing. Here the reply
+**asked**, both options changed the next message, and sharpened criterion C
+says that is §2b working. Only the pronoun was wrong.
+
+Fixed before commit, which is the whole reason it cost nothing: the want-anchor
+now names the case that broke it — *a reply that offers in its own first person
+is the sharpest form of the trap; that "I" is Claude's and is never borrowed* —
+and, because a rule alone is what missed this, a worked exemplar demonstrates
+the turn: *"tell me if you want me to add image scaling before upload"* becomes
+**"Do I want image scaling before upload?"**, never *"Should I add image
+scaling?"*. Both halves are pinned, and the exemplar pin is mutation-verified.
+
+One thing this capture cannot settle: every exemplar is English and the
+specimen is Serbian, so whether the drift is general or amplified by the
+language is untested in both directions.
+
+### The fix, measured — and two of my own suspicions killed with it
+
+The field could not test the want-anchor: the next three attempts all took the
+moves branch, and the fourth was voided when an accidental message changed the
+conversation underneath it. So the measurement moved offline —
+`prompt-ab-fork.mjs`, new in this release: one fixed pair, three prompt
+variants, five runs each, printing only which branch came back. It assembles
+the call exactly as `background.js` does (same system prompt, same section
+labels, same 2500 ceiling, same disabled thinking, same model), and it rebuilds
+the pre-fix prompt by removing this release's two additions — reconstructing to
+**19,464 characters, the exact length the prompt had before the fix**, which is
+the check that it is testing the real previous state rather than an
+approximation.
+
+**The register fix works, and the numbers are not close:**
+
+| variant | question asked | whose "I" |
+|---|---|---|
+| PRE — no rule, no exemplar | *"**Da ubacim** skaliranje slika pre slanja?"* ×4 | Claude's, **0 of 4** in her voice |
+| NOW — rule + exemplar in the question block | *"Da li **mi treba**…"* ×2, *"Da li da ubacim…"* ×1 | 2 of 3 |
+| END — same, exemplar after the moves block | *"Da li **hoću** da skaliram…"*, *"Da li **hoću**…"*, *"Da li **mi treba**…"* | **3 of 3** |
+
+PRE reproduced the field's exact defective question four times out of four, so
+the field capture was reproducible rather than a one-off. After the fix,
+**5 of 6**. This is the field test §5 asked for, run on a bench instead of in
+a browser because the browser could not hold the input still.
+
+**Two things I had asserted turned out to be wrong, and the A/B is what
+corrected them.**
+
+*The voice edit did not move the fork.* One field run before the edit said
+questions and three after said moves, which looked like a regression I had
+introduced. On a fixed input it is PRE 4/5 questions, NOW 3/5, END 3/5 — one
+run of difference, no signal. **The fork is stochastic on this input and was
+already stochastic before the edit** (PRE takes the moves branch too). The
+field's 3/3 was a different input and a small sample, not an effect.
+
+*And the position suspicion was wrong.* This release's own notes name the
+exemplar's placement after the moves block as the prime suspect for that
+apparent regression. NOW and END split the branch identically, and END — the
+"bad" position — worded its questions best. **The move back into the question
+block stands as hygiene and is pinned by a grouping assertion; it explains
+nothing.** Filed in the pattern file as Defect B's third instance with that
+correction attached, because a suspicion recorded without its refutation is
+worse than one never raised.
+
+**What remains open, now with a number on it:** on a reply that asks the user
+directly, the fork takes the moves branch **20–40% of the time**. That is wrong
+by the prompt's own rule — the decision is hers to supply — and the gap is
+readable in the text rather than inferred from runs: the prompt says what to ask
+and says moves never accompany questions, but never says **which wins when both
+are earned**. Pre-existing, not a 0.9.56 regression, and deliberately left for
+its own change with its own before/after on the same harness.
+
+*Harness limitation, stated so nobody reads more into it than it holds:* the
+fixed pair is a transcription of the captured reply plus a stand-in user
+message, so it reproduces the field's shape, not its bytes — it measures the
+difference between variants, never the absolute rate. And one END run came back
+`unparsed` where the product would have salvaged a partial; the harness is
+stricter than the pipeline.
+
+### What else the same session confirmed
+
+**The moves branch fired in the field for the first time.** §2j had half a
+result since 2026-08-26 — the questions arm had chosen correctly once, the
+moves arm had never been seen by a human outside a test harness. Off a reply
+that listed finished work and asked nothing (the exact shape §2j said a real
+test needed), the row came back `Take it further · What could go wrong?`, and
+`deeper` composed into the box. **Criterion Q now has data on both arms.**
+
+Also confirmed live, all first sightings: the mascot mounts and is small; the
+hover bubble `What now? ✦` renders; the busy state keeps the mascot in place
+with `✦ reading…` beside it; the round-3 card shows pills, dots, Skip at the
+row's end and an answered question collapsed to one line; `<paste … here>`
+slots reach the message box; the standalone assume chip fires
+(`assumed Array(1)` → `quiet row — nothing to ask (something stated instead)`).
+
+**And one pre-existing defect caught on camera, unrelated to the voice.** A
+composed prompt carried the fact in its body — *"I'm on Windows 11, PowerShell
+5.1 only — no WSL, no git bash"* — and then repeated it as
+`Assume: I'm on Windows 11 with PowerShell 5.1 only, no WSL or git bash`. That
+is **criterion B with a capture**: §2h says the two routes are exclusive and one
+fact fires only one of them, and `EXPAND_SYSTEM` is told outright that the same
+fact arrives twice and to state it once. It said it twice. `EXPAND_SYSTEM` is
+untouched by this release, so the specimen belongs to the composer, not the
+register — filed, not fixed here.
+
+---
+
 ## 0.9.55 — Extension
 
 *The doorknob got a face.*

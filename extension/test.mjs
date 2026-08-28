@@ -1054,6 +1054,71 @@ const settle = () => new Promise(r => setTimeout(r, 0));
   t('prompt: reaches past the immediate turn', SRC.includes('Look past the immediate turn'));
   t('prompt: no click-paths at the user', SRC.includes('Never ask the user to click, open, enable or navigate'));
 
+  /* ---- Register C — the interview speaks in the user's inner voice ----------
+     Voice spec §1, shipped 0.9.56. The rule is pinned below, but a rule is not
+     the mechanism (Defect A: rules lose to exemplars), so the load-bearing
+     assertion is STRUCTURAL: pull every question and option set the prompt
+     demonstrates and check that none of them addresses the reader. "Reads like
+     her own head" cannot be asserted and would be a vibes check; "no exemplar
+     says 'your'" fails the moment the register slips.
+
+     Scope matters and is the reason this does not simply scan the prompt for
+     "you": CHIP texts are messages the user sends TO Claude, where "you" is
+     Claude and perfectly correct (voice spec §0 scopes the register to
+     questions and labels). So the interview's questions are matched
+     explicitly — the prose exemplars, plus the filled JSON answer's own
+     label/text pairs — and the chip examples are left alone. */
+  const QVOICE = (SRC.match(/const QUESTIONS_SYSTEM = `([\s\S]*?)`;/) || ['', ''])[1];
+  t('prompt: the register is stated as a test, not an adjective',
+    QVOICE.includes("THE USER'S OWN INNER VOICE") && QVOICE.includes('at home in their own head'));
+  t('prompt: "I" is nailed to the user, and the drift case is named',
+    /"I" is ALWAYS the user/.test(QVOICE) && QVOICE.includes('drift onto the tool'));
+  t('prompt: a pronoun-free question is explicitly still in register',
+    QVOICE.includes('A question with no pronoun is still their voice'));
+  t('every demonstrated question is in her voice — none addresses her',
+    (() => {
+      const qs = [...QVOICE.matchAll(/question "([^"]+)"/g)].map(m => m[1])
+        .concat([...QVOICE.matchAll(/"label":"[^"]*","text":"([^"]+)"/g)].map(m => m[1]))
+        .filter(q => q !== '...');
+      return qs.length >= 10 && !qs.some(q => /\b(you|your|yours)\b/i.test(q));
+    })());
+  t('and so is every option the exemplars write',
+    (() => {
+      const sets = [...QVOICE.matchAll(/options \[([^\]]+)\]/g)].map(m => m[1]);
+      return sets.length >= 10 && !sets.some(o => /\b(you|your|yours)\b/i.test(o));
+    })());
+  /* Defect A once more: a register that exists only as a rule is one the model
+     can ignore. The want-anchor — the mitigation for this register's named
+     failure mode, I-drift — has to be SHOWN, not just described. */
+  t('and the want-anchor is demonstrated, not only described',
+    /question "What do I want back\?"/.test(QVOICE));
+  /* Field, 2026-08-28, first capture off the new prompt and the register's
+     named failure mode arriving exactly as predicted: the reply offered in
+     its OWN first person ("javi ako hoćeš da to ubacim") and the question
+     borrowed that I, landing the reader on Claude. The want-anchor rule was
+     already there and did not reach this case, which is the whole argument
+     for pinning the demonstration too — a rule alone is what missed it. */
+  t('prompt: the reply\'s own "I" is named as not hers to borrow',
+    QVOICE.includes("is CLAUDE'S and is never borrowed"));
+  t('and an exemplar turns such an offer into a want',
+    /question "Do I want image scaling before upload\?"/.test(QVOICE));
+  /* Defect B, third instance (2026-08-28): that exemplar was first appended to
+     the END of the worked-example list, landing it after the three move
+     examples and splitting the question block in two. The grouping —
+     question examples, then move examples — is stated nowhere in the prompt;
+     only the list's shape carries it, which is precisely why it survived an
+     edit. Pin the shape: the move examples are contiguous and nothing after
+     them writes a question. */
+  t('worked examples stay grouped: questions first, then moves, uninterrupted',
+    (() => {
+      const bullets = QVOICE.split('\n').filter(l => l.startsWith('- '));
+      const moves = bullets.map((l, i) => (l.includes('chips [') ? i : -1)).filter(i => i >= 0);
+      if (moves.length < 3) return false;
+      const first = moves[0], last = moves[moves.length - 1];
+      return moves.length === last - first + 1
+        && !bullets.slice(last + 1).some(l => /question "/.test(l));
+    })());
+
   // The untouchable rule, now guarding questions.
   t('prompt: evidence verbatim from the reply', SRC.includes('earned by a verbatim fragment of the reply'));
   t('prompt: no evidence, no question — and no move',
@@ -1339,11 +1404,17 @@ const settle = () => new Promise(r => setTimeout(r, 0));
   /* --- the click-only invariant. Owner's rule: a question the user cannot
      answer by CLICKING is not asked, and material they must supply belongs in
      the composed prompt as a slot rather than as a question. --- */
-  t('prompt: clicking is the only required input', SRC.includes('CLICKING IS THE ONLY REQUIRED INPUT'));
+  /* 0.9.56 — both of these pinned a UI that stopped existing in 0.9.55, when
+     the interview lost its free-text box. Defect C: read the failing test
+     before touching the code; here the tests were the stale half. The
+     requirement underneath did not change and is now STRONGER — clicking is
+     not merely the intended path, it is the only one — so they move to the
+     truth rather than being loosened away. */
+  t('prompt: clicking is the only input', SRC.includes('CLICKING IS THE ONLY INPUT'));
   t('prompt: an uncoverable question is dropped, not asked',
     SRC.includes('DO NOT ASK THAT QUESTION'));
-  t('prompt: free text is an escape hatch, not the path',
-    SRC.includes('escape hatch, never the intended path'));
+  t('prompt: the card has nowhere to type, and the prompt says so',
+    SRC.includes('NO PLACE TO TYPE') && SRC.includes('options and a Skip are everything'));
   t('prompt: dropping every question is allowed',
     SRC.includes('Dropping every question is fine'));
   t('prompt: material is never a question',

@@ -1,0 +1,5 @@
+{
+  "note": "Field shape from 2026-08-28: a reply that proposes a fix and asks whether to add it.",
+  "userMessage": "Napravi mi aplikaciju za oglase polovnih delova, sa Supabase bekendom i slikama koje korisnici dodaju sa telefona.",
+  "reply": "Dok CONFIG na vrhu skripte nije popunjen, aplikacija radi u demo režimu sa žutim banerom — tako možeš da je otvoriš i pre nego što napraviš projekat.\n\nUPUTSTVO-supabase.md — koraci od pravljenja projekta do objave, sa napomenom oko anon ključa (sme da stoji u kodu, service_role nikako) i podešavanja potvrde emaila.\n\nJedna stvar koju bih sredio rano: slike sa telefona su često 3–5 MB i brzo pojedu besplatnu kvotu od 1 GB. Skaliranje na ~1200 px kroz canvas pre slanja je dvadesetak linija koda — javi ako hoćeš da to ubacim."
+}
