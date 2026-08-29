@@ -24,14 +24,15 @@ jobs:
           node-version: '20'
 
       # No dependencies to install: the tests use a sandboxed fake `chrome` and
-      # fake `fetch`, and the build has no third-party imports. Plain `node`.
+      # fake `fetch`, and the build has no third-party imports — no `npm ci`
+      # step needed. Each step below calls the matching script in
+      # package.json, kept as separate steps (rather than one `npm test`) so
+      # a failure names its suite directly in the GitHub UI.
       - name: Extension tests
-        working-directory: extension
-        run: node test.mjs
+        run: npm run test:extension
 
       - name: Worker tests
-        working-directory: worker
-        run: node test.mjs
+        run: npm run test:worker
 
       - name: Build (verifies prompt byte-identity)
-        run: node build.mjs
+        run: npm run build
