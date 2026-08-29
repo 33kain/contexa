@@ -2564,8 +2564,8 @@ format, no question mark.
   steps, challenge/verification/reframing moves. This supersedes the round-3
   A/B tuning (novelty 73%, slot-1 3/3) by explicit product decision — the
   loveable.dev pattern this product was inspired by is obvious-next-steps
-  done well. The old measurements remain in prompt-ab-results.md for the
-  record; the new success metric is click-through, not novelty.
+  done well. The old measurements remain in docs/archive/test-runs/prompt-ab-results.md
+  for the record; the new success metric is click-through, not novelty.
 - Kept: grounding in the actual reply, no re-requesting delivered content,
   one move per step, the no-code rule for texts, 280-char text cap.
 
