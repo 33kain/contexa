@@ -18,6 +18,13 @@ byte-identical by `build.mjs`).
 | `SPEC-0.9.23-fifth-chip.md` | 0.9.23 | The fifth chip — rough ask in, drafted prompt out ("make bad prompts good"). |
 | `TRAIN-EXPAND-0.9.23.md` | 0.9.23 | Final draft of the fifth chip's `EXPAND_SYSTEM` prompt text. |
 | `website-build-prompt.md` | — | One-off prompt used to generate the marketing site. |
+| `CONTEXA-design-brief.md` | 0.9.55 | Design-chat brief for the mascot/teal hat — decisions, not code. |
+| `CONTEXA-content-spec.md` | 0.9.55 | Handover spec: mascot trigger + interview card skin. |
+| `CONTEXA-voice-spec.md` | 0.9.55 | Handover spec: the interview's "mirror" voice register. |
+| `CONTEXA-card-spec.md` | 0.9.32 | Exact spec of the interview card, extracted from shipped code for the website mock. |
+| `icon-inspect.png` | — | One-off inspection screenshot from the 0.9.55 mascot icon work. |
 
-See also `test-runs/` for historical prompt-tuning and model-comparison output.
+See also `test-runs/` for historical prompt-tuning and model-comparison output,
+and `../../scripts/archive/` for the one-off scripts and inputs used to
+produce some of it.
 
