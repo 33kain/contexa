@@ -17,3 +17,7 @@ byte-identical by `build.mjs`).
 | `next-release-train.md` | 0.9.19 | The voice patch ("the text always addresses Claude") plus README copy. |
 | `SPEC-0.9.23-fifth-chip.md` | 0.9.23 | The fifth chip — rough ask in, drafted prompt out ("make bad prompts good"). |
 | `TRAIN-EXPAND-0.9.23.md` | 0.9.23 | Final draft of the fifth chip's `EXPAND_SYSTEM` prompt text. |
+| `website-build-prompt.md` | — | One-off prompt used to generate the marketing site. |
+
+See also `test-runs/` for historical prompt-tuning and model-comparison output.
+
