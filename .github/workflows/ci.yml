@@ -1,0 +1,37 @@
+name: CI
+
+# Runs the extension and worker test suites and the build on every push to
+# main and every pull request. The build step also enforces that the system
+# prompt is byte-identical across extension/background.js and worker/src/index.js
+# (build.mjs fails on drift), so a prompt change that lands in only one copy
+# can never reach main.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out the repo
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      # No dependencies to install: the tests use a sandboxed fake `chrome` and
+      # fake `fetch`, and the build has no third-party imports. Plain `node`.
+      - name: Extension tests
+        working-directory: extension
+        run: node test.mjs
+
+      - name: Worker tests
+        working-directory: worker
+        run: node test.mjs
+
+      - name: Build (verifies prompt byte-identity)
+        run: node build.mjs

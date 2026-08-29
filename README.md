@@ -1,5 +1,7 @@
 # CONTEXA
 
+[![CI](https://github.com/33kain/contexa/actions/workflows/ci.yml/badge.svg)](https://github.com/33kain/contexa/actions/workflows/ci.yml)
+
 **CONTEXA reads Claude's reply and writes your next message — by asking you a few
 short questions you answer by clicking.**
 
