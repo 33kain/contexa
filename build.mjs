@@ -7,7 +7,7 @@ import { readFileSync, writeFileSync, mkdirSync, copyFileSync, readdirSync, rmSy
 import { join } from 'node:path';
 import { deflateRawSync, crc32 as zlibCrc32 } from 'node:zlib';
 
-const VERSION = '0.9.27';
+const VERSION = '0.9.56';
 const BACKEND = 'https://contexa-api.michu110899.workers.dev';
 
 const SRC = 'extension';
@@ -73,7 +73,7 @@ const grab = (s, name) => {
   const m = s.match(new RegExp(name + ' = `([\\s\\S]*?)`;'));
   return m && m[1];
 };
-for (const name of ['NEXT_STEPS_SYSTEM', 'EXPAND_SYSTEM']) {
+for (const name of ['QUESTIONS_SYSTEM', 'EXPAND_SYSTEM']) {
   const pExt = grab(outBg, name);
   const pWrk = grab(wrkForPrompts, name);
   if (!pExt || !pWrk) fails.push(`could not locate ${name} in one of the two copies`);
@@ -83,6 +83,29 @@ for (const name of ['NEXT_STEPS_SYSTEM', 'EXPAND_SYSTEM']) {
 const sectionRe = /'ROUGH ASK:\\n' \+ intent/;
 if (!sectionRe.test(outBg) || !sectionRe.test(wrkForPrompts))
   fails.push('expand section labels missing or drifted between extension and worker');
+
+/* 0.9.31: LEGACY_STEPS_SYSTEM is worker-only BY DESIGN — it serves extensions
+   older than 0.9.30, which by definition cannot be updated from here. Someone
+   reading the byte-identity rule ('both prompts live in two places') would
+   reasonably try to sync it into background.js; that would ship the previous
+   product to current users. Assert both halves: present in the worker, absent
+   from the extension. */
+if (!wrkForPrompts.includes('const LEGACY_STEPS_SYSTEM'))
+  fails.push('LEGACY_STEPS_SYSTEM missing from the worker - pre-0.9.30 clients would break');
+if (outBg.includes('const LEGACY_STEPS_SYSTEM'))
+  fails.push('LEGACY_STEPS_SYSTEM copied into the extension - it is worker-only, see the comment there');
+if (!outBg.includes('v: chrome.runtime.getManifest().version'))
+  fails.push('the extension no longer sends its version - the worker would answer in the legacy shape');
+
+/* 0.9.28: the capability moves teach features of a product that changes without
+   telling us, and nothing else in this build can see a stale exemplar. The dated
+   marker is the only instrument there is. Missing or drifted is a failure; merely
+   OLD is a warning printed below - a stale list must never block an urgent fix. */
+const AUDIT_RE = /CAPABILITY-AUDIT: (\d{4}-\d{2}-\d{2})/;
+const auditExt = (outBg.match(AUDIT_RE) || [])[1];
+const auditWrk = (wrkForPrompts.match(AUDIT_RE) || [])[1];
+if (!auditExt || !auditWrk) fails.push('CAPABILITY-AUDIT date missing from one of the two prompt files');
+else if (auditExt !== auditWrk) fails.push(`CAPABILITY-AUDIT drift: extension=${auditExt} worker=${auditWrk}`);
 
 // The shipped model must agree across all three places that name one.
 const workerSrc = readFileSync('worker/src/index.js', 'utf8');
@@ -116,6 +139,17 @@ if (fails.length) {
 
 console.log(`built ${OUT}/ Ã¢â‚¬â€ v${VERSION}, model ${modelExt}, backend ${BACKEND}`);
 console.log('  prompt identical across extension and worker Ã¢Å“â€œ');
+
+const auditAge = Math.floor((Date.now() - Date.parse(auditExt + 'T00:00:00Z')) / 86400000);
+if (auditAge > 120) {
+  console.log('');
+  console.log(`  WARNING: capability moves last audited ${auditExt} - ${auditAge} days ago.`);
+  console.log('  Re-check them against the real product, then update CAPABILITY-AUDIT in BOTH');
+  console.log('  prompt files. Nothing else reports a stale capability exemplar. Not fatal.');
+  console.log('');
+} else {
+  console.log(`  capability moves audited ${auditExt}, ${auditAge}d ago - fresh`);
+}
 
 /* --- zip, with manifest.json at the ARCHIVE ROOT --------------------------- */
 /* Chrome rejects an upload whose manifest sits inside a wrapper folder, which is

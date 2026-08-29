@@ -1,240 +1,208 @@
-# CONTEXA — unlisted submission, field by field
+# CONTEXA — Chrome Web Store: the review-facing declarations
 
-Everything below is paste-ready. Placeholders are already filled with your real
-values. Work top to bottom.
+**This is no longer a submission walkthrough.** The account exists, the item is
+uploaded, 0.9.54 is approved and **Public**. Steps 1–7 of the old version
+described a first-time unlisted launch and every one of them is done.
 
-**What you're doing:** publishing **Unlisted**. The listing is not searchable or
-browsable — only people with your link can install it. Same review process and
-same trust as a public listing, so the "Chrome can't verify this extension"
-warning disappears. Switching to public later needs no new review.
+**What this file is now:** the four fields a *reviewer* reads, kept accurate, so
+that an update or a rejection reply never has to be improvised. Rewritten
+2026-08-26, because every word of the previous version described the chip-era
+product — including the permission justifications, which is the dangerous half.
+
+**What this file deliberately does NOT contain: the store description.** That
+lives in `claude/CONTEXA-store-listing.md` §1 and nowhere else. `LISTING.md`
+became a tombstone precisely because it duplicated the listing and drifted from
+it; this file will not repeat that. Public-facing copy → listing doc.
+Review-facing declarations → here. No overlap, nothing to drift.
 
 ---
 
-## Step 1 — host the privacy policy (5 minutes)
+## Already done — do not redo
 
-Chrome requires a public privacy policy URL because this extension transmits
-message text.
+- **Developer account**, $5 paid, publisher name set.
+- **Item uploaded and approved.** 0.9.47 cleared review; 0.9.54 is the live
+  package.
+- **Visibility: PUBLIC** as of 2026-08-26. The control was greyed out for days
+  and finally unlocked.
+- **`ALLOWED_EXTENSION_IDS` pinned to `phhamigkjeeabbjncpmhkppkjccfglhb`** —
+  visible in the deploy bindings. The worker now refuses every other origin, so
+  the "anyone with the Worker URL can spend your budget" hole is closed.
+- **Privacy policy URL** — see the warning below.
 
-1. Go to https://gist.github.com
-2. Filename: `contexa-privacy.md`
-3. Paste the entire contents of `PRIVACY.md` (in this folder)
-4. Click **Create public gist**
-5. Copy the URL from your browser's address bar — that's your policy URL
+### ⚠️ The privacy policy URL is almost certainly stale
 
-The contact address is already set to michu110899@gmail.com. If you would rather
-not have a personal address publicly attached, swap it before you paste — the
-store also shows a developer contact email on listings, so this address becomes
-visible either way.
+The listing declares **Personal communications**, and Chrome requires a policy
+URL when you declare data collection — so a URL exists and review accepted it.
+It points at a gist created from the **pre-0.9.53** `PRIVACY.md`, which said
+conversation text is sent *when a Claude reply finishes*. That is no longer true:
+nothing is sent until the button is pressed.
 
-## Step 2 — developer account ($5, one time)
+`publishing/PRIVACY.md` was rewritten 2026-08-26. **The hosted gist still needs
+replacing with it** — check the Privacy tab for the exact URL, edit that gist,
+paste the new text. The error is in our favour (we transmit *less* than the
+policy claims) which is why it is a correction and not an emergency, but a
+privacy policy that misstates when data leaves the browser is the one document
+where accuracy is not cosmetic.
 
-1. https://chrome.google.com/webstore/devconsole
-2. Sign in, accept the developer agreement
-3. Pay the **$5 one-time** registration fee
-4. Set a publisher display name you're happy to have shown publicly
+---
 
-## Step 3 — upload
+## Privacy tab — single purpose
 
-1. **Add new item**
-2. Upload `contexa-submit.zip` from this folder
-3. It should parse with no manifest errors
-
-## Step 4 — store listing tab
-
-**Name**
 ```
-CONTEXA — Next-Step Prompt Suggestions
-```
-
-**Short description** (132 char limit; this is 118)
-```
-Get smart next-step prompts after every Claude reply. Click one to load it, edit it, send it. No API key required.
-```
-
-**Detailed description**
-```
-CONTEXA suggests what to ask next.
-
-When a Claude reply finishes, a few short chips appear beneath it — each one a
-concrete next step for the work you're actually doing. Click a chip and the full,
-specific prompt loads into the composer, where you can read it, edit it, or send
-it as-is.
-
-It's the moment you didn't know what to ask, solved.
-
-WHY IT HELPS
-
-Most of us send vague prompts and get vague answers back. The fix isn't a longer
-prompt, it's a more specific one — and writing specific prompts is a skill.
-CONTEXA reads the conversation you're already in and proposes the moves a sharp
-collaborator would suggest: going deeper on the valuable part, resolving what the
-reply assumed, producing the actual artifact, trying a different framing, or
-pressure-testing the result.
-
-The chips stay short so you can scan them in a second. The prompt behind each one
-is detailed — it names the deliverable, the format, the length, the constraint.
-You always see the full text in the composer before anything is sent.
-
-HOW IT WORKS
-
-• Install it, open claude.ai, and send a message.
-• When the reply finishes, the chips appear underneath.
-• Click one. The full prompt lands in your composer. Edit or send.
-
-No setup, no account, no sign-in. A fair-use daily allowance is included free. If
-you have an Anthropic API key, you can add it in settings to remove the limit —
-requests then go straight from your browser to Anthropic.
-
-PRIVACY
-
-• CONTEXA runs only on claude.ai. It touches no other site.
-• It sends only your latest message and the reply you just received — never your
-  history, your other conversations, or your account details.
-• Your conversation text is never stored.
-• No accounts, no profiles, no tracking, no analytics, no ads, no data selling.
-• Your API key, if you provide one, stays on your device and goes only to
-  Anthropic.
-
-WHAT IT DOESN'T DO
-
-It doesn't score your writing, nag you, or interrupt your typing. Nothing
-overlays the composer. If it can't generate real suggestions, it says so plainly
-instead of showing filler.
-
-CONTEXA is an independent project. It is not affiliated with, endorsed by, or
-sponsored by Anthropic.
+CONTEXA has one purpose: to help the user write their next message inside
+conversations on claude.ai. After a Claude reply finishes, the extension shows a
+single button above the message box. If the user presses it, CONTEXA reads that
+reply and either offers a few short questions the user answers by clicking, or
+offers up to four suggested next moves; it then composes the resulting prompt
+into the page's message box for the user to read, edit and send themselves. The
+extension never sends a message on the user's behalf.
 ```
 
-**Category:** Productivity
+## Permission justifications — one per permission, all required
 
-**Language:** English
-
-**Icon:** upload `extension/icons/icon128.png`
-
-**Screenshots:** upload the four PNGs from `publishing/screenshots/` in this
-order — `1-chips`, `2-inserted`, `3-dark`, `4-settings`.
-
-These were captured from the real extension running against a local mock page.
-For an unlisted listing that only your friends will open by link, that is fine —
-nobody browses to it. **Retake them on real claude.ai before you ever switch to
-public**, when screenshots start doing marketing work.
-
-## Step 5 — privacy tab
-
-**Single purpose**
-```
-CONTEXA has one purpose: to suggest follow-up prompts inside conversations on
-claude.ai. After a Claude reply finishes, it generates suggested next messages and
-displays them beneath the reply; clicking one inserts that prompt into the page's
-message composer.
-```
-
-**Permission justifications** — one per permission, all required.
+**These were the most dangerous stale text in the repo.** The previous version
+told reviewers the content script *"detects when a Claude reply has finished
+rendering, reads the text … and inserts the user's chosen prompt"* — describing
+an extension that acts on a reply automatically. Ours acts on a **press**. A
+justification that overstates what an extension does invites exactly the
+scrutiny it was written to avoid.
 
 `storage`
 ```
 Stores the user's own settings on their device: whether the extension is enabled,
-their optional Anthropic API key, the backend URL, and a randomly generated
-anonymous token used solely to apply a fair-use daily limit. No browsing data is
-stored, and none of this is transmitted to us.
+their optional Anthropic API key, and a randomly generated anonymous token used
+solely to apply a fair-use daily limit. No browsing data is stored, and none of
+this is transmitted to us.
 ```
 
 `https://claude.ai/*`
 ```
 This is the only site the extension operates on and is essential to its single
-purpose. The content script detects when a Claude reply has finished rendering,
-reads the text of that reply and the user's preceding message in order to generate
-relevant suggestions, and inserts the user's chosen prompt into the page's message
-composer when they click a suggestion.
+purpose. The content script detects when a Claude reply has finished rendering
+and reads the text of that reply and the user's preceding message, so that it
+knows what the button it displays would be about. Nothing is transmitted at that
+point. Only if the user presses the button is that text used to generate
+questions or suggested next moves, and only the prompt the user then chooses is
+inserted into the page's message box. The extension never submits a message.
 ```
 
 `https://api.anthropic.com/*`
 ```
 Used only when the user has chosen to supply their own Anthropic API key. In that
-mode the extension calls the Anthropic Messages API directly from the browser to
-generate suggestions, so the user's key and conversation text never pass through
-any server of ours.
+mode the extension calls the Anthropic Messages API directly from the browser, so
+the user's key and conversation text never pass through any server of ours.
 ```
 
 `https://contexa-api.michu110899.workers.dev/*`
 ```
-The extension's own backend, which generates suggestions for users who have not
-supplied an API key. It receives only the user's latest message and the reply just
-received, forwards them to Anthropic's API, returns the suggestions, and stores
-nothing.
+The extension's own backend, for users who have not supplied their own API key.
+It is contacted only when the user presses the button. It receives only the
+user's latest message and the reply just received, forwards them to Anthropic's
+API, returns the result, and stores none of it.
 ```
 
-**Data usage** — declare these three, and only these three:
+## Data usage — declare these three, and only these three
 
-- **Authentication information** — the user's optional API key, stored locally
-- **Personal communications** — the message and reply text sent for processing
-- **Website content** — the text of the current reply, read from the page
+- **Authentication information** — the user's optional API key, stored locally.
+- **Personal communications** — the message and reply text, sent for processing
+  **only when the user presses the button.**
+- **Website content** — the text of the current reply, read from the page.
 
-Leave unchecked: personally identifiable information, health, financial, location,
-web history, user activity.
+Leave unchecked: personally identifiable information, health, financial,
+location, web history, user activity.
 
-**Certifications** — tick all three; all are true of this build:
+**Why "Website content" stays declared even though nothing auto-sends.** Reading
+is still eager: the content script reads the exchange at reply completion so it
+knows what the button refers to. Only *transmission* moved behind the press. We
+declare the reading and the sending separately and the sending is narrower than
+the declaration — which is the right direction for a declaration to be wrong in,
+and the reason not to quietly drop a category that is still technically accurate.
+
+## Certifications — tick all three; all are true of this build
 
 - I do not sell or transfer user data to third parties outside of approved use cases
 - I do not use or transfer user data for purposes unrelated to my item's single purpose
 - I do not use or transfer user data to determine creditworthiness or for lending
 
-**Privacy policy URL:** the gist URL from Step 1
+---
 
-## Step 6 — distribution tab
+## If a reviewer pushes back
 
-- **Visibility: Unlisted**
-- Regions: all
-- Not for families / no ads / no in-app purchases
+**Read the exact policy clause cited, fix only that, and resubmit noting what
+changed.** Do not volunteer changes to anything they did not raise.
 
-## Step 7 — submit
+**Never re-paste from an old copy of this file, or from `LISTING.md`.** Both
+described suggestion chips, a mechanism gone since 0.9.30, and the auto-firing
+card, gone since 0.9.53. If a field needs text, take it from this document (for
+review-facing fields) or `claude/CONTEXA-store-listing.md` (for public-facing
+copy).
 
-Click **Submit for review**. Expect a few days; first submissions and anything
-declaring personal communications take longer. If it's rejected, read the exact
-policy clause cited, fix only that, and resubmit noting what changed.
+**The two questions most likely to come up, and the honest answers:**
+
+*Why does it need a remote server?* Because the audience is people without an
+Anthropic API key. Users who supply their own key never touch our backend at all
+— that path is in the product, not a promise.
+
+*What does it do with the conversation?* Reads one exchange in the page; sends it
+only on a press; the backend forwards it to Anthropic and stores nothing. There
+is no database. This is checkable in the source, which is why it is safe to say
+plainly.
 
 ---
 
-## After it goes live — three things, in order
+## The name, and the one policy call worth remembering
 
-**1. Pin the extension to your backend.** The store assigns a permanent extension
-ID. Until you pin it, anyone who finds your Worker URL can spend your inference
-budget.
+Shipped name: **`CONTEXA - Claude prompts, without the writing`**.
 
-```powershell
-cd "$env:USERPROFILE\contexa\worker"
-npx.cmd wrangler deploy --var ALLOWED_EXTENSION_IDS:THE_STORE_EXTENSION_ID
-```
+An earlier version of this file argued "Claude" must be absent from the name.
+**That was over-cautious.** The impersonation policy is about false endorsement —
+*don't represent that your product is authorized by, endorsed by, or produced by
+another company* — not about naming the service an extension works with. The name
+leads with our own brand, describes a function, and the description carries an
+explicit non-affiliation line, which is **mandatory and must never be softened**.
 
-Then confirm the extension still works — if it breaks, the ID was wrong, and a
-plain `npx.cmd wrangler deploy` puts you back to unpinned.
+**What WOULD be real risk:** a name that reads as first-party (`Claude Prompts`,
+`Claude Assistant`), Anthropic's wordmark or logo on any store asset, or copy
+implying review, partnership or endorsement.
 
-**2. Remove your unpacked copy** and install from the store link instead.
-Otherwise two copies run at once and you get duplicate chips.
+---
 
-**3. Decide the daily limit before you send the link.** You hit 20/day yourself in
-a single day of use. Friends who like it will too, and their reaction won't be
-"fair enough" — it'll be "it stopped working." The limit lives at the top of
-`worker/src/index.js`:
+## Two operational notes that changed meaning
 
-```js
-const DEVICE_DAILY_LIMIT = 20;
-```
+**Do not install from the store on the development profile.** The old version
+said to remove the unpacked copy after going live. That advice assumed one
+install. Mili deliberately keeps the unpacked build for own-key testing — so on
+that profile, the store copy must NOT also be installed: two installs means two
+cards and two `card mounted` lines at different versions, which is watch
+criterion M and has already caused contaminated readings once.
 
-| Limit | Worst case per user/day | 10 friends, worst case |
-|---|---|---|
-| 20 | $0.08 | ~$24/month |
-| 50 | $0.20 | ~$60/month |
+**The cost table in the old version was Haiku-era arithmetic and understated by
+half.** With Sonnet 5, a user at the 20/day cap costs roughly **$0.16/day**, not
+$0.08; at 50/day roughly **$0.40**. Ten friends at the cap is nearer $48/month
+than the $24 previously written.
 
-Real usage lands well under worst case. 50 is the difference between a limit
-nobody notices and one they hit weekly.
+But the cap is no longer the number that matters. **The old claim that "you hit
+20/day yourself in a single day of use" was true under auto-fire, where every
+reply spent one call whether or not anyone looked at it.** Since 0.9.53 nothing
+is spent until a press, so typical use sits far below the cap and the worst case
+is the only case the cap describes. **Do not raise the limit on the old
+reasoning** — the reasoning was retired by the mechanism. If it is ever raised,
+raise it on observed usage.
 
-## What to ask your friends
+**And whatever number is quoted anywhere public, take it from
+`DEVICE_DAILY_LIMIT` in `worker/src/index.js`.** The store listing said 10 for
+three days while the code enforced 20.
+
+---
+
+## What to ask real users
 
 Not "do you like it." Ask:
 
-1. Of the chips you clicked, how many were things you wouldn't have thought of?
-2. Did you click the first one, or further along?
-3. Are you still clicking them in week two?
+1. Did you press the button, or ignore it? *(This is now the first question —
+   watch criterion O. If nobody presses it, the unbidden card was the product.)*
+2. Of the prompts it wrote, how many said something you wouldn't have written?
+3. Are you still pressing it in week two?
 
-Question 1 is the product. Question 3 decides whether it has a future.
+Question 1 is the one the on-demand release put at risk. Question 3 decides
+whether it has a future.

@@ -83,17 +83,30 @@
   :host{all:initial}
   *{box-sizing:border-box;margin:0;padding:0;
     font-family:ui-sans-serif,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
+  /* 0.9.55 field round 1 — the accent is BRAND TEAL, not host coral. The spec
+     said quiet-hat coral; the owner saw it live ("sve je narandžasto") and
+     overruled: our new colour everywhere the accent goes. Coral #D97757 is
+     claude.ai's send button — the design brief bans it outright. Light theme
+     gets brand #15a594, dark gets the mascot's bright stop #2cc4ae.
+     Field round 2 (same day) tried the FULL-BRAND card — pitch-black surface,
+     teal frame, teal lettering, white on click — and the owner reverted it on
+     sight: "mnogo napadno, moja greska." The quiet hat stands: surfaces and
+     borders follow the host, teal stays an accent. Do not re-brand the card. */
   .wrap{--surface:#FFFFFF;--surface2:#FAF9F5;--text:#3D3929;--text2:#73726C;
-    --border:#E8E6DE;--border2:#DEDCD1;--accent:#D97757;--accent-soft:#F5E9E4;
+    --border:#E8E6DE;--border2:#DEDCD1;--accent:#15a594;--accent-soft:#E0F2EF;
     --amber-bg:#F7F0DF;--amber-text:#8A6A1F;
     display:block;margin:8px 0 16px;max-width:680px;
     opacity:0;transform:translateY(4px);transition:opacity .28s ease,transform .28s ease}
   .wrap[data-theme="dark"]{--surface:#30302E;--surface2:#3A3A37;--text:#EDECE6;
-    --text2:#A6A49B;--border:#3F3F3C;--border2:#4A4A46;--accent:#D97757;--accent-soft:#453832;
+    --text2:#A6A49B;--border:#3F3F3C;--border2:#4A4A46;--accent:#2cc4ae;--accent-soft:#274641;
     --amber-bg:#403823;--amber-text:#E0C382}
   .wrap.show{opacity:1;transform:none}
   .label{display:flex;align-items:center;gap:6px;font-size:9.5px;letter-spacing:.15em;
     text-transform:uppercase;color:var(--text2);margin-bottom:6px}
+  /* 0.9.55 §2 — the ✦ rides the accent (brand teal since field round 1). The
+     marker text stays quiet (label color); the marker as a whole is a
+     documented structural discriminator against claude.ai's own question
+     widget (Contaminant 2) and must remain. */
   .label b{color:var(--accent);font-weight:700;letter-spacing:.17em}
   .chips{display:flex;flex-wrap:wrap;gap:6px}
   .chip{display:inline-flex;align-items:center;background:var(--surface);
@@ -127,6 +140,145 @@
     padding:5px 12px;font-size:12px;line-height:1.35;color:var(--text);width:250px;
     outline:none;font-family:inherit}
   .own-input::placeholder{color:var(--text2)}
+  /* 0.9.55 §1 — the mascot trigger. Everything under ctxa-mas-*; it shares no
+     class with the pencil chip (criterion P's trigger half closes here) and no
+     label (the comparison assertion keeps guarding the literals). */
+  .ctxa-mas-slot{display:inline-flex;align-items:center;gap:8px}
+  .ctxa-mas{background:none;border:none;padding:0;cursor:pointer;position:relative;
+    display:inline-flex;line-height:0}
+  /* field round 1 — owner: "bar 30% manja". The §1c constant stays verbatim at
+     58×50; the render shrinks to 40×34.5 (−31%) here, in CSS. */
+  .ctxa-mas svg{width:40px;height:34.5px;display:block}
+  .ctxa-mas:disabled{cursor:default}
+  .ctxa-mas:focus-visible{outline:2px solid var(--accent);outline-offset:3px;border-radius:12px}
+  .ctxa-mas-bubble{position:absolute;bottom:100%;left:50%;
+    transform:translateX(-50%) translateY(3px);
+    margin-bottom:7px;background:var(--surface);color:var(--text);
+    border:1px solid var(--border2);border-radius:999px;padding:4px 11px;
+    font-size:11px;line-height:1.35;white-space:nowrap;opacity:0;transition:.2s;
+    pointer-events:none;box-shadow:0 2px 8px rgba(0,0,0,.07)}
+  /* round 2 — every gesture selector also answers to .ctxa-peek, the class
+     the button toggles from its own mouseenter/focus (see renderTrigger):
+     deterministic restart per entry, independent of :hover cascade quirks. */
+  .ctxa-mas:hover .ctxa-mas-bubble,
+  .ctxa-mas:focus-visible .ctxa-mas-bubble,
+  .ctxa-mas.ctxa-peek .ctxa-mas-bubble{transform:translateX(-50%) translateY(0)}
+  .ctxa-mas-bubble b{color:var(--accent);font-weight:700}
+  .ctxa-mas:hover .ctxa-mas-bubble,
+  .ctxa-mas:focus-visible .ctxa-mas-bubble,
+  .ctxa-mas.ctxa-peek .ctxa-mas-bubble{opacity:1}
+  /* ENTRANCE — once, when the trigger mounts after a completed reply */
+  .ctxa-mas{animation:ctxa-popin .55s cubic-bezier(.3,1.2,.4,1);transform-origin:50% 100%}
+  @keyframes ctxa-popin{0%{transform:scale(0)}62%{transform:scale(1.12,.86)}
+                        82%{transform:scale(.95,1.06)}100%{transform:scale(1)}}
+  /* IDLE — rare snappy wink + occasional glance; nothing else */
+  .ctxa-mas-wink{animation:ctxa-winkIdle 6s infinite;transform-box:fill-box;transform-origin:center}
+  @keyframes ctxa-winkIdle{0%,93%,100%{transform:scaleY(1)}94.5%,96.5%{transform:scaleY(.08)}}
+  .ctxa-mas-pup{animation:ctxa-glance 8s ease-in-out infinite}
+  @keyframes ctxa-glance{0%,72%,100%{transform:translateX(0)}80%,90%{transform:translateX(1.5px)}}
+  /* HOVER / FOCUS — winks at you, hand to mouth, bubble whispers.
+     Round 2 adds the .ctxa-peek route; keyframes stay §1d verbatim. */
+  .ctxa-mas:hover .ctxa-mas-wink,
+  .ctxa-mas:focus-visible .ctxa-mas-wink,
+  .ctxa-mas.ctxa-peek .ctxa-mas-wink{animation:ctxa-winkOnce .4s ease}
+  @keyframes ctxa-winkOnce{0%,100%{transform:scaleY(1)}35%,65%{transform:scaleY(.08)}}
+  .ctxa-mas-whisp{opacity:0;transition:.2s}
+  .ctxa-mas:hover .ctxa-mas-whisp,
+  .ctxa-mas:focus-visible .ctxa-mas-whisp,
+  .ctxa-mas.ctxa-peek .ctxa-mas-whisp{opacity:1}
+  /* CLICK — small hop; then the existing flow runs unchanged */
+  .ctxa-mas.ctxa-hop{animation:ctxa-hop .35s ease}
+  @keyframes ctxa-hop{40%{transform:translateY(-8px)}}
+  /* REDUCED MOTION — entrance becomes a fade, idle animations off */
+  @media (prefers-reduced-motion:reduce){
+    .ctxa-mas{animation:ctxa-fadein .3s ease}
+    @keyframes ctxa-fadein{from{opacity:0}to{opacity:1}}
+    .ctxa-mas-wink,.ctxa-mas-pup{animation:none}
+  }
+  .card{background:var(--surface);border:1px solid var(--border2);border-radius:12px;overflow:hidden}
+  .chead{display:flex;align-items:center;gap:8px;padding:10px 12px;border-bottom:1px solid var(--border)}
+  .q{flex:1;font-size:13px;font-weight:600;color:var(--text);line-height:1.3}
+  .nav{display:flex;align-items:center;gap:4px;color:var(--text2);font-size:11px;flex-shrink:0}
+  .nav button{background:none;border:none;color:var(--text2);cursor:pointer;font-size:14px;
+    padding:1px 5px;line-height:1;font-family:inherit;border-radius:4px}
+  .nav button:hover:not(:disabled){color:var(--accent);background:var(--surface2)}
+  .nav button:disabled{opacity:.3;cursor:default}
+  /* 0.9.55 §2 — pills, not sentences. The pill carries a short handle; the
+     full option sentence rides the hover title and is what a click composes
+     (label ≠ composed, zero wire involvement). Accents are brand teal —
+     field round 1 overruled the spec's quiet-hat coral. */
+  .pills{display:flex;flex-wrap:wrap;gap:6px;padding:10px 12px;border-bottom:1px solid var(--border)}
+  .pill{display:inline-flex;align-items:center;background:var(--surface);
+    border:1px solid var(--border2);border-radius:999px;padding:5px 12px;cursor:pointer;
+    font-size:12.5px;line-height:1.35;color:var(--text);font-family:inherit;
+    max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+    transition:border-color .14s,color .14s,transform .1s,background .14s}
+  .pill:hover{border-color:var(--accent);color:var(--accent);background:var(--surface2);
+    transform:translateY(-1px)}
+  /* §2 — an answered question collapses to one quiet line */
+  .done{display:flex;gap:6px;align-items:baseline;padding:7px 12px;
+    border-bottom:1px solid var(--border);font-size:11.5px;color:var(--text2);line-height:1.35}
+  .done b{font-weight:600;flex-shrink:0}
+  .done span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  /* §2 — progress dots, one per question, current at full strength;
+     deliberately not 'N of M' text (claude.ai's Cowork widget says 'N of M' —
+     Contaminant 2). Field round 1, owner's order: positional colours
+     red → yellow → blue → white. Yellow is the site highlighter #FFD84D,
+     blue the #4F77C5 from the icon swatch row; white carries a ring so it
+     exists on light surfaces too. */
+  .dots{display:inline-flex;gap:4px;align-items:center;margin:0 2px}
+  .dot{width:5px;height:5px;border-radius:50%;opacity:.35}
+  .dot:nth-child(1){background:#E5484D}
+  .dot:nth-child(2){background:#FFD84D}
+  .dot:nth-child(3){background:#4F77C5}
+  .dot:nth-child(4){background:#FFFFFF;box-shadow:0 0 0 1px var(--border2)}
+  .dot.on{opacity:1;transform:scale(1.25)}
+  /* round 3 — no foot: Skip lives at the end of the options row, pushed to
+     the right edge of its line. */
+  .skip{background:var(--surface2);border:1px solid var(--border2);border-radius:6px;
+    padding:4px 10px;font-size:11px;color:var(--text2);cursor:pointer;font-family:inherit;
+    flex-shrink:0;margin-left:auto}
+  .skip:hover{color:var(--accent);border-color:var(--accent)}
+  .cxbusy{padding:12px;font-size:12px;color:var(--text2);animation:cxpulse 1.4s ease-in-out infinite}
+  /* 0.9.33 — collapse rather than fade. A transparent card still occupies its
+     height, and the complaint was about reading space, not visibility.
+
+     0.9.47 — two corrections. "visibility:hidden" because opacity and
+     pointer-events do NOT remove an element from the tab order: clipped content
+     stays focusable, so Tab could land on a button nobody can see — and focus
+     inside the card makes busy() true, which forces the card open again. A
+     hidden card that reappears when you tab past it is worse than one that
+     never hid. The delay lets the fade finish before it becomes unreachable.
+
+     And ".wrap" needs a real max-height to animate FROM: the base value was
+     "none", "none -> 0" does not interpolate, so the height snapped shut while
+     opacity spent .22s fading something already zero-tall. The CSS described a
+     fold it never performed. 600px clears a four-option card on any screen and
+     never clips, because the base rule sets no overflow. */
+  .wrap.away{opacity:0;pointer-events:none;visibility:hidden;
+    max-height:0;margin:0;overflow:hidden;transform:translateY(4px);
+    transition:opacity .2s ease,transform .2s ease,max-height .22s ease,
+      margin .22s ease,visibility 0s linear .2s}
+  .wrap{max-height:600px;
+    transition:opacity .22s ease,transform .22s ease,max-height .24s ease,
+      margin .24s ease,visibility 0s linear 0s}
+  /* 0.9.33 — touch. Confirmed working on Edge, Lemur, Mises and Quetta, where
+     the desktop row heights were under the 44px minimum and the nav glyphs were
+     roughly 14px of tappable area. */
+  @media (pointer:coarse),(max-width:520px){
+    .card{border-radius:14px}
+    .chead{padding:13px 14px;gap:6px}
+    .q{font-size:15px}
+    .nav{gap:2px;font-size:12px}
+    .nav button{font-size:18px;padding:9px 10px;min-width:40px;min-height:40px;
+      display:inline-flex;align-items:center;justify-content:center}
+    .pill{padding:11px 16px;font-size:14px;min-height:46px}
+    .pills{gap:8px;padding:12px 14px}
+    .done{padding:9px 14px;font-size:13px}
+    .skip{padding:9px 14px;font-size:13px;min-height:40px}
+    .chip{padding:9px 14px;font-size:13px;min-height:40px}
+    .own-input{width:100%;font-size:16px}
+  }
   @keyframes cxpulse{0%,100%{opacity:.55}50%{opacity:1}}`;
 
   const esc = s => { const d = document.createElement('div'); d.textContent = s || ''; return d.innerHTML; };
@@ -147,13 +299,26 @@
   const BLOCK_TAGS = new Set(['P', 'DIV', 'LI', 'UL', 'OL', 'PRE', 'BLOCKQUOTE',
     'TABLE', 'TR', 'H1', 'H2', 'H3', 'H4', 'H5', 'H6', 'BR', 'HR']);
   const SKIP_TAGS = new Set(['BUTTON', 'SVG', 'STYLE', 'SCRIPT', 'NOSCRIPT']);
+  /* 0.9.32 — tag-based skipping cannot catch text that is VISUALLY HIDDEN but
+     present in the DOM. claude.ai renders a screen-reader duplicate of the
+     thinking header in a span.sr-only that sits OUTSIDE the tool-status button,
+     so the visible copy was skipped correctly and the invisible one shipped on
+     every reply carrying a thinking block. The principle: capture what the
+     reader sees. Anything hidden from them that duplicates what they see is
+     cost with no information, and worse, it is QUOTABLE — a chip grounded in
+     'Thought for 8s' passes the evidence gate while meaning nothing.
+     Found by DOM position, not by string matching: three separate string-based
+     detectors this session mistook prose ABOUT chrome for the chrome itself. */
+  const SKIP_SEL = '.sr-only, [data-testid^="tool-status"], [class*="artifact-block"]';
+  const skipEl = n => SKIP_TAGS.has((n.tagName || '').toUpperCase())
+    || (typeof n.matches === 'function' && n.matches(SKIP_SEL));
   const CODE_KEEP_LINES = 2;
 
   function textSkippingChrome(node) {
     let s = '';
     (function w(n) {
       if (n.nodeType === 3) { s += n.nodeValue; return; }
-      if (n.nodeType !== 1 || SKIP_TAGS.has((n.tagName || '').toUpperCase())) return;
+      if (n.nodeType !== 1 || skipEl(n)) return;
       for (const c of n.childNodes) w(c);
     })(node);
     return s;
@@ -174,7 +339,7 @@
       if (node.nodeType === 3) { out += node.nodeValue; return; }
       if (node.nodeType !== 1) return;
       const tag = (node.tagName || '').toUpperCase();
-      if (SKIP_TAGS.has(tag)) return;
+      if (skipEl(node)) return;
       if (tag === 'PRE') { out += summarizeCode(textSkippingChrome(node)) + '\n'; return; }
       for (const child of node.childNodes) walk(child);
       if (BLOCK_TAGS.has(tag)) out += '\n';
@@ -205,6 +370,23 @@
 
   /* ---------------- reply detection --------------------------------------- */
   const processed = new WeakSet();
+
+  /* 0.9.33 — two ways of going quiet, deliberately different in scope.
+
+     `hiddenForSession` is offered only after the user dismisses two cards in a
+     row: behaviour earns the offer, the same way evidence earns a question. It
+     lives in memory, not storage — someone who hides it and forgets would
+     otherwise conclude the extension is broken, and a reload always restores it.
+
+     `dismissStreak` resets on any USE (answering, composing, a rough ask),
+     because two dismissals separated by a real interaction are not a pattern. */
+  let hiddenForSession = false;
+  /* claude.ai flips theme by mutating the root element, not only by OS
+     preference, so a media query alone would miss an in-app toggle. */
+  let themeSync = null;
+  const themeObserver = new MutationObserver(() => { if (themeSync) themeSync(); });
+  let dismissStreak = 0;
+  const usedIt = () => { dismissStreak = 0; };
 
   function watchReplies() {
     if (replyObserver) replyObserver.disconnect();
@@ -266,9 +448,13 @@
   }
 
   async function onReplyComplete(replyEl) {
+    if (hiddenForSession) return;          // 0.9.33: opted out for this tab
     if (!replyEl.isConnected) return;
+    /* 0.9.30: the card no longer lives next to the reply, so a sibling check
+       cannot tell us whether this reply was handled. The `processed` WeakSet in
+       scan() is now the only dedupe, and it is sufficient: one card exists at a
+       time and a newer reply is meant to replace an older one. */
     const anchor = replyEl.closest(ROW_SEL) || replyEl.closest(STREAM_SEL) || replyEl;
-    if (anchor.nextElementSibling?.getAttribute?.('data-contexa') === 'steps') return;
 
     if (!contextAlive()) return goStale(anchor);
 
@@ -277,21 +463,44 @@
     const promptText = lastUserMessage(replyEl);
     const replyText = clampCapture(captureText(replyEl));
 
+    /* 0.9.53 — CAPTURE is still eager. The CALL is not.
+       Every completed reply used to spend a questions call whether or not
+       anyone looked at the answer, and most replies are never asked about. The
+       row now arrives with one chip and nothing behind it; `askNow` runs when
+       the user asks. Two consequences beyond the bill: nothing about the
+       conversation leaves the page until a deliberate click, and the offer
+       stops being specific until it is opened — see CHANGELOG for that
+       trade, which is real and was argued before it shipped.
+
+       Capture stays here on purpose. It costs nothing, the DOM is settled at
+       completion, and deferring it would mean walking a reply claude.ai may
+       have re-rendered by the time the click lands. */
+    return renderTrigger(anchor, { prompt: promptText, reply: replyText, assume: [] });
+  }
+
+  /* 0.9.53 — everything below this line ran unconditionally before. The body is
+     unchanged apart from reading the captured pair off `ctx` instead of closing
+     over locals, and writing the cleaned assumptions back onto the same object
+     so the fifth chip keeps carrying them. */
+  async function askNow(anchor, ctx) {
+    if (!anchor.isConnected) return;
+    if (!contextAlive()) return goStale(anchor);
+
     let resp = null, thrown = null;
     try {
       resp = await chrome.runtime.sendMessage({
         type: 'nextSteps',
-        prompt: promptText,
-        reply: replyText
+        prompt: ctx.prompt,
+        reply: ctx.reply
       });
     } catch (e) { thrown = String(e && e.message || e); }
 
     if (!anchor.isConnected) return;
-    const steps = resp && !resp.error && Array.isArray(resp.steps)
-      ? resp.steps.filter(s => s && typeof s.text === 'string' && s.text.trim())
+    const questions = resp && !resp.error && Array.isArray(resp.questions)
+      ? resp.questions.filter(q => q && typeof q.text === 'string' && q.text.trim())
       : null;
 
-    if (!steps || !steps.length) {
+    if (!questions) {
       const err = resp && resp.error;
       if (isStaleError(thrown) || !contextAlive()) return goStale(anchor);
       if (err === 'quota') return renderQuiet(anchor, 'quota', '', resp);
@@ -307,9 +516,8 @@
     }
     /* Partial salvage renders identically to a full result — a deliberate
        product decision (owner's call, 0.9.14). Rationale: salvage keeps the
-       FIRST N complete steps and the prompt orders by leverage, so a partial
-       set is the best prefix, every chip is whole, and 3–5 is the spec either
-       way — the user cannot act on the distinction. The signal is NOT dropped:
+       FIRST N complete steps, so a partial set is the best prefix and every
+       chip is whole — the user cannot act on the distinction. The signal is NOT dropped:
        it moves to the console, because each partial means the model hit its
        token ceiling and burned 3–5x the output cost of a clean response.
        Ceiling-hit frequency stays measurable; the user stops being alarmed
@@ -322,17 +530,191 @@
       // under an alarming Errors badge (observed in the field). log stays
       // readable in the page console and the remote loop without dressing
       // telemetry as failure.
-      console.log('[CONTEXA] partial salvage — kept', steps.length, 'step(s)',
+      console.log('[CONTEXA] partial salvage — kept', questions.length, 'question(s)',
         resp.diag ? resp.diag : '(no diag from this path)');
     }
-    renderSteps(anchor, steps.slice(0, 5), { prompt: promptText, reply: replyText });
+    /* 0.9.29: zero is a real answer. An empty array reaches renderSteps on
+       purpose — it draws the shell and the fifth chip and no suggestion,
+       which is what "nothing here was worth a click" looks like. */
+    /* 0.9.49 — statements the model chose to STATE instead of asking. Cleaned
+       here as well as in the background: the page must never render or send
+       something no gate touched, and a hosted worker older than 0.9.49 omits
+       the key entirely, which lands as [] and changes nothing anywhere. */
+    const assume = (Array.isArray(resp.assume) ? resp.assume : [])
+      .map(a => String(a == null ? '' : a).replace(/\s+/g, ' ').trim())
+      .filter(a => a && !a.endsWith('?'))
+      .slice(0, 2);
+    if (assume.length) console.log('[CONTEXA] assumed', assume);
+    ctx.assume = assume;
+    /* v1 — a light structural guard, not a second copy of cleanChips. Everything
+       here has already passed the real validator in background.js, on both the
+       hosted and own-key paths. What this catches is a shape the renderer has no
+       case for, because a chip whose id it cannot label draws a button that does
+       nothing — a defect the user can see and we cannot. */
+    const chips = (Array.isArray(resp.chips) ? resp.chips : [])
+      .filter(c => c && CHIP_LABELS[c.id] && String(c.text || '').trim())
+      .slice(0, 4);
+    if (chips.length) {
+      console.log('[CONTEXA] moves', chips.map(c => c.id));
+      return renderChips(anchor, chips, ctx);
+    }
+    if (!questions.length) {
+      /* Zero is still a real answer, and it still renders as the fifth chip
+         alone — UNLESS the model stated something instead of asking it, which
+         is the one case that earns the standalone compose chip. The fourth
+         argument is what earns it: nothing here invents an assumption, so a
+         reply that settled nothing keeps exactly the 0.9.29 quiet row.
+
+         0.9.53 adds the fifth. A quiet row used to be free — it arrived
+         unbidden, so silence cost the reader nothing. Now they ASKED, and a
+         chip that answers a click by sitting there is a dead end. Nothing is
+         invented to fill it: the input simply opens, which is the same thing
+         their next click would have done. Not a floor — no question, no
+         suggestion and no assumption is fabricated, and the row is still
+         empty. Only when there is genuinely nothing else, though: an
+         assumption on offer is a better answer than a blank box, and stealing
+         focus from it would bury the one thing the call earned. */
+      console.log('[CONTEXA] quiet row — nothing to ask',
+        assume.length ? '(something stated instead)' : '');
+      return renderSteps(anchor, [], ctx, assume.length > 0, assume.length === 0);
+    }
+    renderInterview(anchor, questions.slice(0, 4), ctx);
   }
 
   /* ---------------- rendering -------------------------------------------- */
+  /* 0.9.30: one card for the page, mounted above the composer, replacing the
+     row-under-every-reply model. Owner's call, and it has a second payoff — a
+     virtualised transcript (Claude Code sessions) forbids injecting into rows,
+     and this is the placement that scope concluded was required.
+     Consequences, all deliberate: only the newest reply has a card; nothing
+     accumulates when you scroll back; there is exactly ONE node, so a new reply
+     replaces the previous card instead of stacking under it. */
+  function mountHost() {
+    if (!composer || !composer.isConnected) composer = findComposer();
+    if (!composer) return null;
+    let n = composer;
+    for (let i = 0; i < 6 && n.parentElement; i++) {
+      const p = n.parentElement;
+      if (p.tagName === 'MAIN' || p === document.body) break;
+      n = p;
+    }
+    return n;
+  }
+
+  /* 0.9.33 — the card mounts above the composer, which is sticky, so before
+     this it sat in view permanently and ate ~150px of reading space while you
+     scrolled back through a conversation. A regression introduced by 0.9.30's
+     placement and not noticed until the owner hit it.
+
+     Hide when the anchored reply leaves the viewport, NOT while scrolling:
+     hiding during scroll would also hide the card while you scroll down toward
+     it — exactly when you want it — and would flicker on every small nudge. */
+  /* 0.9.42 — hidden the moment the page moves, back when it stops.
+
+     0.9.33 hid the card once the anchored turn left the viewport, and 0.9.41
+     fixed that rule to cover both directions. Both were the wrong RULE. The
+     owner's requirement, twice stated and twice built around: "invisible while
+     scrolling through text", "invisible as soon as she appears over the text."
+     The card sits over the conversation, so ANY scroll is someone trying to
+     read what is behind it — position is not the question, motion is.
+
+     Position still decides the resting state: after scrolling stops, the card
+     returns only if the turn it belongs to is actually on screen. So reading
+     back through history leaves it hidden, and scrolling down to the newest
+     reply brings it back. */
+  /* 0.9.46 — the card hides because text is up against it, not because the page
+     moved. Three rules were tried and all three were about MOTION or about the
+     anchored turn's position; the owner's actual complaint was that a single
+     wheel notch made it blink, and that what should hide it is having a wall of
+     conversation pressed against it.
+
+     Why it cannot collapse. Every earlier version measured something the card
+     itself changes: collapse it and the conversation area grows, so the reading
+     that caused the hide reverses, so it shows, so it collapses again. The
+     flicker was that loop. The fix is not a timer — it is measuring how far the
+     reader is from the BOTTOM of the conversation, and separating the two
+     thresholds by more than the card's own height. A collapse can move the
+     reading by at most the card's height, which is by construction not enough
+     to cross back. No timers, no debounce, no quiet window: the hysteresis is
+     the whole mechanism. */
+  const SHOW_WITHIN = 140;       // this close to the bottom, nothing is in the way
+  const HYSTERESIS = 60;         // margin on top of the card's height
+  let scrollWatch = null;
+
+  function findScroller(from) {
+    let n = from;
+    while (n && n !== document.body) {
+      const st = getComputedStyle(n);
+      if (/(auto|scroll|overlay)/.test(st.overflowY) && n.scrollHeight - n.clientHeight > 40) return n;
+      n = n.parentElement;
+    }
+    return document.scrollingElement || document.documentElement;
+  }
+
+  function watchScroll(anchor, holder) {
+    if (scrollWatch) { removeEventListener('scroll', scrollWatch, true); scrollWatch = null; }
+    if (!anchor || !anchor.getBoundingClientRect) return;
+    const wrap = holder.shadowRoot && holder.shadowRoot.querySelector('.wrap');
+    if (!wrap) { console.warn('[CONTEXA] scroll watcher found no .wrap — not watching'); return; }
+    let queued = false, cardH = 160, scroller = null;
+
+    /* Never vanish under someone mid-answer. Focus inside the card, or a
+       partly-typed free-text answer, outranks the geometry entirely. */
+    const busy = () => {
+      const root = holder.shadowRoot;
+      return !!(root && (root.activeElement ||
+        [...root.querySelectorAll('input')].some(el => el.value.trim())));
+    };
+
+    const setAway = (on, why) => {
+      if (wrap.classList.contains('away') === on) return;
+      wrap.classList.toggle('away', on);
+      if (why) console.log('[CONTEXA]', on ? 'hidden —' : 'shown —', why);
+    };
+
+    const unbind = () => { removeEventListener('scroll', scrollWatch, true); scrollWatch = null; };
+
+    const evaluate = () => {
+      queued = false;
+      if (!holder.isConnected || !anchor.isConnected) return unbind();
+      if (busy()) { setAway(false, 'answering'); return; }
+      // Remember the card's real height while it still has one.
+      if (!wrap.classList.contains('away')) {
+        const h = holder.getBoundingClientRect().height;
+        if (h > 40) cardH = h;
+      }
+      if (!scroller || !scroller.isConnected) scroller = findScroller(anchor);
+      const fromBottom = scroller.scrollHeight - scroller.scrollTop - scroller.clientHeight;
+      const hideAt = SHOW_WITHIN + cardH + HYSTERESIS;
+      if (fromBottom > hideAt) setAway(true, 'conversation is up against the card');
+      else if (fromBottom < SHOW_WITHIN) setAway(false, 'nothing in the way');
+      // Between the two: leave it exactly as it is. That gap is the mechanism.
+    };
+
+    scrollWatch = () => { if (!queued) { queued = true; requestAnimationFrame(evaluate); } };
+    addEventListener('scroll', scrollWatch, { capture: true, passive: true });
+    /* 0.9.43 — never born hidden: an invisible card is indistinguishable from a
+       dead extension. The first scroll decides its fate, not its arrival. */
+    setAway(false);
+  }
+
   function shell(anchor, mode) {
+    const host = mountHost();
+    if (!host) {
+      console.warn('[CONTEXA] no composer found — card not mounted');
+      return null;
+    }
+    for (const old of document.querySelectorAll('[data-contexa]')) old.remove();
     const holder = document.createElement('div');
     holder.setAttribute('data-contexa', 'steps');
     holder.setAttribute('data-cx-mode', mode);
+    /* round 2 — modest lift. claude.ai draws sticky/gradient chrome around
+       the composer, and a sibling overlay that catches pointer events would
+       eat :hover on the mascot while looking like nothing (field: gesture
+       fired once per load, never again; a clean Chromium re-fires every
+       time). Above page text, below claude.ai overlays/modals — §1e. */
+    holder.style.position = 'relative';
+    holder.style.zIndex = '5';
     const root = holder.attachShadow({ mode: 'open' });
     const style = document.createElement('style');
     style.textContent = CSS;
@@ -340,9 +722,49 @@
     const wrap = document.createElement('div');
     wrap.className = 'wrap';
     wrap.dataset.theme = isDark() ? 'dark' : 'light';
+    /* 0.9.47 — the theme was decided once and never revisited, so switching
+       claude.ai between light and dark left the open card in the old palette
+       until the next reply. Follow it instead. */
+    if (window.matchMedia) {
+      const mq = window.matchMedia('(prefers-color-scheme: dark)');
+      const sync = () => { if (wrap.isConnected) wrap.dataset.theme = isDark() ? 'dark' : 'light'; };
+      if (mq.addEventListener) mq.addEventListener('change', sync);
+      themeObserver.disconnect();
+      themeObserver.observe(document.documentElement,
+        { attributes: true, attributeFilter: ['class', 'style', 'data-mode', 'data-theme'] });
+      themeSync = sync;
+    }
     root.appendChild(wrap);
-    anchor.after(holder);
+    host.before(holder);
+    /* 0.9.44 — the render path had no voice. `[CONTEXA] grounding` proved a card
+       had been EARNED, and nothing said whether one was ever SEEN. Two states
+       that look identical from the console are exactly what this project keeps
+       paying for, so both ends of the pipe now speak. */
+    /* 0.9.51 — the version, stamped where every reading starts. Two separate
+       measurements were lost without it. First, a Web Store install (0.9.32)
+       ran alongside the unpacked build for two sessions, double-billing every
+       reply and interleaving two sets of counts in one console; it was caught
+       only by noticing that `grounding` printed at two different LINE NUMBERS
+       and grepping every shipped zip to date them. Second, 0.9.50 changed
+       prompt text only — content.js stayed byte-identical to 0.9.49, so the
+       line numbers were the same and no reading taken that evening could say
+       which prompt produced it.
+       Line numbers were doing this job by accident and they only work when the
+       code moves. This says it outright, and a second CONTEXA in the page now
+       announces itself on the first card it mounts. */
+    {
+      const r = anchor && anchor.getBoundingClientRect
+        ? anchor.getBoundingClientRect() : null;
+      let v = '?';
+      try { v = chrome.runtime.getManifest().version; } catch (e) { /* orphaned script */ }
+      console.log('[CONTEXA] card mounted', 'v' + v, mode,
+        r ? 'anchor top=' + Math.round(r.top) + ' bottom=' + Math.round(r.bottom)
+          : 'no anchor rect',
+        'viewport=' + (innerHeight || 0),
+        'connected=' + holder.isConnected);
+    }
     requestAnimationFrame(() => requestAnimationFrame(() => wrap.classList.add('show')));
+    watchScroll(anchor, holder);
     return wrap;
   }
 
@@ -354,9 +776,262 @@
     return words.length <= max ? words.join(' ') : words.slice(0, max).join(' ') + '…';
   }
 
-  function renderSteps(anchor, steps, ctx) {
+  /* 0.9.30 — the interview, modelled on Claude's own clarifying-question card,
+     which is what "ask questions like Claude" meant. One question at a time,
+     numbered options WRITTEN FOR the user, per-question skip, free text, and a
+     dismiss that falls back to the fifth chip so nothing is ever lost.
+
+     The options are the product. Someone who cannot specify the work usually
+     cannot fill an empty box either — but they can recognise the right answer
+     when they see it. That is the whole difference between this and a form. */
+  function renderInterview(anchor, questions, ctx) {
     const wrap = shell(anchor, 'ai');
-    wrap.innerHTML = `<div class="label"><b>✦ CONTEXA</b></div>` +
+    if (!wrap) return;
+    wrap.innerHTML = `<div class="label"><b>✦ CONTEXA</b></div><div class="card"></div>`;
+    const card = wrap.querySelector('.card');
+    const answers = new Array(questions.length).fill('');
+    let i = 0;
+
+    const mk = (tag, cls, text) => {
+      const e = document.createElement(tag);
+      if (cls) e.className = cls;
+      if (text != null) e.textContent = text;
+      return e;
+    };
+
+    function dismiss() {
+      /* Falls back to the fifth chip: closing the questions must never
+         leave the user with less than they had. Two dismissals in a row earn
+         the session-hide offer — see renderSteps.
+         No standalone compose chip here (0.9.49): the user just closed this
+         card, and putting a new one-click button in its place would read as
+         the card refusing to go away. ctx.assume itself is NOT stripped — it
+         is a fact about them, not a suggestion they rejected, so a rough ask
+         typed afterwards still carries it. */
+      dismissStreak++;
+      renderSteps(anchor, [], ctx, false);
+    }
+
+    function answer(value) {
+      usedIt();               // any real engagement breaks a dismissal streak
+      answers[i] = String(value || '').trim();
+      i++;
+      draw();
+    }
+
+    async function compose() {
+      usedIt();
+      const parts = questions
+        .map((q, n) => (answers[n] ? `${q.label}: ${answers[n]}` : null))
+        .filter(Boolean);
+      if (!parts.length) return dismiss();          // everything skipped
+      if (!contextAlive()) return goStale(anchor);
+      card.replaceChildren(mk('div', 'cxbusy', 'Writing your prompt…'));
+      let resp = null, thrown = null;
+      try {
+        resp = await chrome.runtime.sendMessage({
+          type: 'expandPrompt',
+          intent: parts.join('\n'),
+          prompt: ctx.prompt || '',
+          reply: ctx.reply || '',
+          // What they clicked and what CONTEXA settled for them travel together:
+          // both end up in the same composed prompt, answers in the body and
+          // assumptions on "Assume:" lines they can edit before sending.
+          assume: Array.isArray(ctx.assume) ? ctx.assume : []
+        });
+      } catch (e) { thrown = String(e && e.message || e); }
+      if (!card.isConnected) return;
+      if (isStaleError(thrown) || (!resp && !contextAlive())) return goStale(anchor);
+      if (resp && typeof resp.prompt === 'string' && resp.prompt.trim()) {
+        insertPrompt(resp.prompt);
+        return dismiss();
+      }
+      const err = (resp && resp.error) || thrown || 'empty response';
+      console.warn('[CONTEXA] interview compose failed', err,
+        (resp && (resp.detail || JSON.stringify(resp.diag || ''))) || '');
+      const h = humanError(err);
+      card.replaceChildren(mk('div', 'cxbusy', h.text));
+    }
+
+    function draw() {
+      if (i >= questions.length) return compose();
+      const q = questions[i];
+      card.replaceChildren();
+
+      /* 0.9.55 §2 — answered questions collapse to one quiet line each; the
+         current question is the only open one. A skip collapses to nothing:
+         an empty answer is not a fact worth a row. Purely a rendering of
+         state that already existed — answers[] is untouched. */
+      questions.forEach((pq, n) => {
+        if (n >= i || !answers[n]) return;
+        const d = mk('div', 'done');
+        d.appendChild(mk('b', null, pq.label));
+        d.appendChild(mk('span', null, answers[n]));
+        card.appendChild(d);
+      });
+
+      const head = mk('div', 'chead');
+      head.appendChild(mk('div', 'q', q.text));
+      const nav = mk('div', 'nav');
+      const prev = mk('button', null, '‹');
+      prev.disabled = i === 0;
+      prev.addEventListener('click', () => { i--; draw(); });
+      const next = mk('button', null, '›');
+      next.addEventListener('click', () => { i++; draw(); });
+      const close = mk('button', null, '×');
+      close.addEventListener('click', dismiss);
+      /* §2 — dots, not `N of M`; see the CSS note (Contaminant 2). */
+      const dots = mk('span', 'dots');
+      questions.forEach((pq, n) => dots.appendChild(mk('span', n === i ? 'dot on' : 'dot')));
+      nav.append(prev, dots, next, close);
+      head.appendChild(nav);
+      card.appendChild(head);
+
+      /* §2 — pills, not sentences. shortLabel is the same ≤4-word handle the
+         move chips already enforce; the full sentence — written for the user,
+         delivered by the wire unchanged — sits on the title and is what a
+         click actually answers with. Number keys still pick from opts below. */
+      /* Field round 3 (2026-08-28, owner): the "Something else…" free-text
+         input is GONE and Skip moved up into the options row; the foot is no
+         more. The owner's reason, and it is structural: the typing
+         affordance already exists downstream anyway — skipping everything
+         lands on the fifth chip, and a click that earned nothing opens the
+         box (0.9.53) — so the per-question input was a duplicate. The
+         interview is click-only with no asterisk — §2b's law, literally.
+         Material only the user can supply still belongs in the composed
+         prompt as a slot (EXPAND_SYSTEM's job, 0.9.49). The store-listing
+         sentence promising the box was swept the same day. The fifth chip's
+         rough-ask box is untouched — that is the other button. */
+      const opts = Array.isArray(q.options) ? q.options.slice(0, 4) : [];
+      const pills = mk('div', 'pills');
+      opts.forEach(o => {
+        const b = mk('button', 'pill', shortLabel(o));
+        b.title = o;
+        b.addEventListener('click', () => answer(o));
+        pills.appendChild(b);
+      });
+      const skip = mk('button', 'skip', 'Skip');
+      skip.addEventListener('click', () => answer(''));
+      pills.appendChild(skip);
+      card.appendChild(pills);
+
+      /* Number keys pick an option, the way the reference card does. Focus is
+         only taken when the user is NOT typing in the composer — interrupting
+         someone mid-sentence to offer them a questionnaire is not help. */
+      card.tabIndex = -1;
+      card.onkeydown = e => {
+        const n = parseInt(e.key, 10);
+        if (n >= 1 && n <= opts.length) { e.preventDefault(); answer(opts[n - 1]); }
+        else if (e.key === 'Escape') dismiss();
+      };
+      const active = document.activeElement;
+      const typing = active && (active === composer || (composer && composer.contains(active)));
+      if (!typing) setTimeout(() => card.focus({ preventScroll: true }), 0);
+    }
+
+    draw();
+  }
+
+  /* 0.9.53 — the row before anything has been asked. One chip, no model call
+     behind it, and the captured pair already in hand so the chip is live the
+     moment it renders.
+
+     It is deliberately NOT `appendOwnChip` with a different click handler. That
+     state machine's whole job is idle -> input -> busy, and giving its idle
+     state a second meaning would make every assertion about it ambiguous. This
+     is a separate three-line machine that hands off and never comes back:
+     `askNow` re-renders the shell, so nothing here survives the click. */
+  /* 0.9.55 §1c — the character, verbatim from the content spec. One source
+     constant, shipped inline; the manifest icon files are a separate export.
+     Character law: body shape locked; baby-schema eyes with catchlights;
+     winks, never blinks — one eye (viewer-right), rare and snappy; no idle
+     breathing; no lean-in on hover (offered, rejected); teal is the mascot's
+     color and the mascot is the one loud element in the page. */
+  const MASCOT_SVG = `<svg width="58" height="50" viewBox="0 0 58 50" aria-hidden="true">
+  <defs><linearGradient id="ctxaMg" x1="0" y1="0" x2="0" y2="1">
+    <stop offset="0" stop-color="#2cc4ae"/><stop offset="1" stop-color="#15a594"/>
+  </linearGradient></defs>
+  <path d="M29 3 C43 3 53 12 53 26 L53 50 L5 50 L5 26 C5 12 15 3 29 3 Z" fill="url(#ctxaMg)"/>
+  <g class="ctxa-mas-pup">
+    <g><ellipse cx="21" cy="25.5" rx="7.4" ry="8.6" fill="#fff"/>
+       <circle cx="22.9" cy="27.2" r="3.3" fill="#173b35"/>
+       <circle cx="21.9" cy="26.1" r="1.2" fill="#fff" opacity=".95"/></g>
+    <g class="ctxa-mas-wink"><ellipse cx="37" cy="25.5" rx="7.4" ry="8.6" fill="#fff"/>
+       <circle cx="38.9" cy="27.2" r="3.3" fill="#173b35"/>
+       <circle cx="37.9" cy="26.1" r="1.2" fill="#fff" opacity=".95"/></g>
+  </g>
+  <path d="M25 37 Q29 39.5 33 37" stroke="#0e6e63" stroke-width="2" fill="none" stroke-linecap="round"/>
+  <ellipse class="ctxa-mas-whisp" cx="41" cy="37" rx="4.6" ry="3.4" fill="#2cc4ae"/>
+</svg>`;
+
+  function renderTrigger(anchor, ctx) {
+    const wrap = shell(anchor, 'ai');
+    if (!wrap) return;
+    wrap.innerHTML = `<div class="label"><b>✦</b> CONTEXA</div>` +
+      `<div class="chips"></div>`;
+    const slot = document.createElement('span');
+    slot.className = 'ctxa-mas-slot';
+    wrap.querySelector('.chips').appendChild(slot);
+    idle();
+
+    function idle() {
+      /* 0.9.55 §1 — the mascot IS the trigger: same slot, same mount
+         conditions, same click handler, same spends-one-call-on-click
+         semantics. Its appearance is pure DOM/CSS — no model call, no fetch,
+         nothing leaves the page before a click. It is a real <button>, so
+         Enter/Space fire natively; it must NOT read like the fifth chip, and
+         it no longer can: no chip class, no text label. Star asks, pencil
+         types — the bubble whispers 'What now? ✦' and the aria-label says the
+         same for keyboard and screen-reader users. */
+      const chip = document.createElement('button');
+      chip.className = 'ctxa-mas';
+      chip.setAttribute('aria-label', 'What now?');
+      chip.innerHTML = MASCOT_SVG +
+        '<span class="ctxa-mas-bubble">What now? <b>✦</b></span>';
+      chip.addEventListener('click', () => {
+        if (chip.disabled) return;
+        /* §1d — small hop on the click, then the existing flow runs
+           unchanged. The mascot stays put (idle animations may keep running)
+           and the existing loading presentation renders beside it; askNow
+           re-renders the shell, so nothing here survives the response. */
+        chip.disabled = true;
+        chip.classList.add('ctxa-hop');
+        busy();
+        askNow(anchor, ctx);
+      });
+      /* round 2 — the field showed the hover gesture firing once per page
+         load and never again on that machine; a clean Chromium re-fires it
+         on every entry (probed three hovers, normal and reduced-motion), so
+         the cause is environmental. Harden anyway: the gesture is driven by
+         a class the button toggles itself, with a forced reflow between
+         remove and add so the one-shot wink RESTARTS deterministically on
+         every entry — and keyboard focus gets the same. Appearance only: no
+         call, no fetch, nothing leaves the page. */
+      const peekOn = () => {
+        chip.classList.remove('ctxa-peek');
+        void chip.offsetWidth;
+        chip.classList.add('ctxa-peek');
+      };
+      const peekOff = () => chip.classList.remove('ctxa-peek');
+      chip.addEventListener('mouseenter', peekOn);
+      chip.addEventListener('mouseleave', peekOff);
+      chip.addEventListener('focus', peekOn);
+      chip.addEventListener('blur', peekOff);
+      slot.replaceChildren(chip);
+    }
+
+    function busy() {
+      const b = document.createElement('span');
+      b.className = 'chip busy';
+      b.textContent = '✦ reading…';
+      slot.appendChild(b);
+    }
+  }
+
+  function renderSteps(anchor, steps, ctx, offerAssume, openInput) {
+    const wrap = shell(anchor, 'ai');
+    if (!wrap) return;
+    wrap.innerHTML = `<div class="label"><b>✦</b> CONTEXA</div>` +
       `<div class="chips"></div>`;
     const row = wrap.querySelector('.chips');
     for (const s of steps) {
@@ -370,15 +1045,140 @@
       chip.addEventListener('click', () => insertPrompt(full));
       row.appendChild(chip);
     }
-    appendOwnChip(row, ctx || {}, anchor);
+    /* Both conditions, always. offerAssume alone would put the chip on a
+       dismissed card; a non-empty ctx.assume alone would put it beside a full
+       row of suggestions, where it duplicates what the interview already does. */
+    if (offerAssume && Array.isArray(ctx && ctx.assume) && ctx.assume.length) {
+      appendAssumeChip(row, ctx, anchor);
+    }
+    appendOwnChip(row, ctx || {}, anchor, openInput === true);
+
+    /* 0.9.33 — the offer is EARNED, never volunteered. Two dismissals in a row
+       is the user saying no twice; anything less is not a pattern and a
+       permanently visible off-switch would be clutter on a beginner surface.
+       Scope is this tab only, held in memory. No confirmation and no farewell
+       note: a goodbye explaining how to restore it contradicts the act of
+       hiding, and a reload brings it back anyway. */
+    if (dismissStreak >= 2) {
+      const hide = document.createElement('button');
+      hide.className = 'chip own';
+      hide.textContent = 'Hide for this session';
+      hide.title = 'CONTEXA stays quiet in this tab';
+      hide.addEventListener('click', () => {
+        hiddenForSession = true;
+        console.log('[CONTEXA] hidden for this tab - reload to restore');
+        for (const old of document.querySelectorAll('[data-contexa]')) old.remove();
+      });
+      row.appendChild(hide);
+    }
   }
 
-  /* The fifth chip (0.9.23): an empty slot at the end of the row. The user
-     types a rough ask; CONTEXA drafts the full prompt into the composer.
-     Suggestions cover what we guessed they want — this covers everything we
-     didn't. One small state machine in one <span>: idle -> input -> busy ->
-     idle | inline error. Never a second card, never an auto-send. */
-  function appendOwnChip(row, ctx, anchor) {
+  /* v1 — the four moves. Labels live here and nowhere else: the prompt names
+     the ids, the renderer names them for humans, and neither should be guessing
+     at the other's wording. */
+  const CHIP_LABELS = {
+    deeper: 'Take it further',
+    choose: 'You choose',
+    risk:   'What could go wrong?',
+    why:    'Why this way?'
+  };
+
+  /* An assumption is a fact about them and must survive whichever branch runs.
+     `deeper` hands it to the composer, which has written "Assume:" lines since
+     0.9.23. A direct insert has no composer, so the lines are appended here —
+     plain text, the same convention, and nothing invented on the way. */
+  function withAssume(text, ctx) {
+    const a = Array.isArray(ctx && ctx.assume) ? ctx.assume : [];
+    return a.length ? text + '\n' + a.map(x => 'Assume: ' + x).join('\n') : text;
+  }
+
+  /* v1 — the moves branch. The reply left something worth doing that needs
+     nothing from the user, so there is nothing to interview them about: one
+     click sends it.
+
+     Deliberately NOT `.chip.own`. That class belongs to the fallback and is
+     already shared by four controls; a move is a primary offer, not an escape
+     hatch. `.chip move` inherits the ordinary chip look and is otherwise
+     unstyled on purpose — the visual direction is Mili's and has not landed.
+
+     No standalone assume chip here. Moves ARE the offer; the assumptions ride
+     into whichever one is clicked rather than competing with them for a slot. */
+  function renderChips(anchor, chips, ctx) {
+    const wrap = shell(anchor, 'ai');
+    if (!wrap) return;
+    wrap.innerHTML = `<div class="label"><b>✦</b> CONTEXA</div>` +
+      `<div class="chips"></div>`;
+    const row = wrap.querySelector('.chips');
+    for (const c of chips) appendMoveChip(row, c, ctx, anchor);
+    appendOwnChip(row, ctx || {}, anchor, false);
+  }
+
+  function appendMoveChip(row, c, ctx, anchor) {
+    const slot = document.createElement('span');
+    row.appendChild(slot);
+    idle();
+
+    function idle() {
+      const chip = document.createElement('button');
+      chip.className = 'chip move';
+      chip.textContent = CHIP_LABELS[c.id];
+      chip.title = c.text;            // hover shows exactly what will be sent
+      chip.addEventListener('click', go);
+      slot.replaceChildren(chip);
+    }
+
+    function fail(err) {
+      const chip = document.createElement('button');
+      chip.className = 'chip cxerr';
+      chip.textContent = err === 'quota' ? 'daily limit reached' : 'couldn’t write it — retry';
+      chip.title = 'Click to try again';
+      chip.addEventListener('click', go);
+      slot.replaceChildren(chip);
+    }
+
+    async function go() {
+      usedIt();
+      /* Three of the four are already the message, so they go straight into the
+         composer and cost no second call — which is most of what this branch
+         buys. `deeper` carries an INTENT, not a finished message: the composer
+         writes that one, exactly as it does for a typed rough ask. */
+      if (c.id !== 'deeper') return insertPrompt(withAssume(c.text, ctx));
+      if (!contextAlive()) return goStale(anchor);
+      const busy = document.createElement('span');
+      busy.className = 'chip busy';
+      busy.textContent = 'writing…';
+      slot.replaceChildren(busy);
+      let resp = null, thrown = null;
+      try {
+        resp = await chrome.runtime.sendMessage({
+          type: 'expandPrompt',
+          intent: c.text,
+          prompt: ctx.prompt || '',
+          reply: ctx.reply || '',
+          assume: Array.isArray(ctx.assume) ? ctx.assume : []
+        });
+      } catch (e) { thrown = String(e && e.message || e); }
+      if (!slot.isConnected) return;
+      if (isStaleError(thrown) || (!resp && !contextAlive())) return goStale(anchor);
+      if (resp && typeof resp.prompt === 'string' && resp.prompt.trim()) {
+        insertPrompt(resp.prompt);
+        idle();
+        return;
+      }
+      fail(resp && resp.error);
+    }
+  }
+
+  /* 0.9.49 — the standalone half of "say what you picked". When a reply left
+     nothing worth asking but DID settle something worth stating, the row earns
+     one chip that composes with no typing and no clicking. Two deliberate
+     properties. It is mute about the assumption itself: the card stays one
+     line, and the "Assume:" line lands in the message box where it can be read
+     and edited before sending, which is the only place the user can act on it.
+     And it appears ONLY when the model sent an assumption — there is no floor
+     here, and a reply that settled nothing keeps the 0.9.29 quiet row exactly
+     as quiet as it was. */
+  function appendAssumeChip(row, ctx, anchor) {
     const slot = document.createElement('span');
     row.appendChild(slot);
     idle();
@@ -386,8 +1186,82 @@
     function idle() {
       const chip = document.createElement('button');
       chip.className = 'chip own';
-      chip.textContent = '✎ Rough ask…';
-      chip.title = 'Type it rough — CONTEXA writes it properly';
+      chip.textContent = '→ Write my next message';
+      chip.title = 'CONTEXA drafts it from the conversation — you edit before sending';
+      chip.addEventListener('click', go);
+      slot.replaceChildren(chip);
+    }
+
+    function fail(err) {
+      const chip = document.createElement('button');
+      chip.className = 'chip cxerr';
+      chip.textContent = err === 'quota' ? '→ daily limit reached' : '→ couldn’t write it — retry';
+      chip.title = 'Click to try again';
+      chip.addEventListener('click', go);
+      slot.replaceChildren(chip);
+    }
+
+    async function go() {
+      usedIt();
+      if (!contextAlive()) return goStale(anchor);
+      const busy = document.createElement('span');
+      busy.className = 'chip busy';
+      busy.textContent = '→ writing…';
+      slot.replaceChildren(busy);
+      const assume = Array.isArray(ctx.assume) ? ctx.assume : [];
+      let resp = null, thrown = null;
+      try {
+        resp = await chrome.runtime.sendMessage({
+          type: 'expandPrompt',
+          /* The rough ask carries the same facts the assume field does, and the
+             duplication is the point: a worker older than 0.9.49 drops the
+             assume field but still reads these as a click list holding no
+             decision, so it composes a correct prompt with the facts folded in
+             rather than rejecting an empty intent. EXPAND_SYSTEM is told the
+             two are one fact arriving twice and to state it once. */
+          intent: assume.map(a => 'Assumed: ' + a).join('\n'),
+          prompt: ctx.prompt || '',
+          reply: ctx.reply || '',
+          assume
+        });
+      } catch (e) { thrown = String(e && e.message || e); }
+      if (!slot.isConnected) return;
+      if (isStaleError(thrown) || (!resp && !contextAlive())) return goStale(anchor);
+      if (resp && typeof resp.prompt === 'string' && resp.prompt.trim()) {
+        insertPrompt(resp.prompt);
+        idle();
+        return;
+      }
+      const err = (resp && resp.error) || thrown || 'empty response';
+      console.warn('[CONTEXA] assume compose failed', err,
+        (resp && (resp.detail || JSON.stringify(resp.diag || ''))) || '');
+      fail(err);
+    }
+  }
+
+  /* The fifth chip (0.9.23): an empty slot at the end of the row. The user
+     types a rough ask; CONTEXA drafts the full prompt into the composer.
+     Suggestions cover what we guessed they want — this covers everything we
+     didn't. One small state machine in one <span>: idle -> input -> busy ->
+     idle | inline error. Never a second card, never an auto-send. */
+  function appendOwnChip(row, ctx, anchor, openNow) {
+    const slot = document.createElement('span');
+    row.appendChild(slot);
+    /* 0.9.53 — `openNow` is the one caller that starts armed: a click that
+       earned nothing at all, where the collapsed chip would be a dead end.
+       Everything else still starts idle, and `arm()` is otherwise reachable
+       only by the user's own click, so this cannot open a box nobody asked
+       for. Escape and an empty blur still collapse it back to the chip. */
+    if (openNow) arm(); else idle();
+
+    function idle() {
+      const chip = document.createElement('button');
+      chip.className = 'chip own';
+      /* 0.9.52 — the label carries both jobs: what to do (type) and what comes
+         back (magic). The tooltip that used to sit here repeated it in other
+         words, never fired on touch, and the instruction that actually matters
+         is the input's own placeholder below. Do not add a title back. */
+      chip.textContent = '✎ Type & create magic';
       chip.addEventListener('click', arm);
       slot.replaceChildren(chip);
     }
@@ -426,6 +1300,7 @@
 
     async function submit(intent) {
       if (!intent) return;
+      usedIt();               // a rough ask is engagement too
       if (!contextAlive()) return goStale(anchor);
       const busy = document.createElement('span');
       busy.className = 'chip busy';
@@ -434,7 +1309,11 @@
       let resp = null, thrown = null;
       try {
         resp = await chrome.runtime.sendMessage({
-          type: 'expandPrompt', intent, prompt: ctx.prompt || '', reply: ctx.reply || ''
+          type: 'expandPrompt', intent, prompt: ctx.prompt || '', reply: ctx.reply || '',
+          // Survives a dismissal on purpose: what CONTEXA settled about them is
+          // a fact, not a suggestion they closed, so a rough ask typed after
+          // the card is gone still gets it.
+          assume: Array.isArray(ctx.assume) ? ctx.assume : []
         });
       } catch (e) { thrown = String(e && e.message || e); }
       if (!slot.isConnected) return;
@@ -456,6 +1335,7 @@
   // dressing up generic text as real suggestions.
   function renderQuiet(anchor, mode, reason, resp) {
     const wrap = shell(anchor, mode);
+    if (!wrap) return;
     let body, btn = 'Settings', openUrl = null, doReload = false;
     if (mode === 'stale') {
       body = `CONTEXA was updated — reload this page to continue.`;
@@ -464,8 +1344,12 @@
       /* This card is on the beginner surface, so it no longer pitches an API
          key — that is expert vocabulary, and the audience decision put it
          behind Advanced. Anyone who wants unlimited use finds it there. */
+      /* 0.9.30: an interview spends two calls from the pool — one to write the
+         questions, one to write the prompt — so the honest headline number is
+         half the raw limit. Say what the user actually gets, not what the
+         counter counts. */
       const limit = resp && resp.limit ? resp.limit : 20;
-      body = `That’s all ${limit} free suggestions for today. They come back ${resetWording(resp && resp.resetsAt)}.`;
+      body = `That’s all ${Math.floor(limit / 2)} free prompts for today. They come back ${resetWording(resp && resp.resetsAt)}.`;
       btn = 'Settings';
     } else if (mode === 'unconfigured') {
       body = `CONTEXA isn’t connected to a backend yet. Add your own API key to use it now.`;

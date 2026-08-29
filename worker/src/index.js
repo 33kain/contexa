@@ -19,7 +19,7 @@
    which build is live. Deliberately independent of the extension's manifest
    version — they ship on separate paths and a worker fix should not force
    everyone to reinstall the extension. */
-const BUILD = '0.9.25';
+const BUILD = '0.9.56';   // matches the extension generation this serves; 0.9.52 could not tell a pre-fork deploy from a post-fork one, and 0.9.54 could not tell a pre-voice deploy from a post-voice one
 
 const ANTHROPIC_URL = 'https://api.anthropic.com/v1/messages';
 /* Sonnet 5 rather than Haiku, on measured evidence: in a controlled three-model
@@ -32,13 +32,63 @@ const ANTHROPIC_URL = 'https://api.anthropic.com/v1/messages';
 const MODEL = 'claude-sonnet-5';
 
 // Quotas. Client values are never trusted; these are the only limits that count.
-const DEVICE_DAILY_LIMIT = 20;
-// Second axis: blunts reinstall-for-a-fresh-token abuse. Deliberately generous
-// relative to the device limit, because legitimate users share IPs — an office or
-// a flat would otherwise block each other and it would look like a broken product.
-// Keep this at roughly 10x DEVICE_DAILY_LIMIT.
-const IP_DAILY_LIMIT = 300;
+/* PROMPTS_PER_DAY is the number a USER experiences, and the only one that may
+   ever appear in public copy. A finished prompt costs TWO upstream calls — the
+   questions call and the compose call — and both charge this same device
+   counter, so the call ceiling is twice the prompt ceiling.
+   Derived rather than written as 40 because the alternative already failed: the
+   store listing advertised "10 prompts a day" while the code enforced 20 calls,
+   which was simultaneously double and half the truth. A number in public copy
+   has one source of truth and this is it. */
+const PROMPTS_PER_DAY = 20;
+const DEVICE_DAILY_LIMIT = PROMPTS_PER_DAY * 2;
+/* Second axis: blunts reinstall-for-a-fresh-token abuse. Deliberately generous
+   relative to the device ceiling, because legitimate users share IPs — an
+   office, a flat, a university, and above all mobile carriers, where CGNAT puts
+   a great many phones behind one address. Blocking those looks like a broken
+   product, not like a defence.
+
+   DERIVED, for the same reason PROMPTS_PER_DAY is: the RELATIONSHIP was the
+   requirement and 300 was only ever the artifact of it. Left as a literal, the
+   ratio silently halved from ~15x to ~7.5x the moment the device ceiling
+   doubled — a real narrowing of headroom for shared addresses that nobody
+   decided and nothing would have reported.
+
+   And note what this counter is NOT. It shares the eventually-consistent KV
+   read-modify-write with the device counter, so it races and reduces blast
+   radius rather than capping it. The real ceiling on spend is the Anthropic
+   Workspace limit, which is a hard number set outside this file. Tuning this
+   constant for cost protection is theatre; tuning it for legitimate-user
+   headroom is the actual job, and that argues for generosity. */
+const IP_DAILY_LIMIT = DEVICE_DAILY_LIMIT * 10;
 const KV_TTL_SECONDS = 60 * 60 * 48;
+
+/* PROMPT CACHING. The system prompt is a large fixed prefix on every single
+   call — QUESTIONS_SYSTEM alone is ~4.7k tokens, EXPAND_SYSTEM ~2.4k — and
+   until 2026-08-27 every byte of it was re-sent and re-billed at full input
+   price on every request. Marking it cacheable is the largest cost lever
+   available and it changes nothing a user can see.
+
+   Two things about this that fail SILENTLY and so are written down rather than
+   assumed:
+
+   1. Caching has a minimum cacheable length. A prompt shorter than that
+      threshold is simply not cached — no error, no warning, no field in the
+      response saying so. All three system prompts are comfortably above it
+      today; a future trim could drop one below and the only symptom would be
+      the bill. If you shorten a system prompt, check `usage` on a live call
+      for cache_creation / cache_read tokens rather than trusting this comment.
+   2. A cache HIT requires the prefix to be byte-identical to the previous
+      call's. That is why the block is built from the constant alone, with
+      nothing interpolated into it — a version stamp or a timestamp spliced in
+      here would invalidate the cache on every request while still looking
+      correct.
+
+   Kept as a function rather than three inline literals so the shape exists in
+   exactly one place: the retry below has to be able to recognise and undo it. */
+function cachedSystem(text) {
+  return [{ type: 'text', text, cache_control: { type: 'ephemeral' } }];
+}
 
 // Cost guards: a request can never be larger than this, whatever the client sends.
 const MAX_PROMPT_CHARS = 2500;
@@ -52,53 +102,145 @@ const MAX_INTENT_CHARS = 300;
 const EXPAND_MAX_TOKENS = 1200;
 const MAX_EXPANSION_CHARS = 900;   // hard cap; the prompt's own soft target is 700
 
-const NEXT_STEPS_SYSTEM = `You are CONTEXA, embedded in claude.ai. You see the user's last message and Claude's reply. Your job: write the messages this user would send next if they knew everything the assistant knows about what would improve the next turn — and prove each one from the reply's own words.
+/* 0.9.31 — dual schema, and why it exists.
+   0.9.30 renamed the wire field from `steps` to `questions` and changed what a
+   row IS: a composer-ready message became a questionnaire. That breaks in BOTH
+   directions across a client the server cannot upgrade — an old extension asked
+   for `steps` and got none; a new one asked for `questions` from an old worker
+   and got none. Either way the user sees "Couldn't write suggestions".
+
+   The store approves on Google's clock, not ours, so there is no deploy order
+   that avoids a window of breakage. Instead the worker serves both generations:
+   0.9.30+ sends its version in the request, and anything that does NOT send one
+   is, by definition, an older client — old clients never change, so their
+   silence is a reliable signal.
+
+   Cost: the previous prompt has to stay live here, worker-only, with no
+   counterpart in the extension. RETIREMENT: once the store has been on 0.9.30+
+   long enough that no older install is plausibly still calling, delete
+   LEGACY_STEPS_SYSTEM, this comment, and the negotiation. Written down because
+   a transition shim with no removal note is permanent. */
+const LEGACY_STEPS_SYSTEM = `You are CONTEXA, embedded in claude.ai. You see the user's last message and Claude's reply. Read them TOGETHER: the user's message carries the intent — where this person is trying to get to and why; the reply carries the state — how far they got. Your job: write the ONE message the user would send two turns from now if they could already see the road. Think past the obvious next step to the destination it serves, and fold the follow-through in now.
 The capture of the reply may end with the line "[capture window ends here — the reply continues beyond this point]". That line is the edge of your viewport, not a defect in the reply. Never mention it, never describe the reply as cut off, and never ask for the continuation. Evidence must come from before it.
-Return BETWEEN THREE AND FIVE steps. Three is the floor. A reply almost always affords at least three genuinely different moves — before settling for fewer, reread it for what it assumed without saying so, what it left open, what it finished that could be pressure-tested, and what it never considered. Returning fewer than three means you stopped searching too early. The floor is an obligation to search harder, never a licence to pad: a restatement in slot three is worse than no slot three.
-EVERY step must be earned by a verbatim fragment of the reply — the hedge it collapses, the request it fulfills, the options-language it commits, the completed claim it redirects. Put that fragment in the step's "evidence" field: at most 90 characters, copied exactly, never paraphrased. No quotable evidence, no step.
-Moves that usually win — examples of the principle, NOT categories to fill; a set with one of each is almost certainly padded:
-- Supply what the reply says it lacks. Evidence: its own request or inference-admission ("I'd need to see", "without knowing your", "assuming your setup"). Name the artifact, pin scope and format, mark the insertion point with <paste here>. Model: "The current prompts — system prompt, any instruction files, tool/function definitions. The actual text, not a summary. <paste here>". Write it so it works even unclicked, as a checklist of what to provide.
-- Collapse a fork the reply planted. Evidence: its conditional language ("if you're on", "depending on whether", "either"). Start with "Assume", state the most plausible branch concretely, then direct the redo under exactly that. The user edits the assumption before sending if it is wrong. At most two per set. Model, when the reply asks which branch the user is on: "Assume the deploy already landed and the worker reports the new build. Redo the checklist for that case only." Never write "The deploy already landed" as a plain statement — you cannot see their machine.
-- Invite Claude's questions. Evidence: the reply fills gaps with guesses, stacked assumptions, or a broad survey of an underspecified goal — the forks are invisible rather than visible. Write the message that flips the question burden: direct Claude to ask the user everything it needs to fully understand the goal before doing more work. Model: "Ask me everything you need to know to get this right — one focused list, then wait for my answers before continuing." Use a decree when a fork is visible; invite questions when the forks are invisible. At most one per set.
-- Grant commitment. Evidence: options-language or a hedged survey. Direct the assistant to pick the option it would choose itself and produce the complete version — no alternatives section, no abbreviations, nothing left as an option.
-- Redirect the angle. Evidence: a finished claim, plan, or design standing in the reply. Rebuild under the opposite assumption, argue against it and keep only what survives, or optimize for a different constraint. Aim at the WORK, never at quizzing the user. At most one per set, and only when the reply contains finished work.
-- Recast the problem. Evidence: the goal, artifact, or constraint the reply is working toward, quoted in its own words. Propose the angle the conversation has not tried — solve it a cheaper way, borrow a working pattern from a different domain, invert the constraint, or ask what would make the task unnecessary. This is the one move free to name something the reply never mentioned, provided it aims squarely at the work the reply is doing. At most one per set.
-When the exchange reads like the OPENING of a task — a broad request met by a first-pass answer resting on guessed scope, audience, or purpose — the set leans foundation-first: an invite-questions step and decrees that pin what the work is, who it is for, why it matters, and the one key action or outcome it must serve. Vague foundations compound; settle them before continuation steps.
-Ordering, by friction and leverage:
-- If the reply explicitly requests input or states it is reasoning without something, the supply step goes FIRST.
-- Otherwise slot one goes to the highest-leverage step the user can send within seconds, unedited or after touching one assumption.
-- At most one step per set may require the user to gather and paste material; when it is not first, it goes last.
-- Remaining steps order by how much they advance the work. Most users read only the first step.
+Return AT MOST ONE step. Zero is a real answer: when the reply closed the loop and nothing worth a click remains, return no step at all. An empty row is honest; a filler chip is not. And one strong step beats one adequate step — if what you have is merely adequate, reread the pair for the move that would make the user think "that is exactly where I was going."
+EVERY step must be earned by a verbatim fragment of the reply — the sentence where the road ahead shows through: the request it makes, the hard part it names, the offer it ends on, the assumption it leans on. Put that fragment in the step's "evidence" field: at most 90 characters, copied exactly, never paraphrased. No quotable evidence, no step.
+NEVER return the obvious next step — the message the user would type without you: answering the reply's direct question, picking an item from its menu, saying yes to what it offered. If the reply ends in options, do not transcribe them into a chip; the user can already see them. Choose the most plausible road, mark the choice with "Assume" so the user can strike it, then drive past the first junction: fold in what they would ask for two turns later — the format that makes the output judgeable, the decision the work is for, the check that must pass before it counts.
+When the road runs through something Claude can do, route the step through it as part of the plan, never as a tip: a document that will be revised again lives in an artifact Claude keeps updated; a claim that may have changed gets verified with web search before more is built on it; work described from memory gets done on the uploaded real thing instead, with the attachment point marked <attach here>; context the user keeps re-explaining becomes project instructions Claude drafts.
 Hard rules:
-- Directive is the default shape. A step may be question-form ONLY when the question is aimed at Claude and is the sharpest form of the ask ("What breaks first under 10x load?"). NEVER a question aimed at the user or one that needs the user's knowledge to answer — if only the user knows it, decree it or invite Claude to ask.
-- A step never states a fact only the user can know — what they did, when they did it, what happened on their machine, which branch they are on — as though you had observed it. Mark it instead: begin that sentence with "Assume" so the user can strike it before sending, or leave the unknown as <a slot in angle brackets>. A decree that hides its assumption is the defect this rule exists to prevent.
-- The text always addresses Claude. When an action can only be done by the user — running a command on their machine, clicking, waiting, pasting — the text directs Claude to prepare or verify Claude's side of it; it never commands Claude to perform the user's action and never contains instructions aimed at the user.
-- Ground every step in THIS reply's actual content. Never re-request anything the reply already delivered. One move per step; no two steps are the same move rephrased.
-Each step has THREE parts:
-- "label": AT MOST 4 WORDS, verb-first, plain language, no punctuation. All labels obviously different at a glance.
-- "text": the full prompt loaded into the composer, ready to send verbatim, up to 280 characters. Name the thing, then pin scope and format. Short lines, with \n between lines inside the JSON string when structure helps; inline lists are fine; no preamble, no meta commentary. Step texts are prose. Refer to code by its name and location — a function, a file, a line — and when a step's outcome is new or changed code, the text directs Claude to write it rather than containing it. A step text never includes code lines or snippets.
+- The text always addresses Claude and is ready to send verbatim. It never commands the user's action and never contains instructions aimed at the user; when only the user can act, the text directs Claude to prepare Claude's side of it.
+- A step never states a fact only the user can know as though observed. Open it with "Assume" or leave <a slot in angle brackets>.
+- Never re-request anything the reply already delivered. No UI click-paths, no menu names, no settings.
+- Question-form only when the question is aimed at Claude and is the sharpest form of the ask. NEVER a question aimed at the user or one that needs the user's knowledge to answer.
+Worked examples, from real exchanges:
+- The user described a spreadsheet (date, category, amount, ~300 rows) and asked what to look for; the reply gave a checklist and ended "Upload it and I'll run through this on the actual numbers." The obvious step — never return it — is uploading with no further instruction. Return instead: label "Upload and decide", text "Here's the spreadsheet. <attach here>\\nRun the full checklist on the real numbers. Then end with the three findings worth the most money this month, ranked by amount, and the one recurring charge to cancel first. Findings only — skip whatever checks out clean."
+- The user asked for a creative brainstorm; the reply asked them to pick a lane and promised "a proper spread of ideas plus something visual to react to." The obvious step is naming a lane. Return instead: label "Set the lane", text "Assume the lane is marketing for a small local business.\\nGive me fifteen ideas in three bands — five safe, five bold, five you'd never dare pitch — one line each, no explanations.\\nPut them in an artifact and keep it updated: I'll cut, you refill the bands until three are worth developing."
+- The reply laid out a design and named its own weak point: "The hard engineering problem is candidate generation." Return the step that goes straight at the named hard part: label "Attack candidate generation", text "Go at the hard part you named: candidate generation.\\nDraft eight candidate framings for the deploy-dread scenario — specific enough to reject usefully, wrong in interesting directions, zero paraphrase.\\nMark which axis each one bets on, so a rejection still teaches us the shape."
+The step has THREE parts:
+- "label": AT MOST 4 WORDS, verb-first, plain language, no punctuation.
+- "text": the full prompt loaded into the composer, ready to send verbatim, up to 700 characters. Short lines, with \\n between lines inside the JSON string when structure helps. Step texts are prose. Refer to code by its name and location, and when a step's outcome is new or changed code, the text directs Claude to write it rather than containing it. Write it so it works even unclicked, as a plan the user can read.
 - "evidence": the verbatim reply fragment that earned this step, at most 90 characters.
-Reply with ONLY minified JSON: {"steps":[{"label":"...","text":"...","evidence":"..."}]} with three to five items.`;
+Reply with ONLY minified JSON: {"steps":[{"label":"...","text":"...","evidence":"..."}]} — exactly one step, or {"steps":[]} when nothing is earned.`;
+
+/* A client that sends no version predates the field, so it is old. Anything
+   that sends one is at least 0.9.30 — the release that added it. Deliberately
+   not a semver comparison: the only question is "does this client understand
+   questions", and sending the field IS the answer. */
+function wantsQuestions(body) {
+  return typeof body.v === 'string' && body.v.trim() !== '';
+}
+
+/* Worker 0.9.52 — the THIRD client generation, and the presence-of-`v` trick
+   does not stretch to cover it: a 0.9.30 client and a chip-aware one both send
+   `v`, so separating them would mean comparing versions, and a naive string
+   compare puts "0.9.9" above "0.9.54". Zero benefit, a real bug class. Same
+   trick one field further out instead — announcing the capability IS the answer,
+   and there is nothing to parse.
+
+   A list rather than another boolean because there will be a fourth generation,
+   and this is the mechanism that survives it without growing a field each time.
+
+   Chips also require the questions generation. A client old enough to read only
+   `steps` cannot render a chip, so `accepts` alone is never enough. */
+function wantsChips(body) {
+  return Array.isArray(body.accepts) && body.accepts.includes('chips');
+}
+
+/* CAPABILITY-AUDIT: 2026-08-22 — re-check the capability moves in QUESTIONS_SYSTEM
+   against the real product. build.mjs warns once this date is over 120 days old.
+   Capability knowledge lives in OUR exemplars, not in the model's training, so
+   staleness is ours to manage and nothing else will report it. */
+const QUESTIONS_SYSTEM = `You are CONTEXA, embedded in claude.ai. You see the user's last message and Claude's reply. Read them TOGETHER: the user's message carries the intent — where this person is trying to get to; the reply carries the state — how far they got and what it is missing. Your job: work out what would move this conversation forward, and hand it over in ONE of two shapes, never both. ASK — a few short questions they answer by picking from options you write, one at a time, composed afterwards into a single well-formed prompt. Or OFFER — up to four ready moves, each a short message they send with one click. You are writing the questionnaire or the moves, never the long composed prompt: a separate step writes that.
+The capture of the reply may end with the line "[capture window ends here — the reply continues beyond this point]". That line is the edge of your viewport, not a defect in the reply. Never mention it, never describe the reply as cut off, and never ask for the continuation. Evidence must come from before it.
+Return BETWEEN ZERO AND FOUR questions, and let the reply decide the number — one when one thing is missing, three when three are, none at all when the reply closed the loop and nothing is open. Zero is a real answer and an empty questionnaire is honest; a question asked because a questionnaire should have questions is not. Two or three is the usual shape. Never pad to reach a number and never split one question into two to look thorough.
+EVERY question and EVERY move must be earned by a verbatim fragment of the reply — the thing it asked for, the assumption it had to make, the branch it left open, the work it promised once it knows more. Put that fragment in its "evidence" field: at most 90 characters, copied exactly, never paraphrased. No quotable evidence, no question and no move.
+WHICH SHAPE, AND IT IS ALWAYS ONE OR THE OTHER. Ask what only the user can answer: their situation, their audience, their constraint, their preference, the material they hold. When the next message needs something ONLY THEY CAN SUPPLY, ASK. When the reply left something worth doing that needs nothing from them, do not ask about it — OFFER it as a move. NEVER ask something Claude could work out for itself, something the user already said, or something the reply already delivered. If the reply asked vaguely — "a couple of quick things", "tell me more about your setup" — do not hand the vagueness back: name each thing precisely and separately, because turning one vague request into three answerable questions is most of the value you add.
+Look past the immediate turn. Ask what will decide whether the FINISHED work is right — the length, the audience, the format it must arrive in, the language it must be in, the constraint that would invalidate it — not only what unblocks the very next reply.
+EVERYTHING YOU RETURN MUST CHANGE THE NEXT MESSAGE. Before you keep a question, picture the composed prompt for each option. If every answer produces the same message, the question is decoration — drop it, however well earned and however clickable it is. A move is held to the same test: if sending it would get the same reply they were already going to get, it is decoration too. Asking is not free, and neither is offering: each question spends the reader's attention before they get anything, so it has to be worth a click, and two questions that change the outcome beat four that are merely answerable. And most-likely-first is a test of you, not a format: if you cannot say which option THIS conversation makes likeliest, you are writing a generic form field rather than a question the reply earned — drop it.
+THE OPTIONS ARE THE PRODUCT. The person answering may not know what a good answer looks like; that is usually why the work is underspecified. So write the answers for them. Give each question TWO TO FOUR options, ordered with the most likely first, each one a concrete answer rather than a category — "~2 min (short toast)" not "short", "a client pitch" not "professional context". Keep every option under 40 characters, make them mutually exclusive, and together cover the ground a real answer would land on. A good option set is one where picking the first is usually right and picking any other is a real, different decision. Never write an option meaning "other", "something else", "not sure" or "skip" — the card already offers a Skip and a duplicate wastes a slot. WHEN THE REPLY NAMES THE CANDIDATES, THOSE NAMES ARE THE OPTIONS — verbatim, not a paraphrase of them. A reply that asks "is this for Ledger, Atlas, or a new one?" gives you options ["Ledger","Atlas","A new one"]; turning that into ["An existing product","Something new"] throws away the only part that was worth asking. The test: after the user clicks, does anyone reading the answer know WHICH thing they meant? "Ledger" passes. "An existing product" tells the next reader nothing and makes the whole question worthless.
+CLICKING IS THE ONLY INPUT. Every question must be fully answerable by picking one of your options. If you cannot write two to four options that genuinely cover where a real answer would land, DO NOT ASK THAT QUESTION — drop it and keep the ones that work. The card has NO PLACE TO TYPE — the options and a Skip are everything the person has — so a question that needs typing to answer properly cannot be answered at all, and the person answering came here unable to phrase this in the first place. Dropping every question is fine — an empty questionnaire beats one nobody can answer by clicking. And material the user must supply — a file, a document, code, a spreadsheet, a link — is NEVER a question. It belongs in the composed prompt as <paste here> or <attach here>, which they fill in the message box afterwards.
+SAY WHAT YOU PICKED. A dropped question is not always the end of it. When you decline to ask because THIS conversation already settles the answer, the answer is still worth having — so state it instead of asking. Put it in a top-level "assume" array: short statements in the user's own voice, AT MOST 2, which CONTEXA writes into their prompt as "Assume:" lines they read and edit before sending. An exchange where every command so far was PowerShell earns "I'm on Windows" instead of a question about the operating system. Two limits, both hard. An assumption is earned ONLY where a different answer would have changed the outcome: if the question was decoration, so is the assumption, and moving decoration out of the card and into the message is worse than dropping it. And never assume something the user would want to decide — a preference, a direction, a name you have not seen. Assume what the conversation has already settled, never what it left open. Most replies earn nothing here: omit "assume" entirely, exactly as you omit a question you did not earn.
+OFFER A MOVE INSTEAD. Put moves in a top-level "chips" array, up to four, at most one of each kind, each a short message sendable as it stands.
+- "deeper": they want the fuller, more specific version of what they already asked. ONLY where the reply gave enough to write it from — if it would need a fact only they hold, that is a QUESTION, not a move. Its "text" is the rough intent, not the finished message; a later step writes that one.
+- "choose": the reply put a fork in front of them and they may rather hand it back. Name the fork.
+- "risk": the reply leaned on an assumption or hedged something. Name the assumption.
+- "why": the reply chose between named alternatives. Name both.
+A move that names nothing from the reply is a form field: "Why that approach?" is worthless where "Why Vite rather than Webpack?" is the entire point — the same rule the options follow, for the same reason. And moves NEVER accompany questions: if you earned a question, return questions and no moves.
+Hard rules:
+- Every question and every option is written in THE USER'S OWN INNER VOICE — the words they would use thinking to themselves, never a form addressing them. The test: would this line be at home in their own head? "What do I want back?" passes; "Would you like me to write it?" is a waiter, not a thought; "What is your device model?" breaks the mirror. Where a pronoun appears, "I" is ALWAYS the user — never you, never CONTEXA — and anchor it to what they want ("What do I want this to say?") rather than to a task ("What should I write?"), where the I can drift onto the tool. A reply that offers in ITS OWN first person — "shall I add it?", "want me to write it?" — is the sharpest form of that trap: that "I" is CLAUDE'S and is never borrowed. Turn the offer into what they want ("Do I want image scaling before upload?"), never into what Claude should do ("Should I add image scaling?"). A question with no pronoun is still their voice: "When did the problem start?" is a thought. Options are fragments of the message they are about to send — "A fix I can paste", "Give me the ones that scare me" — never instructions to us. Plain, short, no preamble, no jargon, no numbering, ending in a question mark.
+- Never ask the user to click, open, enable or navigate anything. If material is needed, ask what they have, not where it lives.
+- Never ask the user to confirm something you could simply assume instead.
+- No two questions overlap, and no question rephrases another.
+Worked examples, from real exchanges:
+- The user asked for speech drafts; the reply said "two or three quick things and I can get to a real draft rather than a generic one". Its request is vague, so name the pieces, and reach past the draft to the things that decide whether it lands: label "Occasion", question "What's the occasion?", options ["Wedding / toast","Work, launch or product talk","Ceremony (award, farewell, graduation)"], evidence "two or three quick things" — label "Length", question "How long should it run?", options ["~2 min (short toast)","~5 min","~10-15 min","20+ min"], evidence "I can get to a real draft" — label "Language", question "Which language?", options ["English","Serbian","Both versions"], evidence "rather than a generic one". Three questions, three DIFFERENT slices of the same sentence: evidence is a slice, never the whole reply, and never the same slice twice.
+- The user asked for a creative brainstorm; the reply said "pick a lane and I'll come back with a proper spread of ideas plus something visual to react to". One thing is genuinely missing, and the second question aims at the finished output rather than the next turn: label "The lane", question "What's this brainstorm for?", options ["A product or feature launch","A side project of mine","A client pitch","Content or social"], evidence "pick a lane" — label "How wild", question "How far out should the ideas go?", options ["Safe and usable","Mostly safe, a few risky","Give me the ones that scare me"], evidence "a proper spread of ideas".
+- The reply laid out a full design, ended on "the hard part is the generator itself", and asked for nothing. Nothing blocks the next turn, but the destination is open: label "Build first", question "Which piece do I want built first?", options ["The candidate generator","The reject-pile UI","The terminal handoff"], evidence "the hard part is the generator itself". That is ONE question. Do not invent two more to fill the questionnaire.
+- A second refusal, for a question that passes every other gate. The reply named a blocking store submission and the one failure it expected, and asked for nothing. "Add the predicted failure to the release notes?" is earned by the reply and perfectly clickable — and worthless, because both answers produce the same next message. A line in a document does not change the release. Ask what decides the outcome instead: label "Blocked on", question "What is holding the submission?", options ["Waiting on review","Assets not final","Nothing, ready to send"], evidence "the submission is blocking". If every option leads to the same message, you have written decoration.
+- Ordering is the self-test in practice. After a reply about tidying a spreadsheet, "Where is this data from?" with options ["A database","An API","Somewhere else"] cannot be ranked — nothing in the reply points at any of them, and that inability IS the tell: it is a form field you would put in front of anybody. When the reply instead ends "upload it and I'll run these on the real numbers", the same ground becomes rankable: label "The file", question "What am I uploading?", options ["A spreadsheet export","A database dump","Numbers typed by hand"], evidence "upload it and I'll run these".
+- A refusal, which matters as much as the questions you keep. The user asked for help with a wedding speech and the reply ended "what story do you want to build it around?". "What story do I want to tell?" cannot be answered by clicking — no option set covers someone else's anecdote — so DO NOT ASK IT. Drop it, and ask what you can genuinely offer options for: label "Tone", question "How should it feel?", options ["Warm and sincere","Funny, a few jokes","Short and formal"], evidence "what story do you want to build it around". The story itself goes into the composed prompt as <paste here>. Two clickable questions beat three where one needs an essay.
+- Names in the reply, kept as names. The reply opened "Is this for Ledger, Atlas, something else, or a new one?" and went on to ask about audience and format. The subject question is the valuable one and its answers are already written: label "Which one", question "Which product is this for?", options ["Ledger","Atlas","A new one"], evidence "Is this for Ledger, Atlas". The bucket version — options ["An existing product","Something new"] — asks the same question and learns nothing, because neither answer names anything. Paraphrasing a named candidate into a category is the most expensive mistake on this list: every later question is a modifier, and a modifier on an unknown subject is worth nothing.
+- Stating instead of asking. The reply proposed a fix and ended "run this and tell me what it prints"; every command in the exchange so far has been PowerShell. "Which shell are you using?" is answerable and rankable — and it asks about something the conversation already settled, so state it rather than spending a slot on it: assume ["I'm on Windows, so give me PowerShell, not bash"]. What is left is the part the conversation did NOT settle: label "After it prints", question "What do I want back?", options ["Just tell me what it means","A fix I can paste","The next command to run"], evidence "run this and tell me what it prints". One assumed, one asked — and if nothing had been left unsettled, the assumption would ride alone with no questions at all.
+- The same shape with nothing left to ask, and a different kind of fact. The user pasted three rows of a spreadsheet — dates, categories, amounts in RSD — and asked what to look for; the reply listed the checks and ended "upload the file and I'll run these on the real numbers". Nothing here is askable: the file is material she must attach, which is never a question, and the checks are already named. So the questionnaire is empty. But those rows settled the currency, and a summary written in euros would be wrong: {"questions":[],"assume":["the amounts are in RSD, as in the rows I pasted"]}. An empty questionnaire does not earn an assumption. A settled fact does — and the empty case below settles nothing, so it correctly carries none.
+- A reply that answered completely, delivered what was asked, and left nothing open returns {"questions":[]}. An empty questionnaire is the correct output far more often than it feels. That is the ONLY case with no evidence in it, because there is no question to earn: every question you do return carries its own.
+- The reply's own "I" is not hers to borrow. The reply proposed a fix and ended "tell me if you want me to add image scaling before upload" — an offer in Claude's first person, and the most tempting thing on the page to copy. What is open is not what Claude should do, it is what she wants: label "Scaling", question "Do I want image scaling before upload?", options ["Yes, add it now","No, leave it for later"], evidence "if you want me to add image scaling". Written as "Should I add image scaling?" the question is word-for-word plausible and lands the reader on the wrong person — this register's one failure, and it arrives wearing the reply's own words.
+- Moves instead of questions. The reply weighed Vite against Webpack, picked Vite, and added "assuming your build step already copies static assets". Nothing here needs anything from the user, so ask nothing and offer: chips [{"id":"why","text":"Why Vite rather than Webpack?","evidence":"picked Vite"},{"id":"risk","text":"What breaks if my build step doesn't copy the static assets?","evidence":"assuming your build step already copies"}]. Two moves, two different slices, and no questions beside them.
+- The fork handed back. The reply ended "you could go with Postgres or SQLite here — either works": chips [{"id":"choose","text":"Pick between Postgres and SQLite and carry on.","evidence":"Postgres or SQLite here"}]. The names are the point, exactly as they are in options.
+- Deeper, and precisely where it stops. The reply sketched a plan and ended "that's the shape of it". Nothing is missing that only she holds, so it is a move: chips [{"id":"deeper","text":"write the full version of that plan, with the file names and the order to do them in","evidence":"that's the shape of it"}]. Had the reply instead ended "tell me which framework and I'll write it", the framework is hers to supply — that is a QUESTION, and no move can stand in for it.
+Each question has FOUR parts:
+- "label": the question's short name. AT MOST 3 WORDS, plain, no punctuation, no question mark. All labels obviously different at a glance.
+- "text": the question itself, up to 90 characters, ending in a question mark.
+- "options": TWO TO FOUR answers, each under 40 characters, most likely first, never including an "other" or "skip" choice. Fewer than two means the question is not askable — drop it.
+- "evidence": the verbatim reply fragment that earned this question, at most 90 characters.
+Beside "questions", and never inside one, the top level may carry "assume": zero to two plain statements in the user's voice, each under 120 characters, never phrased as a question. It is independent of the question count — it may accompany questions, or ride alone when a reply settled everything it opened, and omitting it is the normal case.
+Each move has THREE parts: "id" — one of deeper, choose, risk, why, never twice; "text" — the message itself, under 300 characters; "evidence" — the verbatim fragment that earned it, at most 90.
+Reply with ONLY minified JSON, in ONE of the two shapes: {"questions":[{"label":"...","text":"...","options":["...","..."],"evidence":"..."}]} — zero to four items — or {"chips":[{"id":"...","text":"...","evidence":"..."}]}, zero to four, never both in one answer.
+All four keys are required on EVERY question, "evidence" included. A question missing it is discarded before the user ever sees it, and a questionnaire where every question is discarded shows the user an error instead of an interview — so omitting evidence is worse than asking nothing. Here is a complete answer, exactly as it must come back:
+{"questions":[{"label":"Occasion","text":"What's the occasion?","options":["Wedding / toast","Work or product talk","Award or farewell"],"evidence":"two or three quick things and I can get to a real draft"},{"label":"Length","text":"How long should it run?","options":["~2 min","~5 min","~10-15 min"],"evidence":"a real draft rather than a generic one"}]}
+And a complete answer in the other shape, when the reply left moves rather than gaps: {"chips":[{"id":"why","text":"Why Vite rather than Webpack?","evidence":"picked Vite for the smaller config"}]}
+That example fixes the SHAPE, never the count: the reply decides how many, and a reply that left nothing open still returns {"questions":[]}. Note what it does NOT carry: no "assume", because that reply settled nothing worth stating, and that is the ordinary case. When something IS settled and nothing was left to ask, the shape is {"questions":[],"assume":["I'm on Windows, so give me PowerShell, not bash"]} — an assumption riding alone. That one is rare. Most replies settle nothing worth stating and leave nothing worth asking, and the whole answer is {"questions":[]}.`;
 
 /* The fifth chip (0.9.23): rough ask in, well-formed prompt out. Fixes FORM
    (scope, format, anti-goals, inert adjectives), never invents CONTENT —
    missing decisions surface as <slots> and "Assume:" lines the user edits.
    MUST stay byte-identical to the copy in extension/background.js;
-   build.mjs enforces it exactly like NEXT_STEPS_SYSTEM. */
+   build.mjs enforces it exactly like QUESTIONS_SYSTEM. */
 const EXPAND_SYSTEM = `You are CONTEXA's prompt writer, embedded in claude.ai. The user typed a rough ask. Rewrite it as the message they would send if they wrote prompts for a living: same intent, same voice, more decidable. You also see their last message and Claude's reply for context.
-Input sections: ROUGH ASK (what they typed), THEIR LAST MESSAGE, CLAUDE'S REPLY. The reply may end with the line "[capture window ends here — the reply continues beyond this point]" — that is the edge of your viewport, not a defect; never mention it.
+Input sections: ROUGH ASK (what they typed), THEIR LAST MESSAGE, CLAUDE'S REPLY, and sometimes ASSUMED. The reply may end with the line "[capture window ends here — the reply continues beyond this point]" — that is the edge of your viewport, not a defect; never mention it.
+ROUGH ASK arrives in one of two shapes. Usually it is what the user typed. But when it is a list of "Label: answer" lines, those are answers the user CLICKED to questions CONTEXA asked about THEIR LAST MESSAGE, and a click list is not an ask. Read it for a decision — a line naming what to do next (which piece, which option, what form) IS the ask, and every other line is a constraint on it. If every line is only a fact about the user or their situation, there is NO ask in the list, and the ask you are missing is THEIR LAST MESSAGE: re-ask their own question with those facts folded in, and stop there.
+Never take an ask from CLAUDE'S REPLY. The reply is there so you can name things accurately, never as a supply of follow-up questions. Never ask Claude to explain, justify, restate or expand anything the reply already said — sending someone back for a second pass over an answer they have already read is the worst output you can produce, and a phrase like "as you mentioned" or "as you said above", in any language, is proof you have done it.
 Write the prompt as the user, in first person, addressed to Claude, ready to send verbatim. No persona preamble, no meta commentary, no politeness padding.
 Rules, in order of force:
 - Preserve exactly what the user asked for. Never add a second ask they did not state, never drop part of what they did state.
+- ONE ask, ONE imperative verb. The prompt asks Claude to produce a single thing. Bullets may spell out parts of that thing or constraints on it — never a second thing to produce. The test is mechanical: read each bullet and ask whether it could be sent on its own as a complete request. If it could, it is a separate job, and it does not belong here — drop it. Counting imperative verbs is the fastest check: "Write X. - spell out Y. - give me Z." is three jobs wearing one prompt, and it comes back as three answers nobody asked for. Material harvested from CLAUDE'S REPLY is where the extra jobs come from, every time.
 - Start with an imperative line stating the outcome. If the rough ask is a challenge or a question, keep it a question — aimed at Claude, never at the user.
 - If Claude's reply is what the ask acts on, name the actual thing from the reply — the file, the section, the claim, the number — using the reply's own words for anything factual. If the rough ask is unrelated to the reply, ignore the reply completely.
 - Make scope explicit when the conversation makes it inferable: what to change, and what to leave unchanged. Phrase anti-goals positively ("leave the visible copy unchanged"), not as warnings.
 - Add format, length, or count constraints only when the intent or the conversation implies them. Never invent numbers, names, keywords, or file paths that appear nowhere.
-- When a material fact only the user knows is missing, put a slot in angle brackets, like <main keyword> — at most 2 slots. When a reasonable default is worth surfacing, add a final line starting "Assume:" — at most 2. Never bake a silent choice into the prompt.
+- When a material fact only the user knows is missing, put a slot in angle brackets, like <main keyword> — at most 2 slots. Material they must supply rather than state — a file, a document, code, a spreadsheet, a link, a story only they can tell — takes the same form, as <paste here> or <attach here>, which they fill in the message box before sending. CONTEXA never asked them for it, so this is the only place it can appear. When a reasonable default is worth surfacing, add a final line starting "Assume:" — at most 2. Never bake a silent choice into the prompt.
+- ASSUMED, when present, holds facts CONTEXA already settled on the user's behalf instead of asking. Copy each one verbatim onto a final line starting "Assume:" — they fill the cap of 2 before any assumption of your own, you never turn one back into a question, and nothing in the body may contradict one. The same facts usually ALSO arrive in ROUGH ASK as "Assumed:" lines; that is one fact reaching you twice, so state it once, on its "Assume:" line, and never again in the body. When ROUGH ASK holds nothing but those lines — nobody typed and nobody clicked, because the reply left nothing to ask — the ask is THEIR LAST MESSAGE: re-ask it in the user's voice and put the "Assume:" lines underneath, exactly as you would a click list holding no decision.
 - Never use filler quality words: thorough, careful, carefully, properly, really, robust, comprehensive, high-quality, detailed, best. They change nothing. Constraints change things.
 - If the rough ask is already a good prompt, return it nearly verbatim with only mechanical fixes. Longer without more decidable is failure.
 - If expansion would need more than two slots, the ask is not expandable. Output instead, in the user's voice: "I want help with <topic>. Ask me everything you need to know to get this right — one focused list, then wait for my answers before continuing."
-- At most 700 characters. Short sentences. When constraints deserve their own lines, start each with "- " and put a real newline between lines by writing \\n inside the JSON string.
+- At most 700 characters. Short sentences. When constraints deserve their own lines, start each with "- " on a line of its own — real line breaks, nothing to escape.
 Examples of the right shape:
 ROUGH ASK: optimize seo & meta (Claude just built a landing page)
 PROMPT: Optimize the SEO of the page you just built. Work only inside <head> and the heading structure — leave the visible copy unchanged.
@@ -120,9 +262,37 @@ Assume: this is my first written request.
 ROUGH ASK: deployed, works (after a reply that listed five checks to run)
 PROMPT: Deployed and the worker is live. Go ahead with the release ceremony next.\nAssume: all five field checks passed as you listed them — I will say so if any did not.
 
+ROUGH ASK: one "Assumed:" line and nothing else — nobody typed and nobody clicked, because the reply left nothing to ask (their last message was "the worker keeps 500ing on deploy")
+Assumed: I'm on Windows, so give me PowerShell, not bash
+ASSUMED: I'm on Windows, so give me PowerShell, not bash
+PROMPT: The worker keeps returning 500 on deploy. Walk me through finding the cause — one step at a time, and wait for what each one prints before giving me the next.
+Assume: I'm on Windows, so give me PowerShell, not bash
+
+ROUGH ASK: three clicked answers, all facts, no decision among them (their last message was "which database should i use for a small side project")
+Team size: Just me
+Budget: Free tier only
+Deadline: No fixed date
+PROMPT: I'm building solo, on free tiers only, with no fixed deadline. Which database should I use for a small side project?
+ROUGH ASK: two clicked answers, one of which decides what to do next (Claude's reply sketched a tool with several parts)
+Piece: The candidate generator
+Form: Detailed UI mockup
+PROMPT: Write the detailed UI mockup for the candidate generator.
+- what the screen looks like, element by element
+- three worked examples of what it would output
+- how it avoids paraphrasing the input back
+Leave the rest of the design as it stands — build only this piece.
+ROUGH ASK: two clicked answers, and the reply left several threads open — do NOT harvest them
+Ship first: The email capture form
+Timing: Before launch, not after
+PROMPT: Build the email capture form for the landing page, before launch.
+- inline validation, error text under the field
+- one success state, no redirect
+Leave the pricing table and the analytics wiring as they are.
+The same answers done WRONG, and this is the most common failure: the prompt above with "- also write the pricing table copy" and "- give me the analytics events" bolted on. Both came out of the reply, neither was clicked, and each could be sent as its own message. One ask became four jobs and the reply came back four times as long.
 ROUGH ASK: marketing (nothing relevant in the reply)
 PROMPT: I want help with marketing. Ask me everything you need to know to get this right — one focused list, then wait for my answers before continuing.
-Reply with ONLY minified JSON: {"prompt":"..."}`;
+Reply with the prompt text and NOTHING else: no JSON, no wrapper, no quotes around it, no code fence, no preamble, no sign-off, no explanation of what you wrote or why. The first character you write is the first character of the message the user is about to send. Every PROMPT: line above shows exactly what a whole answer looks like.
+`;
 
 
 /* ---------------------------------------------------------------- helpers */
@@ -253,6 +423,28 @@ function extractJson(text) {
 /* Same clean-boundary trim for the fifth chip's drafted prompt, at its own cap.
    A draft that blows the cap is a prompt-discipline failure upstream; trimming
    at a line or sentence keeps what ships readable either way. */
+/* The composer returns ONE string, so there is nothing to parse and nothing
+   parses it. It was wrapped in JSON for sixteen releases and the wrapper was the
+   only part that ever failed: a well-formed prompt arriving as plain text scored
+   `bad_json` and rendered to the user as "Couldn't write suggestions for this
+   reply", three sessions running.
+
+   The two shims are for habit, not for failure. A model that still emits the old
+   wrapper, or fences its answer, is understood rather than punished — and a
+   prompt that merely begins with a brace is left alone. */
+function readDraft(text) {
+  let t = String(text || '').trim();
+  const fence = t.match(/^```[a-z]*\n([\s\S]*?)\n?```$/i);
+  if (fence) t = fence[1].trim();
+  if (t.startsWith('{')) {
+    try {
+      const o = JSON.parse(t);
+      if (o && typeof o.prompt === 'string') return o.prompt.trim();
+    } catch { /* not JSON — a prompt is allowed to open with a brace */ }
+  }
+  return t;
+}
+
 function trimExpansion(value) {
   const t = String(value || '').trim();
   if (t.length <= MAX_EXPANSION_CHARS) return t;
@@ -265,7 +457,74 @@ function trimExpansion(value) {
   return (sp > 0 ? cut.slice(0, sp) : cut).trimEnd();
 }
 
-const MAX_PAYLOAD_CHARS = 600;
+const MAX_PAYLOAD_CHARS = 700;
+const OTHER_RE = /^(other|something else|not sure|skip|none|n\/a)\b/i;
+function cleanOptions(v) {
+  if (!Array.isArray(v)) return [];
+  const out = [];
+  for (const o of v) {
+    const t = String(o || '').replace(/\s+/g, ' ').trim().slice(0, 60);
+    if (!t || OTHER_RE.test(t)) continue;
+    if (out.some(x => x.toLowerCase() === t.toLowerCase())) continue;
+    out.push(t);
+    if (out.length === 4) break;
+  }
+  return out;
+}
+
+/* 0.9.49 — the second half of "would a different answer change what happens
+   next?". Zero to two short statements the questions model chose to STATE
+   rather than ask. Absent is the normal case and means exactly today's
+   behaviour: no floor, no default, and never a line this worker invented —
+   it only cleans what the model sent.
+   MUST stay behaviourally identical to cleanAssume in extension/background.js. */
+function cleanAssume(v) {
+  if (!Array.isArray(v)) return [];
+  const out = [];
+  for (const a of v) {
+    const t = String(a == null ? '' : a).replace(/\s+/g, ' ').trim().slice(0, 160);
+    // A question is not an assumption. The prompt says so; this enforces it,
+    // because an "Assume:" line ending in "?" reads as CONTEXA asking the user
+    // something inside the message they are about to send to Claude.
+    if (!t || t.endsWith('?')) continue;
+    if (out.some(x => x.toLowerCase() === t.toLowerCase())) continue;
+    out.push(t);
+    if (out.length === 2) break;
+  }
+  return out;
+}
+
+/* v1 chips. The id list is CLOSED, and that is the point: an id the client does
+   not know how to render is worse than no chip at all, because it renders as a
+   dead button rather than as silence. A client older than this omits the key
+   entirely, which lands as [] and changes nothing anywhere.
+
+   Byte-identical with the extension's copy, like cleanAssume — neither side may
+   render or send something no gate has touched. */
+const CHIP_IDS = ['deeper', 'choose', 'risk', 'why'];
+
+function cleanChips(v) {
+  if (!Array.isArray(v)) return [];
+  const out = [];
+  for (const c of v) {
+    if (!c || typeof c !== 'object') continue;
+    const id = String(c.id == null ? '' : c.id).trim();
+    if (!CHIP_IDS.includes(id)) continue;
+    // One of each, at most. Two "why" chips are two buttons doing the same job,
+    // which reads as a bug even when both texts are fine on their own.
+    if (out.some(x => x.id === id)) continue;
+    const text = String(c.text == null ? '' : c.text).replace(/\s+/g, ' ').trim().slice(0, 300);
+    const evidence = String(c.evidence == null ? '' : c.evidence).replace(/\s+/g, ' ').trim().slice(0, 90);
+    // No quotable evidence, no chip — the gate questions already pass, for the
+    // same reason: a move nothing in the reply earned is decoration, and
+    // decoration is what every floor in this product started as.
+    if (!text || !evidence) continue;
+    out.push({ id, text, evidence });
+    if (out.length === CHIP_IDS.length) break;
+  }
+  return out;
+}
+
 function trimPayload(value) {
   const t = String(value || '').trimEnd();
   if (t.length <= MAX_PAYLOAD_CHARS) return t;
@@ -317,14 +576,27 @@ export default {
     try { body = await request.json(); } catch { return json({ error: 'bad_request' }, 400, request, env); }
 
     // clamp server-side: the client cannot make a request more expensive
+    const asksQuestions = wantsQuestions(body);
+    const acceptsChips = asksQuestions && wantsChips(body);
     const prompt = String(body.prompt || '').slice(0, MAX_PROMPT_CHARS);
     const reply = String(body.reply || '').slice(0, MAX_REPLY_CHARS);
     let intent = '';
+    /* 0.9.49 — facts CONTEXA settled instead of asking, carried from the
+       questions call. Named apart from the questions branch's own `assume`
+       because both live in this function scope. */
+    let carried = [];
     if (wantExpand) {
       // A rough ask is required; the reply is NOT — "email to my landlord"
       // legitimately ignores the conversation entirely.
       intent = String(body.intent || '').trim().slice(0, MAX_INTENT_CHARS);
-      if (!intent) return json({ error: 'bad_request' }, 400, request, env);
+      /* An empty rough ask became legal in 0.9.49, but ONLY alongside an
+         assumption — the standalone case, where nobody typed and nobody
+         clicked and the ask is their last message. A conjunction, never a
+         fallback: a request carrying neither is still bad_request, and the
+         client sends the facts in BOTH fields so a pre-0.9.49 worker still
+         has a non-empty intent to work from. */
+      carried = cleanAssume(body.assume);
+      if (!intent && !carried.length) return json({ error: 'bad_request' }, 400, request, env);
     } else if (reply.trim().length < MIN_REPLY_CHARS) {
       return json({ error: 'reply_too_short' }, 400, request, env);
     }
@@ -358,7 +630,7 @@ export default {
           model: env.MODEL || MODEL,
           max_tokens: EXPAND_MAX_TOKENS,
           thinking: { type: 'disabled' },
-          system: EXPAND_SYSTEM,
+          system: cachedSystem(EXPAND_SYSTEM),
           messages: [{
             role: 'user',
             // Section labels MUST match extension/background.js byte-for-byte —
@@ -367,20 +639,28 @@ export default {
             content: 'ROUGH ASK:\n' + intent
               + '\n\nTHEIR LAST MESSAGE:\n' + (prompt || '(not captured)')
               + '\n\nCLAUDE\'S REPLY:\n' + (reply || '(none)')
+              + (carried.length ? '\n\nASSUMED:\n' + carried.join('\n') : '')
           }]
         }
       : {
           model: env.MODEL || MODEL,
           max_tokens: MAX_TOKENS,
           thinking: { type: 'disabled' },
-          system: NEXT_STEPS_SYSTEM,
+          system: cachedSystem(asksQuestions ? QUESTIONS_SYSTEM : LEGACY_STEPS_SYSTEM),
           messages: [{
             role: 'user',
             content: 'USER MESSAGE:\n' + (prompt || '(not captured)') + '\n\nCLAUDE REPLY:\n' + reply
           }]
         };
     let upstream, upstreamErrBody = '';
-    for (let attempt = 0; attempt < 2; attempt++) {
+    /* Two independent degradations, each allowed once, tracked by FLAGS rather
+       than by attempt index. The old `attempt === 0` guard meant a thinking
+       rejection could only ever be recovered from if it was the FIRST failure;
+       with two possible degradations that is no longer a safe assumption, and
+       the flags make the order irrelevant. Three attempts because both can
+       legitimately fire on one request. */
+    let droppedThinking = false, droppedCache = false;
+    for (let attempt = 0; attempt < 3; attempt++) {
       try {
         upstream = await fetch(ANTHROPIC_URL, {
           method: 'POST',
@@ -399,9 +679,24 @@ export default {
       // Tail-only: the body can contain account details, so it never reaches
       // the client — but silence here cost a debugging cycle once already.
       console.log('[CONTEXA] upstream error', upstream.status, upstreamErrBody.slice(0, 300));
-      if (attempt === 0 && upstream.status === 400 && /thinking/i.test(upstreamErrBody) && upstreamPayload.thinking) {
+      if (!droppedThinking && upstream.status === 400 && /thinking/i.test(upstreamErrBody) && upstreamPayload.thinking) {
         console.log('[CONTEXA] model rejected the thinking config — retrying without it');
         delete upstreamPayload.thinking;
+        droppedThinking = true;
+        continue;
+      }
+      /* Caching is an optimisation and must never be the reason a user gets
+         nothing. If the endpoint or the configured model rejects the cached
+         block, flatten it back to a plain string and try once more: the request
+         then costs what it cost before 2026-08-27 and still succeeds.
+         The match is deliberately broad, exactly like the thinking branch above
+         — the wording of somebody else's 400 is not ours to predict, and a
+         narrow regex here would turn a recoverable request into a dead one. */
+      if (!droppedCache && upstream.status === 400 && /cache/i.test(upstreamErrBody)
+          && Array.isArray(upstreamPayload.system)) {
+        console.log('[CONTEXA] upstream rejected prompt caching — retrying uncached');
+        upstreamPayload.system = upstreamPayload.system.map(b => b.text).join('');
+        droppedCache = true;
         continue;
       }
       break;
@@ -410,6 +705,22 @@ export default {
     if (!upstream.ok) {
       // Deliberately do not forward the upstream body: it can contain account
       // details, and a client has no use for them. It is in `wrangler tail`.
+      //
+      // But DO read it, because two of these failures are not transient and
+      // every client renders `upstream_*` as "Couldn't reach the CONTEXA
+      // service. Check your connection and try again in a moment." — a
+      // sentence that blames the user's network for our outage and stays
+      // wrong forever. A revoked key and an empty balance are both "nothing
+      // you can fix", which is exactly what `server_not_configured` already
+      // says, in every client shipped since 0.9.27. Choosing that code here
+      // fixes the sentence for the whole installed base on one deploy, with
+      // no store review and no client change to couple it to.
+      const serviceIsDown = upstream.status === 401
+        || (upstream.status === 400 && /credit balance|billing|insufficient|payment/i.test(upstreamErrBody));
+      if (serviceIsDown) {
+        console.log('[CONTEXA] service key rejected or unfunded — reporting server_not_configured');
+        return json({ error: 'server_not_configured' }, 503, request, env);
+      }
       const status = upstream.status === 429 ? 503 : 502;
       return json({ error: 'upstream_' + upstream.status }, status, request, env);
     }
@@ -417,6 +728,22 @@ export default {
     let data;
     try { data = await upstream.json(); } catch { return json({ error: 'upstream_bad_json' }, 502, request, env); }
     const text = (data.content || []).map(b => b.text || '').join('');
+
+    /* The composer never reaches extractJson: its answer IS the draft. A
+       truncated one is still a failure — half a prompt in someone's message box
+       is worse than an error they can retry. */
+    if (wantExpand) {
+      const drafted = trimExpansion(readDraft(text));
+      if (data.stop_reason === 'max_tokens' || !drafted) {
+        const diag = diagnose(data, text, EXPAND_MAX_TOKENS);
+        console.log('[CONTEXA] expand produced no usable draft', JSON.stringify(diag),
+          'text[0,300]=', JSON.stringify(text.slice(0, 300)));
+        return json({ error: data.stop_reason === 'max_tokens' ? 'truncated' : 'no_prompt', diag },
+          502, request, env);
+      }
+      return json({ prompt: drafted, quota: { used: quota.used, limit: DEVICE_DAILY_LIMIT } },
+        200, request, env);
+    }
 
     let parsed;
     try { parsed = extractJson(text); } catch (e) {
@@ -468,9 +795,27 @@ export default {
        grounding counts, so the page console can report the rate without any
        reply text leaving the worker's logs. */
     const normWs = s => String(s || '').replace(/\s+/g, ' ').trim();
-    const rawSteps = Array.isArray(parsed.steps) ? parsed.steps : [];
-    const withEv = rawSteps.filter(s =>
-      s && typeof s.text === 'string' && s.text.trim() && normWs(s.evidence));
+    /* The two prompts emit two different keys — LEGACY_STEPS_SYSTEM says
+       {"steps":[...]}, QUESTIONS_SYSTEM says {"questions":[...]} — so the parser
+       has to accept whichever arrived. Reading only one silently produced an
+       empty array, which the code below reads as 'the model earned nothing' and
+       turns into a QUIET ROW: a total outage wearing the mask of correct
+       behaviour, on the exact path that has no test coverage from real use. */
+    const rawSteps = Array.isArray(parsed.questions) ? parsed.questions
+      : Array.isArray(parsed.steps) ? parsed.steps : [];
+    /* Three filters can empty this list and they need different fixes, so
+       the log must never guess between them. A question with no usable
+       "text", a question with no "evidence", and a question with fewer than
+       two options are three different defects. The first is the sneaky one:
+       the worked exemplars say "question" where the schema says "text", so a
+       model copying the exemplar lands HERE while looking like an evidence
+       failure. That misattribution is exactly what this counting prevents. */
+    let noText = 0, noEvidence = 0;
+    const withEv = rawSteps.filter(s => {
+      if (!(s && typeof s.text === 'string' && s.text.trim())) { noText++; return false; }
+      if (!normWs(s.evidence)) { noEvidence++; return false; }
+      return true;
+    });
     const normReply = normWs(reply);
     let grounded = 0;
     for (const s of withEv) {
@@ -478,15 +823,87 @@ export default {
       else console.log('[CONTEXA] ungrounded chip', JSON.stringify(String(s.label || '').slice(0, 40)));
     }
     console.log('[CONTEXA] evidence', JSON.stringify(withEv.map(s => String(s.evidence).slice(0, 90))));
-    const steps = withEv
-      .slice(0, 5)
-      .map(s => ({ label: String(s.label || '').slice(0, 80), text: trimPayload(s.text) }));
+    /* One chip for a legacy client, up to four questions for a new one — the
+       two products have different caps and a legacy client would render four
+       question-shaped chips as four pasteable prompts, which is nonsense. */
+    /* 0.9.33 — the click-only invariant, enforced in code as well as in the
+       prompt. A question the user cannot answer by CLICKING is not asked: the
+       audience is people who know roughly what they want but not how to say it,
+       and a bare text field asks them to do the exact thing they came here
+       unable to do. Under two usable options, the question is dropped.
+
+       Order matters. Map first, drop second, slice last — slicing to four
+       before dropping would let one unaskable question cost a good one its
+       place. And the drop is per-question, never the whole interview: the case
+       that would justify aborting (material the user must supply) belongs in
+       the composed prompt as a slot, not in the questionnaire. */
+    const mapped = withEv.map(s => asksQuestions
+      ? {
+          label: String(s.label || '').slice(0, 80),
+          text: trimPayload(s.text),
+          options: cleanOptions(s.options)
+        }
+      : { label: String(s.label || '').slice(0, 80), text: trimPayload(s.text) });
+    const dropped = asksQuestions ? mapped.filter(q => q.options.length < 2) : [];
+    if (dropped.length) console.log('[CONTEXA] dropped unclickable question(s)',
+      JSON.stringify(dropped.map(q => q.label)));
+    const steps = (asksQuestions ? mapped.filter(q => q.options.length >= 2) : mapped)
+      .slice(0, asksQuestions ? 4 : 1);
+    /* 0.9.49 — questions only. A pre-0.9.30 client on the legacy steps shape
+       has no code that reads this and no composer to put it in; sending it
+       there would be noise on a wire we keep frozen on purpose. An extension
+       older than 0.9.49 ignores the extra key, so this direction is safe
+       without any deploy ordering. */
+    const assume = asksQuestions ? cleanAssume(parsed.assume) : [];
+    /* One or the other, never both — and enforced HERE, not only in the client.
+       A row holding an interview card AND a chip row is two products on screen,
+       which is the shape claude.ai's own Cowork widget already produces by
+       accident. The client must not be the only thing standing between us and
+       shipping it on purpose. */
+    const chips = acceptsChips && !steps.length ? cleanChips(parsed.chips) : [];
+    if (assume.length) console.log('[CONTEXA] assumed', assume.length, 'of', steps.length, 'question(s)');
+    /* The key an old client reads is not the key a new one reads.
+
+       Worker 0.9.52 — a chip-aware client also gets `chips`, and right now it is
+       always empty because the prompt does not produce any yet. That is the
+       point: the channel is proved end to end before anything travels down it,
+       and the worker can deploy today instead of waiting on a store review that
+       has not happened. A client that did not announce chips must never see the
+       key at all — it would read an unknown shape as nothing earned and render
+       a quiet row forever, which is a total outage wearing correct behaviour's
+       face and is exactly how 0.9.30 broke. */
+    const shape = extra => {
+      if (!asksQuestions) return Object.assign({ steps }, extra);
+      const base = { questions: steps, assume };
+      if (acceptsChips) base.chips = chips;
+      return Object.assign(base, extra);
+    };
     const grounding = { total: rawSteps.length, kept: steps.length, grounded };
     if (!steps.length) {
-      // Parsed but nothing usable — including the case where every step
-      // ignored the evidence contract. Same treatment, same evidence trail.
+      /* 0.9.29 — there are now TWO silences and conflating them would hide the
+         only defect signal this path has. rawSteps === 0 means the model chose
+         to return nothing: the reply closed the loop and no step was earned.
+         That is a product outcome, it renders as a quiet row, and it is the
+         whole point of the one-chip core. Anything else means steps WERE
+         produced and every one was filtered out — by the evidence gate, by a
+         missing "text", or by the option guard. Which of the three it was is in
+         the log line below; do not assume the evidence gate, that assumption
+         was wrong once already. */
+      if (!rawSteps.length) {
+        /* `quiet` means NOTHING was earned, and chips are something. Flagging a
+           chip row quiet would conflate the two states the 0.9.29 split exists
+           to keep apart — and the client reads this flag, so it would be a lie
+           told in the one field whose whole job is telling the truth about
+           silence. Identical to before whenever chips is empty, which is every
+           call until the prompt earns one. */
+        console.log('[CONTEXA] quiet row — nothing to ask',
+          asksQuestions ? '(questions)' : '(legacy steps)',
+          chips.length ? '— offering ' + chips.length + ' chip(s)' : '');
+        return json(shape({ grounding, quiet: !chips.length }), 200, request, env);
+      }
       const diag = diagnose(data, text);
-      console.log('[CONTEXA] parsed but no usable steps', JSON.stringify(diag), 'rawSteps=' + rawSteps.length);
+      console.log('[CONTEXA] parsed but no usable steps', JSON.stringify(diag),
+        'rawSteps=' + rawSteps.length + '. ' + 'Dropped: ' + noText + ' with no usable "text", ' + noEvidence + ' with no "evidence", ' + dropped.length + ' with fewer than two options.');
       return json({ error: 'no_steps', diag }, 502, request, env);
     }
 
@@ -501,19 +918,17 @@ export default {
       const diag = diagnose(data, text);
       console.log('[CONTEXA] partial salvage', JSON.stringify(diag),
         'kept=' + steps.length, 'text[-300]=', JSON.stringify(text.slice(-300)));
-      return json({
-        steps,
+      return json(shape({
         grounding,
         quota: { used: quota.used, limit: DEVICE_DAILY_LIMIT },
         partial: true,
         diag
-      }, 200, request, env);
+      }), 200, request, env);
     }
 
-    return json({
-      steps,
+    return json(shape({
       grounding,
       quota: { used: quota.used, limit: DEVICE_DAILY_LIMIT }
-    }, 200, request, env);
+    }), 200, request, env);
   }
 };
