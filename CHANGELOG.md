@@ -62,8 +62,8 @@ third time. The anchor sentence is gone; the rule now reads as one sentence.
 Extension **0.9.57**, worker `BUILD` **0.9.57** — bumped together because the
 shared prompt changed, same reasoning as 0.9.56: without it, `/v1/health`
 cannot tell a pre-precedence-fix deploy from a post-precedence-fix one.
-Deployed to the worker ahead of this entry; the extension side ships on the
-Chrome Web Store's own clock, as always.
+Ships to the worker on the next `wrangler deploy`; the extension side ships
+on the Chrome Web Store's own clock, as always.
 
 ---
 
