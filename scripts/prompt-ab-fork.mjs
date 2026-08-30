@@ -62,7 +62,7 @@ if (!CURRENT || !MODEL) throw new Error('could not read QUESTIONS_SYSTEM / SHIPP
    wording ever drifts, this throws rather than silently testing a stale
    variant against a prompt that no longer matches the shipped one. */
 const PRECEDENCE_BULLET =
-  '- choose, risk, and why outrank questions. If the reply earned any of them, return the move row and no questions — even when the reply directly asked the user something. deeper never outranks a question: when deeper is the only move the reply earned, ask instead.\n';
+  '- choose, risk, and why outrank questions. If the reply earned any of them, return the move row and no questions — even when the reply directly asked the user something.\n';
 const PRECEDENCE_BULLET_NO_ANCHOR =
   '- choose, risk, and why outrank questions. If the reply earned any of them, return the move row and no questions — even when the reply directly asked the user something.\n';
 const ANCHOR_EXEMPLAR =
@@ -81,6 +81,9 @@ for (const [name, s] of [
 function buildPRE(text) {
   return text.replace(PRECEDENCE_BULLET, '').replace(ANCHOR_EXEMPLAR, '').replace(CONTESTED_EXEMPLAR, '');
 }
+/* DROP is now byte-identical to NOW: the sentence it tested for removal
+   already shipped removed in PR #14. Kept as-is for the historical record,
+   not refactored away. */
 function buildDROP(text) {
   return text.replace(PRECEDENCE_BULLET, PRECEDENCE_BULLET_NO_ANCHOR);
 }
