@@ -20,6 +20,29 @@
 # read. Both are fixed below: `v` + `accepts` opt into the real, current wire
 # shape (questions/assume, or chips when a move is earned instead), and the
 # Origin matches the real pinned extension ID.
+#
+# FIELD NOTES
+#
+# 2026-08-30 — first live run since the fix, against BUILD 0.9.57 (Node port
+# of this script, run from a session with network access to the worker; this
+# one has none). All three branches fired correctly on real, spontaneous
+# replies:
+#   Turn 1 (fork/choose)  — MOVES(1): reply said "that is your call rather
+#     than mine" between two fixes; came back as a `choose` chip, grounded on
+#     the real quote. Clean confirmation of the precedence rule's core case.
+#   Turn 2 (Chrome Web Store fields) — QUESTIONS(1): reply fully resolved
+#     both justification fields, leaving nothing genuinely open. Still earned
+#     one question ("Did the host and remote code fields clear the errors?"),
+#     evidence-grounded (the quote is real) so nothing is misbehaving — but
+#     it reads closer to a status check-in than a fork/assumption/missing-
+#     info case. Not a defect in this run; flagged here for whoever next
+#     tunes the question-vs-quiet boundary.
+#   Turn 3 (quiet + assume) — QUIET, with `assume` carrying the reply's own
+#     complete recommendation verbatim. Clean confirmation of "state it,
+#     don't ask" for a reply that left nothing open.
+# None of the three was the "contested shape" case (a reply that both asks
+# directly AND earns a move in the same breath) — that one was covered
+# separately by the earlier live U1 check against /v1/next-steps.
 
 param(
   [string]$Tag = "dogfood",
