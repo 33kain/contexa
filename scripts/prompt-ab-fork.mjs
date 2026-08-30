@@ -9,17 +9,29 @@
  *   $env:ANTHROPIC_API_KEY = "sk-ant-..."      (PowerShell, this session only)
  *   node prompt-ab-fork.mjs
  *   node prompt-ab-fork.mjs 3                  (3 runs per variant instead of 5)
+ *   node prompt-ab-fork.mjs --only=U3          (one input only, still 5 runs/variant)
  *
  * The key is read from the environment and never printed, never written, and
  * never leaves this process except to api.anthropic.com.
  *
- * PRE-REGISTERED — fixed before any run, not to be adjusted after seeing
- * results:
- *   U1 (contested shape)                    expect MOVES      >= 13/15
- *   U2 (finished work, nothing asked)       expect MOVES      == 15/15 (unchanged regression anchor)
- *   U3 (question-only, deeper alone earned) expect QUESTIONS  >= 13/15
- *   U3 is the kill switch: if it fails, the change does not ship regardless
- *   of U1/U2 — report that as failure, not partial success.
+ * RUN HISTORY, each input run exactly once, not to be re-run once reported:
+ *   U1, U2 — run [date of the 45-call run], thresholds per-variant out of 5:
+ *     U1 NOW >=4/5 moves (FAILED 3/5), DROP >=4/5 moves (passed 5/5)
+ *     U2 NOW ==5/5 moves (FAILED 4/5), DROP ==5/5 moves (passed 5/5)
+ *   Those two results are final regardless of what else this file's U3
+ *   fixture or scoring goes through afterward.
+ *   U3 v1 (question-only, "deeper alone earned") was INVALID as a test: its
+ *   own PRE already scored 5/5 questions, meaning nothing was ever pulling it
+ *   toward moves, so it could not have detected the anchor sentence's
+ *   absence. Replaced with U3 v2 below, designed to actually tempt deeper.
+ *
+ * PRE-REGISTERED for U3 v2 — fixed before any run, not to be adjusted after
+ * seeing results:
+ *   NOW  >= 4/5 questions
+ *   DROP <= 3/5 questions  -> anchor sentence confirmed necessary
+ *   DROP == 4/5            -> INCONCLUSIVE, report as inconclusive, not a near-pass
+ *   DROP == 5/5            -> kill test fires: anchor not earning its place,
+ *                              change does not ship regardless of U1/U2
  *
  * The call is assembled to match extension/background.js EXACTLY — same
  * system prompt, same section labels, same 2500 ceiling, same disabled
@@ -29,7 +41,10 @@
 
 import { readFileSync } from 'node:fs';
 
-const RUNS = Number(process.argv[2] || 5);
+const argv = process.argv.slice(2);
+const onlyArg = argv.find(a => a.startsWith('--only='));
+const ONLY = onlyArg ? onlyArg.slice('--only='.length) : null;
+const RUNS = Number(argv.find(a => /^\d+$/.test(a)) || 5);
 const KEY = process.env.ANTHROPIC_API_KEY;
 if (!KEY) {
   console.error('Set ANTHROPIC_API_KEY first. Nothing was sent.');
@@ -91,27 +106,48 @@ const U2 = {
   reply: "Done — moved the auth checks to middleware and updated the three call sites. I removed the old duplicate check in the legacy handler since middleware now covers it; that path isn't covered by the current tests, so it's worth a manual look before this ships. Everything else passes.",
 };
 
+/* U3 v1 (options-language birthday-gift reply) was INVALID: its own PRE
+   already scored 5/5 questions, so nothing was ever pulling it toward moves
+   and it could not have detected the anchor sentence's absence. Replaced
+   with v2, designed to actually tempt deeper — a reply that finishes real
+   work and explicitly offers to go further ("I could walk through..."),
+   which is exactly deeper's own earning condition, while a genuine question
+   (the missing "which case is this for") is still the correct answer. */
 const U3 = {
-  note: "Options-language that also asks for missing info — deeper-tempting, but a question must still win. The precedence rule's kill test.",
-  userMessage: 'Give me ideas for a birthday gift for my sister.',
-  reply: 'A few directions: something experiential — a class or an event — something personal and handmade, or a practical upgrade to something she already uses. Each fits a different kind of sister. Tell me a bit about her interests and I can narrow it down.',
+  note: 'v2 — a reply that finishes real work and offers to go further (deeper-tempting), but a genuine question is still correct. Designed to actually tempt deeper, unlike v1.',
+  userMessage: 'What should I know about compound interest?',
+  reply: "Compound interest is interest calculated on the initial principal plus all previously accumulated interest, so growth accelerates over time rather than staying linear. Example: $1,000 at 5% annual interest becomes about $1,628 after 10 years with compounding, versus $1,500 with simple interest. The more frequently it compounds — annually versus monthly versus daily — the faster it grows, though the difference between monthly and daily is usually small in practice. I could walk through how the formula actually works, or how this applies to something like a mortgage or a savings account, if either would be useful.",
 };
 
-/* Pre-registered per-variant, out of RUNS (5) each — not pooled across the
-   15 total per input. PRE is informational only, never gating: it shows
-   pre-edit baseline behavior for context, nothing more.
+/* Pre-registered per-variant, out of RUNS (5) each — not pooled. PRE is
+   informational only, never gating: pre-edit baseline for context.
 
-   U1/U2: NOW and DROP each held to their own fixed floor.
-   U3: NOW held to a floor; DROP is not a fixed-floor check but a KILL TEST
-   compared directly against NOW's own count on the same run — if dropping
-   the anchor sentence does not measurably cost questions (DROP's count
-   matches or exceeds NOW's), the anchor was not earning its place and the
-   change does not ship, regardless of U1/U2. */
+   Each input's evalDrop() decides pass/fail/inconclusive for its DROP
+   variant; NOW is always a simple floor (nowMin). U1/U2 results are FINAL
+   (see the run-history comment at the top) and are not re-run — their
+   entries stay here only so a future full run has a complete, correct
+   definition to work from. */
 const INPUTS = [
-  { name: 'U1', input: U1, branch: 'MOVES', nowMin: 4, dropMin: 4 },
-  { name: 'U2', input: U2, branch: 'MOVES', nowMin: 5, dropMin: 5 },
-  { name: 'U3', input: U3, branch: 'QUESTIONS', nowMin: 4, dropIsKillTest: true },
+  {
+    name: 'U1', input: U1, branch: 'MOVES', nowMin: 4,
+    evalDrop: d => ({ pass: d >= 4, label: d >= 4 ? 'PASS' : 'FAIL', need: '>= 4/5' }),
+  },
+  {
+    name: 'U2', input: U2, branch: 'MOVES', nowMin: 5,
+    evalDrop: d => ({ pass: d >= 5, label: d >= 5 ? 'PASS' : 'FAIL', need: '== 5/5' }),
+  },
+  {
+    name: 'U3', input: U3, branch: 'QUESTIONS', nowMin: 4,
+    evalDrop: d => {
+      if (d <= 3) return { pass: true, label: 'PASS — anchor sentence confirmed necessary', need: '<= 3/5' };
+      if (d === 4) return { pass: null, label: 'INCONCLUSIVE — not a near-pass, needs judgment', need: '== 4/5 is inconclusive' };
+      return { pass: false, label: 'FAIL — KILL TEST FIRED: anchor not earning its place', need: '== 5/5 fires the kill test' };
+    },
+  },
 ];
+
+const RUN_INPUTS = ONLY ? INPUTS.filter(i => i.name === ONLY) : INPUTS;
+if (ONLY && !RUN_INPUTS.length) throw new Error(`--only=${ONLY} matched no input (have: ${INPUTS.map(i => i.name).join(', ')})`);
 
 function userText(input) {
   // Section labels must match background.js byte-for-byte.
@@ -144,13 +180,13 @@ async function ask(system, text) {
   return { branch: 'SILENT', detail: (parsed.assume || []).join(' / ') };
 }
 
-/* ---- run: every input x every variant x RUNS ------------------------------ */
+/* ---- run: every (selected) input x every variant x RUNS -------------------- */
 
-const totalCalls = INPUTS.length * VARIANTS.length * RUNS;
-console.log(`model ${MODEL} · ${RUNS} runs per variant · ${INPUTS.length} inputs · ${VARIANTS.length} variants · ${totalCalls} calls total\n`);
+const totalCalls = RUN_INPUTS.length * VARIANTS.length * RUNS;
+console.log(`model ${MODEL} · ${RUNS} runs per variant · ${RUN_INPUTS.length} input(s)${ONLY ? ` (--only=${ONLY})` : ''} · ${VARIANTS.length} variants · ${totalCalls} calls total\n`);
 
 const results = {}; // results[inputName][variantName] = { BRANCH: count, ... }
-for (const { name: inputName, input } of INPUTS) {
+for (const { name: inputName, input } of RUN_INPUTS) {
   results[inputName] = {};
   const text = userText(input);
   console.log(`=== ${inputName} — ${input.note} ===`);
@@ -180,31 +216,20 @@ console.log('RESULTS');
 console.log('='.repeat(78));
 
 let allPass = true;
-let u3KillTestFired = false;
+let anyInconclusive = false;
+let u3Failed = false;
 
-for (const { name: inputName, branch, nowMin, dropMin, dropIsKillTest } of INPUTS) {
+for (const { name: inputName, branch, nowMin, evalDrop } of RUN_INPUTS) {
   const preCount = countInVariant(inputName, 'PRE', branch);
   const nowCount = countInVariant(inputName, 'NOW', branch);
   const dropCount = countInVariant(inputName, 'DROP', branch);
 
   const nowPass = nowCount >= nowMin;
-  let dropPass, dropLine;
-  if (dropIsKillTest) {
-    // Kill test: DROP must show FEWER of the expected branch than NOW did —
-    // proof the anchor sentence is the thing holding the line. Matching or
-    // exceeding NOW means the anchor isn't earning its place.
-    dropPass = dropCount < nowCount;
-    dropLine = `DROP  ${dropCount}/${RUNS} ${branch}  vs NOW's ${nowCount}/${RUNS}  ->  `
-      + (dropPass ? 'PASS (anchor validated: dropping it cost questions)'
-                  : 'FAIL — KILL TEST: dropping the anchor did not cost questions; it is not earning its place');
-    if (!dropPass) u3KillTestFired = true;
-  } else {
-    dropPass = dropCount >= dropMin;
-    dropLine = `DROP  ${dropCount}/${RUNS} ${branch}  (need >= ${dropMin})  ->  ${dropPass ? 'PASS' : 'FAIL'}`;
-  }
-
+  const drop = evalDrop(dropCount, nowCount);
+  // pass: true -> PASS, false -> FAIL, null -> INCONCLUSIVE (counts as neither pass nor fail)
   if (!nowPass) allPass = false;
-  if (!dropPass) allPass = false;
+  if (drop.pass === false) { allPass = false; if (inputName === 'U3') u3Failed = true; }
+  if (drop.pass === null) anyInconclusive = true;
 
   console.log(`\n${inputName}  expect ${branch}`);
   for (const [variantName] of VARIANTS) {
@@ -213,15 +238,17 @@ for (const { name: inputName, branch, nowMin, dropMin, dropIsKillTest } of INPUT
   }
   console.log(`  PRE   ${preCount}/${RUNS} ${branch}  (informational, not gating)`);
   console.log(`  NOW   ${nowCount}/${RUNS} ${branch}  (need >= ${nowMin})  ->  ${nowPass ? 'PASS' : 'FAIL'}`);
-  console.log(`  ${dropLine}`);
+  console.log(`  DROP  ${dropCount}/${RUNS} ${branch}  (${drop.need})  ->  ${drop.label}`);
 }
 
 console.log('\n' + '='.repeat(78));
-if (u3KillTestFired) {
+if (u3Failed) {
   console.log('U3 KILL TEST FIRED: the anchor sentence is not earning its place.');
   console.log('Per the brief, this is FAILURE regardless of U1/U2 — the change does not ship.');
-} else {
-  console.log('U3 kill test did not fire — the anchor sentence is pulling its weight.');
+} else if (anyInconclusive) {
+  console.log('At least one DROP result is INCONCLUSIVE — reported as inconclusive, not as a near-pass.');
 }
-console.log(allPass ? '\nALL THRESHOLDS MET' : '\nAT LEAST ONE THRESHOLD FAILED');
+console.log(allPass && !anyInconclusive ? '\nALL THRESHOLDS MET'
+  : allPass ? '\nNO FAILURES, BUT AT LEAST ONE RESULT IS INCONCLUSIVE'
+  : '\nAT LEAST ONE THRESHOLD FAILED');
 console.log('='.repeat(78));
