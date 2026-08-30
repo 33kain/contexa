@@ -108,15 +108,20 @@ const U2 = {
 
 /* U3 v1 (options-language birthday-gift reply) was INVALID: its own PRE
    already scored 5/5 questions, so nothing was ever pulling it toward moves
-   and it could not have detected the anchor sentence's absence. Replaced
-   with v2, designed to actually tempt deeper — a reply that finishes real
-   work and explicitly offers to go further ("I could walk through..."),
-   which is exactly deeper's own earning condition, while a genuine question
-   (the missing "which case is this for") is still the correct answer. */
+   and it could not have detected the anchor sentence's absence.
+   U3 v2 (compound-interest explanation, "I could walk through X or Y") was
+   VALID but inert: PRE also scored 5/5 - the model treated the offer as
+   needing to know which branch regardless of any rule, so DROP matching NOW
+   there was uninformative rather than a real anchor failure.
+   v3, THIRD AND FINAL ATTEMPT, pre-committed: if DROP matches NOW again
+   (5/5 questions), we ship DROP instead of NOW and this line of testing
+   stops - not chasing a fourth fixture regardless of outcome. A working
+   code answer + a plain yes/no offer to wire it in, closer to deeper's
+   actual shape than v2's "which of two things" framing. */
 const U3 = {
-  note: 'v2 — a reply that finishes real work and offers to go further (deeper-tempting), but a genuine question is still correct. Designed to actually tempt deeper, unlike v1.',
-  userMessage: 'What should I know about compound interest?',
-  reply: "Compound interest is interest calculated on the initial principal plus all previously accumulated interest, so growth accelerates over time rather than staying linear. Example: $1,000 at 5% annual interest becomes about $1,628 after 10 years with compounding, versus $1,500 with simple interest. The more frequently it compounds — annually versus monthly versus daily — the faster it grows, though the difference between monthly and daily is usually small in practice. I could walk through how the formula actually works, or how this applies to something like a mortgage or a savings account, if either would be useful.",
+  note: "v3 (FINAL) — a working code answer plus a plain offer to wire it in ('let me know if you'd like it wired into your existing routes'). Pre-committed: if DROP matches NOW again, ship DROP instead of NOW and stop this line of testing.",
+  userMessage: 'Set up a rate limiter for my API.',
+  reply: "Here's a basic rate limiter:\n```\nfrom time import time\n\nclass RateLimiter:\n    def __init__(self, max_calls=100, window=60):\n        self.max_calls = max_calls\n        self.window = window\n        self.calls = []\n\n    def allow(self):\n        now = time()\n        self.calls = [t for t in self.calls if now - t < self.window]\n        if len(self.calls) < self.max_calls:\n            self.calls.append(now)\n            return True\n        return False\n```\nThis allows up to 100 requests per 60-second window. Let me know if you'd like it wired into your existing routes.",
 };
 
 /* Pre-registered per-variant, out of RUNS (5) each — not pooled. PRE is
@@ -215,11 +220,39 @@ console.log('='.repeat(78));
 console.log('RESULTS');
 console.log('='.repeat(78));
 
+// A variant where every single run errored (HTTP failure, unparsed response)
+// produced no model behavior at all. Scoring its 0-count against the real
+// thresholds would report "0 <= 3 -> PASS" or similar — a false signal
+// indistinguishable from a genuine result. Flag it as invalid instead of
+// scoring it.
+const REAL_BRANCHES = new Set(['MOVES', 'QUESTIONS', 'SILENT']);
+function variantIsAllErrors(inputName, variantName) {
+  const counts = results[inputName][variantName] || {};
+  const real = Object.entries(counts).filter(([b]) => REAL_BRANCHES.has(b)).reduce((s, [, n]) => s + n, 0);
+  return real === 0 && Object.values(counts).reduce((s, n) => s + n, 0) > 0;
+}
+
 let allPass = true;
 let anyInconclusive = false;
+let anyInvalid = false;
 let u3Failed = false;
 
 for (const { name: inputName, branch, nowMin, evalDrop } of RUN_INPUTS) {
+  const preInvalid = variantIsAllErrors(inputName, 'PRE');
+  const nowInvalid = variantIsAllErrors(inputName, 'NOW');
+  const dropInvalid = variantIsAllErrors(inputName, 'DROP');
+  if (preInvalid || nowInvalid || dropInvalid) {
+    anyInvalid = true;
+    console.log(`\n${inputName}  expect ${branch}`);
+    for (const [variantName] of VARIANTS) {
+      const line = Object.entries(results[inputName][variantName]).map(([b, n]) => `${b}:${n}`).join('  ');
+      console.log(`  ${variantName.padEnd(5)} ${line}${variantIsAllErrors(inputName, variantName) ? '  <-- ALL ERRORS, NOT A RESULT' : ''}`);
+    }
+    console.log(`  INVALID RUN: at least one variant produced zero real branch data (HTTP/parse errors only).`);
+    console.log(`  Not scored against thresholds — this is an infrastructure failure, not a model result.`);
+    continue;
+  }
+
   const preCount = countInVariant(inputName, 'PRE', branch);
   const nowCount = countInVariant(inputName, 'NOW', branch);
   const dropCount = countInVariant(inputName, 'DROP', branch);
@@ -242,13 +275,18 @@ for (const { name: inputName, branch, nowMin, evalDrop } of RUN_INPUTS) {
 }
 
 console.log('\n' + '='.repeat(78));
-if (u3Failed) {
+if (anyInvalid) {
+  console.log('RUN INVALID: at least one input produced no real branch data (see above).');
+  console.log('Nothing here is scored against any threshold. Re-run once the underlying');
+  console.log('failure (rate limit, spend cap, etc.) is resolved — this run proves nothing.');
+} else if (u3Failed) {
   console.log('U3 KILL TEST FIRED: the anchor sentence is not earning its place.');
   console.log('Per the brief, this is FAILURE regardless of U1/U2 — the change does not ship.');
 } else if (anyInconclusive) {
   console.log('At least one DROP result is INCONCLUSIVE — reported as inconclusive, not as a near-pass.');
 }
-console.log(allPass && !anyInconclusive ? '\nALL THRESHOLDS MET'
+console.log(anyInvalid ? '\nINVALID RUN — NOT SCORED'
+  : allPass && !anyInconclusive ? '\nALL THRESHOLDS MET'
   : allPass ? '\nNO FAILURES, BUT AT LEAST ONE RESULT IS INCONCLUSIVE'
   : '\nAT LEAST ONE THRESHOLD FAILED');
 console.log('='.repeat(78));
