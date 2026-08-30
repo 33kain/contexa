@@ -55,11 +55,33 @@ All copy is in `publishing/STORE-LISTING.md`.
 - [ ] Name, short description, detailed description.
 - [ ] Category: Productivity.
 - [ ] Icon: `extension/icons/icon128.png`.
-- [ ] Screenshots: the five 1280×800 PNGs in `publishing/screenshots/`.
-      Order them `1-interview` → `2-composed` → `3-trigger` → `4-light` →
-      `5-settings`; the first is what most people judge the listing by.
-      Regenerate with `xvfb-run -a node scripts/screenshots/capture.mjs` rather
-      than editing the PNGs by hand.
+- [ ] Screenshots: the store takes **at most five**, and
+      `publishing/screenshots/` now holds **seven** 1280×800 PNGs — so this is a
+      pick, not an upload of everything there. All seven are dark apart from
+      `4-light.png`. Regenerate with
+      `xvfb-run -a node scripts/screenshots/capture.mjs` rather than editing the
+      PNGs by hand; the file numbers are names, not an order.
+
+      | File | Shows |
+      |---|---|
+      | `1-interview.png` | the click-only interview |
+      | `2-composed.png` | the composed prompt, in the message box, nothing sent |
+      | `3-trigger.png` | the trigger, before anything is asked or spent |
+      | `4-light.png` | the same interview, claude.ai in light mode |
+      | `5-settings.png` | the settings page |
+      | `6-moves.png` | the moves row — one click each, nothing to answer |
+      | `7-pencil.png` | the pencil, opened, with a rough ask typed in |
+
+- [ ] **Decide which five, and in what order — this is not decided.** The first
+      is what most people judge the listing by. A reasonable default is
+      `1-interview` → `6-moves` → `2-composed` → `3-trigger` → `5-settings`: it
+      leads with the interview, shows on the second frame that CONTEXA does not
+      always interrogate you, and ends on the settings page. That order spends
+      its two dropped slots on `4-light` and `7-pencil`, which is a real cost —
+      `4-light` is the only evidence that the card follows the host's theme, and
+      `7-pencil` is the only frame showing the escape hatch for everything
+      CONTEXA did not guess. Swap either in if you would rather make that point
+      than one of the five above. Record the choice here once it is made.
 - [ ] ⚠️ **Retake the screenshots on real claude.ai** before you submit. They
       are captured with the real extension running, but against a local mock of
       claude.ai's DOM and with canned model output. Reviewers compare

@@ -4,7 +4,7 @@ Developer and release tooling. None of it is part of the shipped product
 (`extension/` and `worker/`) or the build entry point (`build.mjs` at the repo
 root) — these are convenience scripts run by hand.
 
-- `screenshots/` — generates the five Chrome Web Store screenshots into
+- `screenshots/` — generates the seven Chrome Web Store screenshots into
   `publishing/screenshots/`, by driving the real unpacked extension in a real
   Chromium against a mock of claude.ai's DOM. Needs Playwright and Xvfb; not
   part of the test suite. See `scripts/screenshots/README.md`.

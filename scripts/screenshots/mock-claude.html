@@ -163,9 +163,13 @@
 
       <div class="group/message-row">
         <!-- Starts "true"; capture.mjs flips it to "false" the way a finished
-             stream does, so the real completion path runs. -->
+             stream does, so the real completion path runs. This is the LAST
+             turn in the baked markup, which is what makes it the one
+             streamReply() fills — see the script below. __mock.addTurn()
+             appends further turns in exactly this shape, and they become the
+             last in their turn. -->
         <div data-is-streaming="true">
-          <div class="font-claude-response" id="reply"></div>
+          <div class="font-claude-response"></div>
         </div>
       </div>
 
@@ -211,8 +215,48 @@
      the MutationObserver in content.js sees a real stream of mutations and the
      real completion path runs — not a page that was simply born finished. */
   window.__mock = {
+    /* Always the LAST reply on the page, never a fixed id. content.js only
+       ever looks at the last one, and addTurn() below appends new turns, so
+       "the live turn" has to be positional or the second exchange would fill
+       the first exchange's body. */
     streamReply(html) {
-      document.getElementById('reply').innerHTML = html;
+      const all = document.querySelectorAll('.font-claude-response');
+      all[all.length - 1].innerHTML = html;
+    },
+    /* A second exchange, in the same shape as the baked ones — a user turn
+       followed by a reply that starts streaming. The moves row needs a reply
+       that settles things rather than asking for them, and a reply is what
+       the extension caches its suggestions against, so the two states cannot
+       share one. Built with createElement/textContent rather than innerHTML
+       for the user's text: it is passed in from the harness and there is no
+       reason for a mock to be the one place that interpolates. */
+    addTurn(userText) {
+      const col = document.getElementById('col');
+
+      const u = document.createElement('div');
+      u.className = 'group/message-row';
+      const urow = document.createElement('div');
+      urow.className = 'user-row';
+      const msg = document.createElement('div');
+      msg.setAttribute('data-testid', 'user-message');
+      msg.textContent = userText;
+      urow.appendChild(msg);
+      u.appendChild(urow);
+
+      const a = document.createElement('div');
+      a.className = 'group/message-row';
+      const stream = document.createElement('div');
+      stream.setAttribute('data-is-streaming', 'true');
+      const body = document.createElement('div');
+      body.className = 'font-claude-response';
+      stream.appendChild(body);
+      a.appendChild(stream);
+
+      col.append(u, a);
+      // They sent it, so the composer empties back to its placeholder — the
+      // same thing claude.ai does, and it keeps the previous frame's composed
+      // prompt out of the next frame.
+      document.getElementById('composer').replaceChildren();
     },
     finishStream() {
       // The LAST one. There is more than one turn on the page, and content.js
