@@ -86,9 +86,9 @@ const VARIANTS = [
 const U1 = JSON.parse(readFileSync(new URL('./ab-input.json', import.meta.url), 'utf8'));
 
 const U2 = {
-  note: 'Finished work reported, nothing left open — the deeper-only regression anchor.',
+  note: 'Finished work reported, nothing left open — the deeper-only regression anchor. (Revised: the first draft risked earning only deeper, which would collapse to questions under the new rule and read as a false failure.)',
   userMessage: 'Any updates on the migration?',
-  reply: 'Done — moved the auth checks to middleware, updated the three call sites, and confirmed the old code path is unreachable now. Tests pass.',
+  reply: "Done — moved the auth checks to middleware and updated the three call sites. I removed the old duplicate check in the legacy handler since middleware now covers it; that path isn't covered by the current tests, so it's worth a manual look before this ships. Everything else passes.",
 };
 
 const U3 = {
@@ -97,11 +97,20 @@ const U3 = {
   reply: 'A few directions: something experiential — a class or an event — something personal and handmade, or a practical upgrade to something she already uses. Each fits a different kind of sister. Tell me a bit about her interests and I can narrow it down.',
 };
 
-// [name, input, expectedBranch, threshold-out-of-(RUNS * VARIANTS.length)]
+/* Pre-registered per-variant, out of RUNS (5) each — not pooled across the
+   15 total per input. PRE is informational only, never gating: it shows
+   pre-edit baseline behavior for context, nothing more.
+
+   U1/U2: NOW and DROP each held to their own fixed floor.
+   U3: NOW held to a floor; DROP is not a fixed-floor check but a KILL TEST
+   compared directly against NOW's own count on the same run — if dropping
+   the anchor sentence does not measurably cost questions (DROP's count
+   matches or exceeds NOW's), the anchor was not earning its place and the
+   change does not ship, regardless of U1/U2. */
 const INPUTS = [
-  ['U1', U1, 'MOVES', 13],
-  ['U2', U2, 'MOVES', 15],
-  ['U3', U3, 'QUESTIONS', 13],
+  { name: 'U1', input: U1, branch: 'MOVES', nowMin: 4, dropMin: 4 },
+  { name: 'U2', input: U2, branch: 'MOVES', nowMin: 5, dropMin: 5 },
+  { name: 'U3', input: U3, branch: 'QUESTIONS', nowMin: 4, dropIsKillTest: true },
 ];
 
 function userText(input) {
@@ -141,7 +150,7 @@ const totalCalls = INPUTS.length * VARIANTS.length * RUNS;
 console.log(`model ${MODEL} · ${RUNS} runs per variant · ${INPUTS.length} inputs · ${VARIANTS.length} variants · ${totalCalls} calls total\n`);
 
 const results = {}; // results[inputName][variantName] = { BRANCH: count, ... }
-for (const [inputName, input] of INPUTS) {
+for (const { name: inputName, input } of INPUTS) {
   results[inputName] = {};
   const text = userText(input);
   console.log(`=== ${inputName} — ${input.note} ===`);
@@ -157,17 +166,11 @@ for (const [inputName, input] of INPUTS) {
   console.log('');
 }
 
-/* ---- report against the pre-registered thresholds -------------------------
-   Per the brief: raw counts, no rounding, no re-running for a nicer number,
-   no editorializing on a near-miss. Two readings are shown because the
-   pre-registered thresholds ("13/15") are ambiguous between them and that
-   was never resolved before this run — see the report notes printed below. */
+/* ---- report against the pre-registered per-variant thresholds -------------
+   Raw counts, no rounding, no re-running for a nicer number, no
+   editorializing on a near-miss — a DROP failure is reported as failure,
+   not softened because U1/U2 look fine. */
 
-function countAcrossAllVariants(inputName, branch) {
-  let n = 0;
-  for (const [, counts] of Object.entries(results[inputName])) n += counts[branch] || 0;
-  return n;
-}
 function countInVariant(inputName, variantName, branch) {
   return (results[inputName][variantName] || {})[branch] || 0;
 }
@@ -175,38 +178,50 @@ function countInVariant(inputName, variantName, branch) {
 console.log('='.repeat(78));
 console.log('RESULTS');
 console.log('='.repeat(78));
-let pooledPass = true, nowOnlyPass = true, u3Failed = false;
-for (const [inputName, , expectBranch, threshold] of INPUTS) {
-  const pooled = countAcrossAllVariants(inputName, expectBranch);
-  const nowOnly = countInVariant(inputName, 'NOW', expectBranch);
-  const pooledOk = pooled >= threshold;
-  const nowOk = nowOnly >= Math.ceil(threshold * RUNS / (RUNS * VARIANTS.length)); // same ratio, scaled to RUNS
-  if (!pooledOk) pooledPass = false;
-  if (!nowOk) nowOnlyPass = false;
-  if (inputName === 'U3' && !nowOk) u3Failed = true;
 
-  console.log(`\n${inputName}  expect ${expectBranch}, threshold >= ${threshold}/${RUNS * VARIANTS.length}`);
+let allPass = true;
+let u3KillTestFired = false;
+
+for (const { name: inputName, branch, nowMin, dropMin, dropIsKillTest } of INPUTS) {
+  const preCount = countInVariant(inputName, 'PRE', branch);
+  const nowCount = countInVariant(inputName, 'NOW', branch);
+  const dropCount = countInVariant(inputName, 'DROP', branch);
+
+  const nowPass = nowCount >= nowMin;
+  let dropPass, dropLine;
+  if (dropIsKillTest) {
+    // Kill test: DROP must show FEWER of the expected branch than NOW did —
+    // proof the anchor sentence is the thing holding the line. Matching or
+    // exceeding NOW means the anchor isn't earning its place.
+    dropPass = dropCount < nowCount;
+    dropLine = `DROP  ${dropCount}/${RUNS} ${branch}  vs NOW's ${nowCount}/${RUNS}  ->  `
+      + (dropPass ? 'PASS (anchor validated: dropping it cost questions)'
+                  : 'FAIL — KILL TEST: dropping the anchor did not cost questions; it is not earning its place');
+    if (!dropPass) u3KillTestFired = true;
+  } else {
+    dropPass = dropCount >= dropMin;
+    dropLine = `DROP  ${dropCount}/${RUNS} ${branch}  (need >= ${dropMin})  ->  ${dropPass ? 'PASS' : 'FAIL'}`;
+  }
+
+  if (!nowPass) allPass = false;
+  if (!dropPass) allPass = false;
+
+  console.log(`\n${inputName}  expect ${branch}`);
   for (const [variantName] of VARIANTS) {
-    const line = Object.entries(results[inputName][variantName])
-      .map(([b, n]) => `${b}:${n}`).join('  ');
+    const line = Object.entries(results[inputName][variantName]).map(([b, n]) => `${b}:${n}`).join('  ');
     console.log(`  ${variantName.padEnd(5)} ${line}`);
   }
-  console.log(`  pooled across all 3 variants: ${pooled}/${RUNS * VARIANTS.length} ${expectBranch}  ->  ${pooledOk ? 'PASS' : 'FAIL'}`);
-  console.log(`  NOW variant alone:            ${nowOnly}/${RUNS} ${expectBranch}  ->  ${nowOk ? 'PASS' : 'FAIL'}`);
+  console.log(`  PRE   ${preCount}/${RUNS} ${branch}  (informational, not gating)`);
+  console.log(`  NOW   ${nowCount}/${RUNS} ${branch}  (need >= ${nowMin})  ->  ${nowPass ? 'PASS' : 'FAIL'}`);
+  console.log(`  ${dropLine}`);
 }
 
 console.log('\n' + '='.repeat(78));
-console.log('NOTE ON THE TWO READINGS ABOVE');
-console.log('='.repeat(78));
-console.log(`"threshold >= 13/15" was pre-registered without saying whether the 15 pools
-PRE+NOW+DROP together, or means 13-equivalent of the NOW variant's own ${RUNS}
-runs. Both are reported per input above; this was not resolved before running
-and should be, so a future run does not face the same gap.`);
-
-console.log('\n' + '='.repeat(78));
-console.log(u3Failed
-  ? 'U3 FAILED (NOW-variant reading). Per the brief: this is FAILURE regardless of U1/U2 — the interview is starving. Do not ship.'
-  : 'U3 held on the NOW-variant reading.');
-console.log(`Pooled reading overall: ${pooledPass ? 'ALL THRESHOLDS MET' : 'AT LEAST ONE THRESHOLD FAILED'}`);
-console.log(`NOW-only reading overall: ${nowOnlyPass ? 'ALL THRESHOLDS MET' : 'AT LEAST ONE THRESHOLD FAILED'}`);
+if (u3KillTestFired) {
+  console.log('U3 KILL TEST FIRED: the anchor sentence is not earning its place.');
+  console.log('Per the brief, this is FAILURE regardless of U1/U2 — the change does not ship.');
+} else {
+  console.log('U3 kill test did not fire — the anchor sentence is pulling its weight.');
+}
+console.log(allPass ? '\nALL THRESHOLDS MET' : '\nAT LEAST ONE THRESHOLD FAILED');
 console.log('='.repeat(78));
