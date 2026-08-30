@@ -72,6 +72,11 @@ All copy is in `publishing/STORE-LISTING.md`.
       | `6-moves.png` | the moves row — one click each, nothing to answer |
       | `7-pencil.png` | the pencil, opened, with a rough ask typed in |
 
+      Live retakes (see the ⚠️ below) come from
+      `node scripts/screenshots/capture-live.mjs` and land in
+      `publishing/screenshots/live/` — look at them before promoting any over
+      the frames above.
+
 - [ ] **Decide which five, and in what order — this is not decided.** The first
       is what most people judge the listing by. A reasonable default is
       `1-interview` → `6-moves` → `2-composed` → `3-trigger` → `5-settings`: it
@@ -88,6 +93,12 @@ All copy is in `publishing/STORE-LISTING.md`.
       screenshots against actual behaviour, and real ones are simply more honest
       and more convincing — and only a live session proves the selectors still
       match the site as it stands today.
+      → `scripts/screenshots/capture-live.mjs` is what does this. Run
+      `--preflight` first: it checks the session and prints which selectors
+      matched, and spends nothing. Read `scripts/screenshots/README.md`
+      ("The live driver") before the full run — it sends real messages and
+      spends 3–5 CONTEXA calls, and it covers five of the seven frames
+      (not `4-light`, not `5-settings`).
 - [ ] Single purpose description (verbatim from the listing doc).
 - [ ] Privacy policy URL.
 - [ ] Permission justifications — one per permission, specific.

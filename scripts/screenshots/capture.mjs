@@ -41,6 +41,10 @@
  * mock of claude.ai's DOM contract, not claude.ai, and the model output is
  * canned rather than generated. The checklist's instruction to retake against a
  * live session before submitting therefore still stands, and is left in place.
+ * capture-live.mjs, the sibling of this file, is what carries it out — real
+ * claude.ai, real model output, real quota, and a human at the keyboard. This
+ * file stays the one you run by reflex: free, deterministic, and the thing that
+ * proves the shared code in lib.mjs still works.
  *
  * Requires a headed browser (extensions do not load in headless Chromium), so
  * it runs under Xvfb. Playwright and Chromium come from the image; see
@@ -49,40 +53,26 @@
 
 import { createServer } from 'node:https';
 import { execFileSync } from 'node:child_process';
-import { readFileSync, mkdtempSync, existsSync, rmSync } from 'node:fs';
+import { readFileSync, mkdtempSync, existsSync, rmSync, mkdirSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join, resolve, dirname } from 'node:path';
-import { fileURLToPath, pathToFileURL } from 'node:url';
+import { join, resolve } from 'node:path';
 
-/* Playwright is a developer dependency of this script alone — the repo itself
-   has no node_modules and nothing shipped needs it. Accept it wherever it is:
-   installed locally, or global (which ESM will not find via NODE_PATH, hence
-   the explicit second attempt). */
-const chromium = await (async () => {
-  const tries = ['playwright', 'playwright-core'];
-  for (const root of [null, process.env.NODE_PATH, '/opt/node22/lib/node_modules', '/usr/lib/node_modules']) {
-    for (const name of tries) {
-      const spec = root ? pathToFileURL(join(root, name, 'index.js')).href : name;
-      try {
-        // playwright ships CJS, so the browser types may sit on `default`.
-        const m = await import(spec);
-        const c = m.chromium || (m.default && m.default.chromium);
-        if (c) return c;
-      } catch { /* keep looking */ }
-    }
-  }
-  throw new Error('playwright not found — npm i -g playwright, or npm i playwright');
-})();
+import {
+  chromium, HERE, SHOT, CARD, MASCOT, MOVE, PENCIL, OWN_INPUT, PENCIL_GLYPH,
+  assertMoveRow, assertOwnInputOpen, createShooter,
+} from './lib.mjs';
 
-const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO = resolve(HERE, '../..');
 const EXT = join(REPO, 'extension');
-const OUT = join(REPO, 'publishing', 'screenshots');
+/* CX_OUT redirects the whole set to a scratch directory. The point is
+   verification: after a change to lib.mjs or to this file, a run into a
+   throwaway directory proves the harness still works without overwriting
+   frames someone has already approved. Default is the real one. */
+const OUT = process.env.CX_OUT || join(REPO, 'publishing', 'screenshots');
 const MOCK = join(HERE, 'mock-claude.html');
 
 const PORT = 8443;
 const API_HOST = 'contexa-api.michu110899.workers.dev';
-const SHOT = { width: 1280, height: 800 };
 
 /* The canned model output. Deliberately the shape the prompt actually asks for:
    two questions, each with concrete options rather than categories, in the
@@ -281,62 +271,7 @@ function startServer(tls) {
 
 /* -------------------------------------------------------------------- drive */
 
-const shots = [];
-
-/* PR #13 shipped two screenshots with the card stranded in dead space, and
-   nothing caught it but a human eye on the final PNG. A screenshot harness that
-   cannot tell a good frame from a libellous one is not much of a harness, so
-   the geometry is asserted before the shutter, on every frame that has a card.
-   These are the two things the layout can get wrong (see mock-claude.html):
-   the card escaping its column, and the card detaching from the composer. */
-async function assertCardGeometry(page) {
-  const g = await page.evaluate(() => {
-    const holder = document.querySelector('[data-contexa]');
-    const composer = document.querySelector('#composer');
-    if (!holder || !composer) return null;
-    const c = holder.getBoundingClientRect();
-    const m = composer.getBoundingClientRect();
-    return { cardLeft: c.left, cardBottom: c.bottom, cardWidth: c.width,
-             boxLeft: m.left, boxTop: m.top };
-  });
-  if (!g) throw new Error('no card or composer on the page to measure');
-
-  // Aligned with the message box it belongs to, not flush against the viewport.
-  const drift = Math.abs(g.cardLeft - g.boxLeft);
-  if (drift > 40) {
-    throw new Error(
-      `card is ${drift.toFixed(0)}px out of line with the message box ` +
-      `(card left ${g.cardLeft.toFixed(0)}, box left ${g.boxLeft.toFixed(0)}) — ` +
-      'the walk-up escaped its column; check the nesting depth in mock-claude.html');
-  }
-  if (g.cardLeft < 60) {
-    throw new Error(`card is flush against the viewport edge (left ${g.cardLeft.toFixed(0)}px)`);
-  }
-  // "Just above your message box" — what the settings page promises users.
-  const gap = g.boxTop - g.cardBottom;
-  if (gap > 90) {
-    throw new Error(`card is ${gap.toFixed(0)}px adrift above the message box — not "just above" anything`);
-  }
-  return g;
-}
-
-/* Geometry is not the only way a frame can lie. The moves row and the
-   interview are two branches of one endpoint drawn in the same card, so a
-   dropped `chips` key or a stale suggestion cache turns one into the other
-   with nothing on screen looking broken — which is precisely how the moves row
-   went unphotographed for as long as it did. Each of the two branch-sensitive
-   frames therefore states what it expects to be looking at, and the capture
-   fails rather than writing an interview labelled as moves. */
-async function assertMoveRow(page, want) {
-  const moves = await page.locator(MOVE).count();
-  if (moves !== want) {
-    const pills = await page.locator(`${CARD} .pill`).count();
-    throw new Error(
-      `expected ${want} move chip(s), found ${moves}` +
-      (pills ? ` — the card drew the interview instead (${pills} option pills), ` +
-               'so the canned answer that reached it was not the chips one' : ''));
-  }
-}
+const { shoot, shots } = createShooter(OUT);
 
 /* The grounding rule, applied to the canned data itself.
 
@@ -360,23 +295,9 @@ function assertGrounded(items, html, what) {
   }
 }
 
-async function shoot(page, name, note, { card = false } = {}) {
-  if (card) await assertCardGeometry(page);
-  const file = join(OUT, name);
-  await page.screenshot({ path: file, clip: { x: 0, y: 0, ...SHOT } });
-  shots.push({ name, note });
-  console.log(`  ${name}  ${note}`);
-}
-
-/* The card lives in an open shadow root; Playwright's CSS engine pierces it. */
-const CARD = '[data-contexa] .wrap';
-const MASCOT = '[data-contexa] .ctxa-mas';
-const MOVE = '[data-contexa] .chip.move';
-const PENCIL = '[data-contexa] .chip.own';
-const OWN_INPUT = '[data-contexa] .own-input';
-
 async function main() {
   if (!existsSync(EXT)) throw new Error(`no extension/ at ${EXT}`);
+  mkdirSync(OUT, { recursive: true });
   // Before the browser starts, so a stranded quote fails in a second rather
   // than after a minute of driving.
   assertGrounded(QUESTIONS.questions, REPLY_HTML, 'question');
@@ -399,10 +320,19 @@ async function main() {
       `--load-extension=${EXT}`,
       `--host-resolver-rules=MAP claude.ai 127.0.0.1:${PORT},MAP ${API_HOST} 127.0.0.1:${PORT}`,
       '--ignore-certificate-errors',
-      /* This container routes egress through an agent proxy that (correctly)
-         refuses claude.ai. The whole point here is to reach the LOCAL server
-         instead, so take the proxy out of the path entirely — otherwise the
-         redirect above never gets a chance to apply. */
+      /* Some environments route egress through an agent proxy. The whole point
+         here is to reach the LOCAL server instead, so take the proxy out of the
+         path entirely — otherwise the redirect above never gets a chance to
+         apply.
+
+         This comment used to say the proxy "correctly refuses claude.ai". That
+         was never measured and it is not what happens: checked Aug 2026, the
+         proxy relays claude.ai fine (CONNECT succeeds, no policy denial) and
+         the 403 comes from claude.ai's own edge — `server: cloudflare`,
+         `cf-mitigated: challenge` — which is bot mitigation answering an
+         automated client on a datacenter IP. It matters because it is the
+         reason capture-live.mjs has to run on a machine a human is logged in
+         on, rather than anywhere with a session cookie. */
       '--no-proxy-server',
       '--no-first-run',
       '--disable-features=Translate,MediaRouter',
@@ -486,7 +416,7 @@ async function main() {
     const label = ((await pencil.textContent()) || '').trim();
     // The row's other .chip.own is the session-hide offer, and photographing a
     // click on THAT would be a quietly wrong frame. Check before clicking.
-    if (!label.startsWith('\u270e')) {
+    if (!label.startsWith(PENCIL_GLYPH)) {
       throw new Error(`expected the pencil chip, found a chip reading "${label}"`);
     }
     await pencil.click();
@@ -497,9 +427,15 @@ async function main() {
     if (ROUGH_ASK) await box.fill(ROUGH_ASK);
     await page.evaluate(() => window.__mock.bottom());
     await page.waitForTimeout(500);
+    /* Nothing steals focus on the mock, so this is cheap insurance here — but
+       it is the same check capture-live.mjs leans on hard, where claude.ai's
+       own focus management really can collapse an empty box mid-frame. Keeping
+       it on both paths means the mock exercises it. */
+    await assertOwnInputOpen(page, 'before the shutter');
     await shoot(page, '7-pencil.png',
       ROUGH_ASK ? 'the pencil, opened, with a rough ask typed in'
                 : 'the pencil, opened, showing its placeholder', { card: true });
+    await assertOwnInputOpen(page, 'after the shutter');
 
     /* ---- 4-light: the same interview, host in light mode -------------------
        serve() is reset, not left on MOVES. The reload puts the page back to the
@@ -529,7 +465,7 @@ async function main() {
     await opts.waitForTimeout(700);
     await shoot(opts, '5-settings.png', 'the settings page');
 
-    console.log(`\nwrote ${shots.length} screenshots to publishing/screenshots/`);
+    console.log(`\nwrote ${shots.length} screenshots to ${OUT}`);
   } finally {
     await ctx.close();
     server.close();

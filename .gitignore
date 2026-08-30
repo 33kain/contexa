@@ -17,6 +17,10 @@ npm-debug.log*
 *.zip
 build-ready/
 
+# live screenshot harness — holds a logged-in claude.ai session. Never commit.
+scripts/screenshots/.live-profile/
+publishing/screenshots/live/
+
 # os
 .DS_Store
 Thumbs.db
