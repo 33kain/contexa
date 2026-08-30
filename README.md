@@ -73,9 +73,10 @@ The model call — the part that costs money and sends data — waits for a clic
 Two modes:
 
 - **Hosted (default)** — the Worker holds the API key, so users need no setup.
-  Fair-use limit of 20 calls/day per device. An interview spends two (one to
-  write the questions, one to compose), so the honest number is **10 prompts a
-  day**.
+  Fair-use limit of 40 calls/day per device. An interview spends two (one to
+  write the questions, one to compose), so the honest number is **20 prompts a
+  day** — `PROMPTS_PER_DAY` in `worker/src/index.js`, which is the one figure
+  safe to quote in public copy.
 - **Own API key (optional)** — set it in the extension's options to remove the
   limit. Requests then go straight from the browser to Anthropic, bypassing the
   Worker entirely.
@@ -138,13 +139,13 @@ charges the pool exactly like composing does. A long conversation could exhaust
 a day's free tier without a single click. Now nothing is spent until someone
 asks, which is the only place the spend was ever buying anything.
 
-> The per-call figure in this section is stale: it was measured against Haiku and
-> the shipped model is now `claude-sonnet-5`. **Recompute before quoting it
-> anywhere.**
-
 Built-in protections:
 
-- 20 requests/day per device token, 60/day per hashed IP
+- 40 requests/day per device token (= `PROMPTS_PER_DAY × 2`), 400/day per hashed
+  IP (= the device ceiling × 10). All three are derived from one another in
+  `worker/src/index.js` rather than written down separately, because the last
+  time they were separate literals the ratio silently halved when the device
+  ceiling moved.
 - Server-side input clamping (prompt ≤2,500 chars, reply ≤6,000, fixed
   `max_tokens`) — a modified client cannot make a request cost more
 - Very short replies are rejected before any upstream call
