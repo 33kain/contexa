@@ -23,9 +23,20 @@
  *   U3 v1 (question-only, "deeper alone earned") was INVALID as a test: its
  *   own PRE already scored 5/5 questions, meaning nothing was ever pulling it
  *   toward moves, so it could not have detected the anchor sentence's
- *   absence. Replaced with U3 v2 below, designed to actually tempt deeper.
+ *   absence. Replaced with U3 v2, designed to actually tempt deeper — also
+ *   inert (its own PRE scored 5/5 too). Replaced with U3 v3 (rate-limiter),
+ *   the third and pre-committed-final attempt.
  *
- * PRE-REGISTERED for U3 v2 — fixed before any run, not to be adjusted after
+ * U3 v3 — run 2026-08-30, PRE 5/5, NOW 5/5, DROP 5/5 questions: DROP matched
+ *   NOW exactly, same as v1 and v2 before it. Kill test fired as pre-committed
+ *   above. Per the standing pre-commitment ("if DROP matches NOW again, ship
+ *   DROP instead of NOW and stop this line of testing"), QUESTIONS_SYSTEM
+ *   shipped with the anchor sentence removed (PR #14) — the shorter bullet is
+ *   now what CURRENT actually contains, so PRECEDENCE_BULLET below reads as
+ *   the one-sentence form and DROP is byte-identical to NOW. This U3 line is
+ *   closed; not to be re-run.
+ *
+ * PRE-REGISTERED for U3 v2/v3 — fixed before any run, not adjusted after
  * seeing results:
  *   NOW  >= 4/5 questions
  *   DROP <= 3/5 questions  -> anchor sentence confirmed necessary
