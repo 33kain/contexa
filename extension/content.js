@@ -448,6 +448,10 @@
   }
 
   async function onReplyComplete(replyEl) {
+    /* Re-checked here, not only in tick(): the observer is asynchronous, so a
+       reply already in flight when the switch flipped would otherwise still
+       mount a card after shutDown() ran. */
+    if (!settings.enabled) return;
     if (hiddenForSession) return;          // 0.9.33: opted out for this tab
     if (!replyEl.isConnected) return;
     /* 0.9.30: the card no longer lives next to the reply, so a sibling check
@@ -576,7 +580,7 @@
          focus from it would bury the one thing the call earned. */
       console.log('[CONTEXA] quiet row — nothing to ask',
         assume.length ? '(something stated instead)' : '');
-      return renderSteps(anchor, [], ctx, assume.length > 0, assume.length === 0);
+      return renderSteps(anchor, ctx, assume.length > 0, assume.length === 0);
     }
     renderInterview(anchor, questions.slice(0, 4), ctx);
   }
@@ -809,7 +813,7 @@
          is a fact about them, not a suggestion they rejected, so a rough ask
          typed afterwards still carries it. */
       dismissStreak++;
-      renderSteps(anchor, [], ctx, false);
+      renderSteps(anchor, ctx, false);
     }
 
     function answer(value) {
@@ -1028,23 +1032,23 @@
     }
   }
 
-  function renderSteps(anchor, steps, ctx, offerAssume, openInput) {
+  /* The fallback row: no suggestions of its own, just the controls that remain
+     when there is nothing to click through — the assume chip when something was
+     stated, and the rough-ask box always.
+
+     It used to take a `steps` array and render a chip per entry. That was the
+     legacy one-chip wire shape, and `steps` has not reached this file since
+     0.9.30 replaced it with questions and chips — every call site passed a
+     literal `[]`, so the loop could not execute. Removing the parameter rather
+     than just the loop is the point: an empty array is an invitation for a
+     future change to start passing real data down a path nothing has exercised
+     in twenty-six releases. */
+  function renderSteps(anchor, ctx, offerAssume, openInput) {
     const wrap = shell(anchor, 'ai');
     if (!wrap) return;
     wrap.innerHTML = `<div class="label"><b>✦</b> CONTEXA</div>` +
       `<div class="chips"></div>`;
     const row = wrap.querySelector('.chips');
-    for (const s of steps) {
-      const full = String(s.text || '').trim();
-      const label = shortLabel(s.label || full);
-      if (!full || !label) continue;
-      const chip = document.createElement('button');
-      chip.className = 'chip';
-      chip.textContent = label;
-      chip.title = full;                       // hover shows what will be sent
-      chip.addEventListener('click', () => insertPrompt(full));
-      row.appendChild(chip);
-    }
     /* Both conditions, always. offerAssume alone would put the chip on a
        dismissed card; a non-empty ctx.assume alone would put it beside a full
        row of suggestions, where it duplicates what the interview already does. */
@@ -1509,16 +1513,46 @@
     if (composer && !composer.isConnected) composer = null;
   }
 
-  chrome.storage.local.get({ enabled: true, apiKey: '', model: 'claude-sonnet-5' }, s => {
-    settings = s;
-    if (!settings.enabled) return;
+  /* The switch has to take effect in tabs that are ALREADY OPEN, in both
+     directions, and before this it did neither.
+
+     Only tick() consulted settings.enabled — and tick() is not what draws
+     anything. watchReplies' MutationObserver is, and switching off left it
+     attached, so a disabled CONTEXA went on capturing every completed reply
+     and mounting a card until the tab was reloaded. The settings page says
+     "Suggestions will not appear until you turn it back on"; it was not true
+     of any tab already open when you flipped it.
+
+     Switching back ON had the mirror defect: a tab that LOADED while disabled
+     returned before ever starting the interval, so it stayed dead for that
+     tab's life no matter what the switch said afterwards.
+
+     Both directions now run through one pair of functions, and onReplyComplete
+     re-checks the flag itself — the observer is asynchronous, so a reply that
+     was already in flight when the switch flipped must not slip through. */
+  function startUp() {
+    if (tickTimer) return;                // already running; nothing to restart
     tickTimer = setInterval(tick, 900);   // re-finds the composer across SPA navigation
     tick();
+  }
+
+  function shutDown() {
+    standDown();                 // stops the loop AND disconnects the reply observer
+    composer = null;             // the next startUp re-finds it and re-attaches
+    for (const old of document.querySelectorAll('[data-contexa]')) old.remove();
+  }
+
+  chrome.storage.local.get({ enabled: true, apiKey: '', model: 'claude-sonnet-5' }, s => {
+    settings = s;
+    if (settings.enabled) startUp();
   });
 
   chrome.storage.onChanged.addListener(ch => {
     if (ch.apiKey) settings.apiKey = ch.apiKey.newValue;
     if (ch.model) settings.model = ch.model.newValue;
-    if (ch.enabled) settings.enabled = ch.enabled.newValue;
+    if (ch.enabled) {
+      settings.enabled = ch.enabled.newValue;
+      if (settings.enabled) startUp(); else shutDown();
+    }
   });
 })();
