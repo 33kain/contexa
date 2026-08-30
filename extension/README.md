@@ -1,12 +1,14 @@
 # CONTEXA
 
-CONTEXA reads Claude's reply and hands you your next message — the one Claude itself would ask you to send.
+CONTEXA reads Claude's reply and writes your next message — by asking you a few short questions you answer by clicking.
 
-CONTEXA is a Chrome extension for claude.ai. When Claude finishes a reply, CONTEXA reads it and offers up to five chips — each one a complete next message, written and ready to send. Click a chip and it lands in your composer; you read it, change anything, and send it yourself. Nothing is ever sent for you.
+CONTEXA is a Chrome extension for claude.ai. When Claude finishes a reply, a single chip appears above your message box. Nothing happens until you click it — no model call, and nothing about your conversation leaves the page. Click it and CONTEXA reads the exchange and asks up to four short questions, one at a time, with the answers already written for you. Pick one, or skip it. When you're done it composes the whole prompt into your message box. You read it, change anything, and send it yourself. Nothing is ever sent for you.
 
-The chips aren't topic suggestions. They're the messages Claude would request if it could: paste the file it's been guessing about, settle the fork it hedged — "Assume X. Redo under exactly that." — invite its questions when the goal is still fuzzy, give it permission to stop listing options and build the full version, or turn the problem around entirely. Every chip must be earned by something the reply actually said; no quotable evidence, no chip. A reply blocked on one missing thing gets one chip, not five fillers. Under the hood, every chip follows the playbook good prompt engineers use — one component at a time, real content, tight scope — applied for you, one message at a time.
+The questions aren't a survey. They're the decisions the reply actually left open — the branch it hedged, the format it guessed at, the thing it asked you for. Every question must be earned by something the reply said; no quotable evidence, no question. A reply that left nothing worth asking earns nothing, and the row stays quiet. That is a correct outcome, not a failure.
 
-No account, no API key, free for up to twenty replies a day. Nothing overlays your composer, nothing scores your writing, and nothing appears unless it's real.
+When the reply left something worth doing that needs nothing from you, CONTEXA offers up to four one-click moves instead — take it further, hand back a fork it left open, probe what could go wrong, or ask why it chose one path over another.
+
+No account, no API key, free to use. Nothing overlays your composer, nothing scores your writing, and nothing appears unless it's real.
 
 ## Install (unpacked, for development)
 
@@ -14,23 +16,25 @@ No account, no API key, free for up to twenty replies a day. Nothing overlays yo
 2. Open `chrome://extensions` in Chrome.
 3. Turn on **Developer mode** (top-right).
 4. Click **Load unpacked** and select this `extension` folder.
-5. Open **claude.ai** and send a message. When Claude's reply finishes, five
-   short chips appear beneath it.
+5. Open **claude.ai** and send a message. When Claude's reply finishes, a single
+   chip appears beneath it.
 
 ## Two modes
 
 **Hosted (default).** Nothing to set up — suggestions come from CONTEXA's
-backend, with a fair-use limit of 20 replies per day. No account, no key.
+backend, with a fair-use limit of 20 prompts a day. No account, no key.
 
 **Your own API key (optional).** Removes the daily limit. Requests then go
 straight from your browser to the Anthropic API, and CONTEXA's backend is not
 involved at all. To set it up:
 
 1. Click the CONTEXA icon in the toolbar (or right-click → Options).
-2. Paste your **Anthropic API key** (`sk-ant-…`).
-3. Optionally change the model (default `claude-sonnet-5`, chosen because it
+2. Open **Advanced**.
+3. Paste your **Anthropic API key** (`sk-ant-…`).
+4. Optionally change the model (default `claude-sonnet-5`, chosen because it
    follows the formatting rules that cheaper tiers ignore).
-4. Click **Test connection**, then **Save**.
+5. Click **Test connection**. Advanced fields save on their own when you leave
+   them — there's no separate Save button.
 
 Your key is stored in `chrome.storage.local` and is sent only to
 `api.anthropic.com` — never to CONTEXA's backend.
@@ -38,51 +42,47 @@ Your key is stored in `chrome.storage.local` and is sent only to
 If you reach the daily limit in hosted mode, CONTEXA says so plainly and tells
 you when it resets — never filler suggestions.
 
-## How it decides what to suggest
+## How it decides what to do
 
-One API call per completed reply, sending your last message plus Claude's reply.
-The prompt asks for the five most useful next messages — the same five a sharp
-collaborator would suggest looking at that exact conversation. Good sets tend to
-mix going deeper on the valuable part, resolving what the reply assumed or left
-ambiguous, and the practical action that produces the real artifact. If Claude
-asked you a question, one suggestion answers it.
+Clicking the chip sends your last message and Claude's reply to the model,
+which answers in one of two shapes:
 
-There are no categories, personas, or lenses — earlier versions had them and they
-made the output feel like a taxonomy exercise rather than a colleague talking.
+- **Ask** — when the next message needs something only you can supply. Up to
+  four questions, one at a time, each answerable by picking one of 2–4 options
+  CONTEXA wrote for you. No typing required.
+- **Offer** — when the reply left something worth doing that needs nothing
+  from you. Up to four ready moves you send with one click.
 
-## Chips are handles, not the prompt
+Never both at once. And whenever there's nothing to click through — a quiet
+row, or the row of moves — a small "Rough ask" control is still there: type a
+few words yourself and CONTEXA writes the properly formed prompt from it, with
+anything it can't know marked as an editable slot or an `Assume:` line rather
+than invented.
 
-Each chip shows at most **6 words** so you can scan all five in about a second.
-The chip is a handle: clicking it loads the *full, specific* prompt into your
-composer, where you read it, edit it, or send it. Hovering shows the full text
-too.
-
-This split is deliberate. A 5-word prompt ("fix the pricing section") is one you
-could have written yourself, and it makes Claude guess your intent. The value is
-in the specificity, so the payload stays precise — it names the deliverable, the
-format, the length, the constraint — while the chip stays tiny. You always see
-what you're about to send before it sends.
-
-A label longer than 6 words is truncated client-side, so a chatty model can't
-break the layout.
+There are no categories, personas, or lenses — earlier versions had them and
+they made the output feel like a taxonomy exercise rather than a colleague
+talking.
 
 ## Honest states
 
-CONTEXA never dresses up generic text as a real suggestion. You get exactly one
-of three things under a reply (this list is the states, not the chip count):
+CONTEXA never dresses up generic text as a real suggestion. Under a reply you
+get exactly one of:
 
-- **Five chips** — real suggestions for that conversation.
-- **"Daily limit reached (20 replies)"** — with when it resets, and an *Add key*
-  button if you want unlimited use.
-- **"Couldn't generate next steps (`reason`)"** — the actual error code
-  (`api_401`, `truncated`, `network`, …) so a failure is diagnosable.
+- **An interview card** — up to four click-only questions.
+- **A row of moves** — up to four one-click sends.
+- **A quiet row** — nothing was worth asking or offering, said plainly, with
+  the "Rough ask" control still available.
+- **"That's all N free prompts for today"** — with when it resets, and a path
+  to add your own key for unlimited use.
+- **A plain-language error** — with the actual cause in the browser console for
+  anyone debugging.
 
-If a response gets cut off by the token limit, the complete suggestions are
-salvaged and the shortfall is stated.
+If a response gets cut off by the token limit, whatever completed is kept and
+used, and the shortfall is logged rather than shown on the card.
 
 ## Behaviour notes
 
-- Suggestions appear only after streaming finishes, detected from claude.ai's
+- The chip appears only after streaming finishes, detected from claude.ai's
   own `[data-is-streaming]` flag flipping to `false`.
 - Replies under 120 characters are skipped — short acknowledgements don't need
   next steps.
@@ -101,6 +101,9 @@ salvaged and the shortfall is stated.
 
 - `manifest.json` — MV3, permissions: `storage` + host access to claude.ai and
   api.anthropic.com only.
-- `content.js` — composer locator, reply watcher, chips, insert.
-- `background.js` — service worker; the one Anthropic call, JSON recovery.
-- `options.html` / `options.js` — settings.
+- `content.js` — composer locator, reply watcher, the trigger chip, the
+  interview and moves cards, insert.
+- `background.js` — service worker; hosted and own-key calls, schema
+  negotiation with the worker, JSON recovery.
+- `options.html` / `options.js` — settings: a beginner on/off switch, plus an
+  Advanced section for the API key, model, and backend URL.
