@@ -5,6 +5,8 @@
 **CONTEXA reads Claude's reply and writes your next message — by asking you a few
 short questions you answer by clicking.**
 
+![CONTEXA reading a reply, asking three click-only questions, and composing the prompt](store-assets/contexa-demo.gif)
+
 CONTEXA is a Chrome extension for claude.ai. When Claude finishes a reply, a
 single chip appears above your message box. **Nothing happens until you click
 it** — no model call, and nothing about your conversation leaves the page. Click
