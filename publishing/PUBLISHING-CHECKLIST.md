@@ -55,13 +55,17 @@ All copy is in `publishing/STORE-LISTING.md`.
 - [ ] Name, short description, detailed description.
 - [ ] Category: Productivity.
 - [ ] Icon: `extension/icons/icon128.png`.
-- [ ] Screenshots: the four 1280×800 PNGs in `publishing/screenshots/`.
-      Order them `1-chips` → `2-inserted` → `3-dark` → `4-settings`; the first is
-      what most people judge the listing by.
-- [ ] ⚠️ **Retake the screenshots on real claude.ai** before you submit. Mine
-      were captured with the real extension running, but on a local mock page
-      built for the purpose. Reviewers compare screenshots against actual
-      behaviour, and real ones are simply more honest and more convincing.
+- [ ] Screenshots: the five 1280×800 PNGs in `publishing/screenshots/`.
+      Order them `1-interview` → `2-composed` → `3-trigger` → `4-light` →
+      `5-settings`; the first is what most people judge the listing by.
+      Regenerate with `xvfb-run -a node scripts/screenshots/capture.mjs` rather
+      than editing the PNGs by hand.
+- [ ] ⚠️ **Retake the screenshots on real claude.ai** before you submit. They
+      are captured with the real extension running, but against a local mock of
+      claude.ai's DOM and with canned model output. Reviewers compare
+      screenshots against actual behaviour, and real ones are simply more honest
+      and more convincing — and only a live session proves the selectors still
+      match the site as it stands today.
 - [ ] Single purpose description (verbatim from the listing doc).
 - [ ] Privacy policy URL.
 - [ ] Permission justifications — one per permission, specific.
