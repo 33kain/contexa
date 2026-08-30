@@ -4,6 +4,10 @@ Developer and release tooling. None of it is part of the shipped product
 (`extension/` and `worker/`) or the build entry point (`build.mjs` at the repo
 root) — these are convenience scripts run by hand.
 
+- `screenshots/` — generates the five Chrome Web Store screenshots into
+  `publishing/screenshots/`, by driving the real unpacked extension in a real
+  Chromium against a mock of claude.ai's DOM. Needs Playwright and Xvfb; not
+  part of the test suite. See `scripts/screenshots/README.md`.
 - `release-commit.ps1` — release ceremony: bump, build, tag, push.
 - `dogfood-test.ps1` — drive a local reply through the pipeline for manual checks.
 - `reproduce-test.ps1` — reproduce a reported failure against the backend.

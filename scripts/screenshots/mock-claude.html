@@ -1,0 +1,234 @@
+<!doctype html>
+<!--
+  Mock claude.ai page for the store-screenshot harness (scripts/screenshots/capture.mjs).
+
+  This is NOT a pixel-copy of claude.ai. It is a copy of the DOM CONTRACT
+  content.js depends on, and nothing else:
+
+    .ProseMirror[contenteditable]   the composer            (SELECTORS)
+    .font-claude-response           the reply body          (RESPONSE_SEL)
+    [data-is-streaming]             wraps the reply         (STREAM_SEL)
+    [data-testid="user-message"]    the user's turn         (USER_MSG_SEL)
+    [class*="group/message-row"]    the per-turn boundary   (ROW_SEL)
+    <html data-mode="dark|light">   the theme flag          (isDark)
+
+  LAYOUT IS LOAD-BEARING, and is why the first attempt at these screenshots
+  (PR #13) was rejected. content.js mounts the card with `host.before(holder)`,
+  where `host` is mountHost()'s walk-up from the composer — so the card lands as
+  an ordinary sibling in normal flow, directly above the composer's container.
+  It has no coordinates of its own and cannot "float": wherever the gap between
+  the conversation and the composer is, that is where the card appears.
+
+  Two things therefore have to be right, and getting either wrong produces a
+  screenshot that libels the product:
+
+  1. NORMAL FLOW. The composer must be the last in-flow child of a flex column,
+     with the thread above it taking the remaining space (flex:1, own scroller).
+     PR #13's mock used position:fixed here, which left the walk-up anchored to
+     a node the layout no longer placed above the composer — the card rendered
+     stranded in dead space.
+
+  2. DEPTH. mountHost() climbs at most SIX levels, stopping early only if it
+     reaches MAIN or body. Real claude.ai nests the composer far deeper than
+     that, so six levels up is still inside the centred conversation column —
+     which is why the card appears aligned with the composer and roughly its
+     width. A shallow mock lets the walk-up escape all the way to a full-width
+     ancestor, and the card renders flush against the viewport's left edge.
+     So the chain below is deliberately 7+ deep, with the centring wrapper
+     ABOVE the sixth level. Count the levels before editing it.
+-->
+<html lang="en" data-mode="dark">
+<head>
+<meta charset="utf-8">
+<title>Claude</title>
+<style>
+  :root{
+    --bg:#262624; --panel:#30302E; --line:#3F3F3C;
+    --ink:#F5F4EF; --ink2:#C2C0B6; --ink3:#8F8D85;
+    --user-bg:#3A3A37; --coral:#D97757;
+  }
+  html[data-mode="light"]{
+    --bg:#FAF9F5; --panel:#FFFFFF; --line:#E8E6DE;
+    --ink:#3D3929; --ink2:#5A574A; --ink3:#8A877A;
+    --user-bg:#FFFFFF;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{
+    background:var(--bg); color:var(--ink);
+    font:16px/1.6 ui-sans-serif,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    -webkit-font-smoothing:antialiased;
+  }
+
+  /* The whole app is one flex column the height of the viewport. */
+  main.app{display:flex;flex-direction:column;height:100vh;overflow:hidden}
+
+  /* Top chrome — thin, just enough that the page reads as a real product. */
+  .topbar{
+    flex:none;display:flex;align-items:center;gap:10px;
+    padding:14px 22px;border-bottom:1px solid var(--line);
+  }
+  .topbar .mark{font-size:15px;font-weight:600;letter-spacing:.01em}
+
+  /* The thread takes all remaining height and owns the scrolling. When the
+     CONTEXA card is inserted below it, this shrinks — the card is never
+     overlapping anything and never stranded. */
+  .thread{flex:1;min-height:0;overflow-y:auto;padding:26px 0 8px}
+  /* claude.ai draws no chunky native scrollbar; neither do we, or it lands in
+     every screenshot. */
+  .thread{scrollbar-width:none}
+  .thread::-webkit-scrollbar{width:0;height:0}
+
+  .col{max-width:740px;margin:0 auto;padding:0 22px}
+
+  /* One turn. The class name carries the substring ROW_SEL matches. */
+  .group\/message-row{margin-bottom:26px}
+
+  .user-row{display:flex;justify-content:flex-end}
+  [data-testid="user-message"]{
+    background:var(--user-bg);border:1px solid var(--line);
+    border-radius:14px;padding:13px 18px;max-width:78%;font-size:15.5px;
+  }
+
+  .font-claude-response{font-size:15.5px;line-height:1.72;color:var(--ink)}
+  .font-claude-response p{margin:0 0 15px}
+  .font-claude-response p:last-child{margin-bottom:0}
+  .font-claude-response strong{font-weight:650;color:var(--ink)}
+
+  /* Composer — the LAST in-flow child of the column. Never fixed, never
+     absolute, and deliberately deep: see the header comment. */
+  .dock{flex:none;padding:0 22px 26px}
+  /* The centring wrapper. Everything mountHost() can reach stays inside this,
+     so the card lands centred with the composer rather than flush left. */
+  .dock-mid{max-width:740px;margin:0 auto}
+  .composer-rail,.composer-stack,.composer-shell,.composer-box,.composer-pad{display:block}
+  .composer-inner{
+    display:flex;align-items:flex-end;gap:12px;
+    background:var(--panel);border:1px solid var(--line);
+    border-radius:20px;padding:15px 15px 15px 20px;
+    box-shadow:0 2px 14px rgba(0,0,0,.16);
+  }
+  html[data-mode="light"] .composer-inner{box-shadow:0 2px 14px rgba(0,0,0,.05)}
+
+  .ProseMirror{
+    flex:1;min-height:26px;outline:none;font-size:15.5px;line-height:1.6;
+    color:var(--ink);white-space:pre-wrap;word-break:break-word;
+  }
+  .ProseMirror:empty::before{content:attr(data-placeholder);color:var(--ink3)}
+  .ProseMirror p{margin:0 0 4px}
+  .ProseMirror p:last-child{margin-bottom:0}
+
+  .send{
+    flex:none;width:34px;height:34px;border:none;border-radius:50%;
+    background:var(--coral);color:#fff;font-size:15px;cursor:pointer;
+    display:flex;align-items:center;justify-content:center;
+  }
+</style>
+</head>
+<body>
+<main class="app">
+  <div class="topbar"><span class="mark">Claude</span></div>
+
+  <div class="thread" id="thread">
+    <div class="col" id="col">
+
+      <!-- An earlier turn, so the thread genuinely overflows. Scrolled to the
+           bottom the conversation then runs right up against the card, which is
+           how this looks in life; a short thread leaves a pool of dead space
+           above the card that reads as a layout bug in a screenshot. -->
+      <div class="group/message-row">
+        <div class="user-row">
+          <div data-testid="user-message">I've got a week off in May and can't decide where to go.</div>
+        </div>
+      </div>
+
+      <div class="group/message-row">
+        <div data-is-streaming="false">
+          <div class="font-claude-response">
+            <p>A few directions, depending on what you want the week to feel like.
+            If you want warm weather without peak crowds, southern Europe in May is
+            close to ideal — Portugal, Andalusia, Sicily. If you'd rather walk than
+            sit, the Dolomites and the Scottish Highlands are just opening up.</p>
+            <p>Cities are the easy win for a first proper break in a while: one
+            base, no logistics, and you can do as much or as little as you like.</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="group/message-row">
+        <div class="user-row">
+          <div data-testid="user-message">Can you help me plan a 4-day trip to Lisbon? I've never been.</div>
+        </div>
+      </div>
+
+      <div class="group/message-row">
+        <!-- Starts "true"; capture.mjs flips it to "false" the way a finished
+             stream does, so the real completion path runs. -->
+        <div data-is-streaming="true">
+          <div class="font-claude-response" id="reply"></div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- Depth is deliberate, and the count is exact. mountHost() climbs SIX
+       levels from .ProseMirror and returns what it lands on; the card is
+       inserted as a sibling BEFORE that node, so the node's PARENT is what
+       the card gets laid out in. Counting up:
+         1 .composer-inner   2 .composer-pad   3 .composer-box
+         4 .composer-shell   5 .composer-stack 6 .composer-rail   <- returned
+       making .dock-mid (7) the parent — the centred column. Add or remove a
+       level here and the card escapes to full width, flush against the left
+       edge of the viewport. That is the bug PR #13 shipped. -->
+  <div class="dock">
+    <div class="dock-mid">
+      <div class="composer-rail">
+        <div class="composer-stack">
+          <div class="composer-shell">
+            <div class="composer-box">
+              <div class="composer-pad">
+                <div class="composer-inner">
+                  <div class="ProseMirror tiptap"
+                       id="composer"
+                       contenteditable="true"
+                       role="textbox"
+                       aria-label="Write your prompt to Claude"
+                       data-placeholder="Reply to Claude..."></div>
+                  <button class="send" aria-label="Send">&#9650;</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</main>
+
+<script>
+  /* The reply is typed in by capture.mjs rather than baked into the HTML, so
+     the MutationObserver in content.js sees a real stream of mutations and the
+     real completion path runs — not a page that was simply born finished. */
+  window.__mock = {
+    streamReply(html) {
+      document.getElementById('reply').innerHTML = html;
+    },
+    finishStream() {
+      // The LAST one. There is more than one turn on the page, and content.js
+      // only ever looks at the last reply — flipping the first flips a turn
+      // that finished long ago and leaves the live one reading "true" forever.
+      const all = document.querySelectorAll('[data-is-streaming]');
+      all[all.length - 1].setAttribute('data-is-streaming', 'false');
+    },
+    setTheme(mode) {
+      document.documentElement.setAttribute('data-mode', mode);
+    },
+    bottom() {
+      const t = document.getElementById('thread');
+      t.scrollTop = t.scrollHeight;
+    }
+  };
+</script>
+</body>
+</html>
