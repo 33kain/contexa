@@ -23,6 +23,7 @@ byte-identical by `build.mjs`).
 | `CONTEXA-voice-spec.md` | 0.9.55 | Handover spec: the interview's "mirror" voice register. |
 | `CONTEXA-card-spec.md` | 0.9.32 | Exact spec of the interview card, extracted from shipped code for the website mock. |
 | `icon-inspect.png` | — | One-off inspection screenshot from the 0.9.55 mascot icon work. |
+| `legacy-steps-prompt.txt` | frozen at 0.9.31 | A snapshot of `LEGACY_STEPS_SYSTEM`, taken when the dual-schema negotiation shipped. Not the source of truth — that's the constant in `worker/src/index.js` — and nothing reads this file; it just happened to still match because that prompt hasn't changed since. |
 
 See also `test-runs/` for historical prompt-tuning and model-comparison output,
 and `../../scripts/archive/` for the one-off scripts and inputs used to
