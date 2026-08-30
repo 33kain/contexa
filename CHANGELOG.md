@@ -7,6 +7,66 @@ free to diverge, and the settings page labels them separately for that reason.
 
 ---
 
+## 0.9.57 — Extension + Worker
+
+*The extra sentence turned out to be protecting nothing.*
+
+### choose, risk, and why now outrank a question, even one the reply asked out loud
+
+`QUESTIONS_SYSTEM` never said which shape wins when a reply earns both a move
+and a question in the same breath — a gap 0.9.56 named and deliberately left
+for its own change (see that release's "what remains open" note). Found in
+the field: a reply that names an assumption and hands back a decision in one
+sentence (*"brzo pojedu besplatnu kvotu od 1 GB... javi ako hoćeš da to
+ubacim"* — flags a quota risk, then hands the fork back) is exactly the case
+the prompt had no ruling for.
+
+Fixed with one new bullet in the Hard rules block: **choose, risk, and why
+outrank questions — if the reply earned any of them, return the move row and
+no questions, even when the reply directly asked the user something.** Two
+new worked examples pin the boundary either side of it:
+
+- **"Deeper's own gate, not precedence"** — a reply that offers to go deeper
+  *("I can expand this into a full draft once I know who it's for")* still
+  has to ask, because the missing fact is something only the user holds.
+  `deeper` fails on its own terms here; the precedence rule never enters it.
+- **"Contested shape"** — a reply that states an assumption and hands back a
+  decision in the same clause reads shallow as a question, but `choose` and
+  `risk` both outrank it regardless.
+
+### The anchor sentence didn't survive its own test
+
+The rule shipped first with a second sentence carving out an exception for
+`deeper` specifically (*"deeper never outranks a question: when deeper is the
+only move the reply earned, ask instead"*). Three fixed inputs, three prompt
+variants (PRE / NOW / DROP — the full rule minus that sentence), 5 runs each,
+via `scripts/prompt-ab-fork.mjs` (extended from the 0.9.56 harness):
+
+| input | what it tests | NOW (threshold) | DROP (threshold) |
+|---|---|---|---|
+| U1 — quota risk + decision (real capture) | moves earned | 3/5 (need ≥4/5) — **missed** | 5/5 (need ≥4/5) — passed |
+| U2 — finished migration, nothing open | moves earned | 4/5 (need 5/5) — **missed** | 5/5 (need 5/5) — passed |
+| U3 — code answer + plain offer to wire it in | the anchor's own kill test | 5/5 questions | 5/5 questions — **matches NOW** |
+
+DROP didn't just tie NOW — it beat it on both move inputs, and matched it
+exactly on the one input built to catch the anchor sentence doing something.
+U3 took three fixture attempts to get right (v1 and v2 were both inert: their
+own PRE already scored 5/5 questions, so neither could have detected the
+anchor's absence even in principle — recorded in the harness's own history so
+the dead ends aren't repeated). The pre-committed rule for the final attempt
+was explicit: if DROP matches NOW again, ship DROP and stop. It matched a
+third time. The anchor sentence is gone; the rule now reads as one sentence.
+
+### Versions
+
+Extension **0.9.57**, worker `BUILD` **0.9.57** — bumped together because the
+shared prompt changed, same reasoning as 0.9.56: without it, `/v1/health`
+cannot tell a pre-precedence-fix deploy from a post-precedence-fix one.
+Ships to the worker on the next `wrangler deploy`; the extension side ships
+on the Chrome Web Store's own clock, as always.
+
+---
+
 ## 0.9.56 — Extension + Worker
 
 *The questions stopped talking to her and started sounding like her.*
