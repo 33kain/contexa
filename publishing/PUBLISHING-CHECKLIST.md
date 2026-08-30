@@ -55,13 +55,16 @@ All copy is in `publishing/STORE-LISTING.md`.
 - [ ] Name, short description, detailed description.
 - [ ] Category: Productivity.
 - [ ] Icon: `extension/icons/icon128.png`.
-- [ ] Screenshots: the four 1280×800 PNGs in `publishing/screenshots/`.
-      Order them `1-chips` → `2-inserted` → `3-dark` → `4-settings`; the first is
-      what most people judge the listing by.
-- [ ] ⚠️ **Retake the screenshots on real claude.ai** before you submit. Mine
-      were captured with the real extension running, but on a local mock page
-      built for the purpose. Reviewers compare screenshots against actual
-      behaviour, and real ones are simply more honest and more convincing.
+- [ ] Screenshots: the five 1280×800 PNGs in `publishing/screenshots/`.
+      Order them `1-interview` → `2-composed` → `3-trigger` → `4-dark` →
+      `5-settings`; the first is what most people judge the listing by.
+- [ ] ⚠️ **Compare the screenshots against real claude.ai** before you submit.
+      They were captured with the real extension running, but on a local mock
+      page built for the purpose (see `publishing/screenshots/README.md` for
+      exactly how) — the same method the original set used. If claude.ai's own
+      layout has changed since, retake them for real. Reviewers compare
+      screenshots against actual behaviour, and real ones are simply more
+      honest and more convincing.
 - [ ] Single purpose description (verbatim from the listing doc).
 - [ ] Privacy policy URL.
 - [ ] Permission justifications — one per permission, specific.

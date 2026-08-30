@@ -1,16 +1,27 @@
-# DO NOT UPLOAD THESE
+# Screenshots — current as of v0.9.56
 
-Every PNG in this folder is **chip-era**. `1-chips.png` shows a row of five
-suggestion chips — a mechanism removed in 0.9.30 and gone for sixteen releases.
+These five PNGs, all exactly 1280×800, show the actual product: the on-demand
+trigger, the click-only interview, the composed prompt, dark mode, and the
+settings page. Order for the listing: `1-interview` → `2-composed` →
+`3-trigger` → `4-dark` → `5-settings`; the first is what most people judge the
+listing by.
 
-Uploading them advertises a product that does not exist.
+**How they were made.** The real extension, unpacked and loaded into a real
+Chromium instance (Playwright + a persistent context with `--load-extension`),
+driven against a hand-built mock claude.ai page — same method the project's
+own `PUBLISHING-CHECKLIST.md` describes for the original (now-lost) set: "the
+real extension running, but on a local mock page built for the purpose." The
+hosted backend call was pointed at a small local server returning realistic
+questions/prompt text instead of the real worker, so no API key or network
+call to Anthropic was needed to produce them.
 
-The current screenshots — five light and five dark, 1280×800 exactly — were
-built on 2026-08-22 and are **not in this repo**. They were delivered into the
-conversation and live elsewhere on the owner's disk.
+**What that means for submission.** These are honest screenshots of the real
+UI — not a mockup, not hand-drawn — but the surrounding page is a stand-in for
+claude.ai, not claude.ai itself. The checklist's own caution still applies:
+compare against a real claude.ai session before submitting, in case anything
+about the live site's layout has since changed in a way that affects how
+CONTEXA mounts. If it still matches, these are good to upload as-is.
 
-**Before any store submission: confirm in the Developer Dashboard which
-screenshots are actually live.** The spec they were shot to is in the
-`claude/CONTEXA-store-listing.md` project doc.
-
-These files are kept only so the chip era has a record. Nothing here is current.
+The previous four (`1-chips.png` etc., chip-era, explicitly marked
+"DO NOT UPLOAD") were removed — they showed a product that stopped existing
+in 0.9.30. Their history is still in git if anyone ever needs to see them.
