@@ -385,6 +385,30 @@ function trimExpansion(value) {
   return (sp > 0 ? cut.slice(0, sp) : cut).trimEnd();
 }
 
+/* The question payload's clean-boundary cap. MUST stay behaviourally identical
+   to trimPayload in worker/src/index.js, for the same reason cleanAssume and
+   cleanChips must: hosted and own-key users get one product or they get two.
+
+   This one was MISSING on the own-key path — refineSteps mapped `text:
+   String(s.text)` with no cap at all while the worker had always trimmed at
+   700. Nothing enforced the prompt's 90-character instruction on that path, so
+   an overlong question rendered verbatim into the card's `.q`, which has no
+   overflow handling. A defect only a user with their own key could ever see,
+   which is exactly the class of divergence the duplication rule exists to
+   prevent. */
+const MAX_PAYLOAD_CHARS = 700;
+function trimPayload(value) {
+  const t = String(value || '').trimEnd();
+  if (t.length <= MAX_PAYLOAD_CHARS) return t;
+  const cut = t.slice(0, MAX_PAYLOAD_CHARS);
+  const nl = cut.lastIndexOf('\n');
+  if (nl > MAX_PAYLOAD_CHARS * 0.5) return cut.slice(0, nl).trimEnd();
+  const dot = Math.max(cut.lastIndexOf('. '), cut.lastIndexOf('? '), cut.lastIndexOf('! '));
+  if (dot > MAX_PAYLOAD_CHARS * 0.5) return cut.slice(0, dot + 1).trimEnd();
+  const sp = cut.lastIndexOf(' ');
+  return (sp > 0 ? cut.slice(0, sp) : cut).trimEnd();
+}
+
 /* Hosted path: the proxy holds the API key, so the user needs nothing. Returns
    the same shape as the direct path so callers do not care which was used. */
 async function callHosted(prompt, reply) {
@@ -556,7 +580,7 @@ function cleanOptions(v) {
   console.log('[CONTEXA] evidence', withEv.map(s => String(s.evidence).slice(0, 90)));
   const mapped = withEv.map(s => ({
     label: String(s.label || '').slice(0, 80),
-    text: String(s.text),
+    text: trimPayload(s.text),
     options: cleanOptions(s.options)
   }));
   const unclickable = mapped.filter(q => q.options.length < 2);

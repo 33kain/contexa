@@ -348,6 +348,32 @@ const settle = () => new Promise(r => setTimeout(r, 0));
     JSON.stringify(out.grounding));
 }
 {
+  /* 0.9.57 — the own-key path never capped a question's `text`. The worker had
+     trimmed at 700 since the questions shape shipped; refineSteps mapped
+     `text: String(s.text)` and trusted the prompt's 90-character instruction to
+     hold. Nothing enforced it, and the card's `.q` has no overflow handling, so
+     an overlong question was a broken card that ONLY a user with their own key
+     could ever see. The duplication rule exists to keep hosted and own-key one
+     product; this is the test that says so out loud. */
+  const REPLY = 'alpha beta gamma delta '.repeat(6);
+  const h = load({ storage: { model: '', apiKey: 'sk-x' } });
+  await settle();
+  const long = 'Sentence about the thing. '.repeat(60);   // ~1560 chars
+  h.sandbox.fetch = async () => ({
+    ok: true, status: 200,
+    async json() { return { stop_reason: 'end_turn', content: [{ text: JSON.stringify({ questions: [
+      { label: 'Overlong', text: long, options: ['A', 'B'], evidence: 'beta gamma' }
+    ] }) }] }; },
+    async text() { return ''; }
+  });
+  const out = await h.send({ type: 'nextSteps', prompt: 'p', reply: REPLY });
+  const got = out.questions && out.questions[0] && out.questions[0].text;
+  t('own-key question text is capped at 700', typeof got === 'string' && got.length <= 700,
+    'len=' + (got || '').length);
+  t('and cut at a clean boundary, not mid-word', /[.!?]$/.test(got || ''),
+    JSON.stringify((got || '').slice(-24)));
+}
+{
   // all steps evidence-less => no_steps, and nothing cached
   const h = load({ storage: { model: '', apiKey: 'sk-x' } });
   await settle();
@@ -1206,9 +1232,9 @@ const settle = () => new Promise(r => setTimeout(r, 0));
      follows it. 0.9.49 adds the second half: a dismissed card must NOT come
      back as a one-click compose button, which is a falsy fourth argument. */
   t('dismiss falls back to the fifth chip',
-    /function dismiss\(\) \{[\s\S]{0,900}renderSteps\(anchor, \[\], ctx\b/.test(csrc7));
+    /function dismiss\(\) \{[\s\S]{0,900}renderSteps\(anchor, ctx\b/.test(csrc7));
   t('and offers no standalone compose chip in its place',
-    /function dismiss\(\) \{[\s\S]{0,900}renderSteps\(anchor, \[\], ctx, false\)/.test(csrc7));
+    /function dismiss\(\) \{[\s\S]{0,900}renderSteps\(anchor, ctx, false\)/.test(csrc7));
   t('everything skipped composes nothing', csrc7.includes('if (!parts.length) return dismiss();'));
   t('interview keystrokes stopped at the shadow boundary',
     /for \(const evt of \['keydown', 'keyup', 'keypress', 'input', 'paste'\]\)/.test(csrc7));
@@ -1216,7 +1242,7 @@ const settle = () => new Promise(r => setTimeout(r, 0));
 
   // Zero, end to end.
   t('zero questions renders the fifth chip alone',
-    /if \(!questions\.length\) \{[\s\S]{0,1400}renderSteps\(anchor, \[\], ctx\b/.test(csrc7));
+    /if \(!questions\.length\) \{[\s\S]{0,1400}renderSteps\(anchor, ctx\b/.test(csrc7));
   t('the quiet row is logged', csrc7.includes('[CONTEXA] quiet row'));
 
   /* ---- 0.9.49: the standalone compose chip, and the floor it must not become.
@@ -1233,7 +1259,7 @@ const settle = () => new Promise(r => setTimeout(r, 0));
      line whose fourth argument had not changed at all. `[,)]` keeps the teeth
      (a bare `true` still fails) and lets the call grow. */
   t('zero questions offers it only when something was actually stated',
-    /renderSteps\(anchor, \[\], ctx, assume\.length > 0[,)]/.test(csrc7));
+    /renderSteps\(anchor, ctx, assume\.length > 0[,)]/.test(csrc7));
   /* ---- 0.9.53: the call is lazy. These are about what must NOT happen.
      The saving is real only if reply completion makes no model call at all,
      and the dead-end fix is safe only if the input opens on genuinely nothing
@@ -1264,7 +1290,7 @@ const settle = () => new Promise(r => setTimeout(r, 0));
       return labels.length >= 2 && new Set(labels).size === labels.length;
     })());
   t('the input opens ONLY when nothing at all was earned',
-    /renderSteps\(anchor, \[\], ctx, assume\.length > 0, assume\.length === 0\)/.test(csrc7));
+    /renderSteps\(anchor, ctx, assume\.length > 0, assume\.length === 0\)/.test(csrc7));
   t('and never on a render that did not ask for it',
     /appendOwnChip\(row, ctx \|\| \{\}, anchor, openInput === true\)/.test(csrc7));
   t('arming is still reachable by the user, not only by us',
@@ -1360,8 +1386,42 @@ const settle = () => new Promise(r => setTimeout(r, 0));
      Three surfaces state the allowance and they must not disagree. */
   t('quota card halves the raw limit', csrc7.includes('Math.floor(limit / 2)'));
   const oh = readFileSync('./options.html', 'utf8'), oj = readFileSync('./options.js', 'utf8');
-  t('options page states 10 prompts a day', /10 prompts a day/.test(oh) && /10 prompts a day/.test(oj));
+  /* DERIVED from the worker's PROMPTS_PER_DAY, never retyped here. This test
+     used to hardcode "10 prompts a day" and so PINNED THE DEFECT: when the
+     allowance moved to PROMPTS_PER_DAY = 20 the settings page kept saying 10,
+     the quota card computed 20 from the live 429, and the suite stayed green
+     while the product contradicted itself on screen. A number in public copy
+     has one source of truth — the same rule the worker already applies to
+     DEVICE_DAILY_LIMIT and IP_DAILY_LIMIT. */
+  const ppd = (readFileSync(new URL('../worker/src/index.js', import.meta.url), 'utf8')
+    .match(/const PROMPTS_PER_DAY = (\d+);/) || [])[1];
+  t('PROMPTS_PER_DAY is readable from the worker', !!ppd, String(ppd));
+  const claim = new RegExp(ppd + ' prompts a day');
+  t('options page states the real allowance, derived not retyped',
+    claim.test(oh) && claim.test(oj), ppd + ' prompts a day');
   t('no surface still claims 20', !/20 suggestion sets|20 sets a day|20 free suggestions/.test(oh + oj + csrc7));
+
+  /* 0.9.57 — the switch must reach tabs that are ALREADY OPEN, both ways.
+     Only tick() read settings.enabled, and tick() draws nothing: the reply
+     observer does, and switching off left it attached, so a disabled CONTEXA
+     kept capturing replies and mounting cards until the tab was reloaded —
+     while the settings page promised the opposite. Switching back on had the
+     mirror defect: a tab loaded while disabled never started the interval, so
+     it stayed dead for that tab's life. */
+  t('a storage change acts on the switch, not just records it',
+    /if \(ch\.enabled\) \{[\s\S]{0,200}if \(settings\.enabled\) startUp\(\); else shutDown\(\);/.test(csrc7));
+  t('shutDown disconnects the observer, not only the timer',
+    /function shutDown\(\) \{[\s\S]{0,300}standDown\(\);/.test(csrc7));
+  t('shutDown clears cards already on the page',
+    /function shutDown\(\)[\s\S]{0,400}querySelectorAll\('\[data-contexa\]'\)[\s\S]{0,40}remove\(\)/.test(csrc7));
+  t('startUp is idempotent, so a second enable cannot stack intervals',
+    /function startUp\(\) \{\s*\r?\n\s*if \(tickTimer\) return;/.test(csrc7));
+  t('a tab that loaded disabled can still be switched on',
+    /settings = s;\s*\r?\n\s*if \(settings\.enabled\) startUp\(\);/.test(csrc7));
+  /* The observer is asynchronous: a reply already in flight when the switch
+     flipped must not still mount a card after shutDown() ran. */
+  t('onReplyComplete re-checks the switch itself',
+    /async function onReplyComplete\(replyEl\) \{[\s\S]{0,400}if \(!settings\.enabled\) return;/.test(csrc7));
 
   // Capability knowledge still lives in the prompt, so its staleness marker must too.
   t('audit marker survives', /CAPABILITY-AUDIT: \d{4}-\d{2}-\d{2}/.test(bsrc));

@@ -58,10 +58,10 @@ function paintMode() {
   $('modePill').textContent = own ? 'unlimited' : 'no key needed';
   $('modeDesc').textContent = own
     ? 'Requests go straight from this browser to Anthropic using your key. No daily limit, and Anthropic bills you directly for usage.'
-    : 'Questions and prompts come from the CONTEXA service. Nothing to set up, and a fair-use limit of 10 prompts a day.';
+    : 'Questions and prompts come from the CONTEXA service. Nothing to set up, and a fair-use limit of 20 prompts a day.';
   $('quotaLine').innerHTML = own
     ? '<b>Using your own key.</b> No daily limit — Anthropic bills you for what you use.'
-    : '<b>Free.</b> No account, no sign-up. Fair use is 10 prompts a day.';
+    : '<b>Free.</b> No account, no sign-up. Fair use is 20 prompts a day.';
 }
 $('apiKey').addEventListener('input', paintMode);
 
