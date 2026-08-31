@@ -73,7 +73,7 @@ const grab = (s, name) => {
   const m = s.match(new RegExp(name + ' = `([\\s\\S]*?)`;'));
   return m && m[1];
 };
-for (const name of ['QUESTIONS_SYSTEM', 'EXPAND_SYSTEM']) {
+for (const name of ['QUESTIONS_SYSTEM', 'EXPAND_SYSTEM', 'MOVES_SYSTEM']) {
   const pExt = grab(outBg, name);
   const pWrk = grab(wrkForPrompts, name);
   if (!pExt || !pWrk) fails.push(`could not locate ${name} in one of the two copies`);
@@ -83,6 +83,26 @@ for (const name of ['QUESTIONS_SYSTEM', 'EXPAND_SYSTEM']) {
 const sectionRe = /'ROUGH ASK:\\n' \+ intent/;
 if (!sectionRe.test(outBg) || !sectionRe.test(wrkForPrompts))
   fails.push('expand section labels missing or drifted between extension and worker');
+
+/* Same contract for the mining call's labels. Both paths feed one prompt, so a
+   label that drifts on one side changes what the model reads there and nowhere
+   else — the divergence class this whole file exists to catch. */
+const turnsSectionRe = /'SESSION SO FAR:\\n' \+ turnsSection\(turns\)/;
+if (!turnsSectionRe.test(outBg) || !turnsSectionRe.test(wrkForPrompts))
+  fails.push('mining section labels missing or drifted between extension and worker');
+
+/* The v2 helpers are duplicated for the same reason cleanAssume and cleanChips
+   are, and drift between them is just as invisible. They are written once and
+   injected, so byte-identity is the cheap check that they still are. */
+const grabFns = s => {
+  const a = s.indexOf('function cleanTurns');
+  const b = s.indexOf('return grounded;', a);
+  return a < 0 || b < 0 ? null : s.slice(a, b);
+};
+const fnsExt = grabFns(outBg);
+const fnsWrk = grabFns(wrkForPrompts);
+if (!fnsExt || !fnsWrk) fails.push('could not locate the v2 helpers in one of the two copies');
+else if (fnsExt !== fnsWrk) fails.push('DRIFT: cleanTurns/cleanMoves/groundMoves differ between extension and worker');
 
 /* 0.9.31: LEGACY_STEPS_SYSTEM is worker-only BY DESIGN — it serves extensions
    older than 0.9.30, which by definition cannot be updated from here. Someone

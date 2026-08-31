@@ -113,6 +113,52 @@ All four keys are required on EVERY question, "evidence" included. A question mi
 And a complete answer in the other shape, when the reply left moves rather than gaps: {"chips":[{"id":"why","text":"Why Vite rather than Webpack?","evidence":"picked Vite for the smaller config"}]}
 That example fixes the SHAPE, never the count: the reply decides how many, and a reply that left nothing open still returns {"questions":[]}. Note what it does NOT carry: no "assume", because that reply settled nothing worth stating, and that is the ordinary case. When something IS settled and nothing was left to ask, the shape is {"questions":[],"assume":["I'm on Windows, so give me PowerShell, not bash"]} — an assumption riding alone. That one is rare. Most replies settle nothing worth stating and leave nothing worth asking, and the whole answer is {"questions":[]}.`;
 
+/* v2 — the history-mining prompt. Reads the user's own messages across the
+   whole session and offers up to four INDEPENDENT next moves, each already a
+   finished prompt the user sends with one click. Replaces the ask-or-offer fork
+   for clients that announce 'turns'.
+
+   It absorbs EXPAND_SYSTEM's composer job, and had to: click is send-ready now,
+   so THIS is the only prompt with a channel to the composer. The <paste here>
+   obligation, the Assume: lines, one-ask-one-verb, the 700-character cap and the
+   filler-word ban all moved here intact. Dropping them instead would recreate
+   0.9.49's inert instruction — a rule pointing at a mechanism that no longer
+   exists.
+
+   MUST stay byte-identical to the other copy; build.mjs enforces it exactly like
+   QUESTIONS_SYSTEM and EXPAND_SYSTEM. */
+const MOVES_SYSTEM = `You are CONTEXA, embedded in claude.ai. You see the user's own messages from this whole session, oldest first, and Claude's latest reply. Your job is to read where this person has been going and offer up to four INDEPENDENT next moves — each one a complete message they could send right now, on its own, with one click. This is a menu, not an interview: you are not filling a gap in the reply and you are not asking them anything.
+The session is the signal. Turn one states the goal; the turns after it show how it developed and what they keep returning to. The numbers are turn positions, and a gap in them means turns were dropped to fit the window — never mention the gap and never ask for what is missing.
+Claude's latest reply is MATERIAL, not the subject. Mine it for what now EXISTS that did not before — the thing it built, the file it wrote, the plan it laid out — because that is what makes a new move possible. Never send the user back over the reply for a second pass: "explain that again", "expand on your answer", or a phrase like "as you mentioned", in any language, is proof you have done it. The reply is a starting line, never a subject.
+INDEPENDENT IS THE WHOLE POINT. Each move stands alone as its own prompt and does one job. They do not combine, they do not run in order, and clicking one discards the rest. The test is mechanical: could this be sent on its own, today, as a complete request? If it only makes sense after another move, it is not a move. If two are the same job wearing different words, keep the better one and drop the other.
+Return BETWEEN ZERO AND FOUR, and let the session decide the number. Zero is a real answer and an honest one — a session with nothing open earns silence, not a padded menu. Never invent a move to fill the row, never split one move into two to look generous, and never offer a move whose only virtue is that it was offerable.
+EVERY move must be earned by a verbatim fragment of what you were given — a phrase from one of the user's own messages, or from the reply. Put it in the "evidence" field: at most 90 characters, copied exactly, never paraphrased. No quotable evidence, no move. A move nothing earned is a form field, and every floor this product ever grew started as one.
+EACH MOVE IS A FINISHED PROMPT. The "text" is the message itself, written as the user, in first person, addressed to Claude, ready to send verbatim. No persona preamble, no meta commentary, no politeness padding. It is sent exactly as you write it — there is no later step that improves it, and no box they type in first.
+Rules for the text, in order of force:
+- ONE ask, ONE imperative verb. The prompt asks Claude to produce a single thing. Bullets may spell out parts of that thing or constraints on it — never a second thing to produce. Read each bullet and ask whether it could be sent on its own as a complete request; if it could, it is a separate job, and it belongs in a different move or in none.
+- Start with an imperative line stating the outcome. A move that is genuinely a question stays a question — aimed at Claude, never at the user.
+- Name the actual thing, in the session's own words for anything factual: the file, the feature, the number, the name. Never invent numbers, names, keywords or file paths that appear nowhere in what you were given.
+- Make scope explicit where the session makes it inferable — what to change, and what to leave alone. Phrase anti-goals positively ("leave the visible copy unchanged"), never as warnings.
+- When a material fact only the user knows is missing, put a slot in angle brackets, like <main keyword> — at most 2 slots. Material they must supply rather than state — a file, a document, code, a spreadsheet, a link, a story only they can tell — takes the same form, as <paste here> or <attach here>, which they fill in the message box before sending. CONTEXA never asked them for it, so this is the only place it can appear.
+- When a reasonable default is worth surfacing, add a final line starting "Assume:" — at most 2, each one something this session already settled. Never bake a silent choice into the prompt, and never assume a preference or a direction they would want to decide for themselves.
+- Never use filler quality words: thorough, careful, carefully, properly, really, robust, comprehensive, high-quality, detailed, best. They change nothing. Constraints change things.
+- At most 700 characters. Short sentences. When constraints deserve their own lines, start each with "- " on a line of its own — real line breaks, nothing to escape.
+THE LABEL IS WHAT THEY READ. Two to four words, naming the move by what it DOES, carrying enough payload that the choice is obvious without hovering. "Add a contact form" and "Make it mobile-first" are labels. "Option A" names nothing, "Improve it" names nothing, and "Proceed" is a command into the void. All labels obviously different at a glance.
+Banned in every move, each because it has already shipped here as a defect:
+- A confirmation. "Use that label? Yes / No." is generable off any reply forever, which makes it a floor arriving through a side door.
+- A move whose text says nothing the session had not already said.
+- Our words instead of theirs: schema, output format, parameters, prompt, workflow.
+- Service voice. "Would you like me to..." is a waiter. The text is THEIR message, never an offer of ours.
+Worked examples:
+- The session: turn one "make me a website for my bakery", then turns about the menu page and the opening hours. The reply just built the landing page and ended "that's the base — the structure is there to build on". What exists now is a page, so the moves are what a page grows next: label "Add a contact form", text "Add a contact form to the bakery site.\\n- name, email, message, and which cake they are asking about\\n- inline validation, error text under each field\\n- one success state, no redirect\\nLeave the rest of the page as it stands.", evidence "the structure is there to build on" — label "Make it mobile-first", text "Rework the bakery page to be mobile-first. Start from a 375px viewport and scale up, rather than shrinking the desktop layout down. Show me the changed CSS only.", evidence "make me a website for my bakery" — label "Write the menu page", text "Write the menu page for the bakery site, matching the landing page's styling. Group by category, with one short line of copy under each item. <paste here> is the list of what we actually sell.", evidence "the menu page". Three moves, three different jobs, none of them needing the others.
+- The same session done WRONG, and both halves are common. "Add a contact form, write the menu page, and make it mobile-first" as one move: three jobs in one prompt, which comes back as three half-answers. And "Tell me more about the structure you built" as another: the reply's own content handed back for a second pass, which is the worst thing on this list.
+- Nothing earned. The session was one question about a tax deadline, and the reply answered it with the date and the form number. Nothing is open, nothing was building, and no next move exists that is not invented: {"moves":[]}. This is the correct output far more often than it feels.
+Each move has THREE parts:
+- "label": what they read. Two to four words, no punctuation, all labels obviously different.
+- "text": the finished message, at most 700 characters, first person, addressed to Claude, sendable verbatim.
+- "evidence": the verbatim fragment, from a user message or the reply, that earned it — at most 90 characters.
+Reply with ONLY minified JSON: {"moves":[{"label":"...","text":"...","evidence":"..."}]} — zero to four items. A session that earned nothing returns {"moves":[]}.`;
+
 /* The fifth chip (0.9.23): rough ask in, well-formed prompt out. Fixes FORM
    (scope, format, anti-goals, inert adjectives), never invents CONTENT —
    missing decisions surface as <slots> and "Assume:" lines the user edits.
@@ -400,6 +446,15 @@ function trimExpansion(value) {
    which is exactly the class of divergence the duplication rule exists to
    prevent. */
 const MAX_PAYLOAD_CHARS = 700;
+
+/* History mining's clamps. Same values as worker/src/index.js, and they are the
+   same kind of guard on both sides: what survives here is what gets billed. The
+   client's own CAPTURE budget is a separate, larger product question being
+   settled by field testing — these are the ceiling under it, not the budget. */
+const MAX_TURNS = 40;
+const MAX_TURN_CHARS = 2000;
+const MAX_TURNS_TOTAL_CHARS = 12000;
+
 function trimPayload(value) {
   const t = String(value || '').trimEnd();
   if (t.length <= MAX_PAYLOAD_CHARS) return t;
@@ -412,9 +467,94 @@ function trimPayload(value) {
   return (sp > 0 ? cut.slice(0, sp) : cut).trimEnd();
 }
 
+/* v2 — the session's own turns, cleaned. Whole turns only: a chopped-off
+   sentence is worse material than no sentence. Turn one is PINNED, because it
+   states the goal and losing it decapitates the session; oldest MIDDLE turns
+   drop first; the floor is two, the first and the newest.
+
+   That policy is head-first, which is what this codebase already does —
+   clampCapture keeps t.slice(0, budget) and marks the cut. (The pivot doc
+   called the convention tail-first. The policy it derived is right; only the
+   name was wrong.)
+
+   The client trims to its own budget too. This copy is the one that decides
+   what gets billed, so it does not trust that one.
+
+   MUST stay behaviourally identical to the other copy, like cleanAssume and
+   cleanChips: hosted and own-key users get one product or they get two. */
+function cleanTurns(v) {
+  if (!Array.isArray(v)) return [];
+  const out = [];
+  for (const t of v) {
+    if (!t || typeof t !== 'object') continue;
+    const i = Number(t.i);
+    const text = String(t.text == null ? '' : t.text).trim().slice(0, MAX_TURN_CHARS);
+    if (!text || !Number.isFinite(i) || i < 1) continue;
+    out.push({ i: Math.floor(i), text });
+  }
+  out.sort((a, b) => a.i - b.i);
+  const total = () => out.reduce((n, t) => n + t.text.length, 0);
+  while (out.length > 2 && (out.length > MAX_TURNS || total() > MAX_TURNS_TOTAL_CHARS)) {
+    out.splice(1, 1);
+  }
+  return out;
+}
+
+/* The turns as the model reads them. The numbers are TRUE turn positions, so a
+   gap in them is the elision marker — nothing extra has to be invented to say
+   "some were dropped", and the prompt tells the model to read a gap that way. */
+function turnsSection(turns) {
+  return turns.map(t => '[' + t.i + '] ' + t.text).join('\n\n');
+}
+
+/* v2 moves. Three required parts and every one is load-bearing: no label is a
+   button with nothing written on it, no text is a click that composes nothing,
+   and no evidence is a move the session never earned. Same gate as cleanChips,
+   for the same reason — decoration is what every floor here started as.
+
+   The text is a FINISHED prompt now rather than a rough intent, so it takes
+   trimPayload's clean boundary instead of the chip's blunt 300-char slice: half
+   a sentence landing in the message box is worse than a shorter prompt. */
+function cleanMoves(v) {
+  if (!Array.isArray(v)) return [];
+  const out = [];
+  for (const m of v) {
+    if (!m || typeof m !== 'object') continue;
+    const label = String(m.label == null ? '' : m.label).replace(/\s+/g, ' ').trim().slice(0, 40);
+    const text = trimPayload(m.text);
+    const evidence = String(m.evidence == null ? '' : m.evidence).replace(/\s+/g, ' ').trim().slice(0, 90);
+    if (!label || !text || !evidence) continue;
+    // Two labels reading the same are two buttons doing the same job.
+    if (out.some(x => x.label.toLowerCase() === label.toLowerCase())) continue;
+    out.push({ label, text, evidence });
+    if (out.length === 4) break;
+  }
+  return out;
+}
+
+/* Grounding over the WHOLE corpus, not the reply alone — the change the pivot
+   forces. Ideas are mined from the session now, so a move earned by turn one
+   stating the goal is grounded. Checking against the reply only would have
+   failed nearly every history-earned move and reported a working product as a
+   broken one.
+
+   Two tiers, unchanged from the questions path: no evidence at all is already
+   dropped by cleanMoves; a near-miss quote (usually whitespace drift) renders,
+   but is counted and logged so the rate stays readable from the console. */
+function groundMoves(moves, corpus) {
+  const norm = s => String(s || '').replace(/\s+/g, ' ').trim();
+  const hay = norm(corpus);
+  let grounded = 0;
+  for (const m of moves) {
+    if (hay.includes(norm(m.evidence))) grounded++;
+    else console.log('[CONTEXA] ungrounded move', m.label.slice(0, 40));
+  }
+  return grounded;
+}
+
 /* Hosted path: the proxy holds the API key, so the user needs nothing. Returns
    the same shape as the direct path so callers do not care which was used. */
-async function callHosted(prompt, reply) {
+async function callHosted(prompt, reply, turns) {
   const { proxyUrl } = await chrome.storage.local.get({ proxyUrl: DEFAULT_PROXY_URL });
   const base = String(proxyUrl || DEFAULT_PROXY_URL).replace(/\/+$/, '');
   if (/YOUR-SUBDOMAIN/.test(base)) return { error: 'proxy_not_configured' };
@@ -431,7 +571,18 @@ async function callHosted(prompt, reply) {
            nothing and compares nothing. Sent only now that content.js can actually
            render a move, because a client that announces what it cannot draw gets
            back buttons that do nothing. */
-        body: JSON.stringify({ prompt, reply, v: chrome.runtime.getManifest().version, accepts: ['chips'] })
+      /* v2 — 'turns' announces history mining, the same handshake one field
+           further out. `prompt` and `reply` stay on the wire even though the
+           moves prompt reads neither: a worker that predates this ignores
+           `turns`, finds the fields it knows, and serves today's product
+           instead of erroring. That is the direction the 0.9.30 break made
+           expensive, and it costs two fields to keep safe. */
+        body: JSON.stringify({
+          prompt, reply,
+          turns: Array.isArray(turns) ? turns : [],
+          v: chrome.runtime.getManifest().version,
+          accepts: ['chips', 'turns']
+        })
     });
   } catch (e) {
     return { error: 'network', detail: String(e) };
@@ -447,7 +598,14 @@ async function callHosted(prompt, reply) {
     if (data?.diag) console.warn('[CONTEXA] backend reported', data.error, data.diag);
     return { error: data?.error || 'proxy_' + res.status, diag: data?.diag };
   }
-  if (!data || !Array.isArray(data.questions)) return { error: 'bad_response' };
+  /* Either shape is valid, and the check has to accept both or the moves path
+     reports every successful call as a bad response. Still a real check: a body
+     carrying NEITHER key is a worker that answered something this client cannot
+     read, and saying so is better than rendering it as silence — that mistake
+     is exactly how 0.9.30 broke. */
+  if (!data || !(Array.isArray(data.questions) || Array.isArray(data.moves))) {
+    return { error: 'bad_response' };
+  }
   return { data };
 }
 
@@ -622,19 +780,45 @@ function cachePut(map, k, v) { map.set(k, v); if (map.size > 60) map.delete(map.
 chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
   (async () => {
     if (msg.type === 'nextSteps') {
-      const key = (msg.prompt || '').slice(0, 200) + '||' + (msg.reply || '').slice(0, 200);
-      if (stepsCache.has(key)) return sendResponse(stepsCache.get(key));
       const { apiKey } = await getSettings();
       const prompt = (msg.prompt || '(not captured)').slice(0, 2500);
       const reply = (msg.reply || '').slice(0, 6000);
+      /* v2 — cleaned here as well as in the worker, for the reason cleanAssume
+         is: the own-key path never touches the worker, so a gate that lives
+         only there is a gate half the users do not have. */
+      const turns = cleanTurns(msg.turns);
+      const minesHistory = turns.length > 0;
+      /* The cache key has to carry the history too. Keyed on the last exchange
+         alone, two different sessions that happen to share a final turn would
+         serve each other's moves — and mining makes that likelier, not less
+         likely, because the moves now depend on everything BUT the last turn. */
+      const key = (msg.prompt || '').slice(0, 200) + '||' + (msg.reply || '').slice(0, 200)
+        + '||' + turns.map(t => t.i + ':' + t.text.length).join(',');
+      if (stepsCache.has(key)) return sendResponse(stepsCache.get(key));
       // Own key = direct to Anthropic, unlimited. No key = hosted proxy, quota'd.
+      // Section labels MUST match worker/src/index.js byte-for-byte.
       const r = apiKey
-        ? await callClaude(QUESTIONS_SYSTEM,
-            'USER MESSAGE:\n' + prompt + '\n\nCLAUDE REPLY:\n' + reply, 2500)
-        : await callHosted(prompt, reply);
+        ? await callClaude(minesHistory ? MOVES_SYSTEM : QUESTIONS_SYSTEM,
+            minesHistory
+              ? 'SESSION SO FAR:\n' + turnsSection(turns) + '\n\nCLAUDE\'S LATEST REPLY:\n' + reply
+              : 'USER MESSAGE:\n' + prompt + '\n\nCLAUDE REPLY:\n' + reply, 2500)
+        : await callHosted(prompt, reply, turns);
       let out;
       if (r.error) {
         out = r;
+      } else if (apiKey && minesHistory) {
+        /* Own-key mining. Same pipeline as the worker's, in the same order, so
+           the two paths stay one product: clean, then ground over turns AND
+           reply, then let zero be zero. */
+        const moves = cleanMoves(r.data && r.data.moves);
+        const rawMoves = Array.isArray(r.data && r.data.moves) ? r.data.moves.length : 0;
+        const grounded = groundMoves(moves, turns.map(t => t.text).join('\n') + '\n' + reply);
+        if (!moves.length) {
+          console.log(rawMoves === 0
+            ? '[CONTEXA] quiet row — the session earned no moves'
+            : '[CONTEXA] every move dropped by the gate — returned ' + rawMoves + ', kept 0');
+        }
+        out = { moves, grounding: { total: rawMoves, kept: moves.length, grounded } };
       } else if (apiKey) {
         // Own-key: validate evidence here (hosted responses arrive already
         // validated and stripped by the worker).

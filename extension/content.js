@@ -368,6 +368,66 @@
     return cut.trimEnd() + CAPTURE_MARKER;
   }
 
+  /* v2 — the session's own turns. Head-first, exactly like clampCapture above:
+     keep the beginning, mark the cut. One turn's ceiling is smaller than the
+     reply's because there are up to forty of them and the budget is shared. */
+  const TURN_WINDOW = 2000;
+  const TURN_MARKER = '\n[turn trimmed here]';
+  const TURN_BUDGET = TURN_WINDOW - TURN_MARKER.length;
+  function clampTurn(text) {
+    const t = String(text || '');
+    if (t.length <= TURN_WINDOW) return t;
+    let cut = t.slice(0, TURN_BUDGET);
+    const nl = cut.lastIndexOf('\n');
+    if (nl >= TURN_BUDGET * 0.8) cut = cut.slice(0, nl);
+    else { const sp = cut.lastIndexOf(' '); if (sp > 0) cut = cut.slice(0, sp); }
+    return cut.trimEnd() + TURN_MARKER;
+  }
+
+  /* The whole session's USER messages, oldest first, each carrying its true
+     turn position. `lastUserMessage` below already builds this exact list and
+     then throws all but one away — mining is that list, kept.
+
+     Two things this deliberately does NOT do. It does not send Claude's earlier
+     replies: the signal the pivot is after is where SHE has been going, and the
+     replies are both the bulkier half and the half that mostly restates her.
+     And it does not persist anything — read off the DOM at call time, sent,
+     discarded, exactly as the single-turn capture always was.
+
+     Known limit, inherited: a virtualised transcript (Claude Code sessions)
+     only has its rendered rows in the DOM, so on those pages this sees the
+     rendered window rather than the whole conversation. It degrades to fewer
+     turns, which is the same direction the budget already trims in. */
+  const MAX_TURNS = 40;
+  const TURNS_TOTAL_BUDGET = 12000;
+
+  /* The drop policy, kept apart from the DOM read above it. Two jobs, and only
+     this one has a wrong answer that still looks right: a window keeping the
+     LAST n turns reads perfectly in testing and silently decapitates every long
+     session, because turn one is where the goal was stated.
+
+     So turn one is PINNED. Oldest MIDDLE turns go first; the newest are what
+     the next move actually builds on. Floor of two, so the goal and the present
+     always survive together. Whole turns only — a chopped-off sentence is worse
+     material than no sentence, which is why nothing is truncated here; per-turn
+     size is clampTurn's job and has already happened. */
+  function fitTurns(turns) {
+    const total = () => turns.reduce((n, t) => n + t.text.length, 0);
+    while (turns.length > 2 && (turns.length > MAX_TURNS || total() > TURNS_TOTAL_BUDGET)) {
+      turns.splice(1, 1);
+    }
+    return turns;
+  }
+
+  function captureTurns() {
+    const turns = [];
+    [...document.querySelectorAll(USER_MSG_SEL)].forEach((m, idx) => {
+      const text = clampTurn(captureText(m));
+      if (text) turns.push({ i: idx + 1, text });
+    });
+    return fitTurns(turns);
+  }
+
   /* ---------------- reply detection --------------------------------------- */
   const processed = new WeakSet();
 
@@ -495,11 +555,38 @@
       resp = await chrome.runtime.sendMessage({
         type: 'nextSteps',
         prompt: ctx.prompt,
-        reply: ctx.reply
+        reply: ctx.reply,
+        /* Read at CALL time, not at capture time. The reply and the last message
+           are captured eagerly because the DOM is settled at that instant and
+           reading it is free; the session is read here because it is the larger
+           read and because by now the user has actually asked for it. */
+        turns: captureTurns()
       });
     } catch (e) { thrown = String(e && e.message || e); }
 
     if (!anchor.isConnected) return;
+
+    /* v2 — the mining shape, checked before the questions shape because it is
+       the one this client asked for. A moves response carries no `questions`
+       key at all, so testing that first would read every successful mining call
+       as a failure. */
+    if (resp && !resp.error && Array.isArray(resp.moves)) {
+      if (resp.grounding) console.log('[CONTEXA] grounding', resp.grounding);
+      const moves = resp.moves
+        .filter(m => m && String(m.label || '').trim() && String(m.text || '').trim())
+        .slice(0, 4);
+      if (!moves.length) {
+        /* Zero stays a product outcome: nothing mined, nothing shown. Logged so
+           the rate is measurable, because how often this fires is the open
+           question the field test exists to answer — the pencil that used to
+           catch this case is gone, and there is no fallback behind it. */
+        console.log('[CONTEXA] quiet row — nothing mined from this session');
+        return renderNothing();
+      }
+      console.log('[CONTEXA] moves', moves.map(m => m.label));
+      return renderMoves(anchor, moves, ctx);
+    }
+
     const questions = resp && !resp.error && Array.isArray(resp.questions)
       ? resp.questions.filter(q => q && typeof q.text === 'string' && q.text.trim())
       : null;
@@ -1115,6 +1202,51 @@
     const row = wrap.querySelector('.chips');
     for (const c of chips) appendMoveChip(row, c, ctx, anchor);
     appendOwnChip(row, ctx || {}, anchor, false);
+  }
+
+  /* v2 — the mined row. Same flat row as the chip row above and deliberately
+     so: this is the shape the pivot keeps, and it already works. What differs
+     is where the items came from (the session, not the reply) and what a click
+     costs (nothing).
+
+     No pencil. The fifth chip is gone with the interview, which means this row
+     is the only way anything reaches the message box — and on a session that
+     mined nothing, renderNothing below leaves no row at all. That is the
+     specced behaviour and the open question the field test is for. */
+  function renderMoves(anchor, moves, ctx) {
+    const wrap = shell(anchor, 'ai');
+    if (!wrap) return;
+    wrap.innerHTML = `<div class="label"><b>✦</b> CONTEXA</div>` +
+      `<div class="chips"></div>`;
+    const row = wrap.querySelector('.chips');
+    for (const m of moves) appendIdeaChip(row, m, ctx);
+  }
+
+  /* Zero, rendered honestly: no row rather than an empty labelled shell. A
+     header over nothing reads as a broken card; absence reads as nothing to
+     say. The console line at the call site is what makes the rate measurable. */
+  function renderNothing() {
+    for (const old of document.querySelectorAll('[data-contexa]')) old.remove();
+  }
+
+  /* One mined idea. The whole prompt is already written, so the click composes
+     and stops — no second call, no busy state, and no failure state, because
+     there is nothing left that can fail. Three of today's four move chips
+     already behave exactly this way (`c.id !== 'deeper'` below); this is that
+     path, for every item.
+
+     `title` carries the full prompt, as it does for move chips, so hovering
+     shows precisely what is about to land in the box. */
+  function appendIdeaChip(row, m, ctx) {
+    const chip = document.createElement('button');
+    chip.className = 'chip move';
+    chip.textContent = m.label;
+    chip.title = m.text;
+    chip.addEventListener('click', () => {
+      usedIt();
+      insertPrompt(withAssume(m.text, ctx));
+    });
+    row.appendChild(chip);
   }
 
   function appendMoveChip(row, c, ctx, anchor) {

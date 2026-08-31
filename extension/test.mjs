@@ -1362,8 +1362,13 @@ const settle = () => new Promise(r => setTimeout(r, 0));
      mechanisms competing for the same slot. */
   t('and the standalone assume chip does NOT also appear beside them',
     !/function renderChips\([\s\S]{0,600}appendAssumeChip/.test(csrc7));
+  /* Still announced, now alongside 'turns'. Asserted as membership rather than
+     as the exact literal: `accepts` is a LIST precisely so a fifth generation
+     can be added without touching the fourth, and a test that pins the whole
+     array turns every future addition into a false failure. */
   t('the client announces chip support, now that it can draw one',
-    /accepts: \['chips'\]/.test(bsrc));
+    /accepts: \[[^\]]*'chips'/.test(bsrc));
+  t('and announces history mining beside it', /accepts: \[[^\]]*'turns'/.test(bsrc));
 
   t('nothing in the page ever fabricates an assumption',
     !/assume\s*=\s*\[\s*['"]/.test(csrc7) && !/ctx\.assume\s*\|\|\s*\[['"]/.test(csrc7));
@@ -2058,6 +2063,125 @@ const settle = () => new Promise(r => setTimeout(r, 0));
     /<paste here> or <attach here>/.test(liveE));
   t('and expand is told why it is the only place it can appear',
     /CONTEXA never asked them for it/.test(liveE));
+}
+
+/* ---- v2: history mining, client side --------------------------------------
+   The capture, the drop policy, and the click. What these pin is mostly the
+   drop policy, because it is the part with a wrong answer that still looks
+   right: a window that keeps the LAST n turns reads perfectly in testing and
+   silently decapitates every long session, since turn one is where the goal
+   is stated. */
+{
+  const csrcM = readFileSync('./content.js', 'utf8');
+  const bsrcM = readFileSync('./background.js', 'utf8');
+
+  const m = csrcM.match(/const TURN_WINDOW[\s\S]*?return cut\.trimEnd\(\) \+ TURN_MARKER;\r?\n  \}/);
+  if (!m) { t('clampTurn found in content.js', false); }
+  else {
+    const { clampTurn, TURN_MARKER, TURN_WINDOW } =
+      new Function(m[0] + '; return { clampTurn, TURN_MARKER, TURN_WINDOW };')();
+    const short = 'a'.repeat(300);
+    t('a short turn is untouched, no marker', clampTurn(short) === short);
+    const long = Array.from({ length: 300 }, (_, i) => 'line ' + i + ' of a very long turn').join('\n');
+    const out = clampTurn(long);
+    t('an over-window turn fits its budget incl marker', out.length <= TURN_WINDOW, 'len=' + out.length);
+    t('and the marker is the final line', out.endsWith(TURN_MARKER));
+    /* Head-first, exactly like clampCapture. The pivot doc called the
+       convention tail-first; the code keeps the BEGINNING, and the drop policy
+       that was derived from it (pin turn one) is right for that reason. */
+    t('a trimmed turn keeps its beginning, not its end', out.startsWith('line 0 of a very long turn'));
+  }
+
+  const c = csrcM.match(/const MAX_TURNS = 40;[\s\S]*?function fitTurns[\s\S]*?return turns;\r?\n  \}/);
+  if (!c) { t('fitTurns found in content.js', false); }
+  else {
+    /* fitTurns is lifted and run for real. It is deliberately separate from the
+       DOM read this suite has no copy of, because it is the half with the
+       silent failure mode; the querySelectorAll half is pinned by source below. */
+    const policy = new Function(c[0] + '; return { fitTurns, MAX_TURNS, TURNS_TOTAL_BUDGET };')();
+    const mk = n => Array.from({ length: n }, (_, i) => ({ i: i + 1, text: 'turn ' + (i + 1) }));
+
+    const few = policy.fitTurns(mk(5));
+    t('a short session is sent whole', few.length === 5 && few[0].i === 1 && few[4].i === 5);
+
+    const many = policy.fitTurns(mk(120));
+    t('a long session is trimmed to the turn ceiling', many.length === policy.MAX_TURNS, 'kept=' + many.length);
+    /* The two that must never be lost: the goal and the present. */
+    t('turn one is pinned through the trim', many[0].i === 1, 'first=' + many[0].i);
+    t('and the newest turn survives it', many[many.length - 1].i === 120, 'last=' + many[many.length - 1].i);
+    t('the oldest MIDDLE turns are what go', !many.some(x => x.i === 2));
+
+    const fat = policy.fitTurns(
+      Array.from({ length: 30 }, (_, i) => ({ i: i + 1, text: 'x'.repeat(1000) })));
+    const total = fat.reduce((n, x) => n + x.text.length, 0);
+    t('a session over the character budget is trimmed too',
+      total <= policy.TURNS_TOTAL_BUDGET, 'chars=' + total);
+    t('and turn one still survives that trim', fat[0].i === 1);
+
+    /* No mid-turn truncation in the drop policy: whole turns only, because a
+       chopped-off sentence is worse material than no sentence. Per-turn size is
+       clampTurn's job and happens before this. */
+    t('the drop policy never truncates a turn', fat.every(x => x.text.length === 1000));
+  }
+
+  t('capture enumerates every user turn, not just the last',
+    /querySelectorAll\(USER_MSG_SEL\)[\s\S]{0,200}forEach/.test(csrcM));
+  t('and the session is read at call time, not at capture time',
+    /type: 'nextSteps'[\s\S]{0,400}turns: captureTurns\(\)/.test(csrcM));
+  /* Claude's earlier replies are deliberately not sent: the signal is where the
+     USER has been going, and the replies are the bulkier half. */
+  t('only user messages are mined, never past replies',
+    !/querySelectorAll\(RESPONSE_SEL\)[\s\S]{0,200}forEach/.test(csrcM));
+
+  /* Ordering, and it is the outage-shaped one. A moves response carries no
+     `questions` key at all, so testing that first reads every successful
+     mining call as a failure and renders the error card forever. */
+  t('the moves branch is checked before the questions branch',
+    csrcM.indexOf('Array.isArray(resp.moves)') > 0 &&
+    csrcM.indexOf('Array.isArray(resp.moves)') < csrcM.indexOf('Array.isArray(resp.questions)'));
+
+  /* The click is send-ready: composes and stops. A call here would reintroduce
+     the spinner, the failure state and the second charge the pivot removed. */
+  const idea = (csrcM.match(/function appendIdeaChip\([\s\S]*?\n  \}/) || [''])[0];
+  t('appendIdeaChip exists', !!idea);
+  t('clicking a mined move makes no model call', !/sendMessage/.test(idea), idea.slice(0, 200));
+  t('it composes the prompt straight into the box', /insertPrompt\(withAssume\(m\.text, ctx\)\)/.test(idea));
+  t('and carries the full prompt as its hover title', /chip\.title = m\.text/.test(idea));
+
+  /* Zero renders no row rather than an empty labelled shell. A header over
+     nothing reads as a broken card; absence reads as nothing to say. */
+  t('nothing mined removes the row outright',
+    /function renderNothing\(\)[\s\S]{0,200}data-contexa[\s\S]{0,40}remove\(\)/.test(csrcM));
+  t('and nothing is fabricated to fill it',
+    /renderNothing\(\)/.test(csrcM) && !/moves = \[\s*\{/.test(csrcM));
+  /* The rate is the open field-test question — the pencil that used to catch
+     this case is going, and there is no fallback behind it. Unmeasurable would
+     mean shipping the decision blind. */
+  t('and the quiet case is logged so its rate is measurable',
+    /quiet row — nothing mined from this session/.test(csrcM));
+
+  /* The own-key path never touches the worker, so a gate that lives only there
+     is a gate half the users do not have. Same pipeline, same order. */
+  t('the own-key path mines with the mining prompt',
+    /callClaude\(minesHistory \? MOVES_SYSTEM : QUESTIONS_SYSTEM/.test(bsrcM));
+  t('and cleans the turns it was handed', /const turns = cleanTurns\(msg\.turns\)/.test(bsrcM));
+  t('and grounds over the turns AND the reply, not the reply alone',
+    /groundMoves\(moves, turns\.map\(t => t\.text\)\.join\('\\n'\) \+ '\\n' \+ reply\)/.test(bsrcM));
+  /* Two sessions sharing a final turn would otherwise serve each other's moves,
+     and mining makes that likelier: the moves depend on everything BUT the
+     last turn. */
+  t('the cache key carries the session, not just the last exchange',
+    /turns\.map\(t => t\.i \+ ':' \+ t\.text\.length\)/.test(bsrcM));
+  /* Both shapes are valid now. A guard that still demanded `questions` would
+     report every successful mining call as a bad response. */
+  t('the hosted response guard accepts either shape',
+    /Array\.isArray\(data\.questions\) \|\| Array\.isArray\(data\.moves\)/.test(bsrcM));
+
+  /* The old fields stay on the wire even though the mining prompt reads
+     neither: an older worker ignores `turns`, finds what it knows, and serves
+     today's product instead of erroring. */
+  t('prompt and reply are still sent alongside turns',
+    /body: JSON\.stringify\(\{\s*\n\s*prompt, reply,\s*\n\s*turns:/.test(bsrcM));
 }
 
 console.log(fails.length ? '\nFAILED: ' + fails.join(', ') : '\nall extension checks passed');

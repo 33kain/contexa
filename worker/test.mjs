@@ -1073,6 +1073,213 @@ function postExpand(body = { intent: 'optimize seo', prompt: 'p', reply: 'r'.rep
   }
 }
 
+/* ---- v2: history mining, and the generation boundary around it -------------
+   The FOURTH client generation. What these guard is not the happy path — it is
+   the leak. A client that did not announce 'turns' must never receive `moves`,
+   because an unknown key reads to it as nothing earned and it renders a quiet
+   row forever: a working product, permanently silent, nothing in the console.
+   That is exactly how 0.9.30 broke, and it is why `accepts` was built as a
+   list. The first assertions below are the outage-shaped ones. */
+{
+  const modelJson = obj => async () => ({
+    ok: true, status: 200,
+    async json() { return {
+      stop_reason: 'end_turn',
+      usage: { input_tokens: 500, output_tokens: 200 },
+      content: [{ type: 'text', text: JSON.stringify(obj) }]
+    }; },
+    async text() { return ''; }
+  });
+
+  const TURNS = [
+    { i: 1, text: 'make me a website for my bakery' },
+    { i: 2, text: 'can you add the opening hours' },
+    { i: 3, text: 'now the menu page' }
+  ];
+  // The fourth generation: announces turns AND sends some.
+  const postT = (body = {}) => post(Object.assign(
+    { v: '0.9.58', accepts: ['chips', 'turns'], turns: TURNS,
+      prompt: 'now the menu page', reply: 'r'.repeat(120) }, body));
+
+  const MOVES = { moves: [
+    { label: 'Add a contact form', text: 'Add a contact form to the bakery site.', evidence: 'make me a website for my bakery' },
+    { label: 'Make it mobile-first', text: 'Rework the page to be mobile-first.', evidence: 'r'.repeat(20) }
+  ] };
+
+  /* (a) The leak, in every direction a client can arrive from. */
+  globalThis.fetch = modelJson(MOVES);
+  let r = await w.fetch(postV(), { ANTHROPIC_API_KEY: 'k', CX_KV: makeKV(), IP_SALT: 's' });
+  let b = await r.json();
+  t('a questions-only client is never sent moves', b.moves === undefined, 'moves=' + JSON.stringify(b.moves));
+  t('and still gets the shape it asked for', Array.isArray(b.questions));
+
+  globalThis.fetch = modelJson(MOVES);
+  r = await w.fetch(postC(), { ANTHROPIC_API_KEY: 'k', CX_KV: makeKV(), IP_SALT: 's' });
+  b = await r.json();
+  t('a chip-aware client is never sent moves either', b.moves === undefined);
+
+  globalThis.fetch = modelJson(MOVES);
+  r = await w.fetch(post(), { ANTHROPIC_API_KEY: 'k', CX_KV: makeKV(), IP_SALT: 's' });
+  b = await r.json();
+  t('a legacy client still gets steps, never moves',
+    Array.isArray(b.steps) && b.moves === undefined, JSON.stringify(Object.keys(b)));
+
+  /* The gate itself, tested where it can actually fail. The three above send no
+     turns at all, so they would pass even with the gate removed — it is the
+     client that sends the DATA without announcing the CAPABILITY that proves
+     `accepts` is what decides. Announcing is the handshake; carrying a field is
+     not, or the negotiation is decorative. */
+  globalThis.fetch = modelJson(MOVES);
+  r = await w.fetch(post({ v: '0.9.54', accepts: ['chips'], turns: TURNS,
+    prompt: 'p', reply: 'r'.repeat(120) }), { ANTHROPIC_API_KEY: 'k', CX_KV: makeKV(), IP_SALT: 's' });
+  b = await r.json();
+  t('turns sent WITHOUT announcing them still gets no moves',
+    b.moves === undefined && Array.isArray(b.questions), JSON.stringify(Object.keys(b)));
+
+  /* And announcing turns without the questions generation is not enough
+     either — a client that can only read `steps` cannot render a move, exactly
+     as it cannot render a chip. */
+  globalThis.fetch = modelJson(MOVES);
+  r = await w.fetch(post({ accepts: ['turns'], turns: TURNS,
+    prompt: 'p', reply: 'r'.repeat(120) }), { ANTHROPIC_API_KEY: 'k', CX_KV: makeKV(), IP_SALT: 's' });
+  b = await r.json();
+  t('a legacy client announcing turns still gets steps',
+    Array.isArray(b.steps) && b.moves === undefined, JSON.stringify(Object.keys(b)));
+
+  /* Announcing the capability is not the same as having the data. A brand-new
+     conversation has no history, and mining nothing would earn nothing — so it
+     falls through to the questions product rather than returning an empty row. */
+  globalThis.fetch = modelJson({ questions: [], chips: [] });
+  r = await w.fetch(postT({ turns: [] }), { ANTHROPIC_API_KEY: 'k', CX_KV: makeKV(), IP_SALT: 's' });
+  b = await r.json();
+  t('announcing turns but sending none falls back to questions',
+    b.moves === undefined && Array.isArray(b.questions));
+
+  /* (b) The happy path. */
+  globalThis.fetch = modelJson(MOVES);
+  r = await w.fetch(postT(), { ANTHROPIC_API_KEY: 'k', CX_KV: makeKV(), IP_SALT: 's' });
+  b = await r.json();
+  t('moves reach a mining client', r.status === 200 && b.moves && b.moves.length === 2, JSON.stringify(b.moves));
+  t('and carry label, text and evidence',
+    b.moves[0].label === 'Add a contact form' && !!b.moves[0].text && !!b.moves[0].evidence);
+  t('a mining row carries no questions or chips key',
+    b.questions === undefined && b.chips === undefined, JSON.stringify(Object.keys(b)));
+
+  /* (c) Grounding over the WHOLE corpus — the regression the audit predicted.
+     The first move's evidence quotes TURN ONE and appears nowhere in the reply.
+     Against the old reply-only corpus it would count as ungrounded, and every
+     history-earned move would have been reported as such. */
+  t('evidence quoted from an early turn counts as grounded',
+    b.grounding && b.grounding.grounded === 2,
+    JSON.stringify(b.grounding));
+
+  globalThis.fetch = modelJson({ moves: [
+    { label: 'Invented', text: 'do a thing', evidence: 'nothing anyone ever said here' }
+  ] });
+  r = await w.fetch(postT(), { ANTHROPIC_API_KEY: 'k', CX_KV: makeKV(), IP_SALT: 's' });
+  b = await r.json();
+  t('and an ungrounded quote still renders, counted rather than dropped',
+    b.moves.length === 1 && b.grounding.grounded === 0, JSON.stringify(b.grounding));
+
+  /* (d) The gate. Each part is required for a different visible failure: no
+     label is a blank button, no text composes nothing, no evidence is a move
+     the session never earned. */
+  globalThis.fetch = modelJson({ moves: [
+    { label: '', text: 'x', evidence: 'y' },
+    { label: 'No text', text: '', evidence: 'y' },
+    { label: 'No evidence', text: 'x', evidence: '' },
+    { label: 'Good one', text: 'Write the menu page.', evidence: 'now the menu page' }
+  ] });
+  r = await w.fetch(postT(), { ANTHROPIC_API_KEY: 'k', CX_KV: makeKV(), IP_SALT: 's' });
+  b = await r.json();
+  t('a move missing label, text or evidence is dropped',
+    b.moves.length === 1 && b.moves[0].label === 'Good one', JSON.stringify(b.moves));
+
+  globalThis.fetch = modelJson({ moves: Array.from({ length: 9 }, (_, n) =>
+    ({ label: 'Move ' + n, text: 'do thing ' + n, evidence: 'now the menu page' })) });
+  r = await w.fetch(postT(), { ANTHROPIC_API_KEY: 'k', CX_KV: makeKV(), IP_SALT: 's' });
+  b = await r.json();
+  t('never more than four moves reach the client', b.moves.length === 4, String(b.moves.length));
+
+  globalThis.fetch = modelJson({ moves: [
+    { label: 'Add a form', text: 'one', evidence: 'now the menu page' },
+    { label: 'add a FORM', text: 'two', evidence: 'now the menu page' }
+  ] });
+  r = await w.fetch(postT(), { ANTHROPIC_API_KEY: 'k', CX_KV: makeKV(), IP_SALT: 's' });
+  b = await r.json();
+  t('two labels reading the same collapse to one', b.moves.length === 1, String(b.moves.length));
+
+  /* (e) Zero is a product outcome and reaches the client as an empty array,
+     not as an error. The client renders no row at all for this. */
+  globalThis.fetch = modelJson({ moves: [] });
+  r = await w.fetch(postT(), { ANTHROPIC_API_KEY: 'k', CX_KV: makeKV(), IP_SALT: 's' });
+  b = await r.json();
+  t('a session that earned nothing returns moves: [], status 200',
+    r.status === 200 && Array.isArray(b.moves) && b.moves.length === 0);
+
+  /* (f) The clamps. These are the bill, not the product: a client can send
+     anything, and only what survives here is ever paid for. Asserted on what
+     actually went upstream, because a clamp that trims the response instead of
+     the request has already cost the money. */
+  let sent = null;
+  globalThis.fetch = async (_u, init) => {
+    sent = JSON.parse(init.body);
+    return { ok: true, status: 200,
+      async json() { return { stop_reason: 'end_turn', usage: {}, content: [{ type: 'text', text: '{"moves":[]}' }] }; },
+      async text() { return ''; } };
+  };
+  const huge = Array.from({ length: 200 }, (_, n) => ({ i: n + 1, text: 'x'.repeat(5000) }));
+  r = await w.fetch(postT({ turns: huge }), { ANTHROPIC_API_KEY: 'k', CX_KV: makeKV(), IP_SALT: 's' });
+  const body = sent.messages[0].content;
+  t('an oversized session is clamped before it is billed',
+    body.length < 20000, 'chars=' + body.length);
+  /* Turn one is pinned and the newest survives: the goal and the present are
+     the two the drop policy must never lose. */
+  t('turn one survives the clamp', body.includes('[1] '), body.slice(0, 40));
+  t('and so does the newest turn', body.includes('[200] '));
+  t('the middle is what was dropped', !body.includes('[100] '));
+
+  /* Numbers are true turn positions, so a gap IS the elision marker — nothing
+     extra is invented to say "some were dropped", and the prompt reads it. */
+  sent = null;
+  r = await w.fetch(postT({ turns: [{ i: 1, text: 'first' }, { i: 7, text: 'seventh' }] }),
+    { ANTHROPIC_API_KEY: 'k', CX_KV: makeKV(), IP_SALT: 's' });
+  t('turns are labelled with their true positions, gaps included',
+    /\[1\] first[\s\S]*\[7\] seventh/.test(sent.messages[0].content), sent.messages[0].content.slice(0, 80));
+
+  /* A malformed turn is dropped, never coerced into a plausible-looking one. */
+  sent = null;
+  r = await w.fetch(postT({ turns: [{ i: 1, text: 'kept' }, { i: 0, text: 'bad index' }, { text: 'no index' }, { i: 2, text: '' }] }),
+    { ANTHROPIC_API_KEY: 'k', CX_KV: makeKV(), IP_SALT: 's' });
+  t('turns with a bad index or no text are dropped',
+    sent.messages[0].content.includes('[1] kept') && !sent.messages[0].content.includes('bad index'));
+
+  /* The mining call must use the mining prompt. Sending the questions prompt
+     with a turns payload would produce the old shape and read as an outage. */
+  t('the mining call is sent the mining prompt',
+    sysText(sent.system).includes('INDEPENDENT IS THE WHOLE POINT'));
+  t('and the mining prompt is still cached like the others',
+    Array.isArray(sent.system) && sent.system[0].cache_control);
+
+  /* The composer rules had to come WITH it. EXPAND_SYSTEM was the only prompt
+     with a channel to the composer; now this one is, so dropping these would
+     recreate 0.9.49's inert instruction — a rule pointing at a mechanism that
+     no longer exists. */
+  const moveSys = sysText(sent.system);
+  t('the mining prompt carries the <paste here> obligation',
+    moveSys.includes('<paste here>') && moveSys.includes('<attach here>'));
+  t('and the Assume: mechanism', moveSys.includes('"Assume:"'));
+  t('and the one-ask-one-verb rule', /ONE ask, ONE imperative verb/.test(moveSys));
+  t('and the 700-character cap', /At most 700 characters/.test(moveSys));
+  t('and the filler-word ban', /Never use filler quality words/.test(moveSys));
+  /* Voice-spec §3 is banned-in-every-register law, not register styling, and it
+     survives Register C's retirement. The floor ban matters most here: a menu
+     is exactly the shape a floor creeps back into. */
+  t('and the ban on a confirmation floor', /Use that label\? Yes \/ No/.test(moveSys));
+  t('and the ban on service voice', /Would you like me to/.test(moveSys));
+  t('and it never asks the user anything', /you are not asking them anything/.test(moveSys));
+}
+
 globalThis.fetch = realFetch;
 console.log(fails.length ? '\nFAILED: ' + fails.join(', ') : '\nall worker checks passed');
 process.exit(fails.length ? 1 : 0);
