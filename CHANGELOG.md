@@ -131,18 +131,34 @@ would have meant the shape was wrong, not the copy.
 
 ### The field test, and the one answer that was a bug report
 
-Six questions went out against a real own-key session. Five came back
-confirming the shape: zero is **rare**; the moves read as **independent**, which
-is the whole claim of the menu; the written prompts are **right even when
-edited**, which is what a send-ready message has to be to be worth clicking; and
-the filler-word ban is **agreed with**, not merely tolerated. The fifth said the
-**labels are too thin to choose from** — read as a complaint about the labels
-themselves rather than a sighting of a specific bad one, and answered as such:
-`MOVES_SYSTEM` now requires a label to name **both the action and the thing it
-acts on**, with four worked negatives ("Option A" names nothing, "Add a form"
-names an action with its object missing). The clamp moved 40 → 60 characters in
-the same commit, because a rule demanding a verb *and* its object cannot be
-enforced by a cap that truncates the object.
+Six questions went out against a real own-key session. Three came back clean:
+zero is **rare**; the moves read as **independent**, which is the whole claim of
+the menu; and the written prompts are **right even when edited**, which is what
+a send-ready message has to be to be worth clicking.
+
+**Two answers were too short to read, and are recorded as unresolved rather
+than as findings.** #4 asked for a *sighting* of a backwards move — an "explain
+that again", which `MOVES_SYSTEM` bans by name and calls the worst output it can
+produce — and came back "Ok ban it", which is either endorsement of the existing
+ban or a report that it is not landing. Nothing was changed on it, so the ban
+stays **prompt-only**: there is no gate for it in `cleanMoves` on either path,
+unlike the evidence rule, which is stated *and* enforced. Noted because it
+decides the fix: if a sighting is ever confirmed, more wording is the wrong
+answer — that line is already the strongest-worded in the prompt — and a gate is
+the right one.
+
+#5 asked whether a label can be chosen **without hovering**, labels being
+model-written for the first time; it came back "Need more explanation", which is
+either a request to restate the question or the answer itself. The label rule
+was strengthened regardless, on its own merits: `MOVES_SYSTEM` now requires a
+label to name **both the action and the thing it acts on**, with four worked
+negatives ("Option A" names nothing, "Add a form" names an action with its
+object missing). The clamp moved 40 → 60 characters in the same commit, because
+a rule demanding a verb *and* its object cannot be enforced by a cap that
+truncates the object. **The change stands; a field-test result behind it does
+not**, and the two are recorded separately on purpose — an entry claiming
+evidence it does not have would corrupt the one record this project scores
+itself against.
 
 The sixth — **"only the last exchange"** — was not a taste report. It was the
 product failing its own headline claim, and it took two eliminations to reach:
