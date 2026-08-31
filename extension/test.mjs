@@ -377,7 +377,12 @@ const TURNS = [
       async text() { return '{"error":{"message":"thinking cannot be disabled on this model"}}'; },
       async json() { return {}; } };
     return { ok: true, status: 200,
-      async json() { return { stop_reason: 'end_turn', content: [{ text: JSON.stringify({ moves: [{ label: 'A move', text: 'Do the thing.', evidence: 'rrrr' }] }) }] }; },
+      /* Evidence quotes a TURN, not the reply. This test is about the retry, and
+         a reply-earned move on this 3-turn fixture is exactly what the spread
+         gate now drops — the row would come back empty and the retry would look
+         broken. Keeping the fixture turn-earned keeps the test about its own
+         subject. */
+      async json() { return { stop_reason: 'end_turn', content: [{ text: JSON.stringify({ moves: [{ label: 'A move', text: 'Do the thing.', evidence: 'my bakery' }] }) }] }; },
       async text() { return ''; } };
   };
   const out = await h.send({ type: 'nextSteps', reply: 'r'.repeat(80), turns: TURNS });
@@ -930,8 +935,82 @@ const TURNS = [
   t('the own-key path mines with the mining prompt',
     /callClaude\(MOVES_SYSTEM,/.test(bsrcM));
   t('and cleans the turns it was handed', /const turns = cleanTurns\(msg\.turns\)/.test(bsrcM));
-  t('and grounds over the turns AND the reply, not the reply alone',
-    /groundMoves\(moves, turns\.map\(t => t\.text\)\.join\('\\n'\) \+ '\\n' \+ reply\)/.test(bsrcM));
+  /* Pins the ARGUMENT SHAPE, not the punctuation. Turns and reply must arrive
+     as two separate arguments — concatenating them back into one string is the
+     exact regression that made a reply transcript indistinguishable from a
+     mined row. Two earlier guards in this file pinned literal call text and
+     broke on a harmless refactor; this one asks the real question. */
+  t('and grounds turns and reply as SEPARATE corpora, never concatenated',
+    /groundMoves\(\s*kept\s*,\s*turns\.map\(t => t\.text\)\.join\([^)]*\)\s*,\s*reply\s*\)/.test(bsrcM));
+  t('and runs the spread gate over the result',
+    /enforceSpread\(kept, ground, turns\.length\)/.test(bsrcM));
+
+  /* ---- provenance + the spread gate, lifted and RUN ----------------------
+     Source assertions cannot tell a working gate from a plausible-looking one,
+     and this gate decides whether a row is shown at all. So the real functions
+     come out of background.js and are executed against the case the field
+     screenshots caught: a reply that ends in a numbered list, returned as the
+     row, on a session long enough to have offered something else. */
+  {
+    const blk = bsrcM.slice(bsrcM.indexOf('function groundMoves'),
+      bsrcM.indexOf('/* end of the injected helper block'));
+    const g = new Function('console', blk +
+      '; return { groundMoves, enforceSpread, SPREAD_MIN_TURNS };')({ log() {} });
+
+    const TURNTEXT = 'make me a website for my bakery\ncan you add the opening hours';
+    const REPLYTEXT = 'try these: 1. check the asset 2. inspect in DevTools 3. describe what you see';
+    const mv = (label, evidence) => ({ label, text: 'x', evidence });
+
+    const allReply = [mv('a', 'check the asset'), mv('b', 'inspect in DevTools')];
+    const gr1 = g.groundMoves(allReply, TURNTEXT, REPLYTEXT);
+    t('grounding splits provenance: reply-earned moves count as reply',
+      gr1.grounded === 2 && gr1.fromTurns === 0 && gr1.fromReply === 2, JSON.stringify(gr1));
+
+    const mixed = [mv('a', 'check the asset'), mv('b', 'my bakery')];
+    const gr2 = g.groundMoves(mixed, TURNTEXT, REPLYTEXT);
+    t('and a turn-earned move is credited to the turns',
+      gr2.fromTurns === 1 && gr2.fromReply === 1, JSON.stringify(gr2));
+
+    /* A phrase the user wrote and Claude quoted back belongs to the user.
+       Crediting the reply would count the session's own material as an echo and
+       fire the gate on a row that HAD read the history. */
+    const echoed = [mv('a', 'my bakery')];
+    const gr3 = g.groundMoves(echoed, TURNTEXT, 'as you said, my bakery needs a menu');
+    t('and a phrase in BOTH is credited to the turns, not the reply',
+      gr3.fromTurns === 1 && gr3.fromReply === 0, JSON.stringify(gr3));
+
+    const gr4 = g.groundMoves([mv('a', 'nothing said this anywhere')], TURNTEXT, REPLYTEXT);
+    t('and an ungrounded move counts in neither', gr4.grounded === 0 &&
+      gr4.fromTurns === 0 && gr4.fromReply === 0, JSON.stringify(gr4));
+
+    // The gate itself, across the boundary it is built around.
+    t('spread gate drops an all-reply row once the session could offer more',
+      g.enforceSpread(allReply, gr1, 5).length === 0);
+    t('and the SAME row survives a short session, where the reply IS the material',
+      g.enforceSpread(allReply, gr1, 2).length === 2);
+    t('and the boundary is the floor itself, not one above it',
+      g.enforceSpread(allReply, gr1, g.SPREAD_MIN_TURNS).length === 0 &&
+      g.enforceSpread(allReply, gr1, g.SPREAD_MIN_TURNS - 1).length === 2);
+    t('and one turn-earned move is enough to keep the whole row',
+      g.enforceSpread(mixed, gr2, 20).length === 2);
+    t('and an already-empty row is passed through, never "dropped" twice',
+      g.enforceSpread([], gr1, 20).length === 0);
+  }
+
+  /* The prompt half of the same rule. The gate catches the total case; only the
+     prompt can stop a row that is three-quarters transcript, and exemplars are
+     what the model actually follows — the abstract ban was already there and
+     shipped the defect anyway. */
+  t('the prompt forbids returning the reply\'s own list as the row',
+    /THAT LIST IS NOT YOUR ROW/.test(bsrcM));
+  t('and says why that failure is seductive, not just that it is banned',
+    /evidence quote is perfect every time/.test(bsrcM));
+  t('and carries a worked transcription example, not only the rule',
+    /Transcription, which is the failure that ships most often/.test(bsrcM));
+  t('and requires spread, since four echoes also have four distinct labels',
+    /SPREAD THE ROW ACROSS THE SESSION/.test(bsrcM));
+  t('and states what a move is FOR, not only what the reply is not',
+    /A move earns its place by ADVANCING/.test(bsrcM));
   /* Two sessions sharing a final turn would otherwise serve each other's moves,
      and mining makes that likelier: the moves depend on everything BUT the
      last turn. */

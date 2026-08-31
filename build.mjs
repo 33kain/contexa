@@ -7,10 +7,22 @@ import { readFileSync, writeFileSync, mkdirSync, copyFileSync, readdirSync, rmSy
 import { join } from 'node:path';
 import { deflateRawSync, crc32 as zlibCrc32 } from 'node:zlib';
 
-const VERSION = '0.9.58';
 const BACKEND = 'https://contexa-api.michu110899.workers.dev';
 
 const SRC = 'extension';
+
+/* The version is READ from the manifest, never declared here. It used to be a
+   literal on this line, and `mf.version = VERSION` below then overwrote
+   whatever the manifest said — so bumping extension/manifest.json to 0.9.59
+   produced a build-ready/ and a zip still stamped 0.9.58, silently, with every
+   check passing. release-commit.ps1 reads the manifest, so it would have
+   tagged v0.9.59 over an artifact containing 0.9.58.
+
+   One home for the number, and the same treatment the model name already gets
+   below: agreement across files is asserted, not assumed. */
+const VERSION = JSON.parse(readFileSync(join(SRC, 'manifest.json'), 'utf8')).version;
+if (!/^\d+\.\d+\.\d+$/.test(String(VERSION || '')))
+  throw new Error('extension/manifest.json has no usable version: ' + JSON.stringify(VERSION));
 const OUT = 'build-ready';
 const HOST = BACKEND.replace(/\/+$/, '') + '/*';
 
@@ -92,9 +104,15 @@ if (!turnsSectionRe.test(outBg) || !turnsSectionRe.test(wrkForPrompts))
 /* The v2 helpers are duplicated for the same reason cleanAssume and cleanChips
    are, and drift between them is just as invisible. They are written once and
    injected, so byte-identity is the cheap check that they still are. */
+/* The end anchor is an explicit sentinel, not the last statement of the last
+   function. It used to be `return grounded;` — which stopped existing the
+   moment groundMoves began returning a provenance object, and a check whose
+   end marker can vanish reports "could not locate" rather than "drift", i.e.
+   it fails LOUDLY but for the wrong reason. A comment nobody has an incentive
+   to delete is the cheaper anchor. */
 const grabFns = s => {
   const a = s.indexOf('function cleanTurns');
-  const b = s.indexOf('return grounded;', a);
+  const b = s.indexOf('/* end of the injected helper block', a);
   return a < 0 || b < 0 ? null : s.slice(a, b);
 };
 const fnsExt = grabFns(outBg);
@@ -139,6 +157,18 @@ const modelToml = (readFileSync('worker/wrangler.toml', 'utf8').match(/MODEL = "
 if (!modelExt) fails.push('SHIPPED_MODEL not found in background.js');
 else if (new Set([modelExt, modelWrk, modelToml]).size !== 1)
   fails.push(`model mismatch: extension=${modelExt} worker=${modelWrk} wrangler.toml=${modelToml}`);
+
+/* The worker's BUILD and the extension's manifest version must agree, for the
+   same reason and by the same method as the model above. They are deliberately
+   deployed on separate paths, but they ship ONE product per generation, and
+   /v1/health reporting a version the extension does not carry is exactly the
+   ambiguity the BUILD constant exists to remove. This one is cheap now that
+   the version has a single home; while build.mjs declared its own, the two
+   could not even be compared. */
+const buildWrk = (workerSrc.match(/const BUILD = '([^']+)'/) || [])[1];
+if (!buildWrk) fails.push('BUILD not found in worker/src/index.js');
+else if (buildWrk !== VERSION)
+  fails.push(`version mismatch: extension manifest=${VERSION} worker BUILD=${buildWrk}`);
 
 /* A superseded default must never also be the current one, or the migration would
    clear the very value it is meant to install. */

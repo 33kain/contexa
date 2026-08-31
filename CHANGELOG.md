@@ -7,6 +7,111 @@ free to diverge, and the settings page labels them separately for that reason.
 
 ---
 
+## 0.9.59 — Extension + Worker
+
+*The row was reading the last message back to her, and every check said it was
+working perfectly.*
+
+### Mobile works, and that is the first thing the field test proved
+
+0.9.58 sideloaded into Mises on Android, own-key, against real threads. The row
+renders: the pinned selectors, the shadow-DOM card, the theme follow and the
+click-to-compose all survive a mobile DOM they have never met. Nothing about
+mobile needed fixing, which is worth recording because the selectors are the
+part of this product most expected to break.
+
+### The defect: the reply's own list, handed back as the menu
+
+In a thread about a broken mascot, Claude's reply ended with three numbered
+options — check the asset, inspect it in DevTools, or describe it if DevTools is
+not available. CONTEXA returned exactly three moves: *Check mascot SVG source on
+GitHub*, *Report mobile browser DevTools findings*, *Describe mascot render
+without DevTools*. The reply's list, transcribed. A connectors thread did the
+same: the reply printed a catalogue, and the row came back *List all available
+connectors / Explain fetching Stripe transactions / Explain posting to Slack*.
+
+A third thread in the same batch was correct — *Draft friends cohort message /
+Design the five screenshot frames / Draft the fork precedence rule / Write the
+standalone-app brief*, four separate strands of a long session. The split is not
+random: **a long session gave the model something to mine; a short session with
+a long enumerative reply gave it a list to copy.**
+
+**And the evidence gate was rewarding it.** Every move must be earned by a
+verbatim quote. An enumerated reply is a menu of pre-grounded moves sitting at
+the end of the context — copying it scores perfectly, while a move opening a new
+direction on the original goal is hard to ground. The gate built to prevent
+invention was quietly selecting for transcription, and `grounding: 3 of 3
+grounded` reported it as flawless.
+
+This also answers field-test **#4** with live evidence. The 0.9.58 entry recorded
+that the backwards-move ban was prompt-only, with no gate in `cleanMoves`, and
+left it there. This is what that cost.
+
+### Provenance, which turns a screenshot into a number
+
+`groundMoves` now takes the turns and the reply as **two corpora instead of one
+concatenated string**, and reports `fromTurns` / `fromReply` per row. One flat
+haystack can say a move is grounded; it can never say what grounded it, which is
+precisely why a transcript looked perfect. Turn-earned wins a tie — a phrase the
+user wrote and Claude quoted back is still the user's, and crediting the reply
+for it would count the session's own material as an echo.
+
+Logged on every click on both paths, and returned in the worker's `grounding`
+object, since a hosted user has no console. Same discipline as the `[CONTEXA]
+session … i=A..B` line: the capture bug survived an entire field test because
+nothing counted anything.
+
+### The spread gate, and the line it will not cross
+
+A row is dropped when **every** move matched the reply **and** the session had at
+least three turns to offer instead.
+
+Both halves are load-bearing. Below three turns the reply genuinely is most of
+the material, so a reply-earned row is the right answer and dropping it would
+manufacture zeros out of good rows. And the condition is "every move matched the
+reply", not "none matched a turn" — the first version tested `fromTurns > 0` and
+therefore also dropped rows whose moves were merely **ungrounded**, silently
+collapsing the two-tier rule where a near-miss quote renders and is counted. The
+worker suite caught that on the first run.
+
+Expect the zero rate to rise from *rare*. That is the accepted cost, and the
+provenance line makes it measurable rather than guessed.
+
+### The prompt, which now names the failure and shows it
+
+`MOVES_SYSTEM`, byte-identical in both copies: a move earns its place by
+**advancing what the earliest message was trying to get done**; when the reply
+lists options, steps or questions, **that list is not the row** — with the reason
+it is seductive stated outright, that the evidence quote is perfect every time;
+and the row must **spread across the session**, because four transcribed moves
+also have four distinct labels, which is all the old diversity rule ever asked
+for. Plus a worked example of transcription in the existing "done WRONG" style,
+since the abstract ban was already there and shipped the defect anyway.
+
+### Two guards that could not have failed correctly
+
+`build.mjs` extracted the shared helper block from `function cleanTurns` to
+`return grounded;` — a marker that **ceased to exist** the moment `groundMoves`
+began returning an object. A byte-identity check whose end anchor can vanish
+reports "could not locate" rather than "drift": it still fails, but for the
+wrong reason. It now reads to an explicit sentinel comment.
+
+Worse, and older: `build.mjs` declared **its own `VERSION` literal** and
+overwrote whatever `manifest.json` said. Bumping the manifest to 0.9.59 produced
+a `build-ready/` and a zip still stamped 0.9.58, with every check passing — and
+`release-commit.ps1` reads the manifest, so it would have tagged **v0.9.59 over
+an artifact containing 0.9.58**. The version now has one home, read from the
+manifest, and the worker's `BUILD` must agree with it — the same treatment the
+model name has had across three files since 0.9.52.
+
+### Versions
+
+Extension **0.9.59**, worker **0.9.59**. 327 assertions green (220 extension,
+107 worker). Worker redeploy required: `MOVES_SYSTEM`, `groundMoves` and the
+gate all live server-side too.
+
+---
+
 ## 0.9.58 — Extension + Worker
 
 *It stopped reading the reply for a question, and started reading her own

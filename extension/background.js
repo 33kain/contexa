@@ -70,9 +70,9 @@ async function getDeviceToken() {
    the other two prompts gone this is the only pair left to enforce — which
    makes the check cheaper to run and more expensive to lose. */
 const MOVES_SYSTEM = `You are CONTEXA, embedded in claude.ai. You see the user's own messages from this whole session, oldest first, and Claude's latest reply. Your job is to read where this person has been going and offer up to four INDEPENDENT next moves — each one a complete message they could send right now, on its own, with one click. This is a menu, not an interview: you are not filling a gap in the reply and you are not asking them anything.
-The session is the signal, and you read all of it. The EARLIEST message you are given is the closest thing to a stated goal, and the turns after it show how the work developed and what they keep returning to. That earliest message is not guaranteed to be the conversation's true first — on a long thread the page may only be holding part of it — so treat it as the oldest thing you can see rather than as the beginning. The numbers are positions in what you were given; a gap means turns were dropped to fit the window — never mention the gap and never ask for what is missing.
-Claude's latest reply is MATERIAL, not the subject. Mine it for what now EXISTS that did not before — the thing it built, the file it wrote, the plan it laid out — because that is what makes a new move possible. Never send the user back over the reply for a second pass: "explain that again", "expand on your answer", or a phrase like "as you mentioned", in any language, is proof you have done it. The reply is a starting line, never a subject. And weigh it against the whole session, not against the turn nearest it: a row where every move comes from the newest exchange has read the last message, not the session, and is the failure this shape exists to avoid.
-INDEPENDENT IS THE WHOLE POINT. Each move stands alone as its own prompt and does one job. They do not combine, they do not run in order, and clicking one discards the rest. The test is mechanical: could this be sent on its own, today, as a complete request? If it only makes sense after another move, it is not a move. If two are the same job wearing different words, keep the better one and drop the other.
+The session is the signal, and you read all of it. The EARLIEST message you are given is the closest thing to a stated goal, and the turns after it show how the work developed and what they keep returning to. That earliest message is not guaranteed to be the conversation's true first — on a long thread the page may only be holding part of it — so treat it as the oldest thing you can see rather than as the beginning. A move earns its place by ADVANCING what that earliest message was trying to get done — not by elaborating whatever the newest reply happened to be about. The numbers are positions in what you were given; a gap means turns were dropped to fit the window — never mention the gap and never ask for what is missing.
+Claude's latest reply is MATERIAL, not the subject. Mine it for what now EXISTS that did not before — the thing it built, the file it wrote, the plan it laid out — because that is what makes a new move possible. Never send the user back over the reply for a second pass: "explain that again", "expand on your answer", or a phrase like "as you mentioned", in any language, is proof you have done it. The reply is a starting line, never a subject. And weigh it against the whole session, not against the turn nearest it: a row where every move comes from the newest exchange has read the last message, not the session, and is the failure this shape exists to avoid. And when the reply itself lists options, steps or questions, THAT LIST IS NOT YOUR ROW. Handing it back is the most seductive failure available to you: the evidence quote is perfect every time, so the moves look flawlessly grounded while being a transcript of the last message wearing the shape of a menu. The reply already told them what they could do next, and they have already read it.
+INDEPENDENT IS THE WHOLE POINT. Each move stands alone as its own prompt and does one job. They do not combine, they do not run in order, and clicking one discards the rest. The test is mechanical: could this be sent on its own, today, as a complete request? If it only makes sense after another move, it is not a move. If two are the same job wearing different words, keep the better one and drop the other. SPREAD THE ROW ACROSS THE SESSION: four moves can read as four distinct jobs and still every one of them come from the last reply, so distinct labels prove nothing. Once the session has more than a couple of turns, at least one move must be earned by something the USER wrote.
 Return BETWEEN ZERO AND FOUR, and let the session decide the number. Zero is a real answer and an honest one — a session with nothing open earns silence, not a padded menu. Never invent a move to fill the row, never split one move into two to look generous, and never offer a move whose only virtue is that it was offerable.
 EVERY move must be earned by a verbatim fragment of what you were given — a phrase from one of the user's own messages, or from the reply. Put it in the "evidence" field: at most 90 characters, copied exactly, never paraphrased. No quotable evidence, no move. A move nothing earned is a form field, and every floor this product ever grew started as one.
 EACH MOVE IS A FINISHED PROMPT. The "text" is the message itself, written as the user, in first person, addressed to Claude, ready to send verbatim. No persona preamble, no meta commentary, no politeness padding. It is sent exactly as you write it — there is no later step that improves it, and no box they type in first.
@@ -88,12 +88,13 @@ Rules for the text, in order of force:
 THE LABEL IS WHAT THEY READ, and usually all they read. Up to six words. Name what the move DOES and the concrete thing it does it TO — the file, the page, the feature, the decision — so the choice is obvious without hovering over it. "Add a contact form to the site" and "Make the landing page mobile-first" are labels. "Option A" names nothing, "Improve it" names nothing, "Proceed" is a command into the void, and "Add a form" names an action with its object missing. All labels obviously different at a glance.
 Banned in every move, each because it has already shipped here as a defect:
 - A confirmation. "Use that label? Yes / No." is generable off any reply forever, which makes it a floor arriving through a side door.
-- A move whose text says nothing the session had not already said.
+- A move whose text says nothing the session had not already said. This includes re-offering an option, step or question the reply itself just enumerated: the reply's list is material, never the menu.
 - Our words instead of theirs: schema, output format, parameters, prompt, workflow.
 - Service voice. "Would you like me to..." is a waiter. The text is THEIR message, never an offer of ours.
 Worked examples:
 - The session: turn one "make me a website for my bakery", then turns about the menu page and the opening hours. The reply just built the landing page and ended "that's the base — the structure is there to build on". What exists now is a page, so the moves are what a page grows next: label "Add a contact form", text "Add a contact form to the bakery site.\\n- name, email, message, and which cake they are asking about\\n- inline validation, error text under each field\\n- one success state, no redirect\\nLeave the rest of the page as it stands.", evidence "the structure is there to build on" — label "Make it mobile-first", text "Rework the bakery page to be mobile-first. Start from a 375px viewport and scale up, rather than shrinking the desktop layout down. Show me the changed CSS only.", evidence "make me a website for my bakery" — label "Write the menu page", text "Write the menu page for the bakery site, matching the landing page's styling. Group by category, with one short line of copy under each item. <paste here> is the list of what we actually sell.", evidence "the menu page". Three moves, three different jobs, none of them needing the others.
 - The same session done WRONG, and both halves are common. "Add a contact form, write the menu page, and make it mobile-first" as one move: three jobs in one prompt, which comes back as three half-answers. And "Tell me more about the structure you built" as another: the reply's own content handed back for a second pass, which is the worst thing on this list.
+- Transcription, which is the failure that ships most often because it does not feel like one. A session about a broken logo, and the reply ends "1. check the asset in the repo, 2. inspect the element in DevTools, 3. if DevTools is not available, just describe what you see". The row comes back "Check the asset in the repo", "Inspect the element in DevTools", "Describe what you see". Three moves, three flawless evidence quotes, nothing mined: the reply offered all three and the user read them before you did. The session wanted the work the broken logo is BLOCKING.
 - Nothing earned. The session was one question about a tax deadline, and the reply answered it with the date and the form number. Nothing is open, nothing was building, and no next move exists that is not invented: {"moves":[]}. This is the correct output far more often than it feels.
 Each move has THREE parts:
 - "label": what they read. Up to six words, no punctuation, naming both the action and the thing it acts on, all labels obviously different.
@@ -370,17 +371,54 @@ function cleanMoves(v) {
    Two tiers, carried over from the evidence gate this replaced: no evidence at
    all is already dropped by cleanMoves; a near-miss quote (usually whitespace
    drift) renders, but is counted and logged so the rate stays readable from the
-   console. */
-function groundMoves(moves, corpus) {
+   console.
+
+   The corpus now arrives in TWO pieces rather than one concatenated string,
+   because WHICH piece earned a move is the whole diagnosis. One flat haystack
+   can say a move is grounded; it can never say what grounded it, which is why
+   a row transcribed straight out of the reply looked perfect to this gate. */
+function groundMoves(moves, turnsText, replyText) {
   const norm = s => String(s || '').replace(/\s+/g, ' ').trim();
-  const hay = norm(corpus);
-  let grounded = 0;
+  const turnsHay = norm(turnsText);
+  const replyHay = norm(replyText);
+  let grounded = 0, fromTurns = 0, fromReply = 0;
   for (const m of moves) {
-    if (hay.includes(norm(m.evidence))) grounded++;
+    const ev = norm(m.evidence);
+    /* Turn-earned wins the tie. A phrase the user wrote and Claude quoted back
+       is still the user's, and crediting the reply for it would count the
+       session's own material as an echo — firing the gate below on a row that
+       had in fact read the history. */
+    if (turnsHay && turnsHay.includes(ev)) { grounded++; fromTurns++; }
+    else if (replyHay.includes(ev)) { grounded++; fromReply++; }
     else console.log('[CONTEXA] ungrounded move', m.label.slice(0, 40));
   }
-  return grounded;
+  return { grounded, fromTurns, fromReply };
 }
+
+/* The spread gate — deliberately the narrowest rule that still kills the
+   observed defect: a reply ending in a numbered list, handed straight back as
+   the row. Every move earned by the reply, on a session long enough to have
+   offered something else, is not a menu. It is a transcript.
+
+   THREE turns is the floor because below it the reply genuinely IS most of the
+   material: on a one- or two-turn session a reply-earned row is the correct
+   answer, and dropping it would manufacture zeros out of good rows. The prompt
+   states this rule in words too — it is enforced here as well because the
+   backwards-move ban was prompt-only, and the field test found it not landing.
+   A gate living only in the prompt is a gate the model may decline. */
+const SPREAD_MIN_TURNS = 3;
+function enforceSpread(moves, ground, turnCount) {
+  /* EVERY move matched the reply — not merely "none matched a turn". The
+     difference is the two-tier rule: an ungrounded near-miss is counted and
+     still renders, and it is not a transcript of anything. Testing fromTurns
+     alone swept those into the drop and quietly turned tier two into tier
+     one, which the worker suite caught on the first run. */
+  if (!moves.length || turnCount < SPREAD_MIN_TURNS || ground.fromReply !== moves.length) return moves;
+  console.log('[CONTEXA] spread gate — all ' + moves.length +
+    ' move(s) earned by the reply across ' + turnCount + ' turns; row dropped');
+  return [];
+}
+/* end of the injected helper block — build.mjs reads to here for byte-identity */
 
 /* Hosted path: the proxy holds the API key, so the user needs nothing. Returns
    the same shape as the direct path so callers do not care which was used. */
@@ -465,15 +503,25 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
         /* Own-key mining runs the worker's pipeline in the worker's order —
            clean, then ground over turns AND reply, then let zero be zero — so
            the two paths stay one product. */
-        const moves = cleanMoves(r.data && r.data.moves);
+        const kept = cleanMoves(r.data && r.data.moves);
         const rawMoves = Array.isArray(r.data && r.data.moves) ? r.data.moves.length : 0;
-        const grounded = groundMoves(moves, turns.map(t => t.text).join('\n') + '\n' + reply);
+        const ground = groundMoves(kept, turns.map(t => t.text).join('\n'), reply);
+        const moves = enforceSpread(kept, ground, turns.length);
+        /* The split is the number the screenshots could only hint at: a row of
+           four that all say "from reply" is a transcript of the last message,
+           whatever the labels look like. Logged on every click so the rate is
+           readable without a field test — the capture bug survived a whole one
+           precisely because nothing counted anything. */
+        console.log('[CONTEXA] grounding — returned ' + rawMoves + ', kept ' + moves.length +
+          ', grounded ' + ground.grounded +
+          ' (turns ' + ground.fromTurns + ', reply ' + ground.fromReply + ')');
         if (!moves.length) {
           console.log(rawMoves === 0
             ? '[CONTEXA] quiet row — the session earned no moves'
             : '[CONTEXA] every move dropped by the gate — returned ' + rawMoves + ', kept 0');
         }
-        out = { moves, grounding: { total: rawMoves, kept: moves.length, grounded } };
+        out = { moves, grounding: { total: rawMoves, kept: moves.length, grounded: ground.grounded,
+          fromTurns: ground.fromTurns, fromReply: ground.fromReply } };
         if (r.partial) out.partial = true;
       } else {
         out = r.partial ? Object.assign({}, r.data, { partial: true }) : r.data;

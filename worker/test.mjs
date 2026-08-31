@@ -211,7 +211,9 @@ t('unknown route 404', r.status === 404, String(r.status));
     sentBody = JSON.parse(opts.body);
     return { ok: true, status: 200, async json() { return { stop_reason: 'end_turn',
       usage: { input_tokens: 10, output_tokens: 10 },
-      content: [{ type: 'text', text: JSON.stringify({ moves: [{ label: 'A move', text: 'Do the thing.', evidence: 'rrrr' }] }) }] }; },
+      // Evidence quotes a TURN: 'rrrr' matched only the filler reply, which is
+      // the all-reply row the spread gate drops. These tests are about retrying.
+      content: [{ type: 'text', text: JSON.stringify({ moves: [{ label: 'A move', text: 'Do the thing.', evidence: 'my bakery' }] }) }] }; },
       async text() { return ''; } };
   };
   await w.fetch(post(), { ANTHROPIC_API_KEY: 'k', CX_KV: makeKV(), IP_SALT: 's' });
@@ -231,7 +233,9 @@ t('unknown route 404', r.status === 404, String(r.status));
       async json() { return {}; } };
     return { ok: true, status: 200, async json() { return { stop_reason: 'end_turn',
       usage: { input_tokens: 10, output_tokens: 10 },
-      content: [{ type: 'text', text: JSON.stringify({ moves: [{ label: 'A move', text: 'Do the thing.', evidence: 'rrrr' }] }) }] }; },
+      // Evidence quotes a TURN: 'rrrr' matched only the filler reply, which is
+      // the all-reply row the spread gate drops. These tests are about retrying.
+      content: [{ type: 'text', text: JSON.stringify({ moves: [{ label: 'A move', text: 'Do the thing.', evidence: 'my bakery' }] }) }] }; },
       async text() { return ''; } };
   };
   const r = await w.fetch(post(), { ANTHROPIC_API_KEY: 'k', CX_KV: makeKV(), IP_SALT: 's' });
@@ -567,6 +571,51 @@ t('unknown route 404', r.status === 404, String(r.status));
   b = await r.json();
   t('and an ungrounded quote still renders, counted rather than dropped',
     b.moves.length === 1 && b.grounding.grounded === 0, JSON.stringify(b.grounding));
+
+  /* (c2) Provenance and the spread gate, end to end through a real request —
+     the failure the mobile field test caught. A reply that ends in a numbered
+     list came back as the row: every move flawlessly grounded, every one of
+     them a transcript of the last message. One flat corpus could not see it,
+     because "grounded" was true for all of them. */
+  const LIST_REPLY = 'Try these: 1. check the asset in the repo, 2. inspect the element in DevTools, '
+    + '3. if DevTools is not available, describe what you see.';
+  const ECHO_ROW = { moves: [
+    { label: 'Check the asset', text: 'Check the asset in the repo.', evidence: 'check the asset in the repo' },
+    { label: 'Inspect the element', text: 'Inspect the element in DevTools.', evidence: 'inspect the element in DevTools' }
+  ] };
+
+  globalThis.fetch = modelJson(ECHO_ROW);
+  r = await w.fetch(post({ reply: LIST_REPLY, turns: TURNS }),
+    { ANTHROPIC_API_KEY: 'k', CX_KV: makeKV(), IP_SALT: 's' });
+  b = await r.json();
+  t('a row transcribed entirely from the reply is dropped on a full session',
+    r.status === 200 && b.moves.length === 0, JSON.stringify(b.grounding));
+  t('and the response still reports what it saw, so the rate stays measurable',
+    b.grounding.total === 2 && b.grounding.fromReply === 2 && b.grounding.fromTurns === 0,
+    JSON.stringify(b.grounding));
+
+  /* The same row on a SHORT session survives, and that is the point of the
+     threshold: with one or two turns the reply genuinely is most of the
+     material, and dropping there would manufacture zeros out of good rows. */
+  globalThis.fetch = modelJson(ECHO_ROW);
+  r = await w.fetch(post({ reply: LIST_REPLY, turns: [TURNS[0], TURNS[1]] }),
+    { ANTHROPIC_API_KEY: 'k', CX_KV: makeKV(), IP_SALT: 's' });
+  b = await r.json();
+  t('but the same row survives a two-turn session, where the reply IS the material',
+    b.moves.length === 2, JSON.stringify(b.grounding));
+
+  /* And one turn-earned move is enough to keep the row, however many of the
+     others came from the reply. The gate is for the total case only. */
+  globalThis.fetch = modelJson({ moves: [
+    { label: 'Check the asset', text: 'Check the asset.', evidence: 'check the asset in the repo' },
+    { label: 'Write the menu page', text: 'Write the menu page.', evidence: 'now the menu page' }
+  ] });
+  r = await w.fetch(post({ reply: LIST_REPLY, turns: TURNS }),
+    { ANTHROPIC_API_KEY: 'k', CX_KV: makeKV(), IP_SALT: 's' });
+  b = await r.json();
+  t('a mixed row is never dropped, however reply-heavy the rest of it is',
+    b.moves.length === 2 && b.grounding.fromTurns === 1 && b.grounding.fromReply === 1,
+    JSON.stringify(b.grounding));
 
   /* (d) The gate. Each part is required for a different visible failure: no
      label is a blank button, no text composes nothing, no evidence is a move
