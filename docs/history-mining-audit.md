@@ -278,7 +278,9 @@ degrades to today's product instead of erroring.
 
 ```jsonc
 {
-  "turns":  [ { "i": 0, "text": "..." } ],   // user prompts, oldest→newest; i = true turn index
+  "turns":  [ { "i": 1, "text": "..." } ],   // user prompts, oldest→newest; i = position among CAPTURED turns
+                                             // (drafted as "true turn index"; the DOM cannot supply that,
+                                             //  and the mismatch caused the 0.9.58 field regression)
   "prompt": "...",                            // KEEP — last user message (old-worker compat)
   "reply":  "...",                            // KEEP — latest reply; material now, not the trigger
   "v":      "0.9.58",

@@ -341,10 +341,18 @@
      And it does not persist anything — read off the DOM at call time, sent,
      discarded, exactly as the single-turn capture always was.
 
-     Known limit, inherited: a virtualised transcript (Claude Code sessions)
-     only has its rendered rows in the DOM, so on those pages this sees the
-     rendered window rather than the whole conversation. It degrades to fewer
-     turns, which is the same direction the budget already trims in. */
+     KNOWN LIMIT, and the earlier note here got its consequence backwards.
+     A virtualised transcript only has its rendered rows in the DOM, so on such
+     a page this sees the rendered window rather than the whole conversation.
+     The old note waved that away as "the same direction the budget already
+     trims in" — it is the OPPOSITE direction, and that is the whole problem.
+     fitTurns drops from the MIDDLE and pins the first; virtualisation drops
+     from the HEAD and takes the first with it. The head is the direction this
+     entire feature depends on.
+
+     Measured: a live claude.ai Cowork tab renders ~3-5 blocks (CHANGELOG
+     0.9.55). Whether standard chat does the same is NOT measured, which is why
+     `i` below stopped pretending to know, and why askNow logs the range. */
   const MAX_TURNS = 40;
   const TURNS_TOTAL_BUDGET = 12000;
 
@@ -366,6 +374,20 @@
     return turns;
   }
 
+  /* `i` is the position among the messages THIS PAGE IS SHOWING — not the turn's
+     position in the conversation, which the DOM cannot tell us. The distinction
+     was elided here once and it cost a field regression: when the page holds
+     only the last few turns, numbering them 1..N hands the model a recent turn
+     labelled `[1]`, and MOVES_SYSTEM reads `[1]` as the message that states the
+     goal. So a truncated read did not merely lose the opening — it nominated a
+     replacement, which is why the moves came back reflecting only the last
+     exchange. It also erased the gap that was supposed to make the loss
+     visible, because 1..N is always contiguous.
+
+     Numbering by capture order is still right; what changed is that nothing
+     downstream is allowed to treat `[1]` as proof of the session's start. The
+     prompt now says "earliest message you can see", which is true whether the
+     read was complete or not. */
   function captureTurns() {
     const turns = [];
     [...document.querySelectorAll(USER_MSG_SEL)].forEach((m, idx) => {
@@ -466,10 +488,23 @@
 
     let resp = null, thrown = null;
     try {
+      const turns = captureTurns();
+      /* The one line that separates "the model ignored the session" from "the
+         page never had the session". Without it the two produce byte-identical
+         console output, which is how a capture bug survived a field test: the
+         symptom was visible and its cause was not.
+
+         The i range matters as much as the count. A contiguous 1..4 on a
+         twenty-turn conversation is a positive identification of a truncated
+         read; 1..20 says the capture is whole and any complaint is about how
+         the model weighted it. */
+      console.log('[CONTEXA] session —', turns.length, 'turn(s),',
+        turns.reduce((n, t) => n + t.text.length, 0), 'chars,',
+        turns.length ? 'i=' + turns[0].i + '..' + turns[turns.length - 1].i : 'i=none');
       resp = await chrome.runtime.sendMessage({
         type: 'nextSteps',
         reply: ctx.reply,
-        turns: captureTurns()
+        turns
       });
     } catch (e) { thrown = String(e && e.message || e); }
 

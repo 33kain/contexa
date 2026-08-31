@@ -70,6 +70,7 @@ const EXT = join(REPO, 'extension');
    writes somewhere else on purpose — the listing set stays five, and a
    verification shot must never be able to leak into a store submission. */
 const ZERO = process.env.CX_ZERO === '1';
+const TURNS_CHECK = process.env.CX_TURNS === '1';
 const OUT = ZERO
   ? join(REPO, 'build-ready', 'zero-check')
   : join(REPO, 'publishing', 'screenshots');
@@ -294,6 +295,50 @@ async function main() {
     await page.evaluate(() => window.__mock.bottom());
     await page.waitForTimeout(900);              // let the entrance settle
     await shoot(page, '3-trigger.png', 'the trigger, before any click', { card: true });
+
+    /* ---- CX_TURNS: does captureTurns() actually see a long conversation?
+       The question the field test could not answer and no assertion could
+       reach. fitTurns is unit-tested on synthetic arrays; the DOM walk that
+       feeds it had no coverage at all, and this mock carried two user turns, so
+       a twenty-turn session had never been read by the real code in a real
+       browser.
+
+       This does not screenshot anything. It pads the thread to twenty turns,
+       runs the SHIPPED captureTurns() against it, and checks the count and the
+       i range. A complete DOM must yield 1..20 — if it does not, the bug is in
+       capture and nothing about the prompt matters. */
+    if (TURNS_CHECK) {
+      const total = await page.evaluate(() => window.__mock.padTurns(18));
+      await page.waitForTimeout(200);
+      const got = await page.evaluate(() => {
+        /* Reach the shipped function through the page's own copy of content.js
+           rather than reimplementing the walk here — a reimplementation would
+           test this file instead of the product. content.js runs in an isolated
+           world, so it is re-derived from the same selector and clamp the
+           extension uses, and cross-checked against the raw node count. */
+        const nodes = [...document.querySelectorAll('[data-testid="user-message"]')];
+        return { nodes: nodes.length, first: (nodes[0] || {}).textContent };
+      });
+      console.log('  DOM holds', total, 'user turns;', got.nodes, 'match the selector');
+      if (got.nodes !== 20) throw new Error(`expected 20 user turns in the DOM, got ${got.nodes}`);
+
+      /* Now the product's own read, observed through what it SENDS. The
+         extension logs the range at call time, so the console line is the
+         measurement — the same line the field test will read. */
+      const seen = [];
+      page.on('console', m => { if (m.text().includes('[CONTEXA] session')) seen.push(m.text()); });
+      await page.click(MASCOT);
+      await page.waitForTimeout(2500);
+      if (!seen.length) throw new Error('no [CONTEXA] session line — the diagnostic did not fire');
+      console.log(' ', seen[0].replace(/^\S+\s/, ''));
+      const m = seen[0].match(/i=(\d+)\.\.(\d+)/);
+      if (!m) throw new Error(`session line carried no i range: ${seen[0]}`);
+      if (m[1] !== '1' || m[2] !== '20') {
+        throw new Error(`captureTurns read i=${m[1]}..${m[2]} from a complete 20-turn DOM`);
+      }
+      console.log('\ncapture verified: a complete DOM yields all 20 turns, i=1..20');
+      return;
+    }
 
     /* ---- CX_ZERO: the empty result, which is the only state a source
        assertion cannot see. Click, get nothing back, and photograph what the

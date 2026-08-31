@@ -227,6 +227,28 @@
     bottom() {
       const t = document.getElementById('thread');
       t.scrollTop = t.scrollHeight;
+    },
+    /* Injected on request rather than baked into the markup, so the listing
+       screenshots see exactly the thread they always saw. Only the CX_TURNS
+       verification pass calls this.
+
+       It exists because captureTurns()'s DOM half had no coverage anywhere:
+       fitTurns was unit-tested on synthetic arrays, and this mock carried two
+       user turns, so nothing had ever run the real querySelectorAll walk over
+       a long conversation. A capture bug hid in that gap through a whole field
+       test. Turns are prepended ABOVE the existing pair, so the newest two
+       stay newest and the numbering under test runs 1..N oldest-first. */
+    padTurns(n) {
+      const col = document.getElementById('col');
+      const first = col.firstElementChild;
+      for (let k = n; k >= 1; k--) {
+        const row = document.createElement('div');
+        row.className = 'group/message-row';
+        row.innerHTML = '<div class="user-row"><div data-testid="user-message">'
+          + 'Earlier question number ' + k + ' about the trip.</div></div>';
+        col.insertBefore(row, first);
+      }
+      return document.querySelectorAll('[data-testid="user-message"]').length;
     }
   };
 </script>

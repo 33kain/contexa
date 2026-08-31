@@ -665,6 +665,33 @@ t('unknown route 404', r.status === 404, String(r.status));
   t('and the ban on a confirmation floor', /Use that label\? Yes \/ No/.test(moveSys));
   t('and the ban on service voice', /Would you like me to/.test(moveSys));
   t('and it never asks the user anything', /you are not asking them anything/.test(moveSys));
+
+  /* FIELD TEST 2026-08-31. Two findings, both pinned here because both were
+     invisible to every assertion that existed at the time. */
+
+  /* #6 — moves reflected only the last exchange. Root cause was captureTurns
+     numbering a truncated read 1..N, so a recent turn arrived labelled [1] and
+     this prompt read [1] as the stated goal. The prompt half of the fix: it
+     must no longer treat the first entry as the conversation's beginning, and
+     it must say outright that a row drawn entirely from the newest exchange
+     has failed. */
+  t('the prompt does not claim the first entry is the session start',
+    !/Turn one states the goal/.test(moveSys));
+  t('and reads it as the oldest thing visible instead',
+    /oldest thing you can see/.test(moveSys));
+  t('and names a last-exchange-only row as the failure to avoid',
+    /every move comes from the newest exchange/.test(moveSys));
+
+  /* #5 — labels too thin to choose from without hovering. The cap and the rule
+     have to move together: a six-word rule against a 40-character slice would
+     have truncated exactly the payload the rule asks for, which is the kind of
+     half-change that looks applied and is not. */
+  t('labels may carry six words', /Up to six words/.test(moveSys));
+  t('and must name the thing acted on, not just the action',
+    /the concrete thing it does it TO/.test(moveSys));
+  t('and the gate allows what the prompt asks for',
+    /m\.label\)\.replace\(\/\\s\+\/g, ' '\)\.trim\(\)\.slice\(0, 60\)/.test(
+      readFileSync(rel('./src/index.js'), 'utf8')));
 }
 
 globalThis.fetch = realFetch;

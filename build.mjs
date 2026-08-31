@@ -120,8 +120,16 @@ else if (fnsExt !== fnsWrk) fails.push('DRIFT: cleanTurns/cleanMoves/groundMoves
 /* A client that stops sending its turns gets nothing back at all — the worker
    rejects the request before it charges anyone. Cheap to assert, and it is the
    one field the whole product now depends on. */
-if (!/turns: captureTurns\(\)/.test(readFileSync('extension/content.js', 'utf8')))
-  fails.push('the extension no longer captures the session - every request would be rejected');
+{
+  /* Pin the CALL, not its punctuation. This matched `turns: captureTurns()`
+     inside the sendMessage argument and broke when the call was hoisted to log
+     its result — a correct refactor failing a guard that had pinned the
+     typography rather than the property. */
+  const csrc = readFileSync('extension/content.js', 'utf8');
+  const ask = (csrc.match(/async function askNow\([\s\S]*?\n  \}/) || [''])[0];
+  if (!/captureTurns\(\)/.test(ask))
+    fails.push('askNow no longer captures the session - every request would be rejected');
+}
 
 // The shipped model must agree across all three places that name one.
 const workerSrc = readFileSync('worker/src/index.js', 'utf8');

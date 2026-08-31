@@ -64,11 +64,11 @@ Clicking the chip sends your own messages from this session, plus Claude's lates
 reply, to the model. It answers in one shape: up to four moves, each with a short
 label you read and a full message behind it.
 
-The session is the signal. Your first message states the goal; the ones after it
-show how it developed and what you keep returning to. If the session runs long,
-whole turns are dropped to fit — the first is always kept, and the oldest middle
-ones go first, because a conversation read without its opening has lost the point
-of itself.
+The session is the signal. The earliest message CONTEXA can see is usually where
+you stated the goal; the ones after it show how it developed and what you keep
+returning to. If the session runs long, whole turns are dropped to fit — the
+earliest is always kept and the oldest middle ones go first, because a
+conversation read without its opening has lost the point of itself.
 
 Where a move needs something only you have — a file, a document, a link, a story
 only you can tell — it writes an editable slot into the message rather than
@@ -110,9 +110,11 @@ are kept and used, and the shortfall is logged rather than shown on the card.
   `RESPONSE_SEL`, `STREAM_SEL`, `USER_MSG_SEL`, `ROW_SEL` in `content.js`). A
   redesign may need them refreshed; until then the extension goes quiet rather
   than breaking the page.
-- On a very long conversation claude.ai only keeps the visible part of the
-  transcript in the page, so CONTEXA reads the rendered window rather than every
-  turn ever sent.
+- On some pages the browser only keeps the visible part of a long conversation
+  loaded, and CONTEXA can only read what is actually there. Measured on Cowork
+  sessions, which render a handful of blocks at a time; not measured on ordinary
+  claude.ai chats, where it may not happen at all. Where it does, CONTEXA reads
+  the visible window rather than every turn ever sent.
 - No prompt library or cross-device sync yet.
 
 ## Files

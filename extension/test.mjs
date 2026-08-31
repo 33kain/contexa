@@ -811,8 +811,21 @@ const TURNS = [
 
   t('capture enumerates every user turn, not just the last',
     /querySelectorAll\(USER_MSG_SEL\)[\s\S]{0,200}forEach/.test(csrcM));
-  t('and the session is read at call time, not at capture time',
-    /type: 'nextSteps'[\s\S]{0,400}turns: captureTurns\(\)/.test(csrcM));
+  /* The property is WHERE it is called, not how the call site is punctuated.
+     The old form matched the literal `turns: captureTurns()` inside the
+     sendMessage argument, and broke the moment the call was hoisted to log its
+     result — a true refactor failing a test that had pinned the typography.
+     Assert the real thing: captureTurns runs inside askNow (the click), and
+     never inside onReplyComplete (the reply landing). */
+  const askBody = (csrcM.match(/async function askNow\([\s\S]*?\n  \}/) || [''])[0];
+  const replyBody = (csrcM.match(/async function onReplyComplete\([\s\S]*?\n  \}/) || [''])[0];
+  t('the session is read at call time', /captureTurns\(\)/.test(askBody));
+  t('and never at reply-completion time', !!replyBody && !/captureTurns\(\)/.test(replyBody));
+  /* The diagnostic that separates "the model ignored the session" from "the
+     page never had the session". Without it both produce identical console
+     output, which is how a capture bug survived a whole field test. */
+  t('and the captured range is logged, so a truncated read is identifiable',
+    /\[CONTEXA\] session —/.test(askBody) && /turns\[0\]\.i/.test(askBody));
   /* Claude's earlier replies are deliberately not sent: the signal is where the
      USER has been going, and the replies are the bulkier half. */
   t('only user messages are mined, never past replies',
