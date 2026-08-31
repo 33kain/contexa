@@ -17,6 +17,13 @@ npm-debug.log*
 *.zip
 build-ready/
 
+# dogfood output. scripts/dogfood-test.ps1 writes contexa-test-<tag>.txt beside
+# itself on every run, so these accumulate one per run and are pure output — the
+# session that produced them is in the changelog, not in a tracked file. Ignored
+# rather than committed because release-commit.ps1 stages with `git add -A`,
+# which would otherwise sweep whatever run happened last into the release commit.
+scripts/contexa-test-*.txt
+
 # os
 .DS_Store
 Thumbs.db

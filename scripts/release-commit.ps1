@@ -76,7 +76,11 @@ if ($leak) {
   Write-Host $leak -ForegroundColor Red
   Die "a key-shaped string appears in the staged diff - unstaged everything"
 }
-$bad = $staged | Where-Object { $_ -match '\.wrangler/' -or $_ -match '\.zip$' -or $_ -match '(^|/)key\.txt$' -or $_ -match '\.dev\.vars$' }
+# contexa-test-*.txt is dogfood output, now also in .gitignore. Listed here too
+# because this blocklist is the last line before a commit, and every other entry
+# is already covered by .gitignore as well — the belt exists because the braces
+# have been edited before.
+$bad = $staged | Where-Object { $_ -match '\.wrangler/' -or $_ -match '\.zip$' -or $_ -match '(^|/)key\.txt$' -or $_ -match '\.dev\.vars$' -or $_ -match 'contexa-test-.*\.txt$' }
 if ($bad) {
   git reset | Out-Null
   Write-Host ($bad -join "`n") -ForegroundColor Red
