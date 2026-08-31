@@ -128,6 +128,16 @@
     color:var(--text2);border-radius:6px;padding:2px 8px;font-size:10px;letter-spacing:.06em;
     text-transform:uppercase;cursor:pointer;font-family:inherit}
   .quiet button:hover{color:var(--accent);border-color:var(--accent)}
+  /* The zero notice. It borrows .quiet — the honest-degraded-state look shared
+     by the quota and error cards: dashed, muted, nothing chip-like about it.
+     What this rule adds is that it is INERT: no pointer events at all, so it
+     cannot be clicked, focused by click, or given a hover state. There is no
+     action here to offer, and an element that looks like it has one would be a
+     floor. (No backticks in this comment, and none anywhere else in this
+     literal — one would end the template early, and neither node --check nor a
+     regex over the source can see that. It cost a debugging round once.) */
+  .quiet.nothing{pointer-events:none;font-style:italic;display:inline-flex;
+    padding:5px 10px;opacity:.85}
   /* Still used by the mascot trigger's own busy state, which is the one
      control left that can be mid-flight. */
   .chip.busy{border-style:dashed;color:var(--text2);cursor:default;
@@ -512,7 +522,7 @@
          to answer — the fifth chip that used to catch a click returning nothing
          is gone, and there is deliberately no fallback behind it. */
       console.log('[CONTEXA] quiet row — nothing mined from this session');
-      return renderNothing();
+      return renderNothing(anchor);
     }
     console.log('[CONTEXA] moves', moves.map(m => m.label));
     renderMoves(anchor, moves);
@@ -804,11 +814,48 @@
     for (const m of moves) appendIdeaChip(row, m);
   }
 
-  /* Zero, rendered honestly: no row rather than an empty labelled shell. A
-     header over nothing reads as a broken card; absence reads as nothing to
-     say. The console line at the call site is what makes the rate measurable. */
-  function renderNothing() {
-    for (const old of document.querySelectorAll('[data-contexa]')) old.remove();
+  /* Zero, said out loud. This used to remove the row outright, on the reasoning
+     that a header over nothing reads as a broken card. True — but so does a UI
+     that vanishes. The user CLICKED: they waited, they spent one of their
+     twenty, and the row disappearing is indistinguishable from a crash. 0.9.53
+     already recorded this shape once, about the predecessor of this exact
+     state: "they ASKED, and a chip that answers a click by sitting there is a
+     dead end." Silence was free while the row arrived unbidden. It stopped
+     being free the moment it had to be asked for.
+
+     It costs nothing to say. By the time we know the answer is empty the call
+     is already paid for, so this is purely what gets drawn afterwards.
+
+     What it must NOT become is an offer. No button, no chip class, no hover,
+     no text that could be composed, and `pointer-events:none` so it cannot be
+     clicked even by accident — every other renderQuiet mode has an action, and
+     this one deliberately has none, because there is nothing here the user
+     could do. A "nothing for now" element that looks pressable is a floor
+     arriving through a side door, which is the shape MOVES_SYSTEM bans by name
+     and the shape every floor this project has recorded started as.
+
+     It leaves on its own. Saying its piece and then collapsing is the point:
+     the row is gone either way, the difference is that the user knows why. */
+  const NOTHING_LINGERS_MS = 4000;
+  function renderNothing(anchor) {
+    const wrap = shell(anchor, 'nothing');
+    if (!wrap) return;
+    const note = document.createElement('div');
+    note.className = 'quiet nothing';
+    note.textContent = 'Nothing for now.';
+    wrap.appendChild(note);
+    /* Reuses the scroll watcher's own fade rather than a second mechanism:
+       `.away` already collapses height and hides from the tab order, which is
+       what an element with nothing in it should do. */
+    setTimeout(() => {
+      if (!wrap.isConnected) return;
+      wrap.classList.add('away');
+      setTimeout(() => {
+        for (const old of document.querySelectorAll('[data-contexa]')) {
+          if (old.getAttribute('data-cx-mode') === 'nothing') old.remove();
+        }
+      }, 400);
+    }, NOTHING_LINGERS_MS);
   }
 
   /* One mined idea. The whole prompt is already written, so the click composes

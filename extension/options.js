@@ -40,7 +40,7 @@ function paintState() {
   $('stateTitle').textContent = on ? 'CONTEXA is on' : 'CONTEXA is off';
   $('stateNote').textContent = on
     ? 'Nothing else to set up.'
-    : 'Suggestions will not appear until you turn it back on.';
+    : 'Next moves will not appear until you turn it back on.';
 }
 
 /* Toggling is the one control a beginner touches, so it saves itself. A Save
@@ -58,10 +58,10 @@ function paintMode() {
   $('modePill').textContent = own ? 'unlimited' : 'no key needed';
   $('modeDesc').textContent = own
     ? 'Requests go straight from this browser to Anthropic using your key. No daily limit, and Anthropic bills you directly for usage.'
-    : 'Questions and prompts come from the CONTEXA service. Nothing to set up, and a fair-use limit of 20 prompts a day.';
+    : 'Next moves come from the CONTEXA service. Nothing to set up, and a fair-use limit of 20 replies a day.';
   $('quotaLine').innerHTML = own
     ? '<b>Using your own key.</b> No daily limit — Anthropic bills you for what you use.'
-    : '<b>Free.</b> No account, no sign-up. Fair use is 20 prompts a day.';
+    : '<b>Free.</b> No account, no sign-up. Fair use is 20 replies a day.';
 }
 $('apiKey').addEventListener('input', paintMode);
 
@@ -105,7 +105,11 @@ $('test').addEventListener('click', async () => {
           // version/model make this a real answer about which backend is live,
           // not just a reachability ping.
           $('backendVer').textContent = r.version ? ' · backend v' + r.version : '';
-          flash(`Connected ✓ (${r.limit || 20}/day` + (r.model ? ', ' + r.model : '') + ')', true);
+          /* No `|| 20` fallback. That was a second copy of a number that
+             lives in one place on purpose, and the health check is precisely
+             where the real one is available — if it did not report a limit,
+             say so rather than guessing. */
+          flash(`Connected ✓ (${r.limit ? r.limit + '/day' : 'connected'}` + (r.model ? ', ' + r.model : '') + ')', true);
         } else {
           flash('Not reachable: ' + friendly(r && r.error), false);
         }

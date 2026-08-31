@@ -730,6 +730,24 @@ const TURNS = [
     /no row appears at all/i.test(rdme));
   t('and states the quota in the unit the worker enforces',
     /20 replies a day/i.test(rdme));
+
+  /* options.js OVERWRITES the settings page at runtime — #quotaLine and the
+     mode description are both written from JS, so the HTML can be perfectly
+     correct and the rendered page still wrong. That is exactly what happened:
+     the HTML was corrected at 0.9.58 and the page still said "20 prompts a day"
+     because this file put it back. A screenshot caught it; no assertion here
+     could have, because none of them read this file. Now one does. */
+  const ojs = readFileSync('./options.js', 'utf8');
+  for (const [re, why] of [
+    [/prompts a day/i, 'the retired quota unit'],
+    [/Questions and prompts come from/i, 'the ask-or-offer framing'],
+    [/Suggestions will not appear/i, 'chip-era wording'],
+    [/r\.limit \|\| \d+/, 'a hard-coded copy of the daily limit']
+  ]) {
+    t('options.js has no dead copy: ' + why, !re.test(ojs));
+  }
+  t('and the runtime quota line agrees with the HTML it overwrites',
+    /20 replies a day/.test(ojs) && /20 replies a day/.test(opts));
 }
 
 /* ---- v2: history mining, client side --------------------------------------
@@ -811,8 +829,8 @@ const TURNS = [
   /* Silence has exactly one cause: an empty moves array from a call that
      succeeded. Any other route to a quiet row would be an outage wearing
      correct behaviour's face. */
-  t('the only silent path is a successful call that earned nothing',
-    /if \(!moves\.length\) \{[\s\S]{0,500}renderNothing\(\)/.test(csrcM));
+  t('the only path to the notice is a successful call that earned nothing',
+    /if \(!moves\.length\) \{[\s\S]{0,500}renderNothing\(anchor\)/.test(csrcM));
 
   /* The click is send-ready: composes and stops. A call here would reintroduce
      the spinner, the failure state and the second charge the pivot removed. */
@@ -822,12 +840,38 @@ const TURNS = [
   t('it composes the prompt straight into the box', /insertPrompt\(m\.text\)/.test(idea));
   t('and carries the full prompt as its hover title', /chip\.title = m\.text/.test(idea));
 
-  /* Zero renders no row rather than an empty labelled shell. A header over
-     nothing reads as a broken card; absence reads as nothing to say. */
-  t('nothing mined removes the row outright',
-    /function renderNothing\(\)[\s\S]{0,200}data-contexa[\s\S]{0,40}remove\(\)/.test(csrcM));
-  t('and nothing is fabricated to fill it',
-    /renderNothing\(\)/.test(csrcM) && !/moves = \[\s*\{/.test(csrcM));
+  /* Zero says so, and then leaves. It used to remove the row outright, which is
+     indistinguishable from a crash to someone who just clicked and waited. */
+  const nothing = (csrcM.match(/function renderNothing\(anchor\)[\s\S]*?\n  \}/) || [''])[0];
+  t('nothing mined renders a notice rather than deleting the row', !!nothing && /Nothing for now\./.test(nothing));
+  t('and nothing is fabricated to fill it', !/moves = \[\s*\{/.test(csrcM));
+
+  /* INERT, and pinned three ways because this is the shape a floor comes back
+     in. Every other renderQuiet mode has an action; this one must not acquire
+     one, because there is nothing here the user could do. */
+  t('the notice has no click handler', !/addEventListener/.test(nothing));
+  t('and no button of its own', !/createElement\('button'\)/.test(nothing));
+  t('and is not styled as a chip', !/\bchip\b/.test(nothing));
+  t('and cannot be clicked at all', /\.quiet\.nothing\{pointer-events:none/.test(csrcM));
+  /* It leaves on its own, reusing the scroll watcher's collapse rather than a
+     second fade mechanism. A permanent element saying nothing is the clutter
+     the quiet row was deleted to avoid. */
+  t('and it collapses itself afterwards', /classList\.add\('away'\)/.test(nothing));
+
+  /* The stylesheet is a template literal, so ONE stray backtick anywhere inside
+     it — including inside a comment — silently ends it early and takes the rest
+     of content.js with it. Neither `node --check` nor a regex over the source
+     catches that: both still parse, and the file is simply wrong at runtime.
+     This cost a debugging round when a comment quoted a class name in backticks.
+     Evaluate the literal for real and check it reaches its last rule. */
+  {
+    const at = csrcM.indexOf('const CSS = `') + 'const CSS = `'.length;
+    const body = csrcM.slice(at, csrcM.indexOf('`;', at));
+    t('the stylesheet literal contains no stray backtick', !body.includes('`'),
+      body.includes('`') ? JSON.stringify(body.slice(body.indexOf('`') - 40, body.indexOf('`') + 10)) : '');
+    t('and it reaches its final rule', /@keyframes cxpulse/.test(body));
+    t('and it carries the zero notice rule', /\.quiet\.nothing\{/.test(body));
+  }
   /* The rate is the open field-test question — the pencil that used to catch
      this case is going, and there is no fallback behind it. Unmeasurable would
      mean shipping the decision blind. */

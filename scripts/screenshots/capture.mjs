@@ -35,7 +35,7 @@
 
 import { createServer } from 'node:https';
 import { execFileSync } from 'node:child_process';
-import { readFileSync, mkdtempSync, existsSync, rmSync } from 'node:fs';
+import { readFileSync, mkdtempSync, existsSync, rmSync, mkdirSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve, dirname } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
@@ -63,7 +63,16 @@ const chromium = await (async () => {
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO = resolve(HERE, '../..');
 const EXT = join(REPO, 'extension');
-const OUT = join(REPO, 'publishing', 'screenshots');
+/* CX_ZERO drives the empty result instead of the listing set. It is a
+   VERIFICATION pass, not an asset: a rendered element is the one thing source
+   assertions cannot check, and the zero notice is exactly the kind of thing
+   that can be perfectly correct in the source and invisible on screen. It
+   writes somewhere else on purpose — the listing set stays five, and a
+   verification shot must never be able to leak into a store submission. */
+const ZERO = process.env.CX_ZERO === '1';
+const OUT = ZERO
+  ? join(REPO, 'build-ready', 'zero-check')
+  : join(REPO, 'publishing', 'screenshots');
 const MOCK = join(HERE, 'mock-claude.html');
 
 const PORT = 8443;
@@ -155,7 +164,8 @@ function startServer(tls) {
         });
         return res.end();
       }
-      const body = req.url.startsWith('/v1/next-steps') ? MOVES
+      const body = req.url.startsWith('/v1/next-steps')
+          ? (ZERO ? { moves: [], grounding: { total: 0, kept: 0, grounded: 0 }, quota: { used: 4, limit: 20 } } : MOVES)
         : { ok: true, version: 'mock', model: 'mock', limit: 20, configured: true };
       res.writeHead(200, {
         'content-type': 'application/json',
@@ -213,6 +223,7 @@ async function assertCardGeometry(page) {
 
 async function shoot(page, name, note, { card = false } = {}) {
   if (card) await assertCardGeometry(page);
+  mkdirSync(OUT, { recursive: true });
   const file = join(OUT, name);
   await page.screenshot({ path: file, clip: { x: 0, y: 0, ...SHOT } });
   shots.push({ name, note });
@@ -283,6 +294,37 @@ async function main() {
     await page.evaluate(() => window.__mock.bottom());
     await page.waitForTimeout(900);              // let the entrance settle
     await shoot(page, '3-trigger.png', 'the trigger, before any click', { card: true });
+
+    /* ---- CX_ZERO: the empty result, which is the only state a source
+       assertion cannot see. Click, get nothing back, and photograph what the
+       user is actually left looking at. Returns early: the listing shots are
+       not taken on this pass and must not be. */
+    if (ZERO) {
+      await page.click(MASCOT);
+      await page.waitForSelector(`${CARD} .quiet.nothing`, { timeout: 15000 });
+      await page.evaluate(() => window.__mock.bottom());
+      await page.waitForTimeout(400);
+      await shoot(page, 'zero.png', 'nothing mined — what the user is left with');
+      /* Inert, checked in the live DOM rather than in the source. computed
+         pointer-events is the property that decides whether a click can land,
+         and it is the one thing a regex over content.js genuinely cannot know. */
+      const inert = await page.evaluate(() => {
+        const host = document.querySelector('[data-contexa]');
+        const el = host && host.shadowRoot.querySelector('.quiet.nothing');
+        if (!el) return null;
+        return {
+          text: el.textContent.trim(),
+          pointerEvents: getComputedStyle(el).pointerEvents,
+          buttons: el.querySelectorAll('button, a, [role="button"]').length
+        };
+      });
+      console.log('  zero-state:', JSON.stringify(inert));
+      if (!inert) throw new Error('zero notice did not render');
+      if (inert.pointerEvents !== 'none') throw new Error(`zero notice is clickable: ${inert.pointerEvents}`);
+      if (inert.buttons !== 0) throw new Error(`zero notice has ${inert.buttons} clickable child(ren)`);
+      console.log(`\nzero-state verified, shot written to ${OUT}`);
+      return;
+    }
 
     // ---- 1-moves: click it, the mined row arrives --------------------------
     await page.click(MASCOT);
