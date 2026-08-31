@@ -569,9 +569,43 @@ async function callHosted(reply, turns) {
   return { data };
 }
 
-/* tiny in-memory cache (service worker lifetime) */
-const stepsCache = new Map();
-function cachePut(map, k, v) { map.set(k, v); if (map.size > 60) map.delete(map.keys().next().value); }
+/* Row cache, in chrome.storage.session rather than in this worker's memory.
+
+   It WAS a plain Map, and that had a symptom nobody connected to it for weeks:
+   the same reply gave four good moves on one click and "Nothing for now." on
+   the next, an hour apart, on the same thread. The cause was not the model
+   being fickle in any interesting way — MV3 tears this service worker down
+   whenever it feels like it, the Map died with it, and the second click was a
+   fresh call and a fresh sample. A row the user had already seen simply
+   evaporated, and it cost quota to re-roll.
+
+   storage.session survives the teardown and dies with the browser session,
+   which is the right lifetime: it is a cache of what the user was just shown,
+   not a record worth keeping. Same key as before (turn positions plus a text
+   prefix), same 60-entry cap.
+
+   The reads and writes are async now, where a Map was synchronous. That is the
+   whole cost, and it is paid inside a handler that is already awaiting a
+   network call. */
+const CACHE_KEY = 'stepsCache';
+async function cacheGet(k) {
+  try {
+    const { [CACHE_KEY]: map } = await chrome.storage.session.get({ [CACHE_KEY]: {} });
+    return map && Object.prototype.hasOwnProperty.call(map, k) ? map[k] : undefined;
+  } catch { return undefined; }   // storage.session missing or unavailable: behave as a miss
+}
+async function cachePut(k, v) {
+  try {
+    const { [CACHE_KEY]: map } = await chrome.storage.session.get({ [CACHE_KEY]: {} });
+    const next = map && typeof map === 'object' ? map : {};
+    next[k] = v;
+    /* Oldest-first eviction, as the Map's insertion order gave for free. Object
+       key order preserves insertion for string keys, so the shape carries over. */
+    const keys = Object.keys(next);
+    for (let i = 0; i < keys.length - 60; i++) delete next[keys[i]];
+    await chrome.storage.session.set({ [CACHE_KEY]: next });
+  } catch { /* a cache that cannot write is a cache miss, never an error */ }
+}
 
 chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
   (async () => {
@@ -591,7 +625,8 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
          now depend on everything BUT the last turn. */
       const key = turns.map(t => t.i + ':' + t.text.slice(0, 60)).join('|')
         + '||' + reply.slice(0, 200);
-      if (stepsCache.has(key)) return sendResponse(stepsCache.get(key));
+      const hit = await cacheGet(key);
+      if (hit !== undefined) return sendResponse(hit);
       // Own key = direct to Anthropic, unlimited. No key = hosted proxy, quota'd.
       // Section labels MUST match worker/src/index.js byte-for-byte.
       const r = apiKey
@@ -635,7 +670,7 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
         out = r.partial ? Object.assign({}, r.data, { partial: true }) : r.data;
       }
       // The gate can empty a call that itself succeeded, so errors are not cached.
-      if (!out.error) cachePut(stepsCache, key, out);
+      if (!out.error) await cachePut(key, out);
       sendResponse(out);
 
     } else if (msg.type === 'healthCheck') {

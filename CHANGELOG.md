@@ -7,6 +7,87 @@ free to diverge, and the settings page labels them separately for that reason.
 
 ---
 
+## 0.9.64 — Extension
+
+*An empty row now says which kind of empty it is — and a good row stops
+vanishing when you click twice.*
+
+### A claim withdrawn
+
+0.9.63's notes said a row emptied by the action gate would be the bug to watch
+for. Then, asked about one specific empty thread, this project's own answer was
+that the gate could be ruled out because that thread's four known labels are all
+must-survive tests.
+
+**Both cannot be true, and the second was wrong.** The tests rule out the gate
+for labels that have been *seen*. If the model produced different ones on that
+click — or four reply-earned ones — either gate could have emptied the row, and a
+screenshot cannot tell. The owner spotted the contradiction: *"ali sam sad video
+da si rekao da ako su prazni onda je bug"*.
+
+### The defect underneath it
+
+There are **three** ways to reach an empty row, three distinct console lines, and
+until now **one identical card**:
+
+| cause | what it means |
+|---|---|
+| the model earned nothing | the product working |
+| the action gate found no production verb | possibly an incomplete verb list |
+| the spread gate dropped an all-reply row | by design |
+
+Only the first is honest. The other two were wearing its face — which is exactly
+what **never fake output** forbids. The zero notice exists (0.9.59) so a click
+that mined nothing says so instead of vanishing; it was saying the same thing
+when the cause was entirely different.
+
+And it was unfalsifiable in practice: the diagnostics are console-only, and this
+product is field-tested on a phone, where there is no console.
+
+So the card now carries the reason. An honest zero keeps **"Nothing for now."**
+unchanged — it is the common case and must not get noisier. A row the gates
+emptied says **"Nothing worth clicking here."** Not to explain gates to a user,
+but so the difference is legible **in a screenshot**, which is how this is
+actually being tested.
+
+### The cache moves out of the service worker
+
+`stepsCache` was a plain `Map` in an MV3 service worker. Chrome tears those down
+whenever it likes, so a second click on the same reply was a fresh call and a
+fresh sample — which is how four good moves became "Nothing for now." on the same
+thread an hour apart, and how a row the user had already seen simply evaporated
+while costing quota to re-roll.
+
+It now lives in `chrome.storage.session`: survives the teardown, dies with the
+browser session, which is the right lifetime for a cache of what someone was just
+shown. Same key, same 60-entry oldest-first cap, and errors are still never
+cached — a gate can empty a call that itself succeeded, and a cached failure
+would outlive its cause. Reads and writes are async now; that is the whole cost,
+paid inside a handler already awaiting the network.
+
+### Two test lessons
+
+The teardown test needed a fixture that **survives the gates**. The default
+harness move is reply-earned, so the spread gate drops it, and the first version
+of this test compared `[]` with `[]` — passing while proving nothing.
+
+And a guard broke on the signature change from `renderNothing(anchor)` to
+`renderNothing(anchor, filtered)` — **the fourth time** in this file a check has
+failed on a correct refactor because it pinned typography. Its neighbour pinned a
+character distance (`{0,500}`) between two strings and broke when a comment grew.
+Both are now written as properties: the notice has exactly one caller, that
+caller sits in the earned-nothing branch, and nothing renders a row in between.
+
+### Versions
+
+Extension **0.9.64**, worker **0.9.64**. 362 assertions green (251 extension,
+111 worker). Each new guard proven by breaking it: both zeros drawing one card,
+the caller ceasing to distinguish them, the cache never persisting, and the cache
+never reading back. **No worker code changed** — the version moves only so the
+two artifacts stay in step, which `build.mjs` enforces.
+
+---
+
 ## 0.9.63 — Extension + Worker
 
 *"Klikneš, i Claude odradi. Ako to ne može — ni ne otvaraj."*

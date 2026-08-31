@@ -555,9 +555,25 @@
       /* Zero stays a product outcome: nothing mined, nothing shown. Logged
          because how OFTEN this fires is the one question the field test exists
          to answer — the fifth chip that used to catch a click returning nothing
-         is gone, and there is deliberately no fallback behind it. */
-      console.log('[CONTEXA] quiet row — nothing mined from this session');
-      return renderNothing(anchor);
+         is gone, and there is deliberately no fallback behind it.
+
+         But there are THREE ways to arrive here and only one of them is the
+         product working. The model can earn nothing; the action gate can drop
+         every move for want of a verb on its list; the spread gate can drop a
+         row that was all reply. Until 0.9.64 they drew the SAME card, so a gate
+         eating a good row wore the costume of an honest zero — which is the one
+         thing this product must never do. The console told them apart, and the
+         field test runs on a phone, where there is no console.
+
+         So the reason travels to the card. `g.total` is what the model returned
+         before any gate; if it sent moves and none survived, this row was
+         FILTERED, not empty. */
+      const g = resp.grounding || {};
+      const filtered = (g.total || 0) > 0;
+      console.log(filtered
+        ? '[CONTEXA] quiet row — model returned ' + g.total + ', gates kept none'
+        : '[CONTEXA] quiet row — nothing mined from this session');
+      return renderNothing(anchor, filtered);
     }
     console.log('[CONTEXA] moves', moves.map(m => m.label));
     renderMoves(anchor, moves);
@@ -872,12 +888,22 @@
      It leaves on its own. Saying its piece and then collapsing is the point:
      the row is gone either way, the difference is that the user knows why. */
   const NOTHING_LINGERS_MS = 4000;
-  function renderNothing(anchor) {
+  function renderNothing(anchor, filtered) {
     const wrap = shell(anchor, 'nothing');
     if (!wrap) return;
     const note = document.createElement('div');
     note.className = 'quiet nothing';
-    note.textContent = 'Nothing for now.';
+    /* Two wordings, because two different things happened. "Nothing for now."
+       is the honest zero and stays exactly as it was — it is the common case
+       and must not get noisier. The other says the model DID send moves and
+       none survived the gates, which is a different fact and sometimes a
+       defect: an incomplete verb list empties a row in a language the list does
+       not know, and that failure is invisible if both cards read the same.
+
+       Not written to explain gates to a user. Written so the difference is
+       legible in a SCREENSHOT, since that is how this product is actually
+       being field-tested and the console is not reachable there. */
+    note.textContent = filtered ? 'Nothing worth clicking here.' : 'Nothing for now.';
     wrap.appendChild(note);
     /* Reuses the scroll watcher's own fade rather than a second mechanism:
        `.away` already collapses height and hides from the tab order, which is

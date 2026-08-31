@@ -13,8 +13,13 @@ import vm from 'node:vm';
 const SRC = readFileSync('./background.js', 'utf8');
 
 /* ---- harness ------------------------------------------------------------- */
-function load({ storage = {} } = {}) {
+function load({ storage = {}, session = {} } = {}) {
   const store = { ...storage };
+  /* storage.session is passed BY REFERENCE, not copied. That is the whole point:
+     handing the same object to a second load() is an MV3 service-worker teardown
+     with the browser session still alive, which is the case the row cache exists
+     to survive. */
+  const sess = session;
   const writes = [];
   const listeners = { message: [], installed: [], startup: [] };
   const requests = [];
@@ -35,6 +40,14 @@ function load({ storage = {} } = {}) {
           writes.push(obj);
           if (cb) cb();
         }
+      },
+      session: {
+        async get(defaults) {
+          const out = {};
+          for (const [k, v] of Object.entries(defaults || {})) out[k] = k in sess ? sess[k] : v;
+          return out;
+        },
+        async set(obj) { Object.assign(sess, obj); }
       }
     },
     runtime: {
@@ -77,7 +90,7 @@ function load({ storage = {} } = {}) {
   });
   const fire = async (kind) => { for (const f of listeners[kind]) await f(); };
 
-  return { store, writes, requests, send, fire, sandbox };
+  return { store, sess, writes, requests, send, fire, sandbox };
 }
 
 const fails = [];
@@ -178,6 +191,54 @@ const TURNS = [
     'calls=' + anthropic.length);
 }
 
+
+/* ---- 9b. the row cache survives an MV3 teardown -------------------------- */
+/* The symptom this fixes was invisible for weeks: the same reply gave four good
+   moves on one click and "Nothing for now." on the next, an hour apart, on the
+   same thread. The cache was a plain Map in the service worker, MV3 tore the
+   worker down between clicks, and the second click was a fresh call and a fresh
+   sample. A row the user had already seen simply evaporated, and it cost quota
+   to re-roll. Handing the SAME session object to a second load() is that
+   teardown. */
+{
+  const session = {};
+  const first = load({ storage: { model: '', apiKey: 'sk-x' }, session });
+  await settle();
+  /* A move that actually SURVIVES the gates. The default harness fixture is
+     reply-earned and gets dropped by the spread gate, so caching it would leave
+     this test comparing [] with [] and proving nothing. */
+  first.sandbox.fetch = async (url, opts) => {
+    first.requests.push({ url, body: JSON.parse(opts?.body || '{}') });
+    return { ok: true, status: 200, async text() { return ''; },
+      async json() { return { stop_reason: 'end_turn', content: [{ text: JSON.stringify({ moves: [
+        { label: 'Write the menu page', text: 'Write the menu page.', evidence: 'now the menu page' }
+      ] }) }] }; } };
+  };
+  const a = await first.send({ type: 'nextSteps', reply: 'r'.repeat(80), turns: TURNS });
+  t('a successful row is cached', first.requests.length === 1 && a.moves.length === 1,
+    'calls=' + first.requests.length + ' moves=' + JSON.stringify(a.moves.map(m => m.label)));
+
+  // The worker dies; the browser session does not.
+  const second = load({ storage: { model: '', apiKey: 'sk-x' }, session });
+  await settle();
+  const b = await second.send({ type: 'nextSteps', reply: 'r'.repeat(80), turns: TURNS });
+  t('and survives the worker being torn down',
+    JSON.stringify(b.moves) === JSON.stringify(a.moves), JSON.stringify(b.moves));
+  t('and the re-click costs no second model call',
+    second.requests.length === 0, 'calls=' + second.requests.length);
+}
+{
+  /* An error is never cached: a gate can empty a call that itself succeeded, and
+     a cached failure would outlive the thing that caused it. */
+  const session = {};
+  const h = load({ storage: { model: '', apiKey: 'sk-x' }, session });
+  await settle();
+  h.sandbox.fetch = async () => ({ ok: false, status: 500,
+    async text() { return 'boom'; }, async json() { return {}; } });
+  const bad = await h.send({ type: 'nextSteps', reply: 'r'.repeat(80), turns: TURNS });
+  t('an error response is not cached', !!bad.error && !JSON.stringify(session).includes('error'),
+    JSON.stringify(session).slice(0, 80));
+}
 
 /* ---- 10. capture: the DOM walker that feeds the model -------------------- */
 /* Extracted from content.js and run against a hand-rolled DOM, because the two
@@ -881,8 +942,20 @@ const TURNS = [
   /* Silence has exactly one cause: an empty moves array from a call that
      succeeded. Any other route to a quiet row would be an outage wearing
      correct behaviour's face. */
-  t('the only path to the notice is a successful call that earned nothing',
-    /if \(!moves\.length\) \{[\s\S]{0,500}renderNothing\(anchor\)/.test(csrcM));
+  /* Asserted as a PROPERTY, not as a distance. This check used to span the gap
+     with a {0,500} window and broke when the branch grew a comment — the same
+     typography-over-property mistake this file has now made four times. What
+     matters is that the notice has exactly ONE caller and that it sits inside
+     the earned-nothing branch, with no row rendered in between. */
+  {
+    const calls = csrcM.split('renderNothing(').length - 1;
+    const at = csrcM.indexOf('if (!moves.length) {');
+    const call = csrcM.indexOf('renderNothing(anchor', at);
+    const between = at >= 0 && call > at ? csrcM.slice(at, call) : 'x';
+    t('the only path to the notice is a successful call that earned nothing',
+      calls === 2 && at >= 0 && call > at && !/renderMoves\(/.test(between),
+      'callsites=' + (calls - 1));
+  }
 
   /* The click is send-ready: composes and stops. A call here would reintroduce
      the spinner, the failure state and the second charge the pivot removed. */
@@ -894,8 +967,20 @@ const TURNS = [
 
   /* Zero says so, and then leaves. It used to remove the row outright, which is
      indistinguishable from a crash to someone who just clicked and waited. */
-  const nothing = (csrcM.match(/function renderNothing\(anchor\)[\s\S]*?\n  \}/) || [''])[0];
+  const nothing = (csrcM.match(/function renderNothing\([^)]*\)[\s\S]*?\n  \}/) || [''])[0];
   t('nothing mined renders a notice rather than deleting the row', !!nothing && /Nothing for now\./.test(nothing));
+  /* THREE things can empty a row and only one is the product working: the model
+     earning nothing, the action gate finding no production verb, the spread gate
+     dropping an all-reply row. Until 0.9.64 they drew the same card, so a gate
+     eating a good row wore an honest zero's face — and the field test runs on a
+     phone, where the console that told them apart is unreachable. */
+  t('and a row the gates emptied says something DIFFERENT from an honest zero',
+    /Nothing worth clicking here\./.test(nothing) &&
+    /filtered \? 'Nothing worth clicking here\.' : 'Nothing for now\.'/.test(nothing));
+  t('and the caller decides which, from what the model returned before the gates',
+    /const filtered = \(g\.total \|\| 0\) > 0/.test(csrcM));
+  t('and both causes are still told apart in the console',
+    /gates kept none/.test(csrcM) && /nothing mined from this session/.test(csrcM));
   t('and nothing is fabricated to fill it', !/moves = \[\s*\{/.test(csrcM));
 
   /* INERT, and pinned three ways because this is the shape a floor comes back
