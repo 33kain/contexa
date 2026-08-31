@@ -9,17 +9,11 @@ root) — these are convenience scripts run by hand.
   Chromium against a mock of claude.ai's DOM. Needs Playwright and Xvfb; not
   part of the test suite. See `scripts/screenshots/README.md`.
 - `release-commit.ps1` — release ceremony: bump, build, tag, push.
-- `dogfood-test.ps1` — drive a local reply through the pipeline for manual checks.
+- `dogfood-test.ps1` — drive three real sessions through the live backend for
+  manual scoring. The session accumulates across the run, so the last turn is
+  mined against the whole thing; a run that sent only the current turn would
+  test the old single-turn product wearing the new wire.
 - `reproduce-test.ps1` — reproduce a reported failure against the backend.
-- `prompt-ab-fork.mjs` + `ab-input.json` — offline A/B harness for
-  QUESTIONS_SYSTEM prompt changes: fixed inputs through fixed prompt variants,
-  N runs each, nothing but which branch (questions vs. moves) came back. Built
-  2026-08-28 for the original questions-vs-moves fork question, un-archived
-  and extended for the choose/risk/why-outrank-questions precedence rule
-  (three fixed inputs, PRE/NOW/DROP variants). Reads `ANTHROPIC_API_KEY` from
-  the environment; not part of the test suite. `ab-input.json` holds the U1
-  input only — U2/U3 are fixed inside the script itself, not in an editable
-  file, so a later casual edit can't move a pre-registered input.
 
 ## archive/
 
@@ -29,3 +23,11 @@ provenance — not meant to be re-run as part of the current workflow.
 - `commit-0.9.*.ps1` — per-version release scripts; the current path is `release-commit.ps1`.
 - `probe.js` — a browser-console DOM probe used once (2026-08-22) to locate
   where claude.ai's chrome text lived, for `content.js`'s `SKIP_SEL`.
+- `prompt-ab-fork.mjs` + `ab-input.json` — offline A/B harness for
+  QUESTIONS_SYSTEM prompt changes, archived 2026-08-31 when the history-mining
+  pivot deleted that prompt. Does not run as written. Kept because the METHOD
+  transfers to `MOVES_SYSTEM` — fixed inputs, prompt variants, N runs each, and
+  a threshold committed to before the runs — and because its own history
+  records two dead ends worth not repeating: fixtures whose PRE variant already
+  scored full marks, and which therefore could not have detected the change
+  being tested even in principle.

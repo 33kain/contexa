@@ -9,17 +9,20 @@
 # Each run uses 3 of your 20 daily quota (~1.2 cents) and writes
 # contexa-test-<tag>.txt next to this script. Send me both files to be scored.
 #
+# 2026-08-31 — rewritten for history mining. The request is now (turns, reply)
+# and the session ACCUMULATES across the run, so turn 3 is mined against all
+# three turns rather than against itself. Sending only the current turn would
+# have tested the old single-turn product wearing the new wire and would never
+# have exercised the pin/drop policy — which is the same class of mistake as
+# the one below, and the reason that note is kept.
+#
 # 2026-08-30 — fixed to actually hit the current prompt. This script sent no
-# `v` field, which wantsQuestions() in worker/src/index.js reads as a
-# pre-0.9.30 client and answers with LEGACY_STEPS_SYSTEM — the frozen,
-# one-step, {"steps":[...]} prompt that predates the fork-precedence rule (and
-# everything else since). Every run of this script was silently testing a
-# prompt nobody was trying to test. It also sent an Origin that does not match
-# ALLOWED_EXTENSION_IDS in wrangler.toml, which the worker has been pinned to
-# since launch — that origin now gets forbidden_origin before the body is even
-# read. Both are fixed below: `v` + `accepts` opt into the real, current wire
-# shape (questions/assume, or chips when a move is earned instead), and the
-# Origin matches the real pinned extension ID.
+# `v` field, which the worker read as a pre-0.9.30 client, answering with the
+# frozen one-step prompt that predated everything since. Every run was silently
+# testing a prompt nobody was trying to test. It also sent an Origin that does
+# not match ALLOWED_EXTENSION_IDS in wrangler.toml. Both were fixed; the `v`
+# field has since gone with the negotiation itself, but the lesson stands and
+# is why the accumulation above is spelled out rather than assumed.
 #
 # FIELD NOTES
 #
@@ -46,11 +49,7 @@
 
 param(
   [string]$Tag = "dogfood",
-  [string]$Api = "https://contexa-api.michu110899.workers.dev",
-  # The extension version to announce. Bump this alongside manifest.json /
-  # build.mjs's VERSION — an old value still works (the worker only checks
-  # that `v` is non-empty) but a stale one here is a stale signal in the log.
-  [string]$ExtensionVersion = "0.9.57"
+  [string]$Api = "https://contexa-api.michu110899.workers.dev"
 )
 
 # Real, pinned in wrangler.toml — see ALLOWED_EXTENSION_IDS. A made-up origin
@@ -87,29 +86,34 @@ $turns = @(
 Say ""
 Say "CONTEXA dogfood test - tag: $Tag" "Cyan"
 Say "api: $Api"
-Say "extension version announced: $ExtensionVersion"
+Say "session grows to $($turns.Count) turns across the run"
 Say "device: $device"
 Say "utc: $((Get-Date).ToUniversalTime().ToString('yyyy-MM-dd HH:mm:ss'))"
 Say ""
 
 $branchCounts = @()
 
+# The session accumulates as the run walks it, which is the point: turn 1 is
+# mined against a one-turn session, turn 3 against all three. A run that sent
+# only the current turn would test the old single-turn product wearing the new
+# wire, and would never exercise the pin/drop policy at all.
+$turnsSoFar = @()
+
 foreach ($t in $turns) {
+  $turnsSoFar += @{ i = $t.n; text = $t.prompt }
   Say ("=" * 74) "DarkGray"
   Say "TURN $($t.n)" "Yellow"
   Say ("prompt: " + $t.prompt)
   Say ""
 
-  # v + accepts are the whole handshake (see worker/src/index.js wantsQuestions
-  # / wantsChips): v non-empty opts into the current prompt at all, and
-  # accepts:['chips'] opts into the move row when the reply earns one instead
-  # of questions. Both are required to see the actual shipped behaviour.
+  # Two fields, no handshake. The v/accepts negotiation went with the three
+  # client generations it served; there is one shape now. `turns` is the whole
+  # signal — the session's own prompts, oldest first — and a request without it
+  # is refused before it costs anything.
   $body = @{
-    prompt  = $t.prompt
-    reply   = $t.reply
-    v       = $ExtensionVersion
-    accepts = @("chips")
-  } | ConvertTo-Json
+    reply = $t.reply
+    turns = $turnsSoFar
+  } | ConvertTo-Json -Depth 4
 
   try {
     $res = Invoke-RestMethod -Uri "$Api/v1/next-steps" -Method Post `
@@ -117,39 +121,27 @@ foreach ($t in $turns) {
       -Headers @{ "origin" = $origin; "x-cx-device" = $device } `
       -Body $body
 
-    # Never both — the shipped rule (choose/risk/why outrank questions) means
-    # a reply earns EITHER chips OR questions, never a mix. Report whichever
-    # came back, and say plainly if it was neither (an honest empty row).
-    if ($res.chips -and $res.chips.Count -gt 0) {
-      Say ("  MOVES: {0} chip(s)" -f $res.chips.Count) "Magenta"
-      $branchCounts += "MOVES($($res.chips.Count))"
-      foreach ($c in $res.chips) {
-        Say ("  [{0}] {1}" -f $c.id, $c.text) "Green"
-        Say ("      evidence: {0}" -f $c.evidence)
-      }
-    }
-    elseif ($res.questions -and $res.questions.Count -gt 0) {
-      Say ("  QUESTIONS: {0}" -f $res.questions.Count) "Magenta"
-      $branchCounts += "QUESTIONS($($res.questions.Count))"
-      $i = 1
-      foreach ($q in $res.questions) {
-        # No `evidence` here on purpose: the worker strips it from the
-        # client-facing questions[] (it's used server-side for the grounding
-        # filter, then dropped) — only chips[] carries it back out. Printing
-        # $q.evidence would just print blank on every single question.
-        Say ("  {0}. [{1}] {2}" -f $i, $q.label, $q.text) "Green"
-        Say ("      options: " + ($q.options -join " | "))
-        $i++
+    # One shape. The label is what the user reads; the text is what lands in
+    # the message box verbatim, so both are printed in full — a label that
+    # reads well over a text that does not is the failure worth catching.
+    if ($res.moves -and $res.moves.Count -gt 0) {
+      Say ("  MOVES: {0}" -f $res.moves.Count) "Magenta"
+      $branchCounts += "MOVES($($res.moves.Count))"
+      foreach ($m in $res.moves) {
+        Say ("  [{0}]" -f $m.label) "Green"
+        Say ("      {0}" -f ($m.text -replace "`n", "`n      "))
+        Say ("      evidence: {0}" -f $m.evidence)
       }
     }
     else {
-      Say "  QUIET: zero questions, zero chips" "DarkYellow"
+      Say "  QUIET: nothing mined from this session" "DarkYellow"
       $branchCounts += "QUIET"
     }
 
-    if ($res.assume -and $res.assume.Count -gt 0) {
+    if ($res.grounding) {
       Say ""
-      Say ("  assumed: " + ($res.assume -join " / ")) "DarkCyan"
+      Say ("  grounding: {0} returned, {1} kept, {2} grounded" -f `
+        $res.grounding.total, $res.grounding.kept, $res.grounding.grounded) "DarkCyan"
     }
 
     if ($res.quota) { Say ""; Say ("  quota: {0}/{1}" -f $res.quota.used, $res.quota.limit) "DarkGray" }
@@ -171,4 +163,4 @@ Say ""
 
 $log | Set-Content -Path $outFile -Encoding utf8
 Write-Host "Saved to: $outFile" -ForegroundColor Cyan
-Write-Host "Send me this file. For a MOVES row: is that the fork you'd actually take? For a QUESTIONS row: would you have thought to ask that yourself?" -ForegroundColor Cyan
+Write-Host "Send me this file. For each move: would you actually send that message, as written, without editing it first? And for a QUIET row: was there really nothing worth doing next?" -ForegroundColor Cyan

@@ -65,28 +65,26 @@ if (/workers\.dev\/\*"/.test(outMf) && !outMf.includes(HOST))
   fails.push('wildcard workers.dev host still present');
 if (JSON.parse(outMf).version !== VERSION) fails.push('manifest version wrong');
 
-// BOTH prompts live in two places (extension + worker) and MUST be byte-identical,
-// or hosted and own-key users get different products. 0.9.23 adds EXPAND_SYSTEM
-// (the fifth chip) to the same contract.
+/* The prompt lives in two places (extension + worker) and MUST be byte-identical,
+   or hosted and own-key users get different products. There were three of these
+   under the ask-or-offer fork; the pivot left one, which makes this check
+   cheaper to run and more expensive to lose — there is no second prompt to
+   notice a drift in. */
 const wrkForPrompts = readFileSync('worker/src/index.js', 'utf8');
 const grab = (s, name) => {
   const m = s.match(new RegExp(name + ' = `([\\s\\S]*?)`;'));
   return m && m[1];
 };
-for (const name of ['QUESTIONS_SYSTEM', 'EXPAND_SYSTEM', 'MOVES_SYSTEM']) {
+for (const name of ['MOVES_SYSTEM']) {
   const pExt = grab(outBg, name);
   const pWrk = grab(wrkForPrompts, name);
   if (!pExt || !pWrk) fails.push(`could not locate ${name} in one of the two copies`);
   else if (pExt !== pWrk) fails.push(`PROMPT DRIFT: ${name} differs between extension and worker`);
 }
-// The expand request's section labels are code, not prompt — pin them the same way.
-const sectionRe = /'ROUGH ASK:\\n' \+ intent/;
-if (!sectionRe.test(outBg) || !sectionRe.test(wrkForPrompts))
-  fails.push('expand section labels missing or drifted between extension and worker');
-
-/* Same contract for the mining call's labels. Both paths feed one prompt, so a
-   label that drifts on one side changes what the model reads there and nowhere
-   else — the divergence class this whole file exists to catch. */
+/* The request's section labels are code, not prompt, and they are pinned the
+   same way. Both paths feed one prompt, so a label that drifts on one side
+   changes what the model reads there and nowhere else — the divergence class
+   this whole file exists to catch. */
 const turnsSectionRe = /'SESSION SO FAR:\\n' \+ turnsSection\(turns\)/;
 if (!turnsSectionRe.test(outBg) || !turnsSectionRe.test(wrkForPrompts))
   fails.push('mining section labels missing or drifted between extension and worker');
@@ -104,28 +102,26 @@ const fnsWrk = grabFns(wrkForPrompts);
 if (!fnsExt || !fnsWrk) fails.push('could not locate the v2 helpers in one of the two copies');
 else if (fnsExt !== fnsWrk) fails.push('DRIFT: cleanTurns/cleanMoves/groundMoves differ between extension and worker');
 
-/* 0.9.31: LEGACY_STEPS_SYSTEM is worker-only BY DESIGN — it serves extensions
-   older than 0.9.30, which by definition cannot be updated from here. Someone
-   reading the byte-identity rule ('both prompts live in two places') would
-   reasonably try to sync it into background.js; that would ship the previous
-   product to current users. Assert both halves: present in the worker, absent
-   from the extension. */
-if (!wrkForPrompts.includes('const LEGACY_STEPS_SYSTEM'))
-  fails.push('LEGACY_STEPS_SYSTEM missing from the worker - pre-0.9.30 clients would break');
-if (outBg.includes('const LEGACY_STEPS_SYSTEM'))
-  fails.push('LEGACY_STEPS_SYSTEM copied into the extension - it is worker-only, see the comment there');
-if (!outBg.includes('v: chrome.runtime.getManifest().version'))
-  fails.push('the extension no longer sends its version - the worker would answer in the legacy shape');
+/* The three-generation guards went with the negotiation they protected:
+   LEGACY_STEPS_SYSTEM must-be-worker-only, and the extension must-send-its-
+   version. Both were about serving old clients from one endpoint. There is one
+   shape now and one prompt, so there is no old shape to leak and no version to
+   negotiate with.
 
-/* 0.9.28: the capability moves teach features of a product that changes without
-   telling us, and nothing else in this build can see a stale exemplar. The dated
-   marker is the only instrument there is. Missing or drifted is a failure; merely
-   OLD is a warning printed below - a stale list must never block an urgent fix. */
-const AUDIT_RE = /CAPABILITY-AUDIT: (\d{4}-\d{2}-\d{2})/;
-const auditExt = (outBg.match(AUDIT_RE) || [])[1];
-const auditWrk = (wrkForPrompts.match(AUDIT_RE) || [])[1];
-if (!auditExt || !auditWrk) fails.push('CAPABILITY-AUDIT date missing from one of the two prompt files');
-else if (auditExt !== auditWrk) fails.push(`CAPABILITY-AUDIT drift: extension=${auditExt} worker=${auditWrk}`);
+   CAPABILITY-AUDIT went too, and that one is worth naming. It dated the
+   capability exemplars — the ones teaching artifacts, web search and project
+   instructions — because nothing else in this build can see a stale exemplar.
+   Those exemplars lived only in QUESTIONS_SYSTEM and LEGACY_STEPS_SYSTEM.
+   MOVES_SYSTEM teaches no Claude feature, so the marker had nothing left to
+   date, and a staleness check with no stale thing to find is a green light that
+   means nothing. If capability exemplars ever return to the prompt, the marker
+   and this check must return with them. */
+
+/* A client that stops sending its turns gets nothing back at all — the worker
+   rejects the request before it charges anyone. Cheap to assert, and it is the
+   one field the whole product now depends on. */
+if (!/turns: captureTurns\(\)/.test(readFileSync('extension/content.js', 'utf8')))
+  fails.push('the extension no longer captures the session - every request would be rejected');
 
 // The shipped model must agree across all three places that name one.
 const workerSrc = readFileSync('worker/src/index.js', 'utf8');
@@ -160,16 +156,6 @@ if (fails.length) {
 console.log(`built ${OUT}/ Ã¢â‚¬â€ v${VERSION}, model ${modelExt}, backend ${BACKEND}`);
 console.log('  prompt identical across extension and worker Ã¢Å“â€œ');
 
-const auditAge = Math.floor((Date.now() - Date.parse(auditExt + 'T00:00:00Z')) / 86400000);
-if (auditAge > 120) {
-  console.log('');
-  console.log(`  WARNING: capability moves last audited ${auditExt} - ${auditAge} days ago.`);
-  console.log('  Re-check them against the real product, then update CAPABILITY-AUDIT in BOTH');
-  console.log('  prompt files. Nothing else reports a stale capability exemplar. Not fatal.');
-  console.log('');
-} else {
-  console.log(`  capability moves audited ${auditExt}, ${auditAge}d ago - fresh`);
-}
 
 /* --- zip, with manifest.json at the ARCHIVE ROOT --------------------------- */
 /* Chrome rejects an upload whose manifest sits inside a wrapper folder, which is

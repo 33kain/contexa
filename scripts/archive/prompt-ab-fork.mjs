@@ -1,3 +1,12 @@
+/* ARCHIVED 2026-08-31 — this harness A/B-tested QUESTIONS_SYSTEM, and that
+ * prompt no longer exists: the history-mining pivot replaced the ask-or-offer
+ * fork with a single mined row. The script is kept because the METHOD is worth
+ * repeating on MOVES_SYSTEM — fixed inputs, prompt variants, N runs each, a
+ * threshold committed to BEFORE the runs — and because its own history records
+ * two dead ends (inert fixtures whose PRE already scored full marks, so they
+ * could not have detected the change even in principle) that are easy to
+ * repeat. It does not run as written; it reads a constant that is gone.
+ */
 /* CONTEXA — offline A/B for the fork precedence rule.
  *
  * WHY THIS EXISTS. Same harness family as the 2026-08-28 questions-vs-moves

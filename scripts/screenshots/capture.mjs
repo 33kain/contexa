@@ -74,32 +74,36 @@ const SHOT = { width: 1280, height: 800 };
    two questions, each with concrete options rather than categories, in the
    user's own inner voice. A screenshot that showed four vague questions would
    be advertising a product the prompt spends most of its length forbidding. */
-const QUESTIONS = {
-  questions: [
+const MOVES = {
+  moves: [
     {
-      label: 'Budget',
-      text: "What's my budget range?",
-      options: ['Budget (hostels, street food)', 'Mid-range', 'Splurge a bit'],
+      label: 'Build the itinerary',
+      text:
+        'Turn the Lisbon plan into a full day-by-day itinerary.\n' +
+        '- mid-range budget, a mix of casual spots and one nicer dinner\n' +
+        '- four days, arriving Thursday evening\n' +
+        'Keep the neighbourhoods you already suggested; just sequence them.',
+      evidence: 'a packed itinerary or a slower pace',
+    },
+    {
+      label: 'Add day trips',
+      text:
+        'Add two day trips to the Lisbon plan — one coastal, one inland.\n' +
+        'For each: how to get there without a car, how long it really takes, ' +
+        'and what to skip.',
       evidence: 'Let me know your budget range',
     },
     {
-      label: 'Pace',
-      text: 'How packed do I want the days?',
-      options: ['Packed — see everything', 'Slower, with real downtime', 'Somewhere in between'],
-      evidence: 'a packed itinerary or a slower pace with more downtime',
+      label: 'Book the flights',
+      text:
+        'Write the search I should run for flights to Lisbon. <paste here> is ' +
+        'my rough date range. Tell me which days are cheapest to fly and how ' +
+        'far ahead to book.',
+      evidence: 'Lisbon',
     },
   ],
-  assume: [],
+  grounding: { total: 3, kept: 3, grounded: 3 },
   quota: { used: 3, limit: 20 },
-};
-
-const COMPOSED = {
-  prompt:
-    'Turn the Lisbon plan into a full day-by-day itinerary.\n' +
-    '- Mid-range budget, a mix of casual spots and one nicer dinner\n' +
-    '- Slower pace, real downtime between things, nothing back-to-back\n' +
-    'Give specific restaurant picks and a rough time for each stop.',
-  quota: { used: 4, limit: 20 },
 };
 
 const REPLY_HTML = `
@@ -151,8 +155,7 @@ function startServer(tls) {
         });
         return res.end();
       }
-      const body = req.url.startsWith('/v1/expand') ? COMPOSED
-        : req.url.startsWith('/v1/next-steps') ? QUESTIONS
+      const body = req.url.startsWith('/v1/next-steps') ? MOVES
         : { ok: true, version: 'mock', model: 'mock', limit: 20, configured: true };
       res.writeHead(200, {
         'content-type': 'application/json',
