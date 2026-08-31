@@ -104,6 +104,32 @@ an artifact containing 0.9.58**. The version now has one home, read from the
 manifest, and the worker's `BUILD` must agree with it — the same treatment the
 model name has had across three files since 0.9.52.
 
+### Known behaviour on a dev copy, recorded because it reads as a break
+
+Installing this build unpacked and clicking the trigger draws *"This copy of
+CONTEXA wasn't installed from the Chrome Web Store, so it can't use the free
+service."* Nothing is wrong. A sideloaded build gets an extension ID that is not
+the published one, `ALLOWED_EXTENSION_IDS` is pinned to the published one, and
+the worker answers `403 forbidden_origin` — which is the whole point of that
+pin: a stranger with the URL cannot spend the quota.
+
+What makes it read as a regression is the second half. A fresh unpacked install
+starts with an empty `chrome.storage.local`, so an API key set on the *previous*
+copy is gone, and `background.js` branches on exactly that
+(`const r = apiKey ? direct : hosted`). No key means the hosted path, which means
+the origin lock. So the same tester who was working an hour ago sees it fail in
+every browser at once, and the error itself is the proof of the cause:
+`forbidden_origin` can only come from the worker, so seeing it establishes that
+no key was set.
+
+**The remedy on a dev copy is an own key**, in Options → Advanced — that path
+goes straight to `api.anthropic.com` and never meets the lock.
+
+The card names only the store, and that was reconsidered and kept. It is written
+for the person who was handed a zip and has no API key to add; "add your own API
+key" is advice they cannot take. Recorded here so the next reader can see the
+choice was made rather than missed.
+
 ### Versions
 
 Extension **0.9.59**, worker **0.9.59**. 327 assertions green (220 extension,
