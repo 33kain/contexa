@@ -709,7 +709,7 @@ const TURNS = [
      still describing the interview, the Ask/Offer fork, the chip taxonomy and
      the Rough-ask control, all at once. Same treatment as the settings page. */
   const rdme = readFileSync('./README.md', 'utf8');
-  const README_DEAD = [
+  const SHIPPED_DEAD = [
     [/short questions you answer by clicking/i, 'the interview pitch'],
     [/one at a time|pick one, or skip/i, 'interview pagination and skip'],
     [/interview card/i, 'the interview card'],
@@ -719,8 +719,24 @@ const TURNS = [
     [/schema\s*\n?\s*negotiation/i, 'the retired v/accepts negotiation'],
     [/\d+ prompts a day/i, 'the retired quota unit — it meters replies now']
   ];
-  for (const [re, why] of README_DEAD) {
-    t('shipped README has no dead copy: ' + why, !re.test(rdme));
+
+  /* manifest.json's description ships too, and is read FAR more than README.md:
+     it is the Chrome Web Store listing line and the text under the name in
+     chrome://extensions. It carried the interview pitch until 0.9.58 — the
+     FIRST entry in this very list, matching it word for word — because the list
+     was only ever pointed at README.md. The guard already knew the phrase was
+     dead; nothing asked it about the file that sells the product.
+
+     So the list is shared rather than copied. A third copy would drift from the
+     first two, which is the failure this repo keeps paying for: it is why the
+     prompt is injected into both files instead of pasted, and why the per-call
+     cost now lives in exactly one place. Retire a phrase once, and it is
+     retired everywhere that ships. */
+  const desc = JSON.parse(readFileSync('./manifest.json', 'utf8')).description;
+  for (const [file, text] of [['README', rdme], ['manifest description', desc]]) {
+    for (const [re, why] of SHIPPED_DEAD) {
+      t('shipped ' + file + ' has no dead copy: ' + why, !re.test(text));
+    }
   }
   t('shipped README describes the row it actually renders',
     /up to four next moves/i.test(rdme));
@@ -730,6 +746,24 @@ const TURNS = [
     /no row appears at all/i.test(rdme));
   t('and states the quota in the unit the worker enforces',
     /20 replies a day/i.test(rdme));
+
+  t('manifest description names the row it renders, not the interview',
+    /next messages/i.test(desc) && !/question/i.test(desc));
+  /* "up to" is load-bearing in the one sentence most people read. Zero is a
+     valid outcome, so a description promising four would be the floor this
+     product spent three versions removing, printed on the storefront. */
+  t('and says "up to", so the storefront promises no floor',
+    /up to four/i.test(desc));
+  /* Click COMPOSES; it never sends. The first draft of this line ended "Click
+     one to send it", which fit the limit and inverted the product's central
+     promise. Worth an assertion: it is the claim a reviewer checks first. */
+  t('and never claims CONTEXA sends anything for the user',
+    /you send it/i.test(desc) && !/\bsends? (it|the message) for you\b/i.test(desc));
+  /* 132 is the Chrome Web Store's hard cap on this field — over it the
+     dashboard rejects the upload, which is a submission-day failure no other
+     check in this repo would catch. */
+  t('and fits the store\'s 132-character limit  len=' + desc.length,
+    desc.length > 0 && desc.length <= 132);
 
   /* options.js OVERWRITES the settings page at runtime — #quotaLine and the
      mode description are both written from JS, so the HTML can be perfectly
