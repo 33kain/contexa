@@ -557,25 +557,23 @@
          to answer — the fifth chip that used to catch a click returning nothing
          is gone, and there is deliberately no fallback behind it.
 
-         But there are THREE ways to arrive here and only one of them is the
-         product working. The model can earn nothing; the action gate can drop
-         every move for want of a verb on its list; the spread gate can drop a
-         row that was all reply. Until 0.9.64 they drew the SAME card, so a gate
-         eating a good row wore the costume of an honest zero — which is the one
-         thing this product must never do. The console told them apart, and the
-         field test runs on a phone, where there is no console.
+         But there are TWO ways to arrive here and only one of them is the
+         product working. The model can earn nothing, or the action gate can
+         drop every move for want of a verb on its list. Until 0.9.64 they drew
+         the SAME card, so a gate eating a good row wore the costume of an
+         honest zero — which is the one thing this product must never do. The
+         console told them apart, and the field test runs on a phone, where
+         there is no console.
 
          So the reason travels to the card. `g.total` is what the model returned
          before any gate; if it sent moves and none survived, this row was
          FILTERED, not empty. */
       const g = resp.grounding || {};
-      /* WHICH gate, not merely THAT one fired. The two need opposite responses:
-         the action gate emptying a row points at a verb missing from the
-         allowlist, which is a bug in that list; the spread gate emptying one
-         means every move quoted the reply, which on a thread where the reply IS
-         the plan the user asked for may be the gate misreading "building on the
-         deliverable" as "transcript". Decided upstream, where both intermediate
-         arrays exist; this only reads it. */
+      /* WHICH gate, not merely THAT one fired. Only one gate can fire since
+         0.9.66, but the field still carries the name rather than a boolean:
+         the answer to a row the action gate emptied is a verb missing from the
+         allowlist, which is a bug in that list and nothing like an honest zero.
+         Decided upstream and only read here. */
       const why = g.emptiedBy || null;
       console.log(why
         ? '[CONTEXA] quiet row — model returned ' + g.total 
@@ -904,7 +902,7 @@
     /* Two wordings, because two different things happened. "Nothing for now."
        is the honest zero and stays exactly as it was — it is the common case
        and must not get noisier. The other says the model DID send moves and
-       none survived the gates, which is a different fact and sometimes a
+       none survived the gate, which is a different fact and sometimes a
        defect: an incomplete verb list empties a row in a language the list does
        not know, and that failure is invisible if both cards read the same.
 
@@ -912,7 +910,6 @@
        legible in a SCREENSHOT, since that is how this product is actually
        being field-tested and the console is not reachable there. */
     note.textContent = why === 'action' ? 'Nothing worth clicking here.'
-      : why === 'spread' ? 'Nothing new beyond the reply.'
       : 'Nothing for now.';
     wrap.appendChild(note);
     /* Reuses the scroll watcher's own fade rather than a second mechanism:

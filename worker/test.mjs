@@ -211,8 +211,8 @@ t('unknown route 404', r.status === 404, String(r.status));
     sentBody = JSON.parse(opts.body);
     return { ok: true, status: 200, async json() { return { stop_reason: 'end_turn',
       usage: { input_tokens: 10, output_tokens: 10 },
-      // Evidence quotes a TURN: 'rrrr' matched only the filler reply, which is
-      // the all-reply row the spread gate drops. These tests are about retrying.
+      // Evidence quotes a TURN and the label opens on a production verb: a
+      // fixture the gates drop makes these retry tests fail for the wrong reason.
       content: [{ type: 'text', text: JSON.stringify({ moves: [{ label: 'Write the menu page', text: 'Write it.', evidence: 'my bakery' }] }) }] }; },
       async text() { return ''; } };
   };
@@ -233,8 +233,8 @@ t('unknown route 404', r.status === 404, String(r.status));
       async json() { return {}; } };
     return { ok: true, status: 200, async json() { return { stop_reason: 'end_turn',
       usage: { input_tokens: 10, output_tokens: 10 },
-      // Evidence quotes a TURN: 'rrrr' matched only the filler reply, which is
-      // the all-reply row the spread gate drops. These tests are about retrying.
+      // Evidence quotes a TURN and the label opens on a production verb: a
+      // fixture the gates drop makes these retry tests fail for the wrong reason.
       content: [{ type: 'text', text: JSON.stringify({ moves: [{ label: 'Write the menu page', text: 'Write it.', evidence: 'my bakery' }] }) }] }; },
       async text() { return ''; } };
   };
@@ -572,11 +572,15 @@ t('unknown route 404', r.status === 404, String(r.status));
   t('and an ungrounded quote still renders, counted rather than dropped',
     b.moves.length === 1 && b.grounding.grounded === 0, JSON.stringify(b.grounding));
 
-  /* (c2) Provenance and the spread gate, end to end through a real request —
-     the failure the mobile field test caught. A reply that ends in a numbered
-     list came back as the row: every move flawlessly grounded, every one of
-     them a transcript of the last message. One flat corpus could not see it,
-     because "grounded" was true for all of them. */
+  /* (c2) Provenance end to end through a real request. The split corpus was
+     built for the failure the mobile field test caught — a reply ending in a
+     numbered list came back as the row, every move flawlessly grounded and
+     every one a transcript of the last message, which one flat corpus could
+     not see because "grounded" was true for all of them.
+
+     The gate that DROPPED such a row is gone as of 0.9.66; the measurement
+     that retired it is in the CHANGELOG. The counts stay, and stay tested,
+     because they are the only reading of whether a row mined the session. */
   const LIST_REPLY = 'Try these: 1. check the asset in the repo, 2. inspect the element in DevTools, '
     + '3. if DevTools is not available, describe what you see.';
   const ECHO_ROW = { moves: [
@@ -588,21 +592,27 @@ t('unknown route 404', r.status === 404, String(r.status));
   r = await w.fetch(post({ reply: LIST_REPLY, turns: TURNS }),
     { ANTHROPIC_API_KEY: 'k', CX_KV: makeKV(), IP_SALT: 's' });
   b = await r.json();
-  t('a row transcribed entirely from the reply is dropped on a full session',
-    r.status === 200 && b.moves.length === 0, JSON.stringify(b.grounding));
+  /* This row was dropped from 0.9.59 to 0.9.65. It is served now, and that
+     inversion is asserted rather than left as an absence — six live runs said
+     the gate took good rows, so a change of mind about it should have to break
+     a test that states the old behaviour was deliberate. */
+  t('a row earned entirely from the reply is SERVED, not dropped',
+    r.status === 200 && b.moves.length === 2, JSON.stringify(b.grounding));
   t('and the response still reports what it saw, so the rate stays measurable',
     b.grounding.total === 2 && b.grounding.fromReply === 2 && b.grounding.fromTurns === 0,
     JSON.stringify(b.grounding));
 
-  /* The same row on a SHORT session survives, and that is the point of the
-     threshold: with one or two turns the reply genuinely is most of the
-     material, and dropping there would manufacture zeros out of good rows. */
+  /* Session length no longer changes the verdict on an identical row. The
+     threshold WAS the mechanism (three turns and up), so running the same row
+     either side of it is what proves the gate is actually gone and not merely
+     unreferenced. */
   globalThis.fetch = modelJson(ECHO_ROW);
   r = await w.fetch(post({ reply: LIST_REPLY, turns: [TURNS[0], TURNS[1]] }),
     { ANTHROPIC_API_KEY: 'k', CX_KV: makeKV(), IP_SALT: 's' });
-  b = await r.json();
-  t('but the same row survives a two-turn session, where the reply IS the material',
-    b.moves.length === 2, JSON.stringify(b.grounding));
+  const short = await r.json();
+  t('and the same row on a two-turn session is treated identically',
+    short.moves.length === 2 && short.grounding.emptiedBy === null,
+    JSON.stringify(short.grounding));
 
   /* And one turn-earned move is enough to keep the row, however many of the
      others came from the reply. The gate is for the total case only. */
@@ -668,9 +678,10 @@ t('unknown route 404', r.status === 404, String(r.status));
   t('a row emptied by the action gate says so',
     b.moves.length === 0 && b.grounding.emptiedBy === 'action', JSON.stringify(b.grounding));
 
-  /* Every move is a real production verb AND every one quotes the reply, on a
-     3-turn session. The action gate passes them all; the spread gate takes the
-     row. This is the shape the field thread is suspected of hitting. */
+  /* The row the retired gate was built to kill: every move a real production
+     verb, every one quoting the reply, on a 3-turn session. Precisely the shape
+     the field thread kept hitting — and the measurement said these rows were
+     good. It ships now, and this is the test the removal is written against. */
   globalThis.fetch = modelJson({ moves: [
     { label: 'Write the menu page', text: 'Write it.', evidence: 'the agent flies blind' },
     { label: 'Build the schema view', text: 'Build it.', evidence: 'cannot see your schema' }
@@ -678,13 +689,14 @@ t('unknown route 404', r.status === 404, String(r.status));
   r = await w.fetch(post({ reply: BLIND_REPLY, turns: TURNS }),
     { ANTHROPIC_API_KEY: 'k', CX_KV: makeKV(), IP_SALT: 's' });
   b = await r.json();
-  t('and a row emptied by the SPREAD gate says that instead',
-    b.moves.length === 0 && b.grounding.emptiedBy === 'spread' && b.grounding.droppedByAction === 0,
+  t('an all-reply row of doable clicks now reaches the user',
+    b.moves.length === 2 && b.grounding.emptiedBy === null && b.grounding.fromReply === 2,
     JSON.stringify(b.grounding));
 
-  /* THE CASE THAT MATTERS: both gates fire on one row. A naive
-     "droppedByAction > 0 means action" test reports the wrong gate here, which
-     is why the cause is computed upstream where both arrays exist. */
+  /* A partial action drop on that same shape: one move taken, one kept. The
+     survivor must be SERVED and the row must blame nobody — droppedByAction is
+     non-zero here, so a client inferring the cause from that count alone would
+     show a gate's card over a row that has a move in it. */
   globalThis.fetch = modelJson({ moves: [
     { label: 'Pokaži cijeli YAML primjer', text: 'Pokaži.', evidence: 'the agent flies blind' },
     { label: 'Write the menu page', text: 'Write it.', evidence: 'cannot see your schema' }
@@ -692,8 +704,8 @@ t('unknown route 404', r.status === 404, String(r.status));
   r = await w.fetch(post({ reply: BLIND_REPLY, turns: TURNS }),
     { ANTHROPIC_API_KEY: 'k', CX_KV: makeKV(), IP_SALT: 's' });
   b = await r.json();
-  t('and when BOTH gates fire, the one that emptied it is named, not the first to bite',
-    b.moves.length === 0 && b.grounding.droppedByAction === 1 && b.grounding.emptiedBy === 'spread',
+  t('and a row the action gate only dented is served, blaming no gate',
+    b.moves.length === 1 && b.grounding.droppedByAction === 1 && b.grounding.emptiedBy === null,
     JSON.stringify(b.grounding));
 
   /* An honest zero names no gate at all. */

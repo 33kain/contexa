@@ -7,6 +7,85 @@ free to diverge, and the settings page labels them separately for that reason.
 
 ---
 
+## 0.9.66 — Extension + Worker
+
+*The spread gate is removed. It was measured, and it was deleting good rows.*
+
+### The measurement
+
+0.9.65 shipped instrumentation and no behaviour change, on the rule that this
+project had twice reasoned its way to a wrong cause. The instrument said the
+games thread was **filtered, not empty** — but not which gate, so the gate was
+run against a session shaped like that thread: the reply near-verbatim from the
+screenshots, four Serbian turns written to carry real quotable material (age
+groups, what the games develop, the data-structure question), six live runs
+through the hosted worker.
+
+```
+run 1: 0 move(s)  turns=0 reply=1 droppedByAction=3 emptiedBy=spread
+run 2: 3 move(s)  turns=1 reply=2 droppedByAction=0
+run 3: 3 move(s)  turns=1 reply=2 droppedByAction=0
+run 4: 2 move(s)  turns=1 reply=1 droppedByAction=1
+run 5: 3 move(s)  turns=1 reply=2 droppedByAction=0
+run 6: 3 move(s)  turns=1 reply=2 droppedByAction=1
+```
+
+**The turns were invented.** They were written generously — the rate below is
+indicative of the shape, not a measurement of the owner's actual thread.
+
+### What it showed
+
+- **1 run in 6 was emptied by the spread gate, and every row it took was good.**
+  Doable clicks, thrown away.
+- **Four of the five survivors lived on exactly one turn-earned move.** One
+  different evidence quote and they die too. The gate was a coin flip over good
+  rows, which is what the field screenshots looked like from the outside: same
+  thread, same reply, five clicks, three different outcomes.
+- **Worst of all, in the run it killed the action gate had already taken 3 of 4
+  moves**, leaving a single reply-earned move. "Every move is reply-earned" is
+  trivially true of a row of one. The gate was built against a row of four
+  transcribed moves and it was deleting a row of one.
+
+That last point is the design error, not a tuning problem. `fromReply ===
+moves.length` is a proportion, and a proportion over a row the previous gate has
+already thinned means something different from what it meant over the raw row.
+Ordering the gates could not fix it; the gate was asking a question that stops
+being meaningful at small counts.
+
+### What replaces it
+
+Nothing, deliberately. What it was built for is covered twice over: the action
+gate (0.9.63) drops anything that is not a doable click, and `MOVES_SYSTEM` says
+outright that the reply's own list is not the row. If transcription returns, the
+symptom to watch for is a row whose moves all quote the reply **and** read as its
+numbered list — and the answer then is the prompt or a shape-aware check, not a
+blunt count. That reasoning sits in both source files where the gate used to be,
+so a future reader finds the measurement rather than an absence.
+
+### Consequences
+
+- `grounding.emptiedBy` is now `'action' | null`. The `'spread'` value cannot
+  occur, so the **"Nothing new beyond the reply."** card is gone with it — a
+  card for a mechanism that cannot fire is 0.9.49's inert instruction again.
+  Two cards remain: **"Nothing worth clicking here."** (the action gate emptied
+  it) and **"Nothing for now."** (an honest zero).
+- Provenance stays. `fromTurns` / `fromReply` no longer gate anything, but they
+  are the only reading of whether a row mined the session or transcribed the
+  last reply — this measurement was only possible because they ship.
+- The end-to-end test that asserted such a row is **dropped** now asserts it is
+  **served**, and the same row is run on a two-turn and a three-turn session to
+  prove the threshold is gone rather than merely unreferenced. Both were proven
+  by restoring the gate and watching them fail.
+
+### Still open
+
+`droppedByAction` was non-zero in 3 of 6 runs and **which** labels the action
+gate dropped has not been read. `wrangler tail` shows it — each drop logs its
+label and reason. An allowlist fails closed, so that number is where the next
+missing verb will surface.
+
+---
+
 ## 0.9.65 — Extension + Worker
 
 *The card names which gate ate the row. No behaviour changes — this release

@@ -204,9 +204,10 @@ const TURNS = [
   const session = {};
   const first = load({ storage: { model: '', apiKey: 'sk-x' }, session });
   await settle();
-  /* A move that actually SURVIVES the gates. The default harness fixture is
-     reply-earned and gets dropped by the spread gate, so caching it would leave
-     this test comparing [] with [] and proving nothing. */
+  /* A move that actually SURVIVES the gate. Written after a version of this
+     test cached a fixture the gates dropped and sat there comparing [] with [],
+     proving nothing — so the fixture is turn-earned AND opens on a production
+     verb, and stays that way whatever the gates become. */
   first.sandbox.fetch = async (url, opts) => {
     first.requests.push({ url, body: JSON.parse(opts?.body || '{}') });
     return { ok: true, status: 200, async text() { return ''; },
@@ -438,11 +439,9 @@ const TURNS = [
       async text() { return '{"error":{"message":"thinking cannot be disabled on this model"}}'; },
       async json() { return {}; } };
     return { ok: true, status: 200,
-      /* Evidence quotes a TURN, not the reply. This test is about the retry, and
-         a reply-earned move on this 3-turn fixture is exactly what the spread
-         gate now drops — the row would come back empty and the retry would look
-         broken. Keeping the fixture turn-earned keeps the test about its own
-         subject. */
+      /* Evidence quotes a TURN, and the label opens on a production verb. This
+         test is about the retry: a fixture the gates drop comes back empty and
+         the retry looks broken for a reason that has nothing to do with it. */
       async json() { return { stop_reason: 'end_turn', content: [{ text: JSON.stringify({ moves: [{ label: 'Write the menu page', text: 'Write it.', evidence: 'my bakery' }] }) }] }; },
       async text() { return ''; } };
   };
@@ -969,27 +968,25 @@ const TURNS = [
      indistinguishable from a crash to someone who just clicked and waited. */
   const nothing = (csrcM.match(/function renderNothing\([^)]*\)[\s\S]*?\n  \}/) || [''])[0];
   t('nothing mined renders a notice rather than deleting the row', !!nothing && /Nothing for now\./.test(nothing));
-  /* THREE things can empty a row and only one is the product working: the model
-     earning nothing, the action gate finding no production verb, the spread gate
-     dropping an all-reply row. Until 0.9.64 they drew the same card, so a gate
-     eating a good row wore an honest zero's face — and the field test runs on a
-     phone, where the console that told them apart is unreachable.
+  /* TWO things can empty a row and only one is the product working: the model
+     earning nothing, or the action gate finding no production verb. Until
+     0.9.64 they drew the same card, so a gate eating a good row wore an honest
+     zero's face — and the field test runs on a phone, where the console that
+     told them apart is unreachable.
 
-     0.9.65 splits the two GATE cases apart as well, because they need opposite
-     responses: the action gate emptying a row points at a verb missing from my
-     allowlist; the spread gate emptying one means every move quoted the reply,
-     which on a thread where the reply IS the plan may be the gate misreading
-     "building on it" as "transcribing it". */
+     A third card existed for the spread gate and left with it in 0.9.66. It is
+     asserted GONE below rather than quietly forgotten: a card for a mechanism
+     that cannot fire is dead UI that reads as live. */
   t('a row the action gate emptied says something different from an honest zero',
     /Nothing worth clicking here\./.test(nothing));
-  t('and a row the SPREAD gate emptied is distinguishable from both',
-    /Nothing new beyond the reply\./.test(nothing));
-  t('and all three wordings are distinct strings',
-    new Set(['Nothing worth clicking here.', 'Nothing new beyond the reply.', 'Nothing for now.']
-      .filter(w => nothing.includes(w))).size === 3);
-  /* Read, not re-derived. Inferring the cause here from droppedByAction would
-     misreport a row where the action gate took some moves and the spread gate
-     took the rest — the only place both intermediate arrays exist is upstream. */
+  t('and the retired spread-gate card is gone with its gate',
+    !/Nothing new beyond the reply\./.test(csrcM));
+  t('and both surviving wordings are distinct strings',
+    new Set(['Nothing worth clicking here.', 'Nothing for now.']
+      .filter(w => nothing.includes(w))).size === 2);
+  /* Read, not re-derived. droppedByAction is non-zero on plenty of rows that
+     render fine, so inferring the cause here from it would put the gate's card
+     on a row that has moves in it. Decided upstream; only read here. */
   t('and the caller READS the cause rather than guessing it downstream',
     /const why = g\.emptiedBy \|\| null/.test(csrcM) && !/g\.droppedByAction/.test(csrcM));
   t('and the console names which gate, not merely that one fired',
@@ -1049,10 +1046,13 @@ const TURNS = [
     /groundMoves\(\s*\w+\s*,\s*turns\.map\(t => t\.text\)\.join\([^)]*\)\s*,\s*reply\s*\)/.test(bsrcM));
   t('and runs the action gate before judging the row',
     /enforceAction\(\s*\w+\s*,\s*\w+\s*\)/.test(bsrcM));
-  t('and runs the spread gate over what survived',
-    /enforceSpread\(\s*\w+\s*,\s*\w+\s*,\s*turns\.length\)/.test(bsrcM));
+  /* The spread gate was the second gate here until 0.9.66 and a source guard
+     pinned the call. It is gone, so the guard is gone with it: a test that
+     outlives its mechanism is the inert instruction this repo keeps rediscovering.
+     What survives is the assertion below that ONE gate decides the row. */
+  t('and no second gate runs behind it', !/enforceSpread/.test(bsrcM));
 
-  /* ---- provenance + the spread gate, lifted and RUN ----------------------
+  /* ---- provenance + the action gate, lifted and RUN ----------------------
      Source assertions cannot tell a working gate from a plausible-looking one,
      and this gate decides whether a row is shown at all. So the real functions
      come out of background.js and are executed against the case the field
@@ -1062,7 +1062,7 @@ const TURNS = [
     const blk = bsrcM.slice(bsrcM.indexOf('function groundMoves'),
       bsrcM.indexOf('/* end of the injected helper block'));
     const g = new Function('console', blk +
-      '; return { groundMoves, enforceSpread, enforceAction, tallySources, SPREAD_MIN_TURNS };')({ log() {} });
+      '; return { groundMoves, enforceAction, tallySources };')({ log() {} });
 
     const TURNTEXT = 'make me a website for my bakery\ncan you add the opening hours';
     const REPLYTEXT = 'try these: 1. check the asset 2. inspect in DevTools 3. describe what you see';
@@ -1090,18 +1090,12 @@ const TURNS = [
     t('and an ungrounded move counts in neither', gr4.grounded === 0 &&
       gr4.fromTurns === 0 && gr4.fromReply === 0, JSON.stringify(gr4));
 
-    // The gate itself, across the boundary it is built around.
-    t('spread gate drops an all-reply row once the session could offer more',
-      g.enforceSpread(allReply, gr1, 5).length === 0);
-    t('and the SAME row survives a short session, where the reply IS the material',
-      g.enforceSpread(allReply, gr1, 2).length === 2);
-    t('and the boundary is the floor itself, not one above it',
-      g.enforceSpread(allReply, gr1, g.SPREAD_MIN_TURNS).length === 0 &&
-      g.enforceSpread(allReply, gr1, g.SPREAD_MIN_TURNS - 1).length === 2);
-    t('and one turn-earned move is enough to keep the whole row',
-      g.enforceSpread(mixed, gr2, 20).length === 2);
-    t('and an already-empty row is passed through, never "dropped" twice',
-      g.enforceSpread([], gr1, 20).length === 0);
+    /* Provenance still ships in the response after the spread gate's removal,
+       and it is no longer decorative: it is the only reading anyone has of
+       whether a row read the session or transcribed the last reply. The
+       0.9.66 measurement was possible only because these counts existed. */
+    t('and provenance survives the gate that used to consume it',
+      /fromTurns: ground\.fromTurns, fromReply: ground\.fromReply/.test(bsrcM));
 
     /* ---- the action gate -------------------------------------------------
        "Klikneš, i Claude odradi. Ako to ne može — ni ne otvaraj."
@@ -1165,8 +1159,9 @@ const TURNS = [
         gg.sources[0] === 'turns' && g.enforceAction(turnEarned, gg).moves.length === 0);
     }
 
-    /* Counts must reflect the survivors: they feed the spread gate and the
-       numbers reported to the console and the hosted client. */
+    /* Counts must reflect the survivors, since they ARE the numbers reported to
+       the console and the hosted client — a stale tally hides the drop in the
+       one place built to show it. */
     {
       const mixed = act(['Write the menu page', 'Pokaži cijeli YAML primjer']);
       t('and re-tallies after dropping, rather than carrying stale counts',

@@ -491,9 +491,9 @@ function enforceAction(moves, ground) {
     console.log('[CONTEXA] action gate emptied the row — ' + dropped +
       ' move(s) dropped. If these labels were not English or Serbian, the verb list is the likely cause.');
   }
-  /* Re-tallied, not carried over: the counts feed the spread gate below and the
-     numbers reported to the console and the hosted client, so stale ones would
-     hide a drop in the one place built to show it. */
+  /* Re-tallied, not carried over: these counts are what the console and the
+     hosted client report, so stale ones would hide a drop in the one place
+     built to show it. */
   return {
     moves: keep,
     ground: Object.assign(tallySources(sources), { sources }),
@@ -501,26 +501,27 @@ function enforceAction(moves, ground) {
   };
 }
 
-/* The spread gate — deliberately the narrowest rule that still kills the
-   observed defect: a reply ending in a numbered list, handed straight back as
-   the row. Every move earned by the reply, on a session long enough to have
-   offered something else, is not a menu. It is a transcript.
+/* THE SPREAD GATE IS GONE, and this note is what stands in its place.
 
-   THREE turns is the floor because below it the reply genuinely IS most of the
-   material: on a one- or two-turn session a reply-earned row is the correct
-   answer, and dropping it would manufacture zeros out of good rows. */
-const SPREAD_MIN_TURNS = 3;
-function enforceSpread(moves, ground, turnCount) {
-  /* EVERY move matched the reply — not merely "none matched a turn". The
-     difference is the two-tier rule: an ungrounded near-miss is counted and
-     still renders, and it is not a transcript of anything. Testing fromTurns
-     alone swept those into the drop and quietly turned tier two into tier
-     one, which the worker suite caught on the first run. */
-  if (!moves.length || turnCount < SPREAD_MIN_TURNS || ground.fromReply !== moves.length) return moves;
-  console.log('[CONTEXA] spread gate — all ' + moves.length +
-    ' move(s) earned by the reply across ' + turnCount + ' turns; row dropped');
-  return [];
-}
+   It dropped a row when EVERY move was earned by the reply on a session of
+   three or more turns, on the theory that such a row is a transcript of the
+   last message rather than a menu. It was measured on the shape of a real
+   thread — six live runs — and the result retired it:
+
+     · 1 run in 6 was emptied by it, and every row it took was GOOD.
+     · Four of the survivors lived on exactly ONE turn-earned move. One
+       different evidence quote and they die too. A coin flip over good rows.
+     · Worst of all, in the run it killed the action gate had already taken 3
+       of 4 moves, leaving ONE reply-earned move — and "every move is
+       reply-earned" is trivially true of a row of one. The gate was built
+       against a row of four transcribed moves and was deleting a row of one.
+
+   What it was built for is now covered twice over: the action gate (0.9.63)
+   drops anything that is not a doable click, and MOVES_SYSTEM says outright
+   that the reply's own list is not the row. If transcription returns, the
+   symptom to watch for is a row whose moves all quote the reply AND read as
+   its numbered list — and the answer then is the prompt or a shape-aware
+   check, not this blunt count. */
 /* end of the injected helper block — build.mjs reads to here for byte-identity */
 
 /* Hosted path: the proxy holds the API key, so the user needs nothing. Returns
@@ -644,18 +645,13 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
         const cleaned = cleanMoves(r.data && r.data.moves);
         const rawMoves = Array.isArray(r.data && r.data.moves) ? r.data.moves.length : 0;
         const g0 = groundMoves(cleaned, turns.map(t => t.text).join('\n'), reply);
-        /* Explain gate first, spread gate second, and the order is load-bearing:
-           dropping a reply-earned explain changes the counts the spread gate
-           reads, so running spread on the pre-drop tally could drop a row that
-           the survivors no longer justify dropping. */
-        const { moves: kept, ground, droppedByAction } = enforceAction(cleaned, g0);
-        const moves = enforceSpread(kept, ground, turns.length);
-        /* WHICH gate emptied the row, decided here because here is the only
-           place both intermediate arrays exist. Inferring it downstream from
-           droppedByAction would misreport the case where the action gate takes
-           some moves and the spread gate takes the rest. */
-        const emptiedBy = rawMoves > 0 && moves.length === 0
-          ? (kept.length === 0 ? 'action' : 'spread') : null;
+        const { moves, ground, droppedByAction } = enforceAction(cleaned, g0);
+        /* One gate left, so 'action' is now the only way a row that HAD moves
+           arrives empty. Still a named field rather than something the UI
+           infers from droppedByAction, because that count is non-zero on
+           plenty of rows that render fine — the card needs "the gate took
+           everything", not "the gate took something". */
+        const emptiedBy = rawMoves > 0 && moves.length === 0 ? 'action' : null;
         /* The split is the number the screenshots could only hint at: a row of
            four that all say "from reply" is a transcript of the last message,
            whatever the labels look like. Logged on every click so the rate is
