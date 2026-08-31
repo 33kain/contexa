@@ -501,7 +501,14 @@ const TURNS = [
   t('quota card no longer pitches an API key on the beginner surface',
     !/add your own API key for unlimited use/.test(c));
   t('quota card says what happened in plain words',
-    /free prompts for today/.test(c));
+    /free replies for today/.test(c));
+  /* The card must not name a number this file cannot keep honest. It used to
+     halve the worker's limit (two calls per finished prompt) and fall back to a
+     hard-coded 20 — both were copies of a figure that lives in one place, and
+     both would have lied the moment that place changed. */
+  t('and never halves the limit it was given', !/limit \/ 2/.test(c));
+  t('and names no number when the worker reported none',
+    /That’s all your free replies for today/.test(c));
 
   // nothing user-facing may name a raw error code
   const humanTexts = [...c.matchAll(/text: '([^']*)'/g)].map(m => m[1]);

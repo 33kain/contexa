@@ -73,8 +73,14 @@ const BUILD_SEEN = b.version;
 const LIMIT = b.limit;
 t('health reports the device limit as a positive number',
   Number.isInteger(LIMIT) && LIMIT > 0, String(LIMIT));
-t('the call ceiling is an even number of calls — a finished prompt costs two',
-  LIMIT % 2 === 0, String(LIMIT));
+/* One call per reply asked about. This used to assert the ceiling was EVEN,
+   because a finished prompt cost two calls and an odd ceiling would have
+   stranded half a prompt. Mining removed the second call, so the property
+   worth pinning is no longer parity — it is that the enforced ceiling and the
+   number in public copy are the same integer, which the structural assertions
+   further down check against the source. */
+t('the device ceiling is the number a user experiences, not a multiple of it',
+  LIMIT === 20, String(LIMIT));
 t('health reports version', /^\d+\.\d+\.\d+$/.test(b.version || ''), b.version);
 t('health is uncacheable', r.headers.get('cache-control') === 'no-store', String(r.headers.get('cache-control')));
 t('health reports model', b.model === 'claude-sonnet-5', b.model);
@@ -306,6 +312,171 @@ t('unknown route 404', r.status === 404, String(r.status));
   t('both artifacts carry a well-formed version, independently',
     /^\d+\.\d+\.\d+$/.test(BUILD_SEEN) && /^\d+\.\d+\.\d+$/.test(mv),
     'worker ' + BUILD_SEEN + ' vs extension ' + mv);
+}
+
+
+/* ---------------- PROMPT CACHING (2026-08-27) ----------------
+   RESTORED 2026-08-31. These went out with the pivot's test teardown, which
+   deleted whole sections by marker and took this with the block above it. The
+   code they cover is untouched — cachedSystem, droppedThinking and droppedCache
+   are all still in the worker — so losing them cost real coverage rather than
+   obsolete coverage, and a deletion that removes a guard while leaving its
+   subject running is the exact failure this project keeps recording.
+
+   The system prompt is a large fixed prefix on every call and was re-billed in
+   full every time. These pin the three things that can go wrong without
+   anything looking broken: the block never reaching the wire, the cached text
+   drifting from the constant, and the fallback failing to fall back. */
+{
+  const cacheOf = (body) => JSON.parse(body).system;
+  const okOnce = () => ({
+    ok: true, status: 200,
+    async json() { return {
+      stop_reason: 'end_turn',
+      usage: { input_tokens: 500, output_tokens: 200 },
+      content: [{ type: 'text', text: JSON.stringify({
+        moves: [{ label: 'A move', text: 'Do the thing.', evidence: 'now the menu page' }]
+      }) }]
+    }; },
+    async text() { return ''; }
+  });
+
+  // --- the prompt travels as a cached block, not a bare string ---
+  {
+    let seenBody = null;
+    globalThis.fetch = async (_u, o) => { seenBody = o.body; return okOnce(); };
+    await w.fetch(post(), { ANTHROPIC_API_KEY: 'k', CX_KV: makeKV(), IP_SALT: 's' });
+    const sys = cacheOf(seenBody);
+    t('the system prompt travels as content blocks', Array.isArray(sys), typeof sys);
+    t('exactly one system block', Array.isArray(sys) && sys.length === 1, String(sys && sys.length));
+    t('the block is marked cacheable',
+      !!(sys && sys[0] && sys[0].cache_control && sys[0].cache_control.type === 'ephemeral'),
+      JSON.stringify(sys && sys[0] && sys[0].cache_control));
+    t('the block is type text', !!(sys && sys[0] && sys[0].type === 'text'));
+    /* A cache HIT needs a byte-identical prefix. Anything interpolated into the
+       system text — a build stamp, a date, the user's own words — would miss on
+       every single call while still looking perfectly correct in the logs. */
+    t('nothing is interpolated into the cached text',
+      sysText(sys).length > 1000 && !/\d{4}-\d{2}-\d{2}/.test(sysText(sys)),
+      String(sysText(sys).length));
+  }
+
+  // --- the fallback: caching must never be why a user gets nothing ---
+  {
+    let calls = 0; const systems = [];
+    globalThis.fetch = async (_u, o) => {
+      calls++; systems.push(JSON.parse(o.body).system);
+      if (calls === 1) return { ok: false, status: 400,
+        async text() { return '{"error":{"message":"cache_control: unsupported"}}'; } };
+      return okOnce();
+    };
+    const r = await w.fetch(post(), { ANTHROPIC_API_KEY: 'k', CX_KV: makeKV(), IP_SALT: 's' });
+    t('a cache-rejecting 400 is retried', calls === 2, 'calls=' + calls);
+    t('the retry drops the block and sends a plain string', typeof systems[1] === 'string', typeof systems[1]);
+    t('the retry keeps the prompt byte-identical', systems[1] === sysText(systems[0]));
+    t('and the user still gets a 200', r.status === 200, String(r.status));
+  }
+
+  // --- the two degradations are independent, and order must not matter ---
+  {
+    let calls = 0; const payloads = [];
+    globalThis.fetch = async (_u, o) => {
+      calls++; const b = JSON.parse(o.body); payloads.push(b);
+      if (calls === 1) return { ok: false, status: 400,
+        async text() { return 'thinking cannot be disabled'; } };
+      if (calls === 2) return { ok: false, status: 400,
+        async text() { return 'cache_control not supported for this model'; } };
+      return okOnce();
+    };
+    const r = await w.fetch(post(), { ANTHROPIC_API_KEY: 'k', CX_KV: makeKV(), IP_SALT: 's' });
+    t('thinking then cache: both degradations fire on one request', calls === 3, 'calls=' + calls);
+    t('thinking is gone by the second attempt', !payloads[1].thinking);
+    t('caching is gone by the third', typeof payloads[2].system === 'string');
+    t('and the request still succeeds', r.status === 200, String(r.status));
+  }
+
+  // --- an unrelated 400 must NOT be mistaken for a cache problem ---
+  {
+    let calls = 0;
+    globalThis.fetch = async () => { calls++; return { ok: false, status: 400,
+      async text() { return 'max_tokens is too large'; } }; };
+    const r = await w.fetch(post(), { ANTHROPIC_API_KEY: 'k', CX_KV: makeKV(), IP_SALT: 's' });
+    t('an ordinary 400 is not retried as a cache failure', calls === 1, 'calls=' + calls);
+    t('and it still surfaces as upstream_400', (await r.json()).error === 'upstream_400');
+  }
+}
+
+
+/* ---------------- THE QUOTA DERIVATION ----------------
+   RESTORED 2026-08-31, same teardown, same reason. These guard the defect that
+   has bitten this project twice: a number in public copy diverging from the
+   number the code enforces. The store listing once advertised "10 prompts a
+   day" against 20 enforced calls, and the IP ceiling once halved its own ratio
+   when the device ceiling moved, with nobody deciding it. Both were caught by
+   pinning the RELATIONSHIP rather than the value. */
+{
+  const src = readFileSync(rel('./src/index.js'), 'utf8');
+  t('DEVICE_DAILY_LIMIT is derived from the public number, never retyped',
+    /const DEVICE_DAILY_LIMIT = REPLIES_PER_DAY;/.test(src));
+  t('and no bare call-count literal was left beside it',
+    !/const DEVICE_DAILY_LIMIT = \d+/.test(src));
+  /* The multiplier is gone and must STAY gone. A `* 2` reappearing here would
+     silently enforce twice what the listing promises, which is the 0.9.23
+     defect exactly — and it would look entirely reasonable to anyone who
+     remembers the two-call era. */
+  t('and no multiplier crept back in',
+    !/const DEVICE_DAILY_LIMIT = REPLIES_PER_DAY \s*\*/.test(src));
+  t('IP_DAILY_LIMIT is derived from the device ceiling, not a literal',
+    /const IP_DAILY_LIMIT = DEVICE_DAILY_LIMIT \* 10;/.test(src));
+  t('and no bare IP literal survives', !/const IP_DAILY_LIMIT = \d+/.test(src));
+  const pub = (src.match(/const REPLIES_PER_DAY = (\d+);/) || [])[1];
+  t('the public number matches the enforced ceiling exactly',
+    pub && Number(pub) === LIMIT, `public=${pub} LIMIT=${LIMIT}`);
+  /* The rename is load-bearing, not cosmetic: "prompts per day" counts nothing
+     now that one call returns up to four of them. A revival of the old name
+     would reintroduce the unit confusion the rename exists to end. */
+  t('and the retired unit name is gone', !/PROMPTS_PER_DAY/.test(src));
+}
+
+
+/* ---------------- trimPayload, which now guards the message box -------------
+   RESTORED 2026-08-31. It used to cap a question's text; it now caps a MOVE's
+   text, which lands in the user's composer verbatim. A blunt slice there ships
+   half a sentence into the thing they are about to send. */
+{
+  const long = 'Rewrite the landing page copy so it reads like a person wrote it. ' +
+    'Keep the pricing table exactly as it stands and leave the nav alone. '.repeat(12);
+  globalThis.fetch = async () => ({
+    ok: true, status: 200,
+    async json() { return {
+      stop_reason: 'end_turn', usage: { input_tokens: 500, output_tokens: 200 },
+      content: [{ type: 'text', text: JSON.stringify({ moves: [
+        { label: 'Rewrite the copy', text: long, evidence: 'now the menu page' }
+      ] }) }]
+    }; },
+    async text() { return ''; }
+  });
+  const r = await w.fetch(post(), { ANTHROPIC_API_KEY: 'k', CX_KV: makeKV(), IP_SALT: 's' });
+  const b = await r.json();
+  const text = b.moves[0].text;
+  t('an overlong move is capped', text.length <= 700, 'len=' + text.length);
+  t('and cut at a clean boundary, never mid-word',
+    /[.!?]$/.test(text), JSON.stringify(text.slice(-24)));
+  t('a move under the cap is untouched',
+    (await (async () => {
+      globalThis.fetch = async () => ({
+        ok: true, status: 200,
+        async json() { return {
+          stop_reason: 'end_turn', usage: {},
+          content: [{ type: 'text', text: JSON.stringify({ moves: [
+            { label: 'Short one', text: 'Add a contact form to the bakery site.', evidence: 'now the menu page' }
+          ] }) }]
+        }; },
+        async text() { return ''; }
+      });
+      const r2 = await w.fetch(post(), { ANTHROPIC_API_KEY: 'k', CX_KV: makeKV(), IP_SALT: 's' });
+      return (await r2.json()).moves[0].text;
+    })()) === 'Add a contact form to the bakery site.');
 }
 
 

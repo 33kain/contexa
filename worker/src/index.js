@@ -4,9 +4,8 @@
    size so a malicious client cannot run up your bill.
 
    Endpoints:
-     POST /v1/next-steps  -> { steps: [{label, text}], quota: {used, limit} }
-     POST /v1/expand      -> { prompt, quota: {used, limit} }   (the fifth chip)
-     GET  /v1/health      -> { ok: true }
+     POST /v1/next-steps  -> { moves: [{label, text, evidence}], grounding, quota }
+     GET  /v1/health      -> { ok, version, model, limit, configured }
 
    Secrets / bindings (see wrangler.toml and README):
      ANTHROPIC_API_KEY  secret   your key
@@ -19,40 +18,62 @@
    which build is live. Deliberately independent of the extension's manifest
    version — they ship on separate paths and a worker fix should not force
    everyone to reinstall the extension. */
-const BUILD = '0.9.57';   // matches the extension generation this serves; 0.9.52 could not tell a pre-fork deploy from a post-fork one, 0.9.54 could not tell a pre-voice deploy from a post-voice one, and 0.9.56 could not tell a pre-precedence-fix deploy from a post-precedence-fix one
+const BUILD = '0.9.58';   // matches the extension generation this serves; every bump here has paid for itself by telling one deploy from another — 0.9.52 could not tell a pre-fork deploy from a post-fork one, 0.9.54 a pre-voice from a post-voice, 0.9.56 a pre-precedence-fix from a post-precedence-fix, and 0.9.58 is the first that must distinguish a worker that speaks moves from one that still speaks questions
 
 const ANTHROPIC_URL = 'https://api.anthropic.com/v1/messages';
 /* Sonnet 5 rather than Haiku, on measured evidence: in a controlled three-model
    comparison Haiku ignored the label-length rule (4/11 over cap), largely ignored
-   the bullet instruction (1/11), and twice wrote steps that asked the USER a
-   question it could not answer — all defects that three rounds of prompt work
+   the bullet instruction (1/11), and twice wrote suggestions that asked the USER
+   a question it could not answer — all defects that three rounds of prompt work
    failed to fix. Sonnet 5 scored 0/13 over cap, 10/13 bulleted, no voice
    inversion, for $0.004 more per call. Opus 5 produced the best single suggestion
    but failed a request outright at 5x the cost. */
 const MODEL = 'claude-sonnet-5';
 
 // Quotas. Client values are never trusted; these are the only limits that count.
-/* PROMPTS_PER_DAY is the number a USER experiences, and the only one that may
-   ever appear in public copy. A finished prompt costs TWO upstream calls — the
-   questions call and the compose call — and both charge this same device
-   counter, so the call ceiling is twice the prompt ceiling.
-   Derived rather than written as 40 because the alternative already failed: the
-   store listing advertised "10 prompts a day" while the code enforced 20 calls,
-   which was simultaneously double and half the truth. A number in public copy
-   has one source of truth and this is it. */
-const PROMPTS_PER_DAY = 20;
-const DEVICE_DAILY_LIMIT = PROMPTS_PER_DAY * 2;
+/* REPLIES_PER_DAY is the number a USER experiences, and the only one that may
+   ever appear in public copy. One call = one reply asked about, so the call
+   ceiling and the public number are now the SAME number.
+
+   They used to differ. A finished prompt cost two upstream calls — the
+   questions call, then the compose call — so the ceiling was twice the public
+   figure. History mining removed the second call: the moves arrive already
+   composed and clicking one spends nothing. The multiplier had to go with it,
+   or the code would have enforced twice what the listing promised.
+
+   The UNIT moved too, and that is why this constant is renamed rather than
+   just re-derived. "Prompts per day" no longer counts anything: one call
+   returns up to four send-ready prompts and the user may take one, several or
+   none. What the quota actually meters is how many REPLIES they can ask about,
+   which is also what the store listing already said.
+
+   Derived rather than written as a literal because the alternative already
+   failed twice. The listing once advertised "10 prompts a day" against 20
+   enforced calls — simultaneously double and half the truth — and the IP
+   ceiling below once halved its own ratio when this number moved, with nobody
+   deciding it. A number in public copy has one source of truth and this is it. */
+const REPLIES_PER_DAY = 20;
+const DEVICE_DAILY_LIMIT = REPLIES_PER_DAY;
 /* Second axis: blunts reinstall-for-a-fresh-token abuse. Deliberately generous
    relative to the device ceiling, because legitimate users share IPs — an
    office, a flat, a university, and above all mobile carriers, where CGNAT puts
    a great many phones behind one address. Blocking those looks like a broken
    product, not like a defence.
 
-   DERIVED, for the same reason PROMPTS_PER_DAY is: the RELATIONSHIP was the
+   DERIVED, for the same reason REPLIES_PER_DAY is: the RELATIONSHIP was the
    requirement and 300 was only ever the artifact of it. Left as a literal, the
    ratio silently halved from ~15x to ~7.5x the moment the device ceiling
    doubled — a real narrowing of headroom for shared addresses that nobody
    decided and nothing would have reported.
+
+   Which is why this next part is written down rather than inherited. Dropping
+   the device ceiling from 40 to 20 carries this one from 400 to 200, and that
+   is a real halving of absolute headroom for a CGNAT'd carrier or an office.
+   Decided, not drifted into, and accepted on one ground: a call now returns up
+   to four send-ready prompts where it used to return a fraction of one, so a
+   shared address gets more product per unit of quota than it did at 400. If
+   that stops being true — if the row starts averaging one usable move — this
+   is the first number to revisit, and the ratio is the thing to change.
 
    And note what this counter is NOT. It shares the eventually-consistent KV
    read-modify-write with the device counter, so it races and reduces blast
@@ -73,17 +94,18 @@ const KV_TTL_SECONDS = 60 * 60 * 48;
 
    1. Caching has a minimum cacheable length. A prompt shorter than that
       threshold is simply not cached — no error, no warning, no field in the
-      response saying so. All three system prompts are comfortably above it
-      today; a future trim could drop one below and the only symptom would be
-      the bill. If you shorten a system prompt, check `usage` on a live call
-      for cache_creation / cache_read tokens rather than trusting this comment.
+      response saying so. MOVES_SYSTEM is comfortably above it today, but it is
+      now the ONLY prompt, so a trim that drops it below the threshold takes the
+      whole cost lever with it and the only symptom is the bill. If you shorten
+      it, check `usage` on a live call for cache_creation / cache_read tokens
+      rather than trusting this comment.
    2. A cache HIT requires the prefix to be byte-identical to the previous
       call's. That is why the block is built from the constant alone, with
       nothing interpolated into it — a version stamp or a timestamp spliced in
       here would invalidate the cache on every request while still looking
       correct.
 
-   Kept as a function rather than three inline literals so the shape exists in
+   Kept as a function rather than an inline literal so the shape exists in
    exactly one place: the retry below has to be able to recognise and undo it. */
 function cachedSystem(text) {
   return [{ type: 'text', text, cache_control: { type: 'ephemeral' } }];

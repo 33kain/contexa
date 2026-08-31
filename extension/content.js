@@ -1,8 +1,9 @@
 /* CONTEXA — content script for claude.ai.
-   One job: when Claude finishes a reply, offer five logical next steps.
-   Click one to load it into the composer. Nothing overlays the composer, and
-   nothing is rendered unless it is real. If the DOM shape changes, the script
-   goes quiet rather than breaking the page. */
+   One job: when Claude finishes a reply, offer a trigger; if it is clicked,
+   read the session's own prompts and offer up to four independent next moves,
+   each already a finished message. Click one to load it into the composer.
+   Nothing overlays the composer, and nothing is rendered unless it is real. If
+   the DOM shape changes, the script goes quiet rather than breaking the page. */
 
 (() => {
   if (window.__contexaLoaded) return;
@@ -785,17 +786,6 @@
     }
   }
 
-  /* The fallback row: no suggestions of its own, just the controls that remain
-     when there is nothing to click through — the assume chip when something was
-     stated, and the rough-ask box always.
-
-     It used to take a `steps` array and render a chip per entry. That was the
-     legacy one-chip wire shape, and `steps` has not reached this file since
-     0.9.30 replaced it with questions and chips — every call site passed a
-     literal `[]`, so the loop could not execute. Removing the parameter rather
-     than just the loop is the point: an empty array is an invitation for a
-     future change to start passing real data down a path nothing has exercised
-     in twenty-six releases. */
   /* v2 — the mined row. Same flat row as the chip row above and deliberately
      so: this is the shape the pivot keeps, and it already works. What differs
      is where the items came from (the session, not the reply) and what a click
@@ -823,12 +813,12 @@
 
   /* One mined idea. The whole prompt is already written, so the click composes
      and stops — no second call, no busy state, and no failure state, because
-     there is nothing left that can fail. Three of today's four move chips
-     already behave exactly this way (`c.id !== 'deeper'` below); this is that
-     path, for every item.
+     there is nothing left that can fail. Three of the four earned move chips
+     already behaved exactly this way before the pivot, inserting their text
+     directly; this is that path, generalised to every item.
 
-     `title` carries the full prompt, as it does for move chips, so hovering
-     shows precisely what is about to land in the box. */
+     `title` carries the full prompt, so hovering shows precisely what is about
+     to land in the box. */
   function appendIdeaChip(row, m) {
     const chip = document.createElement('button');
     chip.className = 'chip move';
@@ -849,12 +839,27 @@
       /* This card is on the beginner surface, so it no longer pitches an API
          key — that is expert vocabulary, and the audience decision put it
          behind Advanced. Anyone who wants unlimited use finds it there. */
-      /* 0.9.30: an interview spends two calls from the pool — one to write the
-         questions, one to write the prompt — so the honest headline number is
-         half the raw limit. Say what the user actually gets, not what the
-         counter counts. */
-      const limit = resp && resp.limit ? resp.limit : 20;
-      body = `That’s all ${Math.floor(limit / 2)} free prompts for today. They come back ${resetWording(resp && resp.resetsAt)}.`;
+      /* The raw limit IS the headline number now. It was halved here because an
+         interview spent two calls from the pool — one to write the questions,
+         one to write the prompt — so the counter counted twice what the user
+         experienced. Mining spends one call per reply and composes on the
+         client, so the two numbers converged and the division became a lie in
+         the user's favour's opposite direction: it would have told someone with
+         20 replies left that they had 10.
+
+         The unit changed with it. A call buys a look at one REPLY and returns
+         up to four prompts the user may or may not take, so counting prompts
+         would over-promise as badly as halving under-promised.
+
+         And when the worker did not report a limit, no number is named. The
+         old code fell back to a hard-coded 20, which is a second copy of a
+         figure that lives in one place on purpose — the whole reason
+         REPLIES_PER_DAY is derived rather than retyped. A vaguer true sentence
+         beats a precise one this file cannot keep honest. */
+      const limit = resp && resp.limit;
+      body = limit
+        ? `That’s all ${limit} free replies for today. They come back ${resetWording(resp && resp.resetsAt)}.`
+        : `That’s all your free replies for today. They come back ${resetWording(resp && resp.resetsAt)}.`;
       btn = 'Settings';
     } else if (mode === 'unconfigured') {
       body = `CONTEXA isn’t connected to a backend yet. Add your own API key to use it now.`;

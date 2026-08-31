@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "CONTEXA - Claude prompts, without the writing",
-  "version": "0.9.57",
+  "version": "0.9.58",
   "description": "Claude replies. Press one button and CONTEXA asks a few short questions you answer by clicking, then writes the whole prompt.",
   "permissions": [
     "storage"

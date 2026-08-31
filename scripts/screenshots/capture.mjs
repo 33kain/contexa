@@ -233,6 +233,13 @@ async function main() {
     headless: false,               // extensions do not load headless
     viewport: SHOT,                // exact store size, no browser chrome in the shot
     ignoreHTTPSErrors: true,
+    /* CX_CHROME lets a machine point this at a Chromium it already has. Left
+       unset, Playwright resolves its own download as before — this is an
+       override, never a hard-coded path, because a path baked in here would be
+       right on exactly one machine. Needed wherever the installed Playwright
+       and the available browser build do not match, which is the usual state
+       of a CI image. */
+    ...(process.env.CX_CHROME ? { executablePath: process.env.CX_CHROME } : {}),
     /* The listing set is dark. This is what carries options.html (which follows
        prefers-color-scheme) into dark with the rest; the conversation shots do
        NOT rely on it, because the mock sets data-mode, which content.js treats
@@ -277,29 +284,27 @@ async function main() {
     await page.waitForTimeout(900);              // let the entrance settle
     await shoot(page, '3-trigger.png', 'the trigger, before any click', { card: true });
 
-    // ---- 1-interview: click it, the questions arrive -----------------------
+    // ---- 1-moves: click it, the mined row arrives --------------------------
     await page.click(MASCOT);
-    await page.waitForSelector(`${CARD} .pill`, { timeout: 15000 });
+    await page.waitForSelector(`${CARD} .chip.move`, { timeout: 15000 });
     await page.evaluate(() => window.__mock.bottom());
     await page.waitForTimeout(600);
-    await shoot(page, '1-interview.png', 'the click-only interview', { card: true });
+    await shoot(page, '1-moves.png', 'the mined row of next moves', { card: true });
 
-    // ---- 2-composed: answer through, the prompt lands in the box -----------
-    for (let i = 0; i < QUESTIONS.questions.length; i++) {
-      const pill = page.locator(`${CARD} .pills .pill`).first();
-      await pill.waitFor({ timeout: 10000 });
-      await pill.click();
-      await page.waitForTimeout(500);
-    }
+    // ---- 2-composed: one click, the whole prompt lands in the box -----------
+    /* One click, not a walk through four. That is the shot: the old sequence
+       clicked a pill per question because the prompt was assembled from the
+       answers, and this one exists to show that it no longer is. */
+    await page.locator(`${CARD} .chip.move`).first().click();
     await page.waitForFunction(
       () => (document.querySelector('#composer')?.innerText || '').trim().length > 40,
       null, { timeout: 15000 },
     );
     await page.evaluate(() => window.__mock.bottom());
     await page.waitForTimeout(600);
-    await shoot(page, '2-composed.png', 'the composed prompt, in the message box', { card: true });
+    await shoot(page, '2-composed.png', 'the prompt, landed in the message box', { card: true });
 
-    // ---- 4-light: the same interview, host in light mode -------------------
+    // ---- 4-light: the same row, host in light mode -------------------------
     await page.evaluate(() => window.__mock.setTheme('light'));
     await page.reload({ waitUntil: 'domcontentloaded' });
     await page.evaluate(() => window.__mock.setTheme('light'));
@@ -309,10 +314,10 @@ async function main() {
     await page.evaluate(() => window.__mock.finishStream());
     await page.waitForSelector(MASCOT, { timeout: 15000 });
     await page.click(MASCOT);
-    await page.waitForSelector(`${CARD} .pill`, { timeout: 15000 });
+    await page.waitForSelector(`${CARD} .chip.move`, { timeout: 15000 });
     await page.evaluate(() => window.__mock.bottom());
     await page.waitForTimeout(600);
-    await shoot(page, '4-light.png', 'the same interview, light mode', { card: true });
+    await shoot(page, '4-light.png', 'the same row, light mode', { card: true });
 
     // ---- 5-settings: the real options page ---------------------------------
     const sw = ctx.serviceWorkers()[0] || await ctx.waitForEvent('serviceworker');
