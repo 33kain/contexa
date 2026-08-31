@@ -114,11 +114,16 @@ Full instructions in [`worker/README.md`](worker/README.md). Short version:
 cd worker
 npx wrangler login
 npx wrangler kv namespace create CX_KV     # paste the id into wrangler.toml
-npx wrangler deploy
 npx wrangler secret put ANTHROPIC_API_KEY  # value goes in at the prompt
 npx wrangler secret put IP_SALT
-curl https://YOUR-WORKER-HOST/v1/health    # {"ok":true,"limit":20,"configured":true}
-# `limit` is the device ceiling, which is now also the public figure: one call per reply.
+npx wrangler deploy                        # secrets FIRST: deploying without the
+                                           # key leaves a live worker that reports
+                                           # configured:false and refuses every call
+curl https://YOUR-WORKER-HOST/v1/health
+# {"ok":true,"version":"0.9.58","model":"claude-sonnet-5","limit":20,"configured":true}
+# `limit` is the device ceiling, which is now also the public figure: one call per
+# reply. Read `version` and `limit` together — they are how you tell a deploy that
+# landed from one that no-opped, and a stale worker still answers 200.
 ```
 
 On Windows PowerShell use `npx.cmd` and `curl.exe`, and generate the salt with

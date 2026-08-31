@@ -1,6 +1,6 @@
 # CONTEXA release commit — permanent template (replaces per-release scripts).
 #
-# Run from the repo root:   powershell -ExecutionPolicy Bypass -File .\release-commit.ps1
+# Run from anywhere:   powershell -ExecutionPolicy Bypass -File .\scripts\release-commit.ps1
 # Reads the version from extension\manifest.json. Verifies before committing,
 # stops on the first failure, commits and tags, never pushes.
 #
@@ -12,7 +12,12 @@
 # never a byte-order mark.
 
 $ErrorActionPreference = 'Stop'
-Set-Location $PSScriptRoot
+# Every path below is repo-root-relative, and this script lives in scripts\.
+# It used to sit at the root, where $PSScriptRoot WAS the root; the housekeeping
+# commit that moved it left this line behind, so it ran one directory too deep
+# and died on the first path it touched. Anchor to the parent, not to the
+# script's own folder.
+Set-Location (Join-Path $PSScriptRoot '..')
 
 function Step($msg) { Write-Host ""; Write-Host "== $msg" -ForegroundColor Cyan }
 function Die($msg)  { Write-Host "ABORTED: $msg" -ForegroundColor Red; exit 1 }

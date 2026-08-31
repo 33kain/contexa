@@ -10,7 +10,10 @@ id = "68d9d130c21741e8a5450f38f2942df7"
 
 [vars]
 # Model used for suggestions. Sonnet 5 on measured evidence: it obeys the label,
-# bullet and voice rules that Haiku ignores, for ~$0.008 per call instead of $0.004.
+# bullet and voice rules that Haiku ignores. Per-call cost is derived in
+# README.md ("What it costs you") and not restated here — the figure that used to
+# sit on this line was Haiku-era AND pre-pivot, and went stale twice over
+# because it was a second copy of a number that has one home.
 MODEL = "claude-sonnet-5"
 
 # Lock the API to your published extension so nobody else can spend your quota.

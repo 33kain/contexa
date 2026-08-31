@@ -90,6 +90,17 @@ with nobody deciding it. Accepted on one ground — a call now returns up to fou
 send-ready prompts where it returned a fraction of one — and named as the first
 number to revisit if that stops being true.
 
+Both limits meter **pre-existing counters**, which makes the halving a
+deploy-day event and not just a constant. The KV keys are byte-identical across
+the pivot — `q:<device>:<day>` and `ip:<hash>:<day>`, same 48h TTL — so nothing
+is orphaned and nothing double-counts; but the ceiling above them drops 40 → 20
+and 400 → 200 the instant the worker goes live. Any device already between 20
+and 39 uses today is immediately `429`, with `used` greater than `limit` in the
+body, until midnight UTC. Deploying just after 00:00 UTC avoids it entirely;
+purging the `q:` and `ip:` prefixes is the other option. Recorded because it is
+invisible in testing — a fresh device never hits it — and reads like a bug to
+the one user it lands on.
+
 A live bug went with it: the quota card **halved** the worker's limit before
 printing it, which under the new ceiling would have told someone with 20 replies
 left that they had 10. It also fell back to a hard-coded 20 when the worker
@@ -97,17 +108,83 @@ reported nothing — a second copy of a figure that exists in one place on
 purpose. The card now prints what the worker sent, and names no number when the
 worker named none.
 
-### Zero is stronger than it was, and that is the open question
+### Zero is stronger than it was, and it says so out loud
 
-Nothing mined means **no row at all** — not the labelled empty shell the quiet
+Nothing mined means **no row of moves** — not the labelled empty shell the quiet
 row used to draw. 0.9.53 added the fifth chip precisely because "they ASKED, and
-a chip that answers a click by sitting there is a dead end"; that chip is gone
-and nothing replaced it. Deliberate, and the top question for the field test:
-**how often does a click return nothing?** It is logged so the rate is
-measurable, because shipping this without measuring it would be deciding it
-blind. History mining should reach zero far less often than reply mining did —
-almost every session has prompt history — but that is a prediction, not a
-result.
+a chip that answers a click by sitting there is a dead end", and deleting it
+reopened that dead end: a click that mined nothing left the card to vanish with
+no account of itself.
+
+So the silence got a voice. A click that earns nothing now renders **"Nothing
+for now."** — inert, `pointer-events: none`, gone after four seconds. It costs
+no second call, because the answer already came back; it is the same zero the
+row would have drawn, said rather than swallowed. That keeps both rules intact
+at once: never fake output (it reports the real result), and zero is a valid
+outcome (there is still no padded row, no floor, no fallback move).
+
+The prediction this entry recorded before shipping — *"history mining should
+reach zero far less often than reply mining did — almost every session has
+prompt history"* — **held.** The field test came back **rare**. Scored here
+because this repo scores its predictions, and because the alternative result
+would have meant the shape was wrong, not the copy.
+
+### The field test, and the one answer that was a bug report
+
+Six questions went out against a real own-key session. Five came back
+confirming the shape: zero is **rare**; the moves read as **independent**, which
+is the whole claim of the menu; the written prompts are **right even when
+edited**, which is what a send-ready message has to be to be worth clicking; and
+the filler-word ban is **agreed with**, not merely tolerated. The fifth said the
+**labels are too thin to choose from** — read as a complaint about the labels
+themselves rather than a sighting of a specific bad one, and answered as such:
+`MOVES_SYSTEM` now requires a label to name **both the action and the thing it
+acts on**, with four worked negatives ("Option A" names nothing, "Add a form"
+names an action with its object missing). The clamp moved 40 → 60 characters in
+the same commit, because a rule demanding a verb *and* its object cannot be
+enforced by a cap that truncates the object.
+
+The sixth — **"only the last exchange"** — was not a taste report. It was the
+product failing its own headline claim, and it took two eliminations to reach:
+
+- **Budget was eliminated by arithmetic.** `fitTurns` splices from index 1, so
+  it structurally cannot drop the first entry; no drop policy could have starved
+  the opening.
+- **The prompt was eliminated by counting.** Its exemplars run about 2:1
+  session-derived over reply-derived, so it was not teaching the model to read
+  the last message.
+
+The cause was in capture. `captureTurns()` numbered turns by **NodeList index**,
+so a page holding only the last five turns of a twenty-turn thread returned
+`i: 1..5` instead of `i: 16..20` — and `MOVES_SYSTEM` read `[1]` as *"turn one
+states the goal"*. Not capture loss: capture loss that **nominates a
+replacement opening**, and confidently. It erased the elision gap too, since
+`1..N` is always contiguous, so nothing downstream could tell a full read from a
+truncated one.
+
+Fixed on both sides of the same misunderstanding. `i` is now documented as
+**position among captured turns**, never conversation position — the wire
+contract drafted in the audit said "true turn index", and the DOM cannot supply
+that. And the prompt stopped asserting what it cannot know: the earliest message
+is now *"the closest thing to a stated goal"* and explicitly *"not guaranteed to
+be the conversation's true first"*. A second line names the failure directly —
+a row whose every move comes from the newest exchange **"has read the last
+message, not the session, and is the failure this shape exists to avoid."**
+`askNow` now logs turn count, character count and the `i` range on every click,
+so the next occurrence is one console line rather than an investigation.
+
+**What remains open:** whether claude.ai's **standard chat** virtualises its
+transcript at all. The mislabelling is fixed, but that only means a truncated
+read no longer lies about which turn is first — it does not make the read
+complete. The only hard measurement in this repo is a **Cowork** tab at ~3–5
+rendered blocks (0.9.55); standard chat is **assumed** to keep the whole
+transcript in the DOM and has never been measured. This is **pre-existing, not
+a 0.9.58 regression** — capture has always read the DOM and only ever could.
+The `[CONTEXA] session` line answers it from any long thread: `i=1..20` on a
+twenty-turn conversation closes it, `i=1..4` means capture is reading a window
+and the fix is a scroll-to-capture pass before reading. That pass is invasive
+enough — it moves the host page under the user — that it is not worth building
+against an assumption, which is why the diagnostic shipped and the fix did not.
 
 ### What the teardown broke, and how it was caught
 
@@ -145,7 +222,8 @@ one job: the rule existed because a second control did.
 
 ### Versions
 
-Extension **0.9.58**, worker **0.9.58**. 275 assertions green.
+Extension **0.9.58**, worker **0.9.58**. 296 assertions green (193 extension,
+103 worker).
 
 ---
 

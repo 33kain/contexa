@@ -19,8 +19,12 @@ npx wrangler login
 npx wrangler kv namespace create CX_KV
 ```
 
-Copy the printed `id` into `wrangler.toml`, replacing
-`PASTE_YOUR_KV_NAMESPACE_ID_HERE`.
+Copy the printed `id` into `wrangler.toml`, under the `CX_KV` binding. **This
+repo's `wrangler.toml` already carries a real id** — these two steps are for
+someone standing up their own copy, not for redeploying this one. Deleting or
+renaming that binding is the one misconfiguration `/v1/health` cannot see: it
+still answers `200 configured:true`, and only a real `/v1/next-steps` call
+fails, because health never touches KV.
 
 ## 3. Set your secrets
 
@@ -79,13 +83,18 @@ wildcard):
 ## 6. Lock it to your extension before launch
 
 Until you do this, anyone who finds the URL can spend your quota. After you
-publish and Chrome assigns your extension its permanent ID:
+publish and Chrome assigns your extension its permanent ID, set
+`ALLOWED_EXTENSION_IDS` in `wrangler.toml` and deploy. **In this repo that is
+already done** — the published ID is pinned there, so an ordinary
+`npx wrangler deploy` keeps the lock. (`--var` also works, but it is a one-shot
+override: the next plain deploy silently reverts to whatever the file says,
+which is why the file is where the ID belongs.)
 
-```bash
-npx wrangler deploy --var ALLOWED_EXTENSION_IDS:your32characterextensionid
-```
-
-The Worker then rejects every other origin with `403 forbidden_origin`.
+The Worker then rejects every other origin with `403 forbidden_origin` — and
+that includes **your own unpacked development build**, which Chrome gives a
+different ID. Dogfooding against the deployed worker therefore has to run
+either the store build or `scripts/dogfood-test.ps1`, which sends the published
+ID as its origin.
 
 ## What it costs you
 

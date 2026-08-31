@@ -26,8 +26,14 @@ const ANTHROPIC_URL = 'https://api.anthropic.com/v1/messages';
    the bullet instruction (1/11), and twice wrote suggestions that asked the USER
    a question it could not answer — all defects that three rounds of prompt work
    failed to fix. Sonnet 5 scored 0/13 over cap, 10/13 bulleted, no voice
-   inversion, for $0.004 more per call. Opus 5 produced the best single suggestion
-   but failed a request outright at 5x the cost. */
+   inversion. Opus 5 produced the best single suggestion but failed a request
+   outright at 5x the cost.
+
+   The per-call figure that used to close this comment was measured against
+   Haiku and against the pre-pivot payload; the payload is a whole session now,
+   so it was wrong twice over. Cost is derived in worker/README.md ("What it
+   costs you") and lives only there — the model choice is what this comment is
+   for. */
 const MODEL = 'claude-sonnet-5';
 
 // Quotas. Client values are never trusted; these are the only limits that count.
