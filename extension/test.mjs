@@ -1011,6 +1011,24 @@ const TURNS = [
     /SPREAD THE ROW ACROSS THE SESSION/.test(bsrcM));
   t('and states what a move is FOR, not only what the reply is not',
     /A move earns its place by ADVANCING/.test(bsrcM));
+
+  /* Two weak-move shapes seen in the 0.9.59 field rows. Source assertions only —
+     they prove the words are present and byte-identical, and cannot prove the
+     model obeys them. That distinction is not pedantry here: the label rule
+     ALREADY said "Proceed" is a command into the void, and the field still
+     produced "Just start building something". Hence the worked negative rather
+     than another abstract clause, and hence a live check as the real gate. */
+  t('the label rule names the objectless-shrug miss by example',
+    /Just start building something/.test(bsrcM));
+  t('and says how to repair it, not only that it is wrong',
+    /put the session's own subject in the label/.test(bsrcM));
+  /* "Explain" is the verb the second-pass ban arrives through: the ban lists
+     "explain that again" and "expand on your answer", so a bare "Explain X"
+     slips past it while doing the same thing. */
+  t('and the second-pass ban names the verb it actually arrives through',
+    /Watch the verb EXPLAIN especially/.test(bsrcM));
+  t('and still allows an explain that opens new ground',
+    /opens ground the reply did not cover/.test(bsrcM));
   /* Two sessions sharing a final turn would otherwise serve each other's moves,
      and mining makes that likelier: the moves depend on everything BUT the
      last turn. */

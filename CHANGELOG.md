@@ -7,6 +7,91 @@ free to diverge, and the settings page labels them separately for that reason.
 
 ---
 
+## 0.9.60 — Extension + Worker
+
+*Two weak moves inside otherwise good rows — and one of them was already
+banned.*
+
+### What 0.9.59 actually did, read from sixteen real rows
+
+The transcription fix landed. Rows now span the session instead of handing back
+the last reply: one thread returned *Draft the 10-to-20 string fix / Swap the
+store icon asset / Verify cache hit via wrangler tail / Set the Anthropic spend
+cap* — four different strands of work, none of them the reply's own content. A
+spec thread returned four separate jobs on the fork rule. Serbian sessions
+returned Serbian moves without being asked. And **"Nothing for now."** fired
+correctly on a *"How are you doing my friend"* thread: nothing open, nothing
+offered, which is zero working as designed rather than a gap.
+
+What remained was not transcription. It was individual weak moves inside rows
+that were otherwise right — so this release touches the prompt only. No gate, no
+threshold, no new mechanical check; the spread gate and its three-turn floor are
+untouched, and the zero rate should not move.
+
+### The label that names an action with no object
+
+The field produced **"Just start building something"**. The uncomfortable part:
+the label rule already banned it, in these words — *"Proceed" is a command into
+the void*, and *"Add a form" names an action with its object missing*. The rule
+was there and the model declined it, which is the same shape as the
+backwards-move ban that 0.9.59 had to gate rather than argue with.
+
+So the fix is a worked negative rather than another abstract clause, since the
+list of examples is what actually gets followed, plus the repair stated
+positively: put the session's own subject in the label — the app, the file, the
+page, the decision it is about. **Whether that is enough is genuinely unknown**,
+and this entry is the place that will say so if the next field read shows the
+shrug again.
+
+### "Explain" is how the second pass gets past its own ban
+
+*Explain typical rejection reasons. Explain the token generation steps. Explain
+local vs cloud MCP servers. Explain fetching Stripe transactions.*
+
+The ban on sending the user back over the reply lists *"explain that again"* and
+*"expand on your answer"* — so a bare **"Explain X"** walks straight past it
+while doing the same job. `MOVES_SYSTEM` now names the verb: a move asks Claude
+to PRODUCE something, and "explain what you just said, at greater length" is the
+backwards move wearing a verb the ban did not name. Deliberately not an outright
+ban — "Explain" earns a row when it opens ground the reply did not cover, and
+several of the field's explain-moves did exactly that.
+
+### A third shape, found and deliberately not fixed
+
+The most common weak move in those sixteen rows was neither of the above:
+**moves whose substance only the user can supply.** *Answer the fork definition
+question. Confirm the exact failure mode. Odgovori na pitanje o staging
+environment-u. Nabroji neformalni checklist iz glave.*
+
+Each is the reply's own closing question turned into a chip, and CONTEXA cannot
+write the message: the content is in the user's head, so the composed text is
+either invented or mostly `<paste here>`. By this product's own line, *a move
+nothing earned is a form field*.
+
+Recorded rather than fixed, because the change was scoped to the two shapes
+above and widening it unasked is how a prompt accumulates rules nobody decided.
+It is the first candidate for the next pass.
+
+### What the tests can and cannot say
+
+Four new assertions, each proven by breaking it: the worked negative, its
+repair clause, the explain rule, and the carve-out that keeps a genuinely new
+"Explain" legal. A one-sided edit to either copy still fails the build as prompt
+drift.
+
+But they are source assertions. They prove the words are present and
+byte-identical across both files; **they cannot prove the model obeys them** —
+and the label rule is the standing proof that the difference is real, not
+pedantic. The verification that counts is a live read of the same kind of thread
+that produced these rows.
+
+### Versions
+
+Extension **0.9.60**, worker **0.9.60**. 331 assertions green (224 extension,
+107 worker). Worker redeploy required — `MOVES_SYSTEM` is server-side too.
+
+---
+
 ## 0.9.59 — Extension + Worker
 
 *The row was reading the last message back to her, and every check said it was
