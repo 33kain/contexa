@@ -463,7 +463,7 @@ const ACTION_OPENERS = new RegExp('^\\s*(' + [
   'definiši|definisi|precizuj|preciziraj|odredi|utvrdi|izaberi|odaberi',
   'razradi|razvij|dopuni|dodaj|proširi|prosiri|dovrši|dovrsi|završi|zavrsi',
   'postavi|podesi|instaliraj|deployuj|objavi|pusti|poveži|povezi',
-  'skiciraj|nacrtaj|iscrtaj|modeluj|modeliraj',
+  'skiciraj|nacrtaj|iscrtaj|modeluj|modeliraj|projektuj|isprojektuj',
   'popravi|ispravi|sredi|reši|resi|otkloni|debaguj',
   'pretvori|prebaci|premesti|premjesti|zameni|zamijeni|preimenuj|kopiraj|migriraj|prevedi|prilagodi|uskladi',
   'ažuriraj|azuriraj|osveži|osvezi|doradi|prepravi|refaktoriši|refaktorisi|pojednostavi|očisti|ocisti',

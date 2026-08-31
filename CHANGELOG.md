@@ -7,6 +7,39 @@ free to diverge, and the settings page labels them separately for that reason.
 
 ---
 
+## 0.9.68 — Extension + Worker
+
+*One more verb, found by verifying the last release.*
+
+`Isprojektuj katalog sa filterima` was dropped by the **deployed 0.9.67** during
+its own end-to-end verification — the tail was still attached and named it.
+Added `projektuj|isprojektuj` beside `skiciraj` and `osmisli`.
+
+The interesting part is not the word, it is where it landed: the Serbian
+conceive/design family, which is exactly where the 0.9.67 sweep had already
+found the list thinnest. One sweep of ten sessions did not exhaust that family.
+It found the common cases (14 drops in 36 moves); the three verification runs
+that followed produced 1 drop in 7. Thinner, not empty — so the honest read is
+that this list has a long tail and the tail is worth re-reading occasionally,
+not that it is now complete.
+
+### Also seen, not fixed
+
+One of the three verification runs returned **`bad_json`**:
+
+```
+stop=end_turn  out=952  in=425  ceiling=2500  len=1963  hadJson=true  steps=5
+```
+
+Not truncation — the model stopped on its own, well inside the token ceiling,
+and the payload opened as valid JSON. That is a **different defect** from
+anything in this release and is left alone rather than folded in: 1 failure in
+the 13 live requests across 0.9.67's sweep and verification. Recorded here so
+the next occurrence has a first data point to sit beside, with the diagnostics
+the worker already logs.
+
+---
+
 ## 0.9.67 — Extension + Worker
 
 *The action gate was read for the first time. It was eating nine good clicks out

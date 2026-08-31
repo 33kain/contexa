@@ -1133,7 +1133,13 @@ const TURNS = [
       'Skiciraj logotip sa mesecom',
       'Prilagodi CV opis ostalim projektima',
       'Model hourly line items',
-      'Estimate weekly payout breakeven'
+      'Estimate weekly payout breakeven',
+      /* Caught by the VERIFICATION run of 0.9.67, on the deployed fix — the
+         tail was still attached and named one more. Same family as skiciraj
+         and osmisli, which is the point worth noticing: the Serbian
+         conceive/design family was where this list was thinnest, and one sweep
+         did not exhaust it. */
+      'Isprojektuj katalog sa filterima'
     ];
     for (const label of MUST_SURVIVE) {
       t('action gate keeps a real field move: ' + label,
