@@ -80,14 +80,33 @@ const PORT = 8443;
 const API_HOST = 'contexa-api.michu110899.workers.dev';
 const SHOT = { width: 1280, height: 800 };
 
-/* The canned model output. Deliberately the shape the prompt actually asks for:
-   two questions, each with concrete options rather than categories, in the
-   user's own inner voice. A screenshot that showed four vague questions would
-   be advertising a product the prompt spends most of its length forbidding. */
+/* The canned model output. It has to be the shape the CURRENT prompt asks for,
+   and keeping that true is most of the work of retaking these.
+
+   The first version of this block was written at 0.9.58 and shipped labels of
+   two and three words — "Build the itinerary", "Add day trips", "Book the
+   flights". Commit 3267e4c then changed the label rule to "up to six words,
+   naming the action AND the thing it acts on", and named the old shape as the
+   defect: "Add a form" is an action with its object missing. Nothing here
+   noticed, because the model output is canned and a re-run reproduces whatever
+   this constant says. The screenshots went on advertising a weakness the
+   product had fixed.
+
+   So: when the label rule, the move count or the card changes, THIS BLOCK is
+   the thing to bring with it. A capture harness with canned output cannot
+   discover that on its own.
+
+   Three moves, not four. The product offers UP TO four and live rows commonly
+   land on two or three; padding the frame to four to look generous is exactly
+   the overselling the "never fake output" rule exists to stop.
+
+   Each `evidence` is a verbatim fragment of REPLY_HTML below. Nothing checks
+   that here — the worker is redirected to this JSON and the hosted path does
+   not re-ground client-side — which is precisely why it is done by hand. */
 const MOVES = {
   moves: [
     {
-      label: 'Build the itinerary',
+      label: 'Build the day-by-day Lisbon itinerary',
       text:
         'Turn the Lisbon plan into a full day-by-day itinerary.\n' +
         '- mid-range budget, a mix of casual spots and one nicer dinner\n' +
@@ -96,23 +115,27 @@ const MOVES = {
       evidence: 'a packed itinerary or a slower pace',
     },
     {
-      label: 'Add day trips',
+      label: 'Add two day trips from Lisbon',
       text:
         'Add two day trips to the Lisbon plan — one coastal, one inland.\n' +
         'For each: how to get there without a car, how long it really takes, ' +
         'and what to skip.',
-      evidence: 'Let me know your budget range',
+      evidence: 'a day trip to Sintra',
     },
     {
-      label: 'Book the flights',
+      /* Was "Book the flights", which the product cannot do and which its own
+         `text` never claimed — the prompt underneath asks Claude to WRITE a
+         search. The label was lying about the move it belonged to. */
+      label: 'Write the flight search for Lisbon',
       text:
         'Write the search I should run for flights to Lisbon. <paste here> is ' +
         'my rough date range. Tell me which days are cheapest to fly and how ' +
         'far ahead to book.',
-      evidence: 'Lisbon',
+      evidence: 'Let me know your budget range',
     },
   ],
-  grounding: { total: 3, kept: 3, grounded: 3 },
+  grounding: { total: 3, kept: 3, grounded: 3, fromTurns: 1, fromReply: 2,
+    droppedByAction: 0, emptiedBy: null },
   quota: { used: 3, limit: 20 },
 };
 

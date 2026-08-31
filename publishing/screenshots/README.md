@@ -1,5 +1,21 @@
 # Store screenshots
 
+**Captured from 0.9.68, on 2026-08-31.**
+
+That stamp is here because its absence cost something. The previous set was
+captured at 0.9.58 and nothing recorded the fact, so nobody noticed when commit
+`3267e4c` changed the label rule from "two to four words" to "up to six words,
+naming the action AND the thing it acts on" — and the frames went on showing
+"Build the itinerary" and "Add day trips", which that same rule names as the
+defect it was written to fix. The screenshots were advertising a weakness the
+product had already corrected.
+
+**Update this line whenever you re-run the harness.** And note what makes these
+go stale in a way a re-run alone will not fix: the model output is **canned**,
+in `MOVES` at the top of `scripts/screenshots/capture.mjs`. If the label rule,
+the move count or the card changes, that constant has to change with it, or a
+re-run faithfully reproduces the old product.
+
 Five PNGs, each exactly 1280×800, in listing order. The set is dark apart from
 `4-light.png`, which exists to show that the card follows the host's theme
 rather than imposing its own.

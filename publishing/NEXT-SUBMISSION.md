@@ -51,11 +51,27 @@ browser is material.
 
 ## 2. Screenshots
 
-Five PNGs, 1280×800, in `publishing/screenshots/`. The current set is already
-moves-era — `1-moves`, `2-composed`, `3-trigger`, `4-light`, `5-settings` — so
-this is a refresh, not a first take.
+**Regenerated 2026-08-31 against 0.9.68 — they are current.** Five PNGs,
+1280×800, in `publishing/screenshots/`: `1-moves`, `2-composed`, `3-trigger`,
+`4-light`, `5-settings`.
 
-There is a working harness:
+Two things were wrong before that run, worth knowing since both are invisible
+from the images themselves:
+
+- **The store has never had these.** `publishing/screenshots/` was first created
+  at 0.9.58, *after* 0.9.57 shipped. Whatever the live listing shows predates
+  the directory, which puts it in the chip/interview era — a product that no
+  longer exists. Uploading this set is the single biggest correction available
+  to the listing.
+- **The old set showed the old label rule.** Captured at 0.9.58, before commit
+  `3267e4c` widened labels from "two to four words" to "up to six words, naming
+  the action and the thing it acts on". The frames read "Build the itinerary",
+  "Add day trips" — the exact shape that rule calls a defect.
+
+The harness's canned `MOVES` constant was rewritten to match, which is the part
+a plain re-run would have missed.
+
+The harness itself:
 
 ```bash
 xvfb-run -a node scripts/screenshots/capture.mjs
@@ -72,9 +88,13 @@ canned — so the frames are honest about layout and behaviour but are *not*
 evidence that the selectors still match the real site today. Both READMEs say to
 retake against a live session before submitting.
 
-That is the reason this half is a person's job and not a script's. Run the
-harness if you want a clean baseline; take the submitted frames from a real
-conversation.
+**So what to actually do.** The set in the repo is accurate to 0.9.68 and is a
+large improvement on chip-era frames advertising a deleted mechanism — upload it
+rather than let the current listing stand while waiting for something better.
+Retaking against a live claude.ai is the upgrade, not the prerequisite: it is
+the only thing that proves the selectors still match the real site, and the only
+frames with real model output. Do it when you have a browser and a conversation
+worth photographing.
 
 ---
 
