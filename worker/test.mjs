@@ -617,6 +617,40 @@ t('unknown route 404', r.status === 404, String(r.status));
     b.moves.length === 2 && b.grounding.fromTurns === 1 && b.grounding.fromReply === 1,
     JSON.stringify(b.grounding));
 
+  /* (c3) The explain gate, end to end. "Explain the agent flies blind risk" was
+     a real field row: the reply's own sentence handed back to be explained at
+     greater length. The prompt has banned it in words since 0.9.60 and the
+     field produced it twice more, so it is mechanical now. */
+  const BLIND_REPLY = 'If you only use Standard OAuth, the agent flies blind and cannot see your schema. '
+    + 'The menu page still needs writing before any of that matters.';
+  globalThis.fetch = modelJson({ moves: [
+    { label: 'Explain the agent flies blind risk', text: 'Explain it.', evidence: 'the agent flies blind' },
+    { label: 'Write the menu page', text: 'Write the menu page.', evidence: 'now the menu page' }
+  ] });
+  r = await w.fetch(post({ reply: BLIND_REPLY, turns: TURNS }),
+    { ANTHROPIC_API_KEY: 'k', CX_KV: makeKV(), IP_SALT: 's' });
+  b = await r.json();
+  t('a reply-earned explain is dropped before the row is served',
+    b.moves.length === 1 && b.moves[0].label === 'Write the menu page',
+    b.moves.map(m => m.label).join(' | '));
+  /* The response must report the SURVIVORS. Reporting the pre-drop tally would
+     hide the drop in the one field built to make it visible. */
+  t('and the reported grounding counts the survivors, not what was sent',
+    b.grounding.total === 2 && b.grounding.kept === 1 && b.grounding.fromTurns === 1
+    && b.grounding.fromReply === 0, JSON.stringify(b.grounding));
+
+  /* An explain earned by a USER TURN opens ground the reply did not cover, and
+     the prompt explicitly protects it. Over-firing here is how 0.9.61 turned a
+     good row into silence, so this case is guarded as hard as the drop. */
+  globalThis.fetch = modelJson({ moves: [
+    { label: 'Explain the opening hours setup', text: 'Explain it.', evidence: 'can you add the opening hours' }
+  ] });
+  r = await w.fetch(post({ reply: BLIND_REPLY, turns: TURNS }),
+    { ANTHROPIC_API_KEY: 'k', CX_KV: makeKV(), IP_SALT: 's' });
+  b = await r.json();
+  t('but a turn-earned explain survives the gate untouched',
+    b.moves.length === 1 && b.grounding.fromTurns === 1, JSON.stringify(b.grounding));
+
   /* (d) The gate. Each part is required for a different visible failure: no
      label is a blank button, no text composes nothing, no evidence is a move
      the session never earned. */

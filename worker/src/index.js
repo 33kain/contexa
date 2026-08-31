@@ -18,7 +18,7 @@
    which build is live. Deliberately independent of the extension's manifest
    version — they ship on separate paths and a worker fix should not force
    everyone to reinstall the extension. */
-const BUILD = '0.9.61';   // matches the extension generation this serves; every bump here has paid for itself by telling one deploy from another — 0.9.52 could not tell a pre-fork deploy from a post-fork one, 0.9.54 a pre-voice from a post-voice, 0.9.56 a pre-precedence-fix from a post-precedence-fix, and 0.9.58 is the first that must distinguish a worker that speaks moves from one that still speaks questions
+const BUILD = '0.9.62';   // matches the extension generation this serves; every bump here has paid for itself by telling one deploy from another — 0.9.52 could not tell a pre-fork deploy from a post-fork one, 0.9.54 a pre-voice from a post-voice, 0.9.56 a pre-precedence-fix from a post-precedence-fix, and 0.9.58 is the first that must distinguish a worker that speaks moves from one that still speaks questions
 
 const ANTHROPIC_URL = 'https://api.anthropic.com/v1/messages';
 /* Sonnet 5 rather than Haiku, on measured evidence: in a controlled three-model
@@ -175,12 +175,10 @@ Banned in every move, each because it has already shipped here as a defect:
 - A move whose text says nothing the session had not already said. This includes re-offering an option, step or question the reply itself just enumerated: the reply's list is material, never the menu.
 - Our words instead of theirs: schema, output format, parameters, prompt, workflow.
 - Service voice. "Would you like me to..." is a waiter. The text is THEIR message, never an offer of ours.
-- A move that is really THEIR answer. When the reply ends by asking them something — which of two ways, which failure it was, what is on their list — "answer that" is not a move: the content is in their head, so you would invent it or hand back a message that is nothing but slots. The reply's closing question belongs to them, not to this row. Needing ONE thing from them is fine and has the slot for it; being made entirely of what they must supply is the form field this row exists not to be.
 Worked examples:
 - The session: turn one "make me a website for my bakery", then turns about the menu page and the opening hours. The reply just built the landing page and ended "that's the base — the structure is there to build on". What exists now is a page, so the moves are what a page grows next: label "Add a contact form", text "Add a contact form to the bakery site.\\n- name, email, message, and which cake they are asking about\\n- inline validation, error text under each field\\n- one success state, no redirect\\nLeave the rest of the page as it stands.", evidence "the structure is there to build on" — label "Make it mobile-first", text "Rework the bakery page to be mobile-first. Start from a 375px viewport and scale up, rather than shrinking the desktop layout down. Show me the changed CSS only.", evidence "make me a website for my bakery" — label "Write the menu page", text "Write the menu page for the bakery site, matching the landing page's styling. Group by category, with one short line of copy under each item. <paste here> is the list of what we actually sell.", evidence "the menu page". Three moves, three different jobs, none of them needing the others.
 - The same session done WRONG, and both halves are common. "Add a contact form, write the menu page, and make it mobile-first" as one move: three jobs in one prompt, which comes back as three half-answers. And "Tell me more about the structure you built" as another: the reply's own content handed back for a second pass, which is the worst thing on this list.
 - Transcription, which is the failure that ships most often because it does not feel like one. A session about a broken logo, and the reply ends "1. check the asset in the repo, 2. inspect the element in DevTools, 3. if DevTools is not available, just describe what you see". The row comes back "Check the asset in the repo", "Inspect the element in DevTools", "Describe what you see". Three moves, three flawless evidence quotes, nothing mined: the reply offered all three and the user read them before you did. The session wanted the work the broken logo is BLOCKING.
-- The answer-shaped row, and its repair. The reply closes "so which is it — a clipboard manager, or a scratchpad for assembling prompts?", and the row comes back "Answer the clipboard question" and "Confirm which one you meant". Neither is writable: the answer is theirs, so the text is either invented or all slots. Write the WORK THAT FOLLOWS the decision instead. Take the reading the session already leans toward — they have said "assembling multi-part prompts" twice — and make it a real move: label "Design the prompt staging app", text "Design a scratchpad app for assembling multi-part prompts before sending them to Claude.\n- what a saved fragment holds\n- how fragments are ordered into one message\n- what happens to them after sending\nAssume: a clipboard manager is the wrong shape for this, since the problem is assembly rather than history.", evidence "assembling multi-part prompts". The fork became a move, and the branch you did not take became a line they can change.
 - Nothing earned. The session was one question about a tax deadline, and the reply answered it with the date and the form number. Nothing is open, nothing was building, and no next move exists that is not invented: {"moves":[]}. This is the correct output far more often than it feels.
 Each move has THREE parts:
 - "label": what they read. Up to six words, no punctuation, naming both the action and the thing it acts on, all labels obviously different.
@@ -413,26 +411,78 @@ function cleanMoves(v) {
    drift) renders, but is counted and logged so the rate stays readable from the
    console.
 
-   The corpus now arrives in TWO pieces rather than one concatenated string,
+   The corpus arrives in TWO pieces rather than one concatenated string,
    because WHICH piece earned a move is the whole diagnosis. One flat haystack
    can say a move is grounded; it can never say what grounded it, which is why
-   a row transcribed straight out of the reply looked perfect to this gate. */
+   a row transcribed straight out of the reply looked perfect to this gate.
+
+   `sources` keeps PER-MOVE what the counts throw away. The work was already
+   being done — this only stops discarding it — and the explain gate below
+   cannot exist without it. */
 function groundMoves(moves, turnsText, replyText) {
   const norm = s => String(s || '').replace(/\s+/g, ' ').trim();
   const turnsHay = norm(turnsText);
   const replyHay = norm(replyText);
-  let grounded = 0, fromTurns = 0, fromReply = 0;
+  const sources = [];
   for (const m of moves) {
     const ev = norm(m.evidence);
     /* Turn-earned wins the tie. A phrase the user wrote and Claude quoted back
        is still the user's, and crediting the reply for it would count the
-       session's own material as an echo — firing the gate below on a row that
+       session's own material as an echo — firing the gates below on a row that
        had in fact read the history. */
-    if (turnsHay && turnsHay.includes(ev)) { grounded++; fromTurns++; }
-    else if (replyHay.includes(ev)) { grounded++; fromReply++; }
-    else console.log('[CONTEXA] ungrounded move', m.label.slice(0, 40));
+    if (turnsHay && turnsHay.includes(ev)) sources.push('turns');
+    else if (replyHay.includes(ev)) sources.push('reply');
+    else { console.log('[CONTEXA] ungrounded move', m.label.slice(0, 40)); sources.push(''); }
+  }
+  return Object.assign(tallySources(sources), { sources });
+}
+
+function tallySources(sources) {
+  let grounded = 0, fromTurns = 0, fromReply = 0;
+  for (const s of sources) {
+    if (s) grounded++;
+    if (s === 'turns') fromTurns++;
+    else if (s === 'reply') fromReply++;
   }
   return { grounded, fromTurns, fromReply };
+}
+
+/* The explain gate. A move whose evidence came from the REPLY and whose label
+   opens with an explain-family verb is the second pass wearing a different
+   verb: "explain, at greater length, the thing you just said". The prompt has
+   banned this in words since 0.9.60 and the field produced it twice more, which
+   is why it is mechanical now — the tally on prompt-only rules is four failures
+   in five, against one clean success for a gate.
+
+   BOTH halves are required. An explain earned by a USER TURN is opening ground
+   the reply did not cover, which the prompt explicitly protects, and it must
+   survive. Only the reply-earned one is the defect.
+
+   Per-move rather than per-row, unlike the spread gate: this is a defect in one
+   chip, not a judgement about the whole row. And no turn threshold — a
+   reply-earned explain is a second pass on a two-turn session as much as a
+   twenty-turn one.
+
+   KNOWN LIMIT, written down rather than discovered later: a verb list does not
+   generalise, and this product answers in the session's own language. The
+   Serbian entries are here because the field produced them; the next language a
+   user brings will slip through, and that is expected rather than surprising. */
+const EXPLAIN_OPENERS = /^\s*(explain|describe|clarify|elaborate|expand|walk me through|objasni|razjasni|opisi|opiši|pojasni)\b/i;
+function dropReplyExplains(moves, ground) {
+  const keep = [], sources = [];
+  for (let i = 0; i < moves.length; i++) {
+    if (ground.sources[i] === 'reply' && EXPLAIN_OPENERS.test(moves[i].label)) {
+      console.log('[CONTEXA] explain gate — dropped reply-earned "' +
+        moves[i].label.slice(0, 40) + '"');
+      continue;
+    }
+    keep.push(moves[i]);
+    sources.push(ground.sources[i]);
+  }
+  /* Re-tallied, not carried over. The counts feed the spread gate below and the
+     numbers reported to the console and the hosted client; leaving them stale
+     would make a dropped move invisible in exactly the place built to see it. */
+  return { moves: keep, ground: Object.assign(tallySources(sources), { sources }) };
 }
 
 /* The spread gate — deliberately the narrowest rule that still kills the
@@ -442,10 +492,7 @@ function groundMoves(moves, turnsText, replyText) {
 
    THREE turns is the floor because below it the reply genuinely IS most of the
    material: on a one- or two-turn session a reply-earned row is the correct
-   answer, and dropping it would manufacture zeros out of good rows. The prompt
-   states this rule in words too — it is enforced here as well because the
-   backwards-move ban was prompt-only, and the field test found it not landing.
-   A gate living only in the prompt is a gate the model may decline. */
+   answer, and dropping it would manufacture zeros out of good rows. */
 const SPREAD_MIN_TURNS = 3;
 function enforceSpread(moves, ground, turnCount) {
   /* EVERY move matched the reply — not merely "none matched a turn". The
@@ -646,9 +693,14 @@ export default {
        session now, so a move earned by turn one stating the goal is grounded;
        a reply-only corpus would have failed nearly every one of them and
        reported a working product as broken. */
-    const kept = cleanMoves(parsed.moves);
+    const cleaned = cleanMoves(parsed.moves);
     const rawMoves = Array.isArray(parsed.moves) ? parsed.moves.length : 0;
-    const ground = groundMoves(kept, turns.map(t => t.text).join('\n'), reply);
+    const g0 = groundMoves(cleaned, turns.map(t => t.text).join('\n'), reply);
+    /* Explain gate first, spread gate second, and the order is load-bearing:
+       dropping a reply-earned explain changes the counts the spread gate reads,
+       so running spread on the pre-drop tally could drop a row that the
+       survivors no longer justify dropping. */
+    const { moves: kept, ground } = dropReplyExplains(cleaned, g0);
     const moves = enforceSpread(kept, ground, turns.length);
     /* The split ships in the response, not just the log. The own-key path can
        read its console; a hosted user cannot, and this is the number that says

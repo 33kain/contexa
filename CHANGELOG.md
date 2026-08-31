@@ -7,6 +7,95 @@ free to diverge, and the settings page labels them separately for that reason.
 
 ---
 
+## 0.9.62 — Extension + Worker
+
+*0.9.61 is reverted. It cost a row, and the thing it was trying to fix in words
+is fixed in code instead.*
+
+### The regression, and why it happened
+
+**"Vebsajt za pametne dečije igrice"** — same thread, same reply — returned three
+good moves on 0.9.60 and **"Nothing for now."** on 0.9.61.
+
+The mechanism is legible in the shipped text. 0.9.61's ban opened *"When the
+reply ends by asking them something…"* and asserted *"The reply's closing
+question belongs to them, not to this row."* That reply ends with **"Šta misliš?
+Trebalo bi da se nešto doda, ukloni ili promeni?"** — exactly that condition. The
+repair was written, but it lived in a worked example far below the ban, so the
+prohibition is what got followed. A rule that reads absolute at the top and
+conditional at the bottom will be obeyed at the top.
+
+One thread cannot fully separate a regression from sampling variance. It is the
+same thread and the same reply, the change is the only variable, and the wording
+predicts the failure — enough to revert on.
+
+`MOVES_SYSTEM` is now **byte-identical to 0.9.60's**, verified by diffing the
+extracted constant against `git show` rather than by reading it. The
+answer-shaped move is left unfixed on purpose: it was already halving on its own
+between 0.9.59 and 0.9.60 with no rule at all.
+
+### The tally that decided this release
+
+| | landed |
+|---|---|
+| Spread gate (0.9.59, mechanical) | **yes**, and measurably |
+| Objectless label (0.9.60, prompt) | **yes** — the only one that put its repair *inline* |
+| Backwards-move ban (prompt) | no |
+| Explain rule (0.9.60, prompt) | no — the field produced two more after it |
+| Answer-shape ban (0.9.61, prompt) | no, and cost a row |
+
+Four failures in five for prompt-only rules, against one clean success for a
+gate. So the explain shape stops being argued with and starts being dropped.
+
+### The explain gate
+
+`groundMoves` already worked out, per move, whether the turns or the reply earned
+it — and then threw that away, returning only totals. It now keeps a `sources[]`
+array alongside them. No new matching; it just stops discarding what it knew.
+
+A move is dropped when it is **reply-earned AND its label opens with an
+explain-family verb**. Both halves are required, and the second half is the one
+that matters: an explain earned by a **user turn** is opening ground the reply did
+not cover — which the prompt explicitly protects — and it survives untouched.
+Over-firing is precisely how 0.9.61 turned a good row into silence, so the
+must-not-fire case is guarded as hard as the must-fire one, on both paths.
+
+Per-move rather than per-row, unlike the spread gate: this is a defect in one
+chip, not a verdict on the row. No turn threshold either. And the counts are
+**re-tallied** after a drop, because they feed the spread gate and the numbers
+reported to the console and the hosted client — carrying stale ones would hide
+the drop in the one field built to show it.
+
+### The known limit, written down rather than discovered later
+
+**A verb list cannot generalise, and this product answers in the session's own
+language.** The Serbian entries (*objasni*, *razjasni*, *pojasni*, *opiši*) are
+there because the field produced them. The next language a user brings will slip
+through, and that is expected rather than surprising. It is accepted because the
+alternative on the table was a sixth prompt-only rule.
+
+Also guarded: a move merely *containing* the verb is not the shape. "Draft the
+explainer page" is real work and survives; only a label that **opens** with the
+verb is the defect.
+
+### A guard that broke on a correct refactor, for the third time
+
+The source assertion pinning the grounding call matched the literal variable name
+`kept`, and broke the moment a variable was renamed to make room for the new
+gate. Third occurrence in this file of a check failing on a correct refactor
+because it pinned typography rather than the property. The identifier is now
+wildcarded; what it asserts is what actually matters — that turns and reply
+arrive as two separate arguments.
+
+### Versions
+
+Extension **0.9.62**, worker **0.9.62**. 342 assertions green (232 extension,
+110 worker). Every new guard proven by breaking it: the gate firing without
+regard to provenance, the verb removed from the list, the Serbian verb removed,
+and the re-tally replaced by stale counts. Worker redeploy required.
+
+---
+
 ## 0.9.61 — Extension + Worker
 
 *The reply's closing question is theirs, not the row's — and this time the ban

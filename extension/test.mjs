@@ -940,10 +940,19 @@ const TURNS = [
      exact regression that made a reply transcript indistinguishable from a
      mined row. Two earlier guards in this file pinned literal call text and
      broke on a harmless refactor; this one asks the real question. */
+  /* The IDENTIFIER is wildcarded on purpose. This guard pinned the literal name
+     `kept` and broke the moment a variable was renamed to make room for the
+     explain gate — the third time in this file a check has failed on a correct
+     refactor because it pinned typography instead of the property. What matters
+     is that turns and reply arrive as two separate arguments; concatenating them
+     is the regression that made a reply transcript indistinguishable from a
+     mined row. */
   t('and grounds turns and reply as SEPARATE corpora, never concatenated',
-    /groundMoves\(\s*kept\s*,\s*turns\.map\(t => t\.text\)\.join\([^)]*\)\s*,\s*reply\s*\)/.test(bsrcM));
-  t('and runs the spread gate over the result',
-    /enforceSpread\(kept, ground, turns\.length\)/.test(bsrcM));
+    /groundMoves\(\s*\w+\s*,\s*turns\.map\(t => t\.text\)\.join\([^)]*\)\s*,\s*reply\s*\)/.test(bsrcM));
+  t('and drops reply-earned explains before judging the row',
+    /dropReplyExplains\(\s*\w+\s*,\s*\w+\s*\)/.test(bsrcM));
+  t('and runs the spread gate over what survived',
+    /enforceSpread\(\s*\w+\s*,\s*\w+\s*,\s*turns\.length\)/.test(bsrcM));
 
   /* ---- provenance + the spread gate, lifted and RUN ----------------------
      Source assertions cannot tell a working gate from a plausible-looking one,
@@ -955,7 +964,7 @@ const TURNS = [
     const blk = bsrcM.slice(bsrcM.indexOf('function groundMoves'),
       bsrcM.indexOf('/* end of the injected helper block'));
     const g = new Function('console', blk +
-      '; return { groundMoves, enforceSpread, SPREAD_MIN_TURNS };')({ log() {} });
+      '; return { groundMoves, enforceSpread, dropReplyExplains, tallySources, SPREAD_MIN_TURNS };')({ log() {} });
 
     const TURNTEXT = 'make me a website for my bakery\ncan you add the opening hours';
     const REPLYTEXT = 'try these: 1. check the asset 2. inspect in DevTools 3. describe what you see';
@@ -995,6 +1004,49 @@ const TURNS = [
       g.enforceSpread(mixed, gr2, 20).length === 2);
     t('and an already-empty row is passed through, never "dropped" twice',
       g.enforceSpread([], gr1, 20).length === 0);
+
+    /* ---- the explain gate ------------------------------------------------
+       Both halves are required, so both halves get a test — and the one that
+       must NOT fire matters more than the one that must, because over-firing
+       is exactly how 0.9.61 turned a good row into silence. */
+    const EX_TURNS = 'set up CI for my repo\nthe notes skill needs rules';
+    const EX_REPLY = 'the agent flies blind without the schema, and lint runs on every push';
+
+    const row = [
+      mv('Explain the agent flies blind risk', 'the agent flies blind'),   // reply-earned explain -> drop
+      mv('Explain the notes skill rules', 'the notes skill needs rules'),  // TURN-earned explain -> keep
+      mv('Set up lint on every push', 'lint runs on every push')           // reply-earned, not explain -> keep
+    ];
+    const gEx = g.groundMoves(row, EX_TURNS, EX_REPLY);
+    t('provenance is kept per move, not just totalled',
+      Array.isArray(gEx.sources) && gEx.sources.join(',') === 'reply,turns,reply', JSON.stringify(gEx.sources));
+
+    const after = g.dropReplyExplains(row, gEx);
+    t('the explain gate drops a reply-earned explain',
+      !after.moves.some(m => /flies blind/.test(m.label)), after.moves.map(m => m.label).join(' | '));
+    t('and KEEPS a turn-earned explain, which opens ground the reply did not cover',
+      after.moves.some(m => /notes skill rules/.test(m.label)));
+    t('and keeps a reply-earned move that is not an explain',
+      after.moves.some(m => /Set up lint/.test(m.label)));
+    /* Stale counts would make a dropped move invisible in the one place built
+       to see it, and would feed the spread gate a row that no longer exists. */
+    t('and re-tallies rather than carrying the pre-drop counts',
+      after.ground.fromReply === 1 && after.ground.fromTurns === 1 &&
+      after.ground.sources.length === 2, JSON.stringify(after.ground));
+
+    /* The verb list is the known weakness: it cannot generalise across
+       languages, and this product answers in the session's own. Serbian is in
+       the list because the field produced it. */
+    const srb = [mv('Objasni staging environment opcije', 'the agent flies blind')];
+    const gSrb = g.groundMoves(srb, EX_TURNS, EX_REPLY);
+    t('and the gate covers the Serbian verb the field actually produced',
+      g.dropReplyExplains(srb, gSrb).moves.length === 0);
+
+    /* A move merely CONTAINING the verb is not the shape; the defect is a move
+       that OPENS with it. "Draft the explainer page" is real work. */
+    const midword = [mv('Draft the explainer page', 'the agent flies blind')];
+    t('and a verb mid-label is not the shape, so the move survives',
+      g.dropReplyExplains(midword, g.groundMoves(midword, EX_TURNS, EX_REPLY)).moves.length === 1);
   }
 
   /* The prompt half of the same rule. The gate catches the total case; only the
@@ -1030,24 +1082,17 @@ const TURNS = [
   t('and still allows an explain that opens new ground',
     /opens ground the reply did not cover/.test(bsrcM));
 
-  /* The answer-shaped move: the reply's closing question turned into a chip.
-     Unwritable by construction — the answer is in the user's head, so the text
-     is invented or all slots — and the most common weak shape in the 0.9.60
-     field rows. */
-  t('the prompt bans a move that is really the user\'s own answer',
-    /A move that is really THEIR answer/.test(bsrcM));
-  /* The boundary matters as much as the ban. A move may legitimately need one
-     thing from them — that is what the <paste here> slot is for — so the rule
-     has to separate "needs a fact" from "IS the fact". */
-  t('and draws the line at ONE thing needed, not at needing anything',
-    /Needing ONE thing from them is fine and has the slot for it/.test(bsrcM));
-  /* Paired with a repair, deliberately. The two rules that half-landed were
-     pure prohibitions; the label fix landed because it said what to do instead.
-     The repair reuses the Assume: line the prompt already has. */
-  t('and pairs the ban with a repair rather than leaving a hole',
-    /Write the WORK THAT FOLLOWS the decision instead/.test(bsrcM));
-  t('and the repair demotes the unchosen branch to an Assume: line',
-    /the branch you did not take became a line they can change/.test(bsrcM));
+  /* 0.9.61's answer-shape ban and its four assertions were REVERTED in 0.9.62.
+     The ban opened "When the reply ends by asking them something" and the field
+     read it as licence to return nothing at all: a thread that gave three good
+     moves on 0.9.60 gave "Nothing for now." on 0.9.61, on the same reply, which
+     ended with a question to the user. The repair sat in a worked example far
+     below the prohibition, so the prohibition is what got followed.
+
+     The shape is left unfixed on purpose. It was already halving on its own
+     between 0.9.59 and 0.9.60 without any rule, and the tally on prompt-only
+     rules is now four failures in five. What replaced it is the mechanical
+     explain gate below. */
   /* Two sessions sharing a final turn would otherwise serve each other's moves,
      and mining makes that likelier: the moves depend on everything BUT the
      last turn. */
