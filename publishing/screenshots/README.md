@@ -6,10 +6,10 @@ rather than imposing its own.
 
 | File | Shows |
 |---|---|
-| `1-interview.png` | the click-only interview — a question with its options written for you |
-| `2-composed.png` | the composed prompt, landed in the message box, nothing sent |
+| `1-moves.png` | the mined row — up to four next moves, each a whole message |
+| `2-composed.png` | one click later: the whole prompt in the message box, nothing sent |
 | `3-trigger.png` | the trigger as it arrives, before anything is asked or spent |
-| `4-light.png` | the same interview with claude.ai in light mode |
+| `4-light.png` | the same row with claude.ai in light mode |
 | `5-settings.png` | the settings page |
 
 ## How they are made

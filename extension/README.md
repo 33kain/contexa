@@ -1,14 +1,29 @@
 # CONTEXA
 
-CONTEXA reads Claude's reply and writes your next message — by asking you a few short questions you answer by clicking.
+CONTEXA reads where your conversation has been going and writes the messages you
+could send next — as a menu you pick from with one click.
 
-CONTEXA is a Chrome extension for claude.ai. When Claude finishes a reply, a single chip appears above your message box. Nothing happens until you click it — no model call, and nothing about your conversation leaves the page. Click it and CONTEXA reads the exchange and asks up to four short questions, one at a time, with the answers already written for you. Pick one, or skip it. When you're done it composes the whole prompt into your message box. You read it, change anything, and send it yourself. Nothing is ever sent for you.
+CONTEXA is a Chrome extension for claude.ai. When Claude finishes a reply, a
+single chip appears above your message box. Nothing happens until you click it —
+no model call, and nothing about your conversation leaves the page. Click it and
+CONTEXA reads your own messages from this session, mines them for what you have
+been building toward, and offers up to four next moves. Each one is already a
+complete message. Click the one you want and it lands in your message box, whole.
+You read it, change anything, and send it yourself. Nothing is ever sent for you.
 
-The questions aren't a survey. They're the decisions the reply actually left open — the branch it hedged, the format it guessed at, the thing it asked you for. Every question must be earned by something the reply said; no quotable evidence, no question. A reply that left nothing worth asking earns nothing, and the row stays quiet. That is a correct outcome, not a failure.
+The moves are independent. Each stands on its own as a full request, none of them
+depends on the others, and picking one discards the rest — it is a menu, not a
+sequence and not a questionnaire. Every move must be earned by something actually
+said in the session: no quotable evidence, no move. A session with nothing open
+earns nothing, and no row appears at all. That is a correct outcome, not a
+failure.
 
-When the reply left something worth doing that needs nothing from you, CONTEXA offers up to four one-click moves instead — take it further, hand back a fork it left open, probe what could go wrong, or ask why it chose one path over another.
+Claude's latest reply is read too, but as material rather than as the subject —
+what it just built is what makes a new move possible. CONTEXA never sends you
+back over an answer you have already read.
 
-No account, no API key, free to use. Nothing overlays your composer, nothing scores your writing, and nothing appears unless it's real.
+No account, no API key, free to use. Nothing overlays your composer, nothing
+scores your writing, and nothing appears unless it's real.
 
 ## Install (unpacked, for development)
 
@@ -17,12 +32,13 @@ No account, no API key, free to use. Nothing overlays your composer, nothing sco
 3. Turn on **Developer mode** (top-right).
 4. Click **Load unpacked** and select this `extension` folder.
 5. Open **claude.ai** and send a message. When Claude's reply finishes, a single
-   chip appears beneath it.
+   chip appears above your message box.
 
 ## Two modes
 
-**Hosted (default).** Nothing to set up — suggestions come from CONTEXA's
-backend, with a fair-use limit of 20 prompts a day. No account, no key.
+**Hosted (default).** Nothing to set up — moves come from CONTEXA's backend, with
+a fair-use limit of 20 replies a day. One click on the chip spends one; picking a
+move costs nothing, because the message is already written. No account, no key.
 
 **Your own API key (optional).** Removes the daily limit. Requests then go
 straight from your browser to the Anthropic API, and CONTEXA's backend is not
@@ -42,68 +58,70 @@ Your key is stored in `chrome.storage.local` and is sent only to
 If you reach the daily limit in hosted mode, CONTEXA says so plainly and tells
 you when it resets — never filler suggestions.
 
-## How it decides what to do
+## How it decides what to offer
 
-Clicking the chip sends your last message and Claude's reply to the model,
-which answers in one of two shapes:
+Clicking the chip sends your own messages from this session, plus Claude's latest
+reply, to the model. It answers in one shape: up to four moves, each with a short
+label you read and a full message behind it.
 
-- **Ask** — when the next message needs something only you can supply. Up to
-  four questions, one at a time, each answerable by picking one of 2–4 options
-  CONTEXA wrote for you. No typing required.
-- **Offer** — when the reply left something worth doing that needs nothing
-  from you. Up to four ready moves you send with one click.
+The session is the signal. Your first message states the goal; the ones after it
+show how it developed and what you keep returning to. If the session runs long,
+whole turns are dropped to fit — the first is always kept, and the oldest middle
+ones go first, because a conversation read without its opening has lost the point
+of itself.
 
-Never both at once. And whenever there's nothing to click through — a quiet
-row, or the row of moves — a small "Rough ask" control is still there: type a
-few words yourself and CONTEXA writes the properly formed prompt from it, with
-anything it can't know marked as an editable slot or an `Assume:` line rather
-than invented.
+Where a move needs something only you have — a file, a document, a link, a story
+only you can tell — it writes an editable slot into the message rather than
+inventing it. Where the session already settled something, it may add a final
+`Assume:` line you can change or delete before sending.
 
-There are no categories, personas, or lenses — earlier versions had them and
-they made the output feel like a taxonomy exercise rather than a colleague
-talking.
+There are no categories, personas, or lenses — earlier versions had them and they
+made the output feel like a taxonomy exercise rather than a colleague talking.
 
 ## Honest states
 
-CONTEXA never dresses up generic text as a real suggestion. Under a reply you
-get exactly one of:
+CONTEXA never dresses up generic text as a real suggestion. After you click the
+chip you get exactly one of:
 
-- **An interview card** — up to four click-only questions.
-- **A row of moves** — up to four one-click sends.
-- **A quiet row** — nothing was worth asking or offering, said plainly, with
-  the "Rough ask" control still available.
-- **"That's all N free prompts for today"** — with when it resets, and a path
-  to add your own key for unlimited use.
+- **A row of moves** — up to four, each one click from your message box.
+- **Nothing at all** — the session had nothing open worth doing next, so no row
+  is drawn rather than an empty one.
+- **"That's all N free replies for today"** — with when it resets, and a path to
+  add your own key for unlimited use.
 - **A plain-language error** — with the actual cause in the browser console for
   anyone debugging.
 
-If a response gets cut off by the token limit, whatever completed is kept and
-used, and the shortfall is logged rather than shown on the card.
+If a response gets cut off by the token limit, the moves that came through whole
+are kept and used, and the shortfall is logged rather than shown on the card.
 
 ## Behaviour notes
 
-- The chip appears only after streaming finishes, detected from claude.ai's
-  own `[data-is-streaming]` flag flipping to `false`.
+- The chip appears only after streaming finishes, detected from claude.ai's own
+  `[data-is-streaming]` flag flipping to `false`.
 - Replies under 120 characters are skipped — short acknowledgements don't need
   next steps.
 - Light/dark follows claude.ai's `data-mode`, live.
-- Your last message is read from the DOM, so nothing intercepts your typing.
+- Your messages are read from the DOM at the moment you click, so nothing
+  intercepts your typing and nothing is read for a reply you never ask about.
 
 ## Known limits
 
 - Selectors are pinned to claude.ai's Aug-2026 structure (`SELECTORS`,
-  `RESPONSE_SEL`, `STREAM_SEL`, `USER_MSG_SEL` in `content.js`). A redesign may
-  need them refreshed; until then the extension goes quiet rather than breaking
-  the page.
+  `RESPONSE_SEL`, `STREAM_SEL`, `USER_MSG_SEL`, `ROW_SEL` in `content.js`). A
+  redesign may need them refreshed; until then the extension goes quiet rather
+  than breaking the page.
+- On a very long conversation claude.ai only keeps the visible part of the
+  transcript in the page, so CONTEXA reads the rendered window rather than every
+  turn ever sent.
 - No prompt library or cross-device sync yet.
 
 ## Files
 
 - `manifest.json` — MV3, permissions: `storage` + host access to claude.ai and
   api.anthropic.com only.
-- `content.js` — composer locator, reply watcher, the trigger chip, the
-  interview and moves cards, insert.
-- `background.js` — service worker; hosted and own-key calls, schema
-  negotiation with the worker, JSON recovery.
+- `content.js` — composer locator, reply watcher, session capture, the trigger
+  chip, the row of moves, insert.
+- `background.js` — service worker; hosted and own-key calls, the move gate and
+  evidence grounding, JSON recovery.
 - `options.html` / `options.js` — settings: a beginner on/off switch, plus an
   Advanced section for the API key, model, and backend URL.

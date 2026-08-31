@@ -664,25 +664,72 @@ const TURNS = [
    mechanism change and a lying onboarding page. */
 {
   const opts = readFileSync('./options.html', 'utf8');
+  /* This list only ever grows. Every entry is copy that was true once and then
+     outlived its mechanism, and the settings page has now drifted TWICE — to
+     chip copy by 2026-08-23, to interview copy by 2026-08-31 — which is why the
+     guard is a list of corpses rather than a single check. LISTING.md records
+     both. */
   const DEAD = [
     [/row of suggestions/i, 'the chip row'],
     [/next thing to ask/i, 'chip framing'],
     [/appears under it/i, 'the card moved ABOVE the composer in 0.9.30'],
     [/prompt like a pro/i, 'retired title'],
-    [/make bad prompts good|bad prompts/i, 'retired framing']
+    [/make bad prompts good|bad prompts/i, 'retired framing'],
+    // Retired 2026-08-31 with the interview and the fifth chip.
+    [/asks you a short question|answers already written/i, 'the interview'],
+    [/one at a time|pick one, or skip/i, 'interview pagination and skip'],
+    [/opens the box|type roughly what you want/i, 'the fifth chip’s free-text box'],
+    [/instead of asking you about it/i, 'the standalone Assume: mechanism'],
+    [/what do i say next/i, 'the pre-mascot trigger label'],
+    [/\d+ prompts a day/i, 'the retired quota unit — it meters replies now']
   ];
   for (const [re, why] of DEAD) {
     t('settings page has no dead copy: ' + why, !re.test(opts));
   }
-  t('settings page describes the interview it actually runs',
-    /asks you a short question/i.test(opts));
+  t('settings page describes the row it actually renders',
+    /offers you a few things you could ask for next/i.test(opts));
   t('and puts the card where it really is',
     /above your message box/i.test(opts));
-  t('and says the answers are written for you, which is the product',
-    /answers already written/i.test(opts));
+  t('and says each one is a whole message, which is the product',
+    /complete message on its own/i.test(opts));
   t('and that silence is a real outcome, not a failure',
-    /stays quiet/i.test(opts));
+    /shows nothing at all/i.test(opts));
   t('and does not overstate the count', /never more than four/i.test(opts));
+  /* The trigger's name lives in content.js. A settings page naming a control
+     the product does not have is how a first-time user concludes it is broken,
+     and this page did exactly that until 0.9.58. */
+  t('and names the trigger the way content.js actually labels it',
+    /What now\? ✦/.test(opts) && readFileSync('./content.js', 'utf8').includes("'What now?'"));
+  t('and states the quota in the unit the worker enforces',
+    /20 replies a day/i.test(opts));
+
+  /* README.md SHIPS. build.mjs copies it into the zip beside options.html, so
+     it is a user-facing surface with exactly the same drift risk — and it had
+     no guard at all, which is why it ended up the stalest prose in the repo:
+     still describing the interview, the Ask/Offer fork, the chip taxonomy and
+     the Rough-ask control, all at once. Same treatment as the settings page. */
+  const rdme = readFileSync('./README.md', 'utf8');
+  const README_DEAD = [
+    [/short questions you answer by clicking/i, 'the interview pitch'],
+    [/one at a time|pick one, or skip/i, 'interview pagination and skip'],
+    [/interview card/i, 'the interview card'],
+    [/rough ask/i, 'the fifth chip'],
+    [/\*\*Ask\*\*|\*\*Offer\*\*/, 'the ask-or-offer fork'],
+    [/take it further, hand back a fork/i, 'the four earned move ids'],
+    [/schema\s*\n?\s*negotiation/i, 'the retired v/accepts negotiation'],
+    [/\d+ prompts a day/i, 'the retired quota unit — it meters replies now']
+  ];
+  for (const [re, why] of README_DEAD) {
+    t('shipped README has no dead copy: ' + why, !re.test(rdme));
+  }
+  t('shipped README describes the row it actually renders',
+    /up to four next moves/i.test(rdme));
+  t('and says the moves are independent, which is the whole shape',
+    /independent/i.test(rdme) && /stands (alone|on its own)/i.test(rdme));
+  t('and says zero means no row, not an empty one',
+    /no row appears at all/i.test(rdme));
+  t('and states the quota in the unit the worker enforces',
+    /20 replies a day/i.test(rdme));
 }
 
 /* ---- v2: history mining, client side --------------------------------------

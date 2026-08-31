@@ -9,20 +9,25 @@ Works in Chrome on a computer. Free, no account, no API key.
 3. Turn on **Developer mode** — the switch in the top-right corner.
 4. Click **Load unpacked** (top-left) and pick the folder you extracted.
 5. Go to claude.ai — if it was already open, refresh the page — and ask Claude
-   anything. When the reply finishes, a small button appears just above your
-   message box: **✦ What do I say next?**
-6. Click it. CONTEXA reads the answer and asks you a short question or two, with
-   the choices already written for you. Pick one, or skip it.
-7. It writes the whole message into your message box. Read it, change anything
-   you like, and send it yourself. **It never sends anything on its own.**
+   anything. When the reply finishes, a small mascot appears just above your
+   message box: **What now? ✦**
+6. Click it. CONTEXA looks back over what you've been asking in this chat and
+   offers you up to four things you could ask for next, each already written out
+   in full.
+7. Click the one you want and it lands in your message box, whole. Read it,
+   change anything you like, and send it yourself. **It never sends anything on
+   its own.**
 
 Good to know:
 
-- **Nothing happens until you click that button.** If you don't, CONTEXA does
-  nothing at all and reads nothing — it costs you nothing and sends nothing.
-- Sometimes there's nothing worth asking about, so it just opens a box and you
-  can type roughly what you want instead — "make it shorter" is enough.
-- Free for about 10 prompts a day.
+- **Nothing is sent until you click that button.** If you don't, nothing about
+  your conversation leaves the page — it costs you nothing.
+- You only need one of them. They aren't steps in an order; pick whichever you
+  actually want and ignore the rest.
+- Sometimes there's nothing worth doing next, and then nothing appears at all.
+  That's it working, not it breaking.
+- Free for 20 replies a day — that's how many answers you can ask about. Picking
+  a message costs nothing.
 - Chrome may warn about "developer mode extensions" when it starts — normal for
   anything installed outside the Web Store, nothing to fix.
 - To remove it: `chrome://extensions` → Remove.

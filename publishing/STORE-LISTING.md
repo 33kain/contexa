@@ -1,7 +1,22 @@
 # CONTEXA — Chrome Web Store listing copy
 
-Paste-ready text for each field in the developer dashboard. Fill the two
-bracketed placeholders before submitting.
+> **SUPERSEDED — do not paste from this file.**
+>
+> Everything below describes the **chip era**: five auto-firing chips, a fixed
+> five-lens taxonomy, a name the product stopped using. It was already two
+> generations stale before the 2026-08-31 history-mining pivot, which retired
+> the interview as well.
+>
+> **Source of truth is the `claude/CONTEXA-store-listing.md` project doc** — see
+> `LISTING.md` at the repo root, which explains why the copy lives there and not
+> here. It is kept in one place because a file that duplicates the listing drifts
+> from it, and a drifted listing is worse than no file at all. Rewriting this one
+> would create a third copy and prove the point again.
+>
+> Retained only as the record of what was claimed when. The *current* product:
+> one trigger, clicked on demand; up to four independent moves mined from the
+> session's own prompts; each already a complete message; one click puts it in
+> the box; nothing earned means no row; 20 replies a day free.
 
 ---
 

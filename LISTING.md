@@ -13,6 +13,10 @@ listing will drift from it, and a drifted listing is worse than no file at all.*
 Three surfaces proved that on 2026-08-23 — this file, the settings page, and both
 promo tiles were all still advertising suggestion chips.
 
+It proved it again on 2026-08-31. The settings page had drifted a second time,
+now to interview copy, and had to be rewritten with the history-mining pivot.
+The lesson did not need relearning; the surface just had no guard on it.
+
 ---
 
 ## The one thing worth preserving from the old version

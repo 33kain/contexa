@@ -11,7 +11,7 @@ The extension is useless in the store until the backend is live, because
 hosted mode is the default.
 
 - [ ] Deploy the Worker following `worker/README.md`.
-- [ ] Confirm `curl https://YOUR-HOST/v1/health` returns `{"ok":true,"limit":20}`.
+- [ ] Confirm `curl https://YOUR-HOST/v1/health` returns `{"ok":true,"limit":20}` — `limit` is the device ceiling, which is also the public figure now that one call buys one reply.
 - [ ] **Set a spend limit in the Anthropic console.** Quotas are the first line of
       defence; a hard spend cap is the only real backstop. Do this before the
       URL is public.
@@ -50,13 +50,13 @@ hosted mode is the default.
 
 ## Phase 5 — fill the listing
 
-All copy is in `publishing/STORE-LISTING.md`.
+Copy comes from the `claude/CONTEXA-store-listing.md` project doc — see `LISTING.md`. `publishing/STORE-LISTING.md` is superseded chip-era text kept only as a record; do not paste from it.
 
 - [ ] Name, short description, detailed description.
 - [ ] Category: Productivity.
 - [ ] Icon: `extension/icons/icon128.png`.
 - [ ] Screenshots: the five 1280×800 PNGs in `publishing/screenshots/`.
-      Order them `1-interview` → `2-composed` → `3-trigger` → `4-light` →
+      Order them `1-moves` → `2-composed` → `3-trigger` → `4-light` →
       `5-settings`; the first is what most people judge the listing by.
       Regenerate with `xvfb-run -a node scripts/screenshots/capture.mjs` rather
       than editing the PNGs by hand.
@@ -111,12 +111,16 @@ scrutiny.
       `npx wrangler deploy --var ALLOWED_EXTENSION_IDS:your32charid`.
       Until you do, anyone who finds your URL can spend your inference budget.
 - [ ] Watch spend for the first week against install count. Your break-even
-      assumption is ~$0.004 per suggestion set.
+      assumption is ~$0.02 per row of moves at the clamp ceiling — see
+      `worker/README.md`, which is the one place that number is derived. The
+      $0.004 that sat here was Haiku-era and survived two model changes.
 - [ ] Watch for claude.ai DOM changes — if suggestions stop appearing, the
       selectors in `content.js` are the first place to look.
-- [ ] Decide the quota policy for real usage. If people hit 20/day often, that's
-      a signal the product works, and the moment to think about a paid tier
-      rather than silently raising your own bill.
+- [ ] Decide the quota policy for real usage. If people hit 20 replies/day
+      often, that's a signal the product works, and the moment to think about a
+      paid tier rather than silently raising your own bill. Note the ceiling
+      halved at 0.9.58 (one call per reply, not two), so the same number of
+      users now hits it sooner in *calls* while getting more prompts each.
 
 ---
 

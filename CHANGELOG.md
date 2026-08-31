@@ -7,6 +7,148 @@ free to diverge, and the settings page labels them separately for that reason.
 
 ---
 
+## 0.9.58 — Extension + Worker
+
+*It stopped reading the reply for a question, and started reading her own
+history for an idea.*
+
+### One shape, mined from the session
+
+CONTEXA no longer looks at Claude's reply for a dangling question. It reads
+**the user's own messages across the whole session** and offers up to four
+**independent** next moves — each already a complete, send-ready message. Click
+one and it lands in the composer whole. Nothing folds together, nothing runs in
+order, and picking one discards the rest. A menu, not an interview.
+
+The reply is still read, demoted to **material**: what it just built is what
+makes a new move possible. It is never the subject, and a move that sends the
+user back over an answer they have already read is the worst output the prompt
+can produce — named as such, in those words, in `MOVES_SYSTEM`.
+
+The session is trimmed to fit by a policy with a wrong answer that still looks
+right. **Turn one is pinned** — it states the goal, and a conversation read
+without its opening has lost the point of itself — and the oldest *middle* turns
+drop first, with a floor of two. A window keeping the last *n* turns would have
+tested perfectly and silently decapitated every long session. Whole turns only:
+a chopped-off sentence is worse material than no sentence. This is head-first,
+which is what `clampCapture` already did; the planning doc called that
+convention tail-first, and the policy derived from it was right for a reason the
+doc got backwards.
+
+### What this retired, and what it cost to keep
+
+Deleted, not deprecated: the click-only interview and its pagination, dots and
+per-question skip; the fifth chip and its free-text box, which was the last
+place anything could be typed; hide-for-session, whose dismissal streak only the
+interview could increment, so it was already unreachable; the standalone
+`Assume:` array; the four earned move ids; and `/v1/expand`.
+
+And then, on the owner's confirmation that there is no installed base to
+protect, the **three-generation schema negotiation** went too — `v`, `accepts`,
+`wantsQuestions`, `wantsChips`, `LEGACY_STEPS_SYSTEM`, `QUESTIONS_SYSTEM`,
+`EXPAND_SYSTEM`. A handshake that always takes the same branch is a comment
+pretending to be code. 0.9.31 built that machinery because the store approves on
+Google's clock and no deploy order avoids a window of breakage; **if this
+product ever has users on versions it cannot update, the `accepts: [...]`
+opt-in is the pattern to bring back**, and that is written into `CLAUDE.md` so
+the reasoning outlives the code.
+
+`EXPAND_SYSTEM`'s composer rules did not go with it. They could not: click is
+send-ready now, so `MOVES_SYSTEM` is the only prompt with a channel to the
+composer. The `<paste here>` obligation, the `Assume:` lines,
+one-ask-one-verb, the 700-character cap and the filler-word ban all moved across
+intact. Dropping them would have recreated 0.9.49's inert instruction — a rule
+pointing at a mechanism that no longer exists — which is the exact defect that
+put those rules where they were.
+
+Net: **4,222 lines removed.**
+
+### Grounding had to widen, or the product would have reported itself broken
+
+Every move is still earned by a verbatim quote, but the corpus is now **the
+turns and the reply together**. Ideas are mined from the session, so a move
+earned by turn one stating the goal is grounded. Checked against the reply
+alone — which is what the filter did — nearly every history-earned move would
+have failed its own gate, and a working product would have logged itself as a
+broken one. Both tiers survive: no evidence at all is dropped, a near-miss quote
+renders and is counted.
+
+### The quota was silently promising half
+
+`DEVICE_DAILY_LIMIT = PROMPTS_PER_DAY * 2` existed because a finished prompt
+cost two upstream calls — questions, then compose. Mining removed the second,
+so the multiplier would have enforced twice what the listing promised. The
+**unit** moved with it, which is why the constant is renamed rather than
+re-derived: "prompts per day" counts nothing when one call returns up to four of
+them and the user may take none. What the quota meters is **replies asked
+about** — which is what the store listing already said, so that copy stays true
+unedited.
+
+`IP_DAILY_LIMIT` carries from 400 to 200. Written down rather than inherited,
+because the comment there exists precisely to record a ratio that once narrowed
+with nobody deciding it. Accepted on one ground — a call now returns up to four
+send-ready prompts where it returned a fraction of one — and named as the first
+number to revisit if that stops being true.
+
+A live bug went with it: the quota card **halved** the worker's limit before
+printing it, which under the new ceiling would have told someone with 20 replies
+left that they had 10. It also fell back to a hard-coded 20 when the worker
+reported nothing — a second copy of a figure that exists in one place on
+purpose. The card now prints what the worker sent, and names no number when the
+worker named none.
+
+### Zero is stronger than it was, and that is the open question
+
+Nothing mined means **no row at all** — not the labelled empty shell the quiet
+row used to draw. 0.9.53 added the fifth chip precisely because "they ASKED, and
+a chip that answers a click by sitting there is a dead end"; that chip is gone
+and nothing replaced it. Deliberate, and the top question for the field test:
+**how often does a click return nothing?** It is logged so the rate is
+measurable, because shipping this without measuring it would be deciding it
+blind. History mining should reach zero far less often than reply mining did —
+almost every session has prompt history — but that is a prediction, not a
+result.
+
+### What the teardown broke, and how it was caught
+
+Deleting test blocks by section marker took assertions for code that still
+runs: the quota derivation guards, the whole prompt-caching degradation path
+(`droppedThinking` and `droppedCache` are untouched in the worker), and
+`trimPayload`'s clean-boundary behaviour, which now guards the text landing
+verbatim in the message box. All restored — first against the *old* constants,
+so they were seen passing; then the quota changed and two failed on cue; then
+they were updated. A deletion that removes a guard while leaving its subject
+running is the failure this project keeps recording, and it happened here.
+
+The screenshot harness was **runtime-broken**, not merely stale: it read
+`QUESTIONS.questions.length` after the fixture was swapped. `node --check`
+passed, which is why an earlier check called it fine — a syntax check cannot see
+an undefined reference. The driver now walks the real flow and was run end to
+end under a real Chromium against the unmodified extension, producing five fresh
+screenshots that confirm the row renders and one click fills the composer.
+
+### Prose
+
+The settings page had drifted a **second** time — to interview copy, four months
+after `LISTING.md` recorded it drifting to chip copy. Its drift guard is now a
+growing list of dead phrases rather than a single check, and it was extended to
+cover `extension/README.md`, which **ships in the zip** and had no guard at
+all — which is why it ended up the stalest prose in the repo, describing the
+interview, the Ask/Offer fork, the chip taxonomy and the Rough-ask control
+simultaneously.
+
+`README.md`'s design notes inverted one rule and retired another. **One prompt,
+one verb** still holds *within* a move; *between* moves it reverses, because
+every move is required to stand alone — that is the difference between a menu
+and a checklist. **Two controls must never share a label** became one control,
+one job: the rule existed because a second control did.
+
+### Versions
+
+Extension **0.9.58**, worker **0.9.58**. 275 assertions green.
+
+---
+
 ## 0.9.57 — Extension + Worker
 
 *The extra sentence turned out to be protecting nothing.*

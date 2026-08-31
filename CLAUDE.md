@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this is
 
-CONTEXA is a Chrome extension (Manifest V3) for claude.ai. When Claude finishes a reply, it offers a single trigger; clicking it reads the exchange and asks up to four short click-only questions (or offers up to four one-click "moves"), then composes a full prompt into the user's message box. Nothing is sent anywhere until the user clicks.
+CONTEXA is a Chrome extension (Manifest V3) for claude.ai. When Claude finishes a reply, it offers a single trigger; clicking it reads the user's own messages from the whole session and offers up to four **independent** next moves, each already a complete, send-ready prompt. Clicking one composes it into the message box. Nothing is sent anywhere until the user clicks, and clicking a move costs no further model call.
 
 Two independently versioned artifacts ship from this repo:
 
@@ -34,27 +34,29 @@ The Cloudflare Worker has no build step; deployment is `npx wrangler deploy` fro
 
 ### The shared prompt is the load-bearing contract
 
-`extension/background.js` and `worker/src/index.js` each define their own copy of `QUESTIONS_SYSTEM` and `EXPAND_SYSTEM` (the two system prompts sent to Claude — one writes the questions/moves, one composes the final prompt from clicked answers). **These two copies must be byte-identical**, because a user's own-key request (extension calls Anthropic directly) and a hosted request (extension → Worker → Anthropic) must produce the same product. `build.mjs` extracts both copies by regex and fails the build if they differ, along with several related checks: the `CAPABILITY-AUDIT` date comment must match between both files (a staleness marker for prompt exemplars describing product capabilities); the shipped model name must agree across `background.js`, `worker/src/index.js`, and `worker/wrangler.toml`; and `LEGACY_STEPS_SYSTEM` (see below) must exist *only* in the worker, never copied into the extension.
+`extension/background.js` and `worker/src/index.js` each define their own copy of `MOVES_SYSTEM` — the one system prompt sent to Claude. **These two copies must be byte-identical**, because a user's own-key request (extension calls Anthropic directly) and a hosted request (extension → Worker → Anthropic) must produce the same product. `build.mjs` extracts both by regex and fails the build if they differ, along with several related checks: the request's `SESSION SO FAR:` section labels must match on both sides; the `cleanTurns` / `cleanMoves` / `groundMoves` helper block must be byte-identical; the extension must still capture the session (`turns: captureTurns()`), without which every request is refused; and the shipped model name must agree across `background.js`, `worker/src/index.js`, and `worker/wrangler.toml`.
 
-If you edit either system prompt, edit both files identically and run `npm run build` to verify before committing.
+If you edit the system prompt, edit both files identically and run `npm run build` to verify before committing. The prompt is written once in a scratch file and injected into both, which is why they are byte-identical by construction rather than by discipline.
 
-### Client/worker schema negotiation (three generations)
+### One shape, and what that replaced
 
-The worker serves three extension generations from one endpoint, because the Chrome Web Store approves updates on its own schedule — there's no deploy order that avoids a window where old and new clients hit the same worker simultaneously:
+There is one request shape and one response shape. The worker takes `{ reply, turns[] }` and returns `{ moves: [{label, text, evidence}], grounding, quota }`. A request with no turns is refused before either quota is charged.
 
-- **Pre-0.9.30 clients** send no `v` field. The worker answers with `LEGACY_STEPS_SYSTEM` (worker-only, frozen, one step, old `{"steps":[...]}` wire shape). Never touch this prompt for new work — it exists solely to not break installs that can't update themselves.
-- **0.9.30+ clients** send `v: <extension version>` and get the current `QUESTIONS_SYSTEM` (`{"questions":[...],"assume":[...]}`).
-- **0.9.52+ clients** additionally send `accepts: ['chips']` and may get `{"chips":[...]}` back instead of questions, when the reply left something worth doing that needs nothing from the user.
+This was not always so. Until 0.9.58 the worker served three extension generations from one endpoint, negotiated by a `v` field and an `accepts: [...]` capability list, because the Chrome Web Store approves updates on its own schedule and no deploy order avoids a window where old and new clients hit the same worker. That machinery — `LEGACY_STEPS_SYSTEM`, `QUESTIONS_SYSTEM`, `EXPAND_SYSTEM`, `wantsQuestions()`, `wantsChips()`, `/v1/expand` — was deleted in the history-mining pivot, on the explicit basis that there is no installed base to protect.
 
-`wantsQuestions()` and `wantsChips()` in `worker/src/index.js` implement this. When adding a new capability that changes the wire shape, follow this pattern (an explicit opt-in field the client sends) rather than a version-string comparison.
+**If that ever stops being true, the `accepts: [...]` opt-in is the pattern to bring back** — an explicit capability field the client announces, never a version-string comparison, which puts `"0.9.9"` above `"0.9.54"`. `CHANGELOG.md` 0.9.31 records what the alternative cost.
 
 ### Hosted vs. own-key paths must behave identically
 
-Every request path exists twice — once in `extension/background.js` (calls Anthropic directly when the user has set their own API key) and once in `worker/src/index.js` (hosted/proxied, quota-enforced). The cleaning/validation functions that police model output (`cleanAssume`, `cleanChips`, `cleanOptions`, the evidence-grounding filter that drops any step/question without a verbatim quote from the reply) are duplicated across both files and **must stay behaviorally identical** — comments in the code call this out explicitly at each duplication. When fixing a bug in one, check the other.
+Every request path exists twice — once in `extension/background.js` (calls Anthropic directly when the user has set their own API key) and once in `worker/src/index.js` (hosted/proxied, quota-enforced). The functions that police model output — `cleanTurns`, `cleanMoves`, `groundMoves`, plus `trimPayload` — are duplicated across both files and **must stay behaviorally identical**. The first three are written once and injected into both, and `build.mjs` asserts byte-identity; the rule they inherit is that a gate living only in the worker is a gate half the users do not have. When fixing a bug in one, check the other.
+
+Evidence grounding runs over **the turns and the reply together**, not the reply alone. Ideas are mined from the session, so a move earned by the first turn stating the goal is grounded. Two tiers: no evidence at all is dropped, a near-miss quote renders but is counted and logged.
 
 ### Content script flow (`extension/content.js`)
 
-Capture is eager; the model call is not. On every completed reply (detected via claude.ai's `[data-is-streaming]` attribute flipping to `false`, with a 1.2s settle-timer fallback if that attribute ever moves), the content script captures the user's last message and Claude's reply from the DOM — cheap, and the DOM is settled at that moment — but renders only a single inert trigger chip. Nothing is sent until the user clicks it (`askNow`). This is a deliberate cost/privacy trade (see `CHANGELOG.md`, 0.9.53): a reply nobody asks about costs nothing and never leaves the page.
+Reply capture is eager; the session read and the model call are not. On every completed reply (detected via claude.ai's `[data-is-streaming]` attribute flipping to `false`, with a 1.2s settle-timer fallback if that attribute ever moves), the content script captures Claude's reply from the DOM — cheap, and the DOM is settled at that moment — but renders only a single inert trigger chip. Nothing is sent until the user clicks it (`askNow`), and the session itself (`captureTurns()`) is read at that point rather than earlier: it is the larger read, and by then the user has asked for it. This is a deliberate cost/privacy trade (see `CHANGELOG.md`, 0.9.53): a reply nobody asks about costs nothing and never leaves the page.
+
+`captureTurns()` enumerates every `[data-testid="user-message"]` in the page. The drop policy is in `fitTurns()`, kept separate because it is the half with a wrong answer that still looks right: turn one is **pinned** (it states the goal), oldest *middle* turns go first, and the floor is two. A window that kept the last *n* turns would test perfectly and silently decapitate every long session.
 
 DOM selectors for claude.ai's own elements (composer, response body, streaming flag, user message) are pinned constants at the top of the file (`SELECTORS`, `RESPONSE_SEL`, `STREAM_SEL`, `USER_MSG_SEL`, `ROW_SEL`). If claude.ai's structure changes, the extension is designed to go quiet rather than break the host page — it never assumes a positive match.
 
@@ -78,7 +80,8 @@ Anything under an `archive/` folder describes finished work, not pending work �
 
 From `README.md`'s "Design notes" — these are deliberate, not oversights:
 
-- **Zero is a valid outcome.** No floor, no fallback suggestion, no minimum question/chip count. A reply that settles everything gets a quiet row, not a padded one.
+- **Zero is a valid outcome.** No floor, no fallback move, no minimum count. A session with nothing open gets no row at all, not a padded one. Note this is stronger than it used to be: the old quiet row still drew a labelled shell, and the fifth chip caught the case where a click returned nothing. Both are gone, so a click that mines nothing now shows nothing — **the open question the field test exists to answer is how often that fires.**
 - **Never fake output.** Degraded states (quota hit, parse failure, network error) say what actually happened; there is no canned-suggestion fallback.
-- **The interview is click-only.** A question that can't be reduced to 2–4 concrete options is dropped, not turned into a free-text field.
-- **Every question/chip/step must be evidence-grounded** — earned by a verbatim quote from Claude's reply, checked server-side (and client-side on the own-key path) before it ever reaches the UI.
+- **Clicking is the only input.** There is no free-text box anywhere in the product — the row of moves is the only path into the message box. Material the user must supply becomes a `<paste here>` slot inside the written prompt.
+- **Every move must be evidence-grounded** — earned by a verbatim quote from the session or the reply, checked server-side (and client-side on the own-key path) before it ever reaches the UI.
+- **Moves are independent by definition.** Each stands alone as a complete request; clicking one discards the rest. Within one move the opposite rule holds — one ask, one imperative verb — and the two are not in tension: the row is a menu, each item is a single job.

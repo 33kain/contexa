@@ -44,7 +44,7 @@ Verify it:
 
 ```bash
 curl https://contexa-api.your-subdomain.workers.dev/v1/health
-# {"ok":true,"version":"0.9.8","model":"claude-sonnet-5","limit":20,"configured":true}
+# {"ok":true,"version":"0.9.58","model":"claude-sonnet-5","limit":20,"configured":true}
 ```
 
 Read that response as four separate checks:
@@ -89,14 +89,28 @@ The Worker then rejects every other origin with `403 forbidden_origin`.
 
 ## What it costs you
 
-Each suggestion set is roughly **$0.008** (≈2,000 input tokens of conversation,
-≈400 output tokens at Sonnet 5 pricing of $2/$10 per MTok).
+Each row of moves is roughly **$0.02** at the clamp ceiling (up to ~4,500 input
+tokens — a session of turns plus the reply — and ≈600 output tokens at Sonnet 5
+pricing of $2/$10 per MTok). A typical short session costs well under that,
+since the input scales with how much history there is to read.
+
+Two things moved in opposite directions with history mining. Cost **per reply
+asked about** went up roughly 2.5x, because a session is a much bigger read than
+one exchange. Calls **per finished prompt** went down from two to one, and a
+single call now returns up to four usable prompts instead of one — so cost per
+*prompt the user actually sends* fell, even as cost per row rose. The device
+ceiling halved from 40 calls to 20 to keep the worst case per user bounded:
+20 × $0.02 = $0.40/day, against the old 40 × $0.008 = $0.32.
+
+The table below is priced per row of moves, at the ceiling. Treat it as an upper
+bound rather than an estimate — a short session costs a fraction of it, and this
+is the number that has been wrong in the optimistic direction before.
 
 | Active users | Replies/user/day | Rough monthly cost |
 |---|---|---|
-| 50 | 10 | ~$120 |
-| 100 | 20 | ~$480 |
-| 500 | 20 | ~$2,400 |
+| 50 | 10 | ~$300 |
+| 100 | 20 | ~$1,200 |
+| 500 | 20 | ~$6,000 |
 
 **Why Sonnet 5 rather than Haiku 4.5**, which is half the price: in a controlled
 three-model comparison on identical inputs, Haiku ignored the label-length limit
@@ -114,12 +128,15 @@ The Worker itself is free at these volumes; essentially all cost is inference.
 
 ## Cost protections already in place
 
-- **20 requests/day per device** and **300/day per IP** (the second axis blunts
+- **20 requests/day per device** and **200/day per IP** (the second axis blunts
   reinstall-for-a-fresh-token abuse; keep it at roughly 10× the device limit so
   co-located users — an office, a campus, a household behind one NAT — don't
   block each other).
-- **Server-side input clamping**: prompt ≤2,500 chars, reply ≤6,000 chars,
-  `max_tokens` fixed at 2,500. A modified client cannot make a request cost more.
+- **Server-side input clamping**: at most 40 turns, ≤2,000 chars each and
+  ≤12,000 in total, reply ≤6,000 chars, `max_tokens` fixed at 2,500. A modified
+  client cannot make a request cost more. These are the bill's ceiling and are
+  deliberately separate from the client's own capture budget, which is a product
+  question rather than a cost one.
 - **Replies under 50 chars are rejected** before any upstream call.
 - Upstream error bodies are never forwarded to clients.
 

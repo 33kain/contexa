@@ -23,7 +23,7 @@ Two hostnames are redirected at the network layer to one local HTTPS server:
 
 ```
 claude.ai                            -> mock-claude.html
-contexa-api.michu110899.workers.dev  -> canned questions / composed prompt JSON
+contexa-api.michu110899.workers.dev  -> a canned {moves:[...]} response
 ```
 
 `--host-resolver-rules` does the redirect, a self-signed cert plus

@@ -1,6 +1,32 @@
 # The history-mining pivot — repo audit, and the wire contract
 
-**Status: audit complete, contract drafted, zero code written.**
+> **Status: SHIPPED, and two of the decisions below were overruled afterwards.**
+> Read this as the reasoning that was available before the code existed, not as
+> a description of what was built. Corrected here rather than rewritten in
+> place, because an audit edited to match the outcome stops being evidence of
+> anything.
+>
+> **What changed after this was written:**
+>
+> 1. **Finding A's recommendation was reversed.** This argues for keeping the
+>    `accepts: ['chips','turns']` opt-in so old clients keep working — correct
+>    reasoning, wrong premise. The owner then confirmed there is no installed
+>    base at all, which removes the thing the opt-in protects. The whole
+>    negotiation (`v`, `accepts`, `wantsQuestions`, `wantsChips`,
+>    `LEGACY_STEPS_SYSTEM`, `QUESTIONS_SYSTEM`) was deleted instead. The
+>    argument in §A still stands on its own terms and is the one to re-read if
+>    the product ever has users on versions it cannot update.
+> 2. **Finding E was half right.** `EXPAND_SYSTEM`'s composer rules did have to
+>    survive — the `<paste here>` obligation, `Assume:`, one-ask-one-verb, the
+>    700-char cap, the filler ban — but they were ported *into* `MOVES_SYSTEM`
+>    rather than kept as a second prompt. `EXPAND_SYSTEM` itself is gone.
+> 3. **The wire contract below is not what shipped.** The request is
+>    `{ reply, turns }` — no `prompt`, no `v`, no `accepts` — and the negotiation
+>    matrix at the end describes branches that no longer exist.
+>
+> Finding B (the quota arithmetic) was correct and was fixed at 0.9.58. Finding
+> G (zero renders no row) shipped as specced and remains the open field-test
+> question. See `CHANGELOG.md` 0.9.58.
 
 This is step 1 and step 2 of the pivot doc's build order, done together because
 step 2 depends on what step 1 found. It audits the pivot doc's retirement list and
