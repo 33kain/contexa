@@ -650,6 +650,12 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
            the survivors no longer justify dropping. */
         const { moves: kept, ground, droppedByAction } = enforceAction(cleaned, g0);
         const moves = enforceSpread(kept, ground, turns.length);
+        /* WHICH gate emptied the row, decided here because here is the only
+           place both intermediate arrays exist. Inferring it downstream from
+           droppedByAction would misreport the case where the action gate takes
+           some moves and the spread gate takes the rest. */
+        const emptiedBy = rawMoves > 0 && moves.length === 0
+          ? (kept.length === 0 ? 'action' : 'spread') : null;
         /* The split is the number the screenshots could only hint at: a row of
            four that all say "from reply" is a transcript of the last message,
            whatever the labels look like. Logged on every click so the rate is
@@ -664,7 +670,7 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
             : '[CONTEXA] every move dropped by the gate — returned ' + rawMoves + ', kept 0');
         }
         out = { moves, grounding: { total: rawMoves, kept: moves.length, grounded: ground.grounded,
-          fromTurns: ground.fromTurns, fromReply: ground.fromReply, droppedByAction } };
+          fromTurns: ground.fromTurns, fromReply: ground.fromReply, droppedByAction, emptiedBy } };
         if (r.partial) out.partial = true;
       } else {
         out = r.partial ? Object.assign({}, r.data, { partial: true }) : r.data;

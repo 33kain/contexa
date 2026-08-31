@@ -18,7 +18,7 @@
    which build is live. Deliberately independent of the extension's manifest
    version — they ship on separate paths and a worker fix should not force
    everyone to reinstall the extension. */
-const BUILD = '0.9.64';   // matches the extension generation this serves; every bump here has paid for itself by telling one deploy from another — 0.9.52 could not tell a pre-fork deploy from a post-fork one, 0.9.54 a pre-voice from a post-voice, 0.9.56 a pre-precedence-fix from a post-precedence-fix, and 0.9.58 is the first that must distinguish a worker that speaks moves from one that still speaks questions
+const BUILD = '0.9.65';   // matches the extension generation this serves; every bump here has paid for itself by telling one deploy from another — 0.9.52 could not tell a pre-fork deploy from a post-fork one, 0.9.54 a pre-voice from a post-voice, 0.9.56 a pre-precedence-fix from a post-precedence-fix, and 0.9.58 is the first that must distinguish a worker that speaks moves from one that still speaks questions
 
 const ANTHROPIC_URL = 'https://api.anthropic.com/v1/messages';
 /* Sonnet 5 rather than Haiku, on measured evidence: in a controlled three-model
@@ -756,11 +756,17 @@ export default {
        survivors no longer justify dropping. */
     const { moves: kept, ground, droppedByAction } = enforceAction(cleaned, g0);
     const moves = enforceSpread(kept, ground, turns.length);
+    /* WHICH gate emptied the row, decided here because here is the only place
+       both intermediate arrays exist. Inferring it downstream from
+       droppedByAction would misreport the case where the action gate takes some
+       moves and the spread gate takes the rest. */
+    const emptiedBy = rawMoves > 0 && moves.length === 0
+      ? (kept.length === 0 ? 'action' : 'spread') : null;
     /* The split ships in the response, not just the log. The own-key path can
        read its console; a hosted user cannot, and this is the number that says
        whether a row read the session or transcribed the last reply. */
     const grounding = { total: rawMoves, kept: moves.length, grounded: ground.grounded,
-      fromTurns: ground.fromTurns, fromReply: ground.fromReply, droppedByAction };
+      fromTurns: ground.fromTurns, fromReply: ground.fromReply, droppedByAction, emptiedBy };
     console.log('[CONTEXA] grounding — returned ' + rawMoves + ', kept ' + moves.length +
       ', grounded ' + ground.grounded +
       ' (turns ' + ground.fromTurns + ', reply ' + ground.fromReply + ')');

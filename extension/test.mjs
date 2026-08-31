@@ -973,14 +973,27 @@ const TURNS = [
      earning nothing, the action gate finding no production verb, the spread gate
      dropping an all-reply row. Until 0.9.64 they drew the same card, so a gate
      eating a good row wore an honest zero's face — and the field test runs on a
-     phone, where the console that told them apart is unreachable. */
-  t('and a row the gates emptied says something DIFFERENT from an honest zero',
-    /Nothing worth clicking here\./.test(nothing) &&
-    /filtered \? 'Nothing worth clicking here\.' : 'Nothing for now\.'/.test(nothing));
-  t('and the caller decides which, from what the model returned before the gates',
-    /const filtered = \(g\.total \|\| 0\) > 0/.test(csrcM));
-  t('and both causes are still told apart in the console',
-    /gates kept none/.test(csrcM) && /nothing mined from this session/.test(csrcM));
+     phone, where the console that told them apart is unreachable.
+
+     0.9.65 splits the two GATE cases apart as well, because they need opposite
+     responses: the action gate emptying a row points at a verb missing from my
+     allowlist; the spread gate emptying one means every move quoted the reply,
+     which on a thread where the reply IS the plan may be the gate misreading
+     "building on it" as "transcribing it". */
+  t('a row the action gate emptied says something different from an honest zero',
+    /Nothing worth clicking here\./.test(nothing));
+  t('and a row the SPREAD gate emptied is distinguishable from both',
+    /Nothing new beyond the reply\./.test(nothing));
+  t('and all three wordings are distinct strings',
+    new Set(['Nothing worth clicking here.', 'Nothing new beyond the reply.', 'Nothing for now.']
+      .filter(w => nothing.includes(w))).size === 3);
+  /* Read, not re-derived. Inferring the cause here from droppedByAction would
+     misreport a row where the action gate took some moves and the spread gate
+     took the rest — the only place both intermediate arrays exist is upstream. */
+  t('and the caller READS the cause rather than guessing it downstream',
+    /const why = g\.emptiedBy \|\| null/.test(csrcM) && !/g\.droppedByAction/.test(csrcM));
+  t('and the console names which gate, not merely that one fired',
+    /emptied by the ' \+ why \+ ' gate/.test(csrcM) && /nothing mined from this session/.test(csrcM));
   t('and nothing is fabricated to fill it', !/moves = \[\s*\{/.test(csrcM));
 
   /* INERT, and pinned three ways because this is the shape a floor comes back

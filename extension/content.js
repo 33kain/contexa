@@ -569,11 +569,19 @@
          before any gate; if it sent moves and none survived, this row was
          FILTERED, not empty. */
       const g = resp.grounding || {};
-      const filtered = (g.total || 0) > 0;
-      console.log(filtered
-        ? '[CONTEXA] quiet row — model returned ' + g.total + ', gates kept none'
+      /* WHICH gate, not merely THAT one fired. The two need opposite responses:
+         the action gate emptying a row points at a verb missing from the
+         allowlist, which is a bug in that list; the spread gate emptying one
+         means every move quoted the reply, which on a thread where the reply IS
+         the plan the user asked for may be the gate misreading "building on the
+         deliverable" as "transcript". Decided upstream, where both intermediate
+         arrays exist; this only reads it. */
+      const why = g.emptiedBy || null;
+      console.log(why
+        ? '[CONTEXA] quiet row — model returned ' + g.total 
+          + ', emptied by the ' + why + ' gate'
         : '[CONTEXA] quiet row — nothing mined from this session');
-      return renderNothing(anchor, filtered);
+      return renderNothing(anchor, why);
     }
     console.log('[CONTEXA] moves', moves.map(m => m.label));
     renderMoves(anchor, moves);
@@ -888,7 +896,7 @@
      It leaves on its own. Saying its piece and then collapsing is the point:
      the row is gone either way, the difference is that the user knows why. */
   const NOTHING_LINGERS_MS = 4000;
-  function renderNothing(anchor, filtered) {
+  function renderNothing(anchor, why) {
     const wrap = shell(anchor, 'nothing');
     if (!wrap) return;
     const note = document.createElement('div');
@@ -903,7 +911,9 @@
        Not written to explain gates to a user. Written so the difference is
        legible in a SCREENSHOT, since that is how this product is actually
        being field-tested and the console is not reachable there. */
-    note.textContent = filtered ? 'Nothing worth clicking here.' : 'Nothing for now.';
+    note.textContent = why === 'action' ? 'Nothing worth clicking here.'
+      : why === 'spread' ? 'Nothing new beyond the reply.'
+      : 'Nothing for now.';
     wrap.appendChild(note);
     /* Reuses the scroll watcher's own fade rather than a second mechanism:
        `.away` already collapses height and hides from the tab order, which is

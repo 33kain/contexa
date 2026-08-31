@@ -656,6 +656,54 @@ t('unknown route 404', r.status === 404, String(r.status));
   t('and a TURN-earned talk-about move is dropped too, unlike 0.9.62',
     b.moves.length === 0 && b.grounding.droppedByAction === 1, JSON.stringify(b.grounding));
 
+  /* (c4) WHICH gate emptied the row. The two need opposite responses, so the
+     response has to name one rather than leave it to be inferred. */
+  globalThis.fetch = modelJson({ moves: [
+    { label: 'Explain the agent flies blind risk', text: 'Explain it.', evidence: 'the agent flies blind' },
+    { label: 'Pokaži cijeli YAML primjer', text: 'Pokaži.', evidence: 'now the menu page' }
+  ] });
+  r = await w.fetch(post({ reply: BLIND_REPLY, turns: TURNS }),
+    { ANTHROPIC_API_KEY: 'k', CX_KV: makeKV(), IP_SALT: 's' });
+  b = await r.json();
+  t('a row emptied by the action gate says so',
+    b.moves.length === 0 && b.grounding.emptiedBy === 'action', JSON.stringify(b.grounding));
+
+  /* Every move is a real production verb AND every one quotes the reply, on a
+     3-turn session. The action gate passes them all; the spread gate takes the
+     row. This is the shape the field thread is suspected of hitting. */
+  globalThis.fetch = modelJson({ moves: [
+    { label: 'Write the menu page', text: 'Write it.', evidence: 'the agent flies blind' },
+    { label: 'Build the schema view', text: 'Build it.', evidence: 'cannot see your schema' }
+  ] });
+  r = await w.fetch(post({ reply: BLIND_REPLY, turns: TURNS }),
+    { ANTHROPIC_API_KEY: 'k', CX_KV: makeKV(), IP_SALT: 's' });
+  b = await r.json();
+  t('and a row emptied by the SPREAD gate says that instead',
+    b.moves.length === 0 && b.grounding.emptiedBy === 'spread' && b.grounding.droppedByAction === 0,
+    JSON.stringify(b.grounding));
+
+  /* THE CASE THAT MATTERS: both gates fire on one row. A naive
+     "droppedByAction > 0 means action" test reports the wrong gate here, which
+     is why the cause is computed upstream where both arrays exist. */
+  globalThis.fetch = modelJson({ moves: [
+    { label: 'Pokaži cijeli YAML primjer', text: 'Pokaži.', evidence: 'the agent flies blind' },
+    { label: 'Write the menu page', text: 'Write it.', evidence: 'cannot see your schema' }
+  ] });
+  r = await w.fetch(post({ reply: BLIND_REPLY, turns: TURNS }),
+    { ANTHROPIC_API_KEY: 'k', CX_KV: makeKV(), IP_SALT: 's' });
+  b = await r.json();
+  t('and when BOTH gates fire, the one that emptied it is named, not the first to bite',
+    b.moves.length === 0 && b.grounding.droppedByAction === 1 && b.grounding.emptiedBy === 'spread',
+    JSON.stringify(b.grounding));
+
+  /* An honest zero names no gate at all. */
+  globalThis.fetch = modelJson({ moves: [] });
+  r = await w.fetch(post({ reply: BLIND_REPLY, turns: TURNS }),
+    { ANTHROPIC_API_KEY: 'k', CX_KV: makeKV(), IP_SALT: 's' });
+  b = await r.json();
+  t('and a genuine empty answer blames no gate',
+    b.moves.length === 0 && b.grounding.emptiedBy === null, JSON.stringify(b.grounding));
+
   /* Serbian production verbs must survive end to end. Half the field rows are
      Serbian, and an incomplete list here does not degrade a row — it empties
      one, which is indistinguishable from an honest zero. */

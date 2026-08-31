@@ -7,6 +7,75 @@ free to diverge, and the settings page labels them separately for that reason.
 
 ---
 
+## 0.9.65 — Extension + Worker
+
+*The card names which gate ate the row. No behaviour changes — this release
+exists to measure.*
+
+### What 0.9.64 already answered
+
+The split notice worked on the first field click. The games thread came back
+**"Nothing worth clicking here."**, which proves the model **did** return moves
+and the gates dropped every one. That thread is not an honest zero, and the
+owner's instinct that it should not be empty was right.
+
+### What it could not answer, and why that matters
+
+The card could not say **which** gate, and the two want opposite responses:
+
+- **Action gate** — a Serbian verb missing from the allowlist. A bug in that
+  list, and a straightforward fix.
+- **Spread gate** — every move was reply-earned on a session of three or more
+  turns. Also plausible, and here it may be a **false positive**: that reply *is*
+  the plan the user asked for, so a move advancing the plan legitimately quotes
+  it. The gate reads "all reply-earned" as *transcript*; on this thread it may
+  be reading *building on the deliverable*.
+
+If the second is what happened, the fix is not a verb — it is that the gate is
+now deleting exactly what the owner asked for. Four doable clicks, thrown away.
+
+### Measured, not reasoned
+
+**Nothing about the gates changes in this release.** That is deliberate. This
+project has now twice reasoned its way to a wrong cause: 0.9.61 was blamed for a
+zero that turned out to be sampling variance, and 0.9.64's notes claimed the gate
+could be ruled out for one thread when it could not. Asked whether to guess or
+measure, the owner chose measure.
+
+The cause is computed **where both intermediate arrays exist** — `kept`, what
+survived the action gate, and `moves`, what survived the spread gate. If the
+model returned something and `moves` is empty, then `kept` being empty means
+*action*, and otherwise *spread*.
+
+That distinction is not pedantry. Inferring it downstream from
+`droppedByAction > 0` gets the **both-gates-fired** row wrong: the action gate
+takes some moves, the spread gate takes the rest, `droppedByAction` is non-zero,
+and the naive answer is "action" when the spread gate is what emptied it. There
+is a test for exactly that row.
+
+Ships as `grounding.emptiedBy` (`'action' | 'spread' | null`) on both paths.
+
+### Three cards
+
+| cause | card |
+|---|---|
+| the model earned nothing | **"Nothing for now."** — unchanged |
+| the action gate | **"Nothing worth clicking here."** — unchanged |
+| the spread gate | **"Nothing new beyond the reply."** |
+
+Each states what that gate *concluded*. If a conclusion is wrong, that is the
+bug being hunted — and the card now names which gate to go and read.
+
+### Versions
+
+Extension **0.9.65**, worker **0.9.65**. 368 assertions green (253 extension,
+115 worker). Each new guard proven by breaking it: the spread card removed, the
+caller guessing from `droppedByAction` instead of reading the cause, and the
+worker always blaming the action gate. Worker redeploy required — `grounding`
+gained a field.
+
+---
+
 ## 0.9.64 — Extension
 
 *An empty row now says which kind of empty it is — and a good row stops
