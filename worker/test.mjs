@@ -175,7 +175,7 @@ t('unknown route 404', r.status === 404, String(r.status));
    clean response and that rate has to stay measurable. */
 {
   const whole = ['One', 'Two', 'Three', 'Four', 'Five']
-    .map(n => `{"label":"${n}","text":"Do the ${n} thing.","evidence":"now the menu page"}`)
+    .map(n => `{"label":"Write the ${n} page","text":"Write the ${n} page.","evidence":"now the menu page"}`)
     .join(',');
   const cutSixth = `{"moves":[${whole},{"label":"Six`;   // ceiling hit mid-6th move
   globalThis.fetch = async () => ({
@@ -213,7 +213,7 @@ t('unknown route 404', r.status === 404, String(r.status));
       usage: { input_tokens: 10, output_tokens: 10 },
       // Evidence quotes a TURN: 'rrrr' matched only the filler reply, which is
       // the all-reply row the spread gate drops. These tests are about retrying.
-      content: [{ type: 'text', text: JSON.stringify({ moves: [{ label: 'A move', text: 'Do the thing.', evidence: 'my bakery' }] }) }] }; },
+      content: [{ type: 'text', text: JSON.stringify({ moves: [{ label: 'Write the menu page', text: 'Write it.', evidence: 'my bakery' }] }) }] }; },
       async text() { return ''; } };
   };
   await w.fetch(post(), { ANTHROPIC_API_KEY: 'k', CX_KV: makeKV(), IP_SALT: 's' });
@@ -235,7 +235,7 @@ t('unknown route 404', r.status === 404, String(r.status));
       usage: { input_tokens: 10, output_tokens: 10 },
       // Evidence quotes a TURN: 'rrrr' matched only the filler reply, which is
       // the all-reply row the spread gate drops. These tests are about retrying.
-      content: [{ type: 'text', text: JSON.stringify({ moves: [{ label: 'A move', text: 'Do the thing.', evidence: 'my bakery' }] }) }] }; },
+      content: [{ type: 'text', text: JSON.stringify({ moves: [{ label: 'Write the menu page', text: 'Write it.', evidence: 'my bakery' }] }) }] }; },
       async text() { return ''; } };
   };
   const r = await w.fetch(post(), { ANTHROPIC_API_KEY: 'k', CX_KV: makeKV(), IP_SALT: 's' });
@@ -339,7 +339,7 @@ t('unknown route 404', r.status === 404, String(r.status));
       stop_reason: 'end_turn',
       usage: { input_tokens: 500, output_tokens: 200 },
       content: [{ type: 'text', text: JSON.stringify({
-        moves: [{ label: 'A move', text: 'Do the thing.', evidence: 'now the menu page' }]
+        moves: [{ label: 'Write the menu page', text: 'Write it.', evidence: 'now the menu page' }]
       }) }]
     }; },
     async text() { return ''; }
@@ -473,7 +473,7 @@ t('unknown route 404', r.status === 404, String(r.status));
         async json() { return {
           stop_reason: 'end_turn', usage: {},
           content: [{ type: 'text', text: JSON.stringify({ moves: [
-            { label: 'Short one', text: 'Add a contact form to the bakery site.', evidence: 'now the menu page' }
+            { label: 'Write the contact form', text: 'Add a contact form to the bakery site.', evidence: 'now the menu page' }
           ] }) }]
         }; },
         async text() { return ''; }
@@ -565,7 +565,7 @@ t('unknown route 404', r.status === 404, String(r.status));
     JSON.stringify(b.grounding));
 
   globalThis.fetch = modelJson({ moves: [
-    { label: 'Invented', text: 'do a thing', evidence: 'nothing anyone ever said here' }
+    { label: 'Write the invented page', text: 'do a thing', evidence: 'nothing anyone ever said here' }
   ] });
   r = await w.fetch(post(), { ANTHROPIC_API_KEY: 'k', CX_KV: makeKV(), IP_SALT: 's' });
   b = await r.json();
@@ -617,10 +617,14 @@ t('unknown route 404', r.status === 404, String(r.status));
     b.moves.length === 2 && b.grounding.fromTurns === 1 && b.grounding.fromReply === 1,
     JSON.stringify(b.grounding));
 
-  /* (c3) The explain gate, end to end. "Explain the agent flies blind risk" was
-     a real field row: the reply's own sentence handed back to be explained at
-     greater length. The prompt has banned it in words since 0.9.60 and the
-     field produced it twice more, so it is mechanical now. */
+  /* (c3) The action gate, end to end. The rule is the owner's: a move is a
+     doable click — you press it and Claude makes the thing. Anything that only
+     talks ABOUT the material is not a move, and should not appear at all rather
+     than appear and waste the click.
+
+     Note what changed from 0.9.62's explain gate: provenance no longer matters.
+     That gate only fired on reply-earned moves, and the field then rejected
+     "Detaljnije rollback korake", which was turn-earned. */
   const BLIND_REPLY = 'If you only use Standard OAuth, the agent flies blind and cannot see your schema. '
     + 'The menu page still needs writing before any of that matters.';
   globalThis.fetch = modelJson({ moves: [
@@ -630,26 +634,40 @@ t('unknown route 404', r.status === 404, String(r.status));
   r = await w.fetch(post({ reply: BLIND_REPLY, turns: TURNS }),
     { ANTHROPIC_API_KEY: 'k', CX_KV: makeKV(), IP_SALT: 's' });
   b = await r.json();
-  t('a reply-earned explain is dropped before the row is served',
+  t('a talk-about move is dropped before the row is served',
     b.moves.length === 1 && b.moves[0].label === 'Write the menu page',
     b.moves.map(m => m.label).join(' | '));
-  /* The response must report the SURVIVORS. Reporting the pre-drop tally would
-     hide the drop in the one field built to make it visible. */
-  t('and the reported grounding counts the survivors, not what was sent',
-    b.grounding.total === 2 && b.grounding.kept === 1 && b.grounding.fromTurns === 1
-    && b.grounding.fromReply === 0, JSON.stringify(b.grounding));
+  /* The response must report the SURVIVORS, and say how many the gate took.
+     Reporting the pre-drop tally would hide the drop in the one field built to
+     make it visible — and droppedByAction is what will show whether the verb
+     list is too narrow once this meets a language it does not know. */
+  t('and the response reports the survivors plus what the gate took',
+    b.grounding.total === 2 && b.grounding.kept === 1 && b.grounding.droppedByAction === 1,
+    JSON.stringify(b.grounding));
 
-  /* An explain earned by a USER TURN opens ground the reply did not cover, and
-     the prompt explicitly protects it. Over-firing here is how 0.9.61 turned a
-     good row into silence, so this case is guarded as hard as the drop. */
+  /* Turn-earned makes no difference now: the shape is the defect, not its
+     source. This is the assertion that distinguishes 0.9.63 from 0.9.62. */
   globalThis.fetch = modelJson({ moves: [
-    { label: 'Explain the opening hours setup', text: 'Explain it.', evidence: 'can you add the opening hours' }
+    { label: 'Objasni staging environment opcije', text: 'Objasni.', evidence: 'can you add the opening hours' }
   ] });
   r = await w.fetch(post({ reply: BLIND_REPLY, turns: TURNS }),
     { ANTHROPIC_API_KEY: 'k', CX_KV: makeKV(), IP_SALT: 's' });
   b = await r.json();
-  t('but a turn-earned explain survives the gate untouched',
-    b.moves.length === 1 && b.grounding.fromTurns === 1, JSON.stringify(b.grounding));
+  t('and a TURN-earned talk-about move is dropped too, unlike 0.9.62',
+    b.moves.length === 0 && b.grounding.droppedByAction === 1, JSON.stringify(b.grounding));
+
+  /* Serbian production verbs must survive end to end. Half the field rows are
+     Serbian, and an incomplete list here does not degrade a row — it empties
+     one, which is indistinguishable from an honest zero. */
+  globalThis.fetch = modelJson({ moves: [
+    { label: 'Napravi listu od 20-30 igrica', text: 'Napravi listu.', evidence: 'now the menu page' },
+    { label: 'Definiši finalnu strukturu podataka', text: 'Definiši strukturu.', evidence: 'can you add the opening hours' }
+  ] });
+  r = await w.fetch(post({ reply: BLIND_REPLY, turns: TURNS }),
+    { ANTHROPIC_API_KEY: 'k', CX_KV: makeKV(), IP_SALT: 's' });
+  b = await r.json();
+  t('and Serbian production verbs survive the gate end to end',
+    b.moves.length === 2 && b.grounding.droppedByAction === 0, JSON.stringify(b.grounding));
 
   /* (d) The gate. Each part is required for a different visible failure: no
      label is a blank button, no text composes nothing, no evidence is a move
@@ -658,12 +676,12 @@ t('unknown route 404', r.status === 404, String(r.status));
     { label: '', text: 'x', evidence: 'y' },
     { label: 'No text', text: '', evidence: 'y' },
     { label: 'No evidence', text: 'x', evidence: '' },
-    { label: 'Good one', text: 'Write the menu page.', evidence: 'now the menu page' }
+    { label: 'Write the good page', text: 'Write the menu page.', evidence: 'now the menu page' }
   ] });
   r = await w.fetch(post(), { ANTHROPIC_API_KEY: 'k', CX_KV: makeKV(), IP_SALT: 's' });
   b = await r.json();
   t('a move missing label, text or evidence is dropped',
-    b.moves.length === 1 && b.moves[0].label === 'Good one', JSON.stringify(b.moves));
+    b.moves.length === 1 && b.moves[0].label === 'Write the good page', JSON.stringify(b.moves));
 
   globalThis.fetch = modelJson({ moves: Array.from({ length: 9 }, (_, n) =>
     ({ label: 'Move ' + n, text: 'do thing ' + n, evidence: 'now the menu page' })) });

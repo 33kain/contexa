@@ -409,42 +409,96 @@ function tallySources(sources) {
   return { grounded, fromTurns, fromReply };
 }
 
-/* The explain gate. A move whose evidence came from the REPLY and whose label
-   opens with an explain-family verb is the second pass wearing a different
-   verb: "explain, at greater length, the thing you just said". The prompt has
-   banned this in words since 0.9.60 and the field produced it twice more, which
-   is why it is mechanical now — the tally on prompt-only rules is four failures
-   in five, against one clean success for a gate.
+/* THE ACTION GATE. Every move must be a doable click: you press it, Claude
+   makes the thing. A move that only talks ABOUT the material — "explain this",
+   "show me that", "in more detail" — is not a next move, it is a comment, and
+   the owner's rule is that it should not appear at all rather than appear and
+   waste the click.
 
-   BOTH halves are required. An explain earned by a USER TURN is opening ground
-   the reply did not cover, which the prompt explicitly protects, and it must
-   survive. Only the reply-earned one is the defect.
+   This is an ALLOWLIST, and that choice has a cost worth naming here rather
+   than discovering in the field. A denylist fails OPEN: an unknown verb still
+   renders. An allowlist fails CLOSED: an unknown verb is dropped. This product
+   answers in the session's own language, so a verb missing from this list does
+   not merely degrade a row — it EMPTIES one, and an empty row looks exactly
+   like the honest "nothing was open", which is the outcome this product must
+   never counterfeit. Hence two rules for maintaining it:
 
-   Per-move rather than per-row, unlike the spread gate: this is a defect in one
-   chip, not a judgement about the whole row. And no turn threshold — a
-   reply-earned explain is a second pass on a two-turn session as much as a
-   twenty-turn one.
+     1. Be generous. A verb that produces anything at all belongs here. The
+        eight verbs first sketched for this gate would have dropped three of the
+        four moves in the row that prompted it.
+     2. Serbian is first-class, not an afterthought — half the field rows are
+        Serbian, and Napravi/Definiši/Razradi/Precizuj all had to survive.
 
-   KNOWN LIMIT, written down rather than discovered later: a verb list does not
-   generalise, and this product answers in the session's own language. The
-   Serbian entries are here because the field produced them; the next language a
-   user brings will slip through, and that is expected rather than surprising. */
-const EXPLAIN_OPENERS = /^\s*(explain|describe|clarify|elaborate|expand|walk me through|objasni|razjasni|opisi|opiši|pojasni)\b/i;
-function dropReplyExplains(moves, ground) {
+   When it empties a row, it says so in its own words (see below), so that "my
+   list is incomplete" can never hide inside "the session earned nothing". */
+const ACTION_OPENERS = new RegExp('^\\s*(' + [
+  // English — anything that leaves an artifact behind
+  'write|rewrite|draft|redraft|compose|author',
+  'build|rebuild|make|create|generate|produce|assemble',
+  'design|redesign|sketch|wireframe|mock|prototype|storyboard',
+  'plan|outline|map|spec|scope|schedule|structure|organi[sz]e',
+  'add|extend|expand|fill|complete|finish',
+  'fix|repair|patch|correct|resolve|debug|unblock',
+  'set|setup|configure|install|deploy|publish|ship|release|wire',
+  'update|revise|refine|tighten|polish|improve|rework|refactor|simplify|clean',
+  'convert|port|migrate|translate|adapt|turn|swap|replace|rename|move|copy',
+  'split|merge|combine|group|sort|order|rank|filter|trim|cut|remove|delete|drop',
+  'list|enumerate|catalogue|catalog|tabulate|collect|gather|compile|extract|pull',
+  'test|run|check|verify|validate|measure|benchmark|profile|audit|review|compare|evaluate|assess|diagnose|reproduce|trace|inspect|examine|investigate',
+  'define|specify|name|choose|pick|select|decide|settle',
+  'apply|enforce|implement|automate|script|instrument|do',
+  // Serbian / BCMS — the field produces these constantly
+  'napravi|napiši|napisi|izradi|kreiraj|generiši|generisi|sastavi',
+  'definiši|definisi|precizuj|preciziraj|odredi|utvrdi|izaberi|odaberi',
+  'razradi|razvij|dopuni|dodaj|proširi|prosiri|dovrši|dovrsi|završi|zavrsi',
+  'postavi|podesi|instaliraj|deployuj|objavi|pusti|poveži|povezi',
+  'popravi|ispravi|sredi|reši|resi|otkloni|debaguj',
+  'pretvori|prebaci|premesti|premjesti|zameni|zamijeni|preimenuj|kopiraj|migriraj|prevedi',
+  'ažuriraj|azuriraj|osveži|osvezi|doradi|prepravi|refaktoriši|refaktorisi|pojednostavi|očisti|ocisti',
+  'proveri|provjeri|testiraj|izmeri|izmjeri|uporedi|usporedi|analiziraj|proceni|procijeni|reprodukuj|pregledaj|ispitaj',
+  'nabroji|izlistaj|prikupi|izvuci|sakupi',
+  'primeni|primijeni|implementiraj|automatizuj|skriptuj|uradi|odradi',
+  'ukloni|obriši|obrisi|izbaci|skrati|podeli|podijeli|spoji|grupiši|grupisi|sortiraj'
+].join('|') + ')\\b', 'i');
+
+/* The one offender a verb list structurally cannot catch. "Dodaj pitanje o
+   staging environment" OPENS with a production verb — dodaj/add has to stay on
+   the list — and is still not a doable click: what it produces is another
+   question, which is the interview this product deleted, arriving through the
+   one door left open. The defect is the OBJECT, so it is matched as one. */
+const META_OBJECTS = /\b(pitanj\w*|question|questions|odgovor\w*|answer|answers)\b/i;
+
+function enforceAction(moves, ground) {
   const keep = [], sources = [];
+  let dropped = 0;
   for (let i = 0; i < moves.length; i++) {
-    if (ground.sources[i] === 'reply' && EXPLAIN_OPENERS.test(moves[i].label)) {
-      console.log('[CONTEXA] explain gate — dropped reply-earned "' +
-        moves[i].label.slice(0, 40) + '"');
+    const label = moves[i].label;
+    const why = !ACTION_OPENERS.test(label) ? 'no production verb'
+      : META_OBJECTS.test(label) ? 'produces a question, not work'
+      : null;
+    if (why) {
+      dropped++;
+      console.log('[CONTEXA] action gate — dropped "' + label.slice(0, 40) + '" (' + why + ')');
       continue;
     }
     keep.push(moves[i]);
     sources.push(ground.sources[i]);
   }
-  /* Re-tallied, not carried over. The counts feed the spread gate below and the
-     numbers reported to the console and the hosted client; leaving them stale
-     would make a dropped move invisible in exactly the place built to see it. */
-  return { moves: keep, ground: Object.assign(tallySources(sources), { sources }) };
+  /* An emptied row gets its OWN line. Silence here would be indistinguishable
+     from a session that earned nothing, and the two need opposite responses:
+     one is the product working, the other is this list missing a word. */
+  if (moves.length && !keep.length) {
+    console.log('[CONTEXA] action gate emptied the row — ' + dropped +
+      ' move(s) dropped. If these labels were not English or Serbian, the verb list is the likely cause.');
+  }
+  /* Re-tallied, not carried over: the counts feed the spread gate below and the
+     numbers reported to the console and the hosted client, so stale ones would
+     hide a drop in the one place built to show it. */
+  return {
+    moves: keep,
+    ground: Object.assign(tallySources(sources), { sources }),
+    droppedByAction: dropped
+  };
 }
 
 /* The spread gate — deliberately the narrowest rule that still kills the
@@ -559,7 +613,7 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
            dropping a reply-earned explain changes the counts the spread gate
            reads, so running spread on the pre-drop tally could drop a row that
            the survivors no longer justify dropping. */
-        const { moves: kept, ground } = dropReplyExplains(cleaned, g0);
+        const { moves: kept, ground, droppedByAction } = enforceAction(cleaned, g0);
         const moves = enforceSpread(kept, ground, turns.length);
         /* The split is the number the screenshots could only hint at: a row of
            four that all say "from reply" is a transcript of the last message,
@@ -575,7 +629,7 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
             : '[CONTEXA] every move dropped by the gate — returned ' + rawMoves + ', kept 0');
         }
         out = { moves, grounding: { total: rawMoves, kept: moves.length, grounded: ground.grounded,
-          fromTurns: ground.fromTurns, fromReply: ground.fromReply } };
+          fromTurns: ground.fromTurns, fromReply: ground.fromReply, droppedByAction } };
         if (r.partial) out.partial = true;
       } else {
         out = r.partial ? Object.assign({}, r.data, { partial: true }) : r.data;

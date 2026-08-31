@@ -7,6 +7,97 @@ free to diverge, and the settings page labels them separately for that reason.
 
 ---
 
+## 0.9.63 — Extension + Worker
+
+*"Klikneš, i Claude odradi. Ako to ne može — ni ne otvaraj."*
+
+### A correction to 0.9.62's entry, first
+
+0.9.62 claimed the games thread's empty row was caused by 0.9.61's prompt rule.
+**That was wrong.** The same thread, on 0.9.62, produced four good moves at 20:02
+and "Nothing for now." at 20:04 — same version, same reply, two clicks. So the
+zero was **sampling variance**, not a release. The caveat was stated at the time;
+the conclusion drawn past it was not.
+
+The revert still stands on its own — the rule was not landing, and its own
+worked repair sat below its prohibition — but the causal claim is withdrawn.
+
+The flip-flop has a mundane cause: `stepsCache` is an in-memory `Map` inside an
+MV3 service worker, and Chrome tears those down freely, so a second click on the
+same reply is a fresh model call rather than a cache hit. Moving it to
+`chrome.storage.session` would make a re-click return what you already saw.
+**Deliberately not built** — raised, declined for now, recorded here so it is not
+rediscovered as a mystery.
+
+### The rule: a move is a doable click
+
+Every move must be something Claude *makes* when you press it. A move that only
+talks **about** the material — *Objasni…*, *Detaljnije rollback korake*, *Pokaži
+cijeli YAML primjer*, *Show full inbox-triage SKILL.md* — is a comment, not a
+next move, and should not appear at all rather than appear and waste the click.
+
+`enforceAction` replaces 0.9.62's `dropReplyExplains`, and inverts it: a move
+survives only if its label opens with a verb that produces an artifact.
+
+**Provenance no longer gates this, and that is the substantive change.** The
+explain gate only fired on reply-earned moves; the field then rejected
+*Detaljnije rollback korake*, which was turn-earned. The shape is the defect,
+whatever earned it.
+
+### The cost of an allowlist, named rather than discovered
+
+A denylist fails **open**: an unknown verb still renders. An allowlist fails
+**closed**: an unknown verb is dropped. This product answers in the session's own
+language and half these rows are Serbian, so a missing verb does not degrade a
+row — **it empties one**, and an empty row is indistinguishable from the honest
+"nothing was open", which is the one outcome this product must never counterfeit.
+
+Three consequences, all built:
+
+- **The list is generous, and Serbian is first-class.** The eight verbs first
+  sketched for this gate would have dropped three of the four moves in the row
+  that prompted it. *Napravi / Definiši / Razradi / Precizuj / Postavi /
+  Pretvori / Prebaci / Proveri* are all load-bearing, and each is a test.
+- **An emptied row gets its own log line**, naming an incomplete verb list as the
+  likely cause, so that failure can never hide inside an honest zero.
+- **`grounding.droppedByAction`** ships in the worker response, so the rate is
+  visible on the hosted path too — this is the number that will show whether the
+  list is too narrow once it meets a language it does not know.
+
+**One offender a verb list structurally cannot catch.** *"Dodaj pitanje o
+staging environment"* opens with **Dodaj** — a production verb that has to stay
+on the list — and is still not a doable click, because what it produces is
+another question: the interview this product deleted, arriving through the one
+door left open. Matched on its **object** instead, beside the verb check.
+
+### The corpus is the field, not invention
+
+Fifteen assertions built from labels these rows actually produced. Nine must
+survive (*Napravi listu od 20-30 igrica*, *Definiši finalnu strukturu podataka*,
+*Razradi wireframe glavnih stranica*, *Precizuj listu kategorija igrica*,
+*Postavi CI za ŠRAF web app*, *Pretvori skicu u SKILL.md*, …) and six must drop.
+Both halves matter, but the survive half is load-bearing: this gate's failure
+mode is silence, not noise.
+
+Eight test fixtures had to be relabelled — *A move*, *Short one*, *Good one*,
+*One…Five* — placeholder labels with no verb, in tests about retry, salvage and
+the clean gate. They were found by running every fixture label in both suites
+through the gate rather than by waiting for failures, which turned up two the
+suite would not have caught.
+
+And a redundant `napravi listu` alternative was removed: subsumed by `napravi`,
+dead, and it masked a probe — which is exactly how a list like this rots without
+anyone noticing.
+
+### Versions
+
+Extension **0.9.63**, worker **0.9.63**. 355 assertions green (244 extension,
+111 worker). Each new guard proven by breaking it: a Serbian verb off the list,
+the question-object rule removed, the allowlist removed, and the emptied-row line
+reworded. Worker redeploy required.
+
+---
+
 ## 0.9.62 — Extension + Worker
 
 *0.9.61 is reverted. It cost a row, and the thing it was trying to fix in words

@@ -382,7 +382,7 @@ const TURNS = [
          gate now drops — the row would come back empty and the retry would look
          broken. Keeping the fixture turn-earned keeps the test about its own
          subject. */
-      async json() { return { stop_reason: 'end_turn', content: [{ text: JSON.stringify({ moves: [{ label: 'A move', text: 'Do the thing.', evidence: 'my bakery' }] }) }] }; },
+      async json() { return { stop_reason: 'end_turn', content: [{ text: JSON.stringify({ moves: [{ label: 'Write the menu page', text: 'Write it.', evidence: 'my bakery' }] }) }] }; },
       async text() { return ''; } };
   };
   const out = await h.send({ type: 'nextSteps', reply: 'r'.repeat(80), turns: TURNS });
@@ -949,8 +949,8 @@ const TURNS = [
      mined row. */
   t('and grounds turns and reply as SEPARATE corpora, never concatenated',
     /groundMoves\(\s*\w+\s*,\s*turns\.map\(t => t\.text\)\.join\([^)]*\)\s*,\s*reply\s*\)/.test(bsrcM));
-  t('and drops reply-earned explains before judging the row',
-    /dropReplyExplains\(\s*\w+\s*,\s*\w+\s*\)/.test(bsrcM));
+  t('and runs the action gate before judging the row',
+    /enforceAction\(\s*\w+\s*,\s*\w+\s*\)/.test(bsrcM));
   t('and runs the spread gate over what survived',
     /enforceSpread\(\s*\w+\s*,\s*\w+\s*,\s*turns\.length\)/.test(bsrcM));
 
@@ -964,7 +964,7 @@ const TURNS = [
     const blk = bsrcM.slice(bsrcM.indexOf('function groundMoves'),
       bsrcM.indexOf('/* end of the injected helper block'));
     const g = new Function('console', blk +
-      '; return { groundMoves, enforceSpread, dropReplyExplains, tallySources, SPREAD_MIN_TURNS };')({ log() {} });
+      '; return { groundMoves, enforceSpread, enforceAction, tallySources, SPREAD_MIN_TURNS };')({ log() {} });
 
     const TURNTEXT = 'make me a website for my bakery\ncan you add the opening hours';
     const REPLYTEXT = 'try these: 1. check the asset 2. inspect in DevTools 3. describe what you see';
@@ -1005,48 +1005,83 @@ const TURNS = [
     t('and an already-empty row is passed through, never "dropped" twice',
       g.enforceSpread([], gr1, 20).length === 0);
 
-    /* ---- the explain gate ------------------------------------------------
-       Both halves are required, so both halves get a test — and the one that
-       must NOT fire matters more than the one that must, because over-firing
-       is exactly how 0.9.61 turned a good row into silence. */
-    const EX_TURNS = 'set up CI for my repo\nthe notes skill needs rules';
-    const EX_REPLY = 'the agent flies blind without the schema, and lint runs on every push';
+    /* ---- the action gate -------------------------------------------------
+       "Klikneš, i Claude odradi. Ako to ne može — ni ne otvaraj."
 
-    const row = [
-      mv('Explain the agent flies blind risk', 'the agent flies blind'),   // reply-earned explain -> drop
-      mv('Explain the notes skill rules', 'the notes skill needs rules'),  // TURN-earned explain -> keep
-      mv('Set up lint on every push', 'lint runs on every push')           // reply-earned, not explain -> keep
+       This is an ALLOWLIST, so it fails CLOSED: a verb missing from the list
+       does not degrade a row, it empties one. That makes the MUST-SURVIVE half
+       of this corpus the load-bearing half, and every label in it is a real one
+       from the field rows the owner kept — nine of them, most Serbian, because
+       an incomplete Serbian list is the failure that lands on him directly. */
+    const A_TURNS = 'napravi sajt za decije igrice\nsetup CI\nthe menu page';
+    const A_REPLY = 'evo prioriteta i strukture, plus a YAML example and the SKILL.md draft';
+    const act = labels => {
+      const row = labels.map(l => mv(l, 'napravi sajt za decije igrice'));
+      return g.enforceAction(row, g.groundMoves(row, A_TURNS, A_REPLY));
+    };
+
+    const MUST_SURVIVE = [
+      'Napravi listu od 20-30 igrica',
+      'Definiši finalnu strukturu podataka',
+      'Razradi wireframe glavnih stranica',
+      'Precizuj listu kategorija igrica',
+      'Postavi CI za ŠRAF web app',
+      'Pretvori skicu u SKILL.md',
+      'Draft app concept doc',
+      'Test inbox-triage skill on real emails',
+      'Write the menu page'
     ];
-    const gEx = g.groundMoves(row, EX_TURNS, EX_REPLY);
-    t('provenance is kept per move, not just totalled',
-      Array.isArray(gEx.sources) && gEx.sources.join(',') === 'reply,turns,reply', JSON.stringify(gEx.sources));
+    for (const label of MUST_SURVIVE) {
+      t('action gate keeps a real field move: ' + label,
+        act([label]).moves.length === 1);
+    }
 
-    const after = g.dropReplyExplains(row, gEx);
-    t('the explain gate drops a reply-earned explain',
-      !after.moves.some(m => /flies blind/.test(m.label)), after.moves.map(m => m.label).join(' | '));
-    t('and KEEPS a turn-earned explain, which opens ground the reply did not cover',
-      after.moves.some(m => /notes skill rules/.test(m.label)));
-    t('and keeps a reply-earned move that is not an explain',
-      after.moves.some(m => /Set up lint/.test(m.label)));
-    /* Stale counts would make a dropped move invisible in the one place built
-       to see it, and would feed the spread gate a row that no longer exists. */
-    t('and re-tallies rather than carrying the pre-drop counts',
-      after.ground.fromReply === 1 && after.ground.fromTurns === 1 &&
-      after.ground.sources.length === 2, JSON.stringify(after.ground));
+    const MUST_DROP = [
+      'Objasni staging environment opcije',
+      'Detaljnije rollback korake',
+      'Pokaži cijeli YAML primjer',
+      'Show full inbox-triage SKILL.md',
+      'Answer the fork definition question',
+      'Explain the notes skill rules'
+    ];
+    for (const label of MUST_DROP) {
+      t('and drops a move that is not a doable click: ' + label,
+        act([label]).moves.length === 0);
+    }
 
-    /* The verb list is the known weakness: it cannot generalise across
-       languages, and this product answers in the session's own. Serbian is in
-       the list because the field produced it. */
-    const srb = [mv('Objasni staging environment opcije', 'the agent flies blind')];
-    const gSrb = g.groundMoves(srb, EX_TURNS, EX_REPLY);
-    t('and the gate covers the Serbian verb the field actually produced',
-      g.dropReplyExplains(srb, gSrb).moves.length === 0);
+    /* The offender a verb list structurally cannot catch: it OPENS with a
+       production verb that has to stay on the list, and the defect is its
+       object. Matched separately, and worth its own assertion because deleting
+       the object rule would leave every other test here passing. */
+    t('and drops "Dodaj pitanje…" even though it opens with a production verb',
+      act(['Dodaj pitanje o staging environment']).moves.length === 0 &&
+      act(['Dodaj rollback korake za wrangler']).moves.length === 1);
 
-    /* A move merely CONTAINING the verb is not the shape; the defect is a move
-       that OPENS with it. "Draft the explainer page" is real work. */
-    const midword = [mv('Draft the explainer page', 'the agent flies blind')];
-    t('and a verb mid-label is not the shape, so the move survives',
-      g.dropReplyExplains(midword, g.groundMoves(midword, EX_TURNS, EX_REPLY)).moves.length === 1);
+    /* Provenance deliberately does NOT gate this one. 0.9.62's explain gate
+       required reply-earned; "Detaljnije rollback korake" was turn-earned and
+       was still rejected in the field. */
+    {
+      const turnEarned = [mv('Objasni staging environment opcije', 'napravi sajt za decije igrice')];
+      const gg = g.groundMoves(turnEarned, A_TURNS, A_REPLY);
+      t('and a turn-earned talk-about move is dropped too, unlike 0.9.62',
+        gg.sources[0] === 'turns' && g.enforceAction(turnEarned, gg).moves.length === 0);
+    }
+
+    /* Counts must reflect the survivors: they feed the spread gate and the
+       numbers reported to the console and the hosted client. */
+    {
+      const mixed = act(['Write the menu page', 'Pokaži cijeli YAML primjer']);
+      t('and re-tallies after dropping, rather than carrying stale counts',
+        mixed.moves.length === 1 && mixed.ground.sources.length === 1 &&
+        mixed.droppedByAction === 1, JSON.stringify(mixed.ground));
+    }
+
+    /* An emptied row is reported as such. Silence here would be identical to a
+       session that earned nothing, and the two need opposite responses: one is
+       the product working, the other is this list missing a word. */
+    t('and an emptied row is announced separately from an honest zero',
+      /action gate emptied the row/.test(bsrcM) &&
+      /verb list is the likely cause/.test(bsrcM));
   }
 
   /* The prompt half of the same rule. The gate catches the total case; only the
