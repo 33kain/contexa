@@ -1029,6 +1029,25 @@ const TURNS = [
     /Watch the verb EXPLAIN especially/.test(bsrcM));
   t('and still allows an explain that opens new ground',
     /opens ground the reply did not cover/.test(bsrcM));
+
+  /* The answer-shaped move: the reply's closing question turned into a chip.
+     Unwritable by construction — the answer is in the user's head, so the text
+     is invented or all slots — and the most common weak shape in the 0.9.60
+     field rows. */
+  t('the prompt bans a move that is really the user\'s own answer',
+    /A move that is really THEIR answer/.test(bsrcM));
+  /* The boundary matters as much as the ban. A move may legitimately need one
+     thing from them — that is what the <paste here> slot is for — so the rule
+     has to separate "needs a fact" from "IS the fact". */
+  t('and draws the line at ONE thing needed, not at needing anything',
+    /Needing ONE thing from them is fine and has the slot for it/.test(bsrcM));
+  /* Paired with a repair, deliberately. The two rules that half-landed were
+     pure prohibitions; the label fix landed because it said what to do instead.
+     The repair reuses the Assume: line the prompt already has. */
+  t('and pairs the ban with a repair rather than leaving a hole',
+    /Write the WORK THAT FOLLOWS the decision instead/.test(bsrcM));
+  t('and the repair demotes the unchosen branch to an Assume: line',
+    /the branch you did not take became a line they can change/.test(bsrcM));
   /* Two sessions sharing a final turn would otherwise serve each other's moves,
      and mining makes that likelier: the moves depend on everything BUT the
      last turn. */

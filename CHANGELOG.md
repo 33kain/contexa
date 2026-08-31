@@ -7,6 +7,76 @@ free to diverge, and the settings page labels them separately for that reason.
 
 ---
 
+## 0.9.61 — Extension + Worker
+
+*The reply's closing question is theirs, not the row's — and this time the ban
+comes with a repair.*
+
+### 0.9.60 read from thirteen rows
+
+The objectless-label fix landed, on the exact thread that produced it. "Creating
+a new mobile app" had returned **"Just start building something"**; it now
+returns *Design clipboard staging app / Draft app concept doc / List other mobile
+Claude friction*. The shrug is gone, and so is *"Confirm the exact failure
+mode"* — the answer-shaped move this release is about — replaced by one that
+produces something.
+
+Roughly **21 of 24 moves solid** across the batch, plus two correct "Nothing for
+now." firings: a bare greeting, and a *"Let's learn new skill!"* thread where
+nothing had been picked yet.
+
+### The answer-shaped move
+
+*Answer the fork definition question. Confirm the exact failure mode. Odgovori na
+pitanje o staging environment-u. Nabroji neformalni checklist iz glave.*
+
+Each is the reply's closing question turned into a chip, and none is writable:
+the answer is in the user's head, so the text is either invented or nothing but
+slots. This was flagged in 0.9.60 and left alone; 0.9.60 halved it on its own
+(*Confirm the exact failure mode* vanished, *Odgovori na pitanje…* softened to
+*Razjasni … pitanje*) but did not finish it.
+
+The rule now names it, and draws the boundary where it actually falls: **needing
+ONE thing from them is fine** — that is what the `<paste here>` slot has always
+been for — but a move made *entirely* of what they must supply is the form field
+this row exists not to be.
+
+### Why this one got a repair, and the last two did not
+
+Three prompt-only rules have now been partially declined: the backwards-move ban,
+the objectless label, and 0.9.60's explain rule. The one that *did* land was the
+label fix, and the difference is visible in the diff: it paired the negative with
+what to do instead.
+
+So this ban ships with a worked repair. When the reply asks "which of these two",
+write **the work that follows the decision** — take the reading the session
+already leans toward, make it a real move, and demote the branch you did not take
+to an `Assume:` line the user can change. That reuses machinery the prompt
+already has rather than inventing any: `Assume:` has been in the text rules since
+the pivot.
+
+### Still open, and now a standing candidate
+
+**"Explain the agent flies blind risk."** The reply's own sentence — *"If you
+only use Standard OAuth, the agent flies blind"* — handed back to be explained at
+greater length. That is precisely the case 0.9.60's explain rule names, and the
+rule did not stop it.
+
+Not fixed here, because the scope was the answer-shaped move. Recorded with its
+mechanical option, which is cheap because both halves already exist: **drop a
+move that is reply-earned AND whose label opens with an explain-family verb.**
+Provenance has been computed per move since 0.9.59. If the shape recurs after
+this release, that is the change to make — on the evidence that a fourth
+prompt-only rule would be the fourth to be declined.
+
+### Versions
+
+Extension **0.9.61**, worker **0.9.61**. 335 assertions green (228 extension,
+107 worker), four of them new and each proven by breaking it. Worker redeploy
+required — `MOVES_SYSTEM` is server-side too.
+
+---
+
 ## 0.9.60 — Extension + Worker
 
 *Two weak moves inside otherwise good rows — and one of them was already
