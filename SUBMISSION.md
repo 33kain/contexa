@@ -9,6 +9,20 @@ that an update or a rejection reply never has to be improvised. Rewritten
 2026-08-26, because every word of the previous version described the chip-era
 product — including the permission justifications, which is the dangerous half.
 
+**Revised 2026-08-31 for 0.9.68, and the reason is the point.** History mining
+changed *what leaves the browser* — from one exchange to the user's own messages
+across the whole conversation — and every field below still described one
+exchange. The direction matters: the previous drift (chip-era text) overstated
+what the extension did, which invites scrutiny; this one **understated what it
+reads**, which is a misrepresentation. The backend justification claimed it
+received "only the user's latest message and the reply just received" while the
+worker had been receiving the session for nine versions.
+
+That is twice this file has gone stale behind a pivot, so the lesson is not "be
+more careful": **a release that changes what crosses the network is not shippable
+until these four fields are re-read.** Nothing in the test suite can catch this —
+the suite proves the code does what it does, not that this document says so.
+
 **What this file deliberately does NOT contain: the store description.** That
 lives in `claude/CONTEXA-store-listing.md` §1 and nowhere else. `LISTING.md`
 became a tombstone precisely because it duplicated the listing and drifted from
@@ -52,10 +66,10 @@ where accuracy is not cosmetic.
 CONTEXA has one purpose: to help the user write their next message inside
 conversations on claude.ai. After a Claude reply finishes, the extension shows a
 single button above the message box. If the user presses it, CONTEXA reads that
-reply and either offers a few short questions the user answers by clicking, or
-offers up to four suggested next moves; it then composes the resulting prompt
-into the page's message box for the user to read, edit and send themselves. The
-extension never sends a message on the user's behalf.
+reply together with the user's own earlier messages in the same conversation,
+and offers up to four suggested next messages. Clicking one places it in the
+page's message box for the user to read, edit and send themselves. The extension
+never sends a message on the user's behalf.
 ```
 
 ## Permission justifications — one per permission, all required
@@ -79,11 +93,13 @@ this is transmitted to us.
 ```
 This is the only site the extension operates on and is essential to its single
 purpose. The content script detects when a Claude reply has finished rendering
-and reads the text of that reply and the user's preceding message, so that it
-knows what the button it displays would be about. Nothing is transmitted at that
-point. Only if the user presses the button is that text used to generate
-questions or suggested next moves, and only the prompt the user then chooses is
-inserted into the page's message box. The extension never submits a message.
+and reads the text of that reply, so that it knows what the button it displays
+would be about. Nothing is transmitted at that point. Only if the user presses
+the button does the extension additionally read the user's own messages in that
+conversation — their messages only, never Claude's earlier replies, and bounded
+to 40 messages and 12,000 characters — and use that text to write up to four
+suggested next messages. Only the one the user then clicks is placed in the
+page's message box. The extension never submits a message.
 ```
 
 `https://api.anthropic.com/*`
@@ -96,27 +112,32 @@ the user's key and conversation text never pass through any server of ours.
 `https://contexa-api.michu110899.workers.dev/*`
 ```
 The extension's own backend, for users who have not supplied their own API key.
-It is contacted only when the user presses the button. It receives only the
-user's latest message and the reply just received, forwards them to Anthropic's
-API, returns the result, and stores none of it.
+It is contacted only when the user presses the button. It receives the user's own
+messages from the current conversation and the reply just received — never
+Claude's earlier replies, and bounded to 40 messages and 12,000 characters —
+forwards them to Anthropic's API, returns the result, and stores none of it.
 ```
 
 ## Data usage — declare these three, and only these three
 
 - **Authentication information** — the user's optional API key, stored locally.
-- **Personal communications** — the message and reply text, sent for processing
-  **only when the user presses the button.**
-- **Website content** — the text of the current reply, read from the page.
+- **Personal communications** — the user's own messages from the current
+  conversation, plus the reply just received, sent for processing **only when
+  the user presses the button.**
+- **Website content** — the text of the current reply, read from the page, plus
+  the user's own messages read at the moment of the press.
 
 Leave unchecked: personally identifiable information, health, financial,
 location, web history, user activity.
 
 **Why "Website content" stays declared even though nothing auto-sends.** Reading
-is still eager: the content script reads the exchange at reply completion so it
-knows what the button refers to. Only *transmission* moved behind the press. We
-declare the reading and the sending separately and the sending is narrower than
-the declaration — which is the right direction for a declaration to be wrong in,
-and the reason not to quietly drop a category that is still technically accurate.
+is still eager, but only part of it: at reply completion the content script reads
+**the reply, and only the reply**, so it knows what the button refers to. The
+user's own messages are not read until the press. Transmission was already behind
+the press; since 0.9.53 the larger half of the *reading* is too. We declare the
+reading and the sending separately and keep the declaration the wider of the two
+— which is the right direction for a declaration to be wrong in, and the reason
+not to quietly drop a category that is still accurate.
 
 ## Certifications — tick all three; all are true of this build
 
@@ -143,10 +164,11 @@ copy).
 Anthropic API key. Users who supply their own key never touch our backend at all
 — that path is in the product, not a promise.
 
-*What does it do with the conversation?* Reads one exchange in the page; sends it
-only on a press; the backend forwards it to Anthropic and stores nothing. There
-is no database. This is checkable in the source, which is why it is safe to say
-plainly.
+*What does it do with the conversation?* Reads the reply in the page, and on a
+press also the user's own messages from that conversation — their messages only,
+bounded to 40 and 12,000 characters. Sends that only on the press; the backend
+forwards it to Anthropic and stores nothing. There is no database. This is
+checkable in the source, which is why it is safe to say plainly.
 
 ---
 
