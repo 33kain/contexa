@@ -18,7 +18,7 @@
    which build is live. Deliberately independent of the extension's manifest
    version — they ship on separate paths and a worker fix should not force
    everyone to reinstall the extension. */
-const BUILD = '0.9.66';   // matches the extension generation this serves; every bump here has paid for itself by telling one deploy from another — 0.9.52 could not tell a pre-fork deploy from a post-fork one, 0.9.54 a pre-voice from a post-voice, 0.9.56 a pre-precedence-fix from a post-precedence-fix, and 0.9.58 is the first that must distinguish a worker that speaks moves from one that still speaks questions
+const BUILD = '0.9.67';   // matches the extension generation this serves; every bump here has paid for itself by telling one deploy from another — 0.9.52 could not tell a pre-fork deploy from a post-fork one, 0.9.54 a pre-voice from a post-voice, 0.9.56 a pre-precedence-fix from a post-precedence-fix, and 0.9.58 is the first that must distinguish a worker that speaks moves from one that still speaks questions
 
 const ANTHROPIC_URL = 'https://api.anthropic.com/v1/messages';
 /* Sonnet 5 rather than Haiku, on measured evidence: in a controlled three-model
@@ -468,12 +468,23 @@ function tallySources(sources) {
         Serbian, and Napravi/Definiši/Razradi/Precizuj all had to survive.
 
    When it empties a row, it says so in its own words (see below), so that "my
-   list is incomplete" can never hide inside "the session earned nothing". */
+   list is incomplete" can never hide inside "the session earned nothing".
+
+   0.9.67 read the log instead of trusting rule 1. Ten sessions across different
+   subjects produced 36 moves and 14 drops, and NINE of the fourteen were doable
+   clicks this list simply did not know: Popiši, Osmisli (three times), Smisli,
+   Skiciraj, Prilagodi, plus English Model and Estimate. Rule 1 was already
+   written down and the list still missed a quarter of everything the model
+   returned — being generous is not something you can be from memory, because
+   the missing words are by definition the ones that did not occur to you. The
+   four correct drops were three "Explain …" and one label with no verb at all.
+   Reread it the same way when the field looks thin: tail the worker, sweep,
+   classify. */
 const ACTION_OPENERS = new RegExp('^\\s*(' + [
   // English — anything that leaves an artifact behind
   'write|rewrite|draft|redraft|compose|author',
   'build|rebuild|make|create|generate|produce|assemble',
-  'design|redesign|sketch|wireframe|mock|prototype|storyboard',
+  'design|redesign|sketch|draw|wireframe|mock|model|prototype|storyboard',
   'plan|outline|map|spec|scope|schedule|structure|organi[sz]e',
   'add|extend|expand|fill|complete|finish',
   'fix|repair|patch|correct|resolve|debug|unblock',
@@ -482,19 +493,20 @@ const ACTION_OPENERS = new RegExp('^\\s*(' + [
   'convert|port|migrate|translate|adapt|turn|swap|replace|rename|move|copy',
   'split|merge|combine|group|sort|order|rank|filter|trim|cut|remove|delete|drop',
   'list|enumerate|catalogue|catalog|tabulate|collect|gather|compile|extract|pull',
-  'test|run|check|verify|validate|measure|benchmark|profile|audit|review|compare|evaluate|assess|diagnose|reproduce|trace|inspect|examine|investigate',
+  'test|run|check|verify|validate|measure|estimate|calculate|compute|forecast|benchmark|profile|audit|review|compare|evaluate|assess|diagnose|reproduce|trace|inspect|examine|investigate',
   'define|specify|name|choose|pick|select|decide|settle',
   'apply|enforce|implement|automate|script|instrument|do',
   // Serbian / BCMS — the field produces these constantly
-  'napravi|napiši|napisi|izradi|kreiraj|generiši|generisi|sastavi',
+  'napravi|napiši|napisi|izradi|kreiraj|generiši|generisi|sastavi|osmisli|smisli',
   'definiši|definisi|precizuj|preciziraj|odredi|utvrdi|izaberi|odaberi',
   'razradi|razvij|dopuni|dodaj|proširi|prosiri|dovrši|dovrsi|završi|zavrsi',
   'postavi|podesi|instaliraj|deployuj|objavi|pusti|poveži|povezi',
+  'skiciraj|nacrtaj|iscrtaj|modeluj|modeliraj',
   'popravi|ispravi|sredi|reši|resi|otkloni|debaguj',
-  'pretvori|prebaci|premesti|premjesti|zameni|zamijeni|preimenuj|kopiraj|migriraj|prevedi',
+  'pretvori|prebaci|premesti|premjesti|zameni|zamijeni|preimenuj|kopiraj|migriraj|prevedi|prilagodi|uskladi',
   'ažuriraj|azuriraj|osveži|osvezi|doradi|prepravi|refaktoriši|refaktorisi|pojednostavi|očisti|ocisti',
-  'proveri|provjeri|testiraj|izmeri|izmjeri|uporedi|usporedi|analiziraj|proceni|procijeni|reprodukuj|pregledaj|ispitaj',
-  'nabroji|izlistaj|prikupi|izvuci|sakupi',
+  'proveri|provjeri|testiraj|izmeri|izmjeri|izračunaj|izracunaj|uporedi|usporedi|analiziraj|proceni|procijeni|reprodukuj|pregledaj|ispitaj',
+  'nabroji|izlistaj|popiši|popisi|prikupi|izvuci|sakupi',
   'primeni|primijeni|implementiraj|automatizuj|skriptuj|uradi|odradi',
   'ukloni|obriši|obrisi|izbaci|skrati|podeli|podijeli|spoji|grupiši|grupisi|sortiraj'
 ].join('|') + ')\\b', 'i');

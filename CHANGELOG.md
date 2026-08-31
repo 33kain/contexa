@@ -7,6 +7,90 @@ free to diverge, and the settings page labels them separately for that reason.
 
 ---
 
+## 0.9.67 — Extension + Worker
+
+*The action gate was read for the first time. It was eating nine good clicks out
+of fourteen drops.*
+
+### Why look
+
+0.9.66 left one gate standing, and `droppedByAction` had been non-zero in 3 of
+the 6 runs that retired the spread gate — but nobody had ever read **which**
+labels it was taking. `ACTION_OPENERS` is an allowlist, so it fails closed: a
+verb it does not know does not degrade a row, it **empties** one, and an emptied
+row is indistinguishable from an honest zero to everyone except whoever is
+reading the worker log.
+
+### How
+
+`wrangler tail` against the live worker — a live stream, nothing stored. Ten
+sessions on deliberately different subjects (build, newsletter, schema,
+debugging, roadmap, branding, payments research, CV, teaching, CI), roughly half
+in Serbian. **36 moves returned, 14 dropped.** Every drop logged
+`no production verb`; `META_OBJECTS` never fired once.
+
+The turns were invented again, and that matters less here than it did last time:
+the spread measurement asked for a *rate*, which invented inputs distort. This
+asked *which verbs the model reaches for*, which is a property of the model and
+`MOVES_SYSTEM` rather than of whose turns they are. It still cannot say how often
+this bites in the field.
+
+### The harvest, classified against a rule fixed before the runs
+
+**Nine were doable clicks the list did not know:**
+
+```
+Popiši listu od 20-30 igrica            Osmisli filtere za katalog
+Osmisli temu prvog izdanja              Osmisli plan organskog rasta
+Smisli rečenicu za prosleđivanje        Skiciraj logotip sa mesecom
+Prilagodi CV opis ostalim projektima    Model hourly line items
+Estimate weekly payout breakeven
+```
+
+The newsletter session went 4 moves → 1 on three false drops alone. The payments
+session 3 → 1.
+
+**Four were correct** — three `Explain …` labels, and `Uputstvo za generisanje
+SSH ključa`, which is a bare noun phrase with no imperative at all.
+
+**One went to the owner** — `Opiši projekat za CV`, ruled a **correct drop**:
+*opiši* belongs to the same family as *objasni* and *pokaži*, and a session that
+genuinely wants CV copy has *napiši* and *sastavi* already surviving.
+
+### What changed
+
+Added to both allowlists (byte-identical, `build.mjs` enforces it):
+
+| | verbs |
+|---|---|
+| Serbian | `osmisli` `smisli` `popiši/popisi` `skiciraj` `nacrtaj` `iscrtaj` `modeluj` `modeliraj` `prilagodi` `uskladi` `izračunaj/izracunaj` |
+| English | `model` `estimate` `calculate` `compute` `forecast` `draw` |
+
+Harvested verbs plus their close siblings — *skiciraj* had no Serbian drawing
+counterpart at all, and *estimate* no quantitative one in English.
+
+### The part worth keeping
+
+Rule 1 above the gate already said **"Be generous. A verb that produces anything
+at all belongs here."** It was written in 0.9.63, it was sincere, and the list
+still missed a quarter of everything the model returned. Generosity is not
+something you can be from memory: the missing words are by definition the ones
+that did not occur to you. That paragraph now sits above `ACTION_OPENERS` with
+the numbers attached, and says to re-read the log the same way when the field
+looks thin.
+
+All 14 labels are in the test corpora verbatim — the nine in `MUST_SURVIVE`, the
+five in `MUST_DROP` — plus a live-shaped end-to-end assertion in the worker
+suite. Proven by removing the additions and watching nine extension checks fail
+and the worker row empty with `droppedByAction: 4`.
+
+### Still open
+
+How often this bites on **real** threads. Ten invented sessions name the verbs;
+only the owner's own clicks give the rate.
+
+---
+
 ## 0.9.66 — Extension + Worker
 
 *The spread gate is removed. It was measured, and it was deleting good rows.*

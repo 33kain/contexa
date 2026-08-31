@@ -729,6 +729,24 @@ t('unknown route 404', r.status === 404, String(r.status));
   t('and Serbian production verbs survive the gate end to end',
     b.moves.length === 2 && b.grounding.droppedByAction === 0, JSON.stringify(b.grounding));
 
+  /* The 0.9.67 harvest, end to end rather than through the lifted function.
+     These four labels came back from the LIVE worker and were dropped by it;
+     the function-level corpus in extension/test.mjs proves the regex knows
+     them, and this proves a whole request does. Both are needed: the gate is
+     only half of what stands between a good move and the user. */
+  globalThis.fetch = modelJson({ moves: [
+    { label: 'Osmisli filtere za katalog', text: 'Osmisli filtere.', evidence: 'now the menu page' },
+    { label: 'Popiši listu od 20-30 igrica', text: 'Popiši listu.', evidence: 'can you add the opening hours' },
+    { label: 'Skiciraj logotip sa mesecom', text: 'Skiciraj logotip.', evidence: 'my bakery' },
+    { label: 'Estimate weekly payout breakeven', text: 'Estimate it.', evidence: 'the agent flies blind' }
+  ] });
+  r = await w.fetch(post({ reply: BLIND_REPLY, turns: TURNS }),
+    { ANTHROPIC_API_KEY: 'k', CX_KV: makeKV(), IP_SALT: 's' });
+  b = await r.json();
+  t('and every verb the 0.9.67 sweep caught the gate eating now survives',
+    b.moves.length === 4 && b.grounding.droppedByAction === 0,
+    b.moves.map(m => m.label).join(' | ') + '  ' + JSON.stringify(b.grounding));
+
   /* (d) The gate. Each part is required for a different visible failure: no
      label is a blank button, no text composes nothing, no evidence is a move
      the session never earned. */

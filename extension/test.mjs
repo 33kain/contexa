@@ -1121,7 +1121,19 @@ const TURNS = [
       'Pretvori skicu u SKILL.md',
       'Draft app concept doc',
       'Test inbox-triage skill on real emails',
-      'Write the menu page'
+      'Write the menu page',
+      /* Harvested 0.9.67 by tailing the live worker across ten sessions. Every
+         one of these was DROPPED before that sweep — nine of the fourteen drops
+         were doable clicks the allowlist did not know. They are the corpus that
+         proves generosity was asserted rather than achieved. */
+      'Popiši listu od 20-30 igrica',
+      'Osmisli filtere za katalog',
+      'Osmisli temu prvog izdanja',
+      'Smisli rečenicu za prosleđivanje',
+      'Skiciraj logotip sa mesecom',
+      'Prilagodi CV opis ostalim projektima',
+      'Model hourly line items',
+      'Estimate weekly payout breakeven'
     ];
     for (const label of MUST_SURVIVE) {
       t('action gate keeps a real field move: ' + label,
@@ -1134,7 +1146,25 @@ const TURNS = [
       'Pokaži cijeli YAML primjer',
       'Show full inbox-triage SKILL.md',
       'Answer the fork definition question',
-      'Explain the notes skill rules'
+      'Explain the notes skill rules',
+      /* From the same sweep, and kept dropped on purpose: three "Explain …"
+         labels the gate was right about. Pinned here so a later round of
+         generosity cannot quietly swallow the verb the gate exists for. */
+      'Explain frozen account handling',
+      'Explain range queries breaking order',
+      'Explain choosing column order',
+      /* Not a verb problem at all — a bare noun phrase, no imperative anywhere.
+         The label rule already forbids it; the gate catching it is a second
+         line, and it must keep catching it. */
+      'Uputstvo za generisanje SSH ključa',
+      /* The one drop in the sweep I would not decide alone, and the owner ruled
+         it a correct drop: opiši/describe stays out of the allowlist. The case
+         FOR it was real — "describe the project for the CV" produces copy — but
+         opiši sits in the same family as objasni and pokaži, which is the family
+         the gate exists for, and a session that genuinely wants that copy has
+         napiši and sastavi already surviving. Pinned so the decision is not
+         quietly reversed by the next round of generosity. */
+      'Opiši projekat za CV'
     ];
     for (const label of MUST_DROP) {
       t('and drops a move that is not a doable click: ' + label,
