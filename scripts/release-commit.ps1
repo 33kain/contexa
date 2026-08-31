@@ -44,7 +44,13 @@ Write-Host "history clean - no key-shaped strings" -ForegroundColor Green
 
 # ---- 2. verify the tree actually works --------------------------------------
 Step "worker tests"
-node worker\test.mjs
+# Forward slash, not `worker\test.mjs`. PowerShell resolves a backslash path in
+# its OWN cmdlets on any OS, but this argument is handed to node verbatim, and
+# off Windows node reads the backslash as part of the filename. Node accepts a
+# forward slash on Windows too, so this one form works everywhere - which is
+# what lets the script be run (and therefore verified) somewhere other than the
+# release machine.
+node worker/test.mjs
 if ($LASTEXITCODE -ne 0) { Die "worker tests failed - not committing" }
 
 Step "extension tests"
@@ -103,7 +109,10 @@ try {
 } catch { $body = "" }
 $msg = if ($body) { $header + "`n`n" + $body } else { $header }
 
-$msgFile = Join-Path $env:TEMP "contexa-commit-msg.txt"
+# GetTempPath() rather than $env:TEMP, for the same reason as the slash above:
+# $env:TEMP is Windows-only, and off Windows it is empty, which makes Join-Path
+# throw right at the commit. The .NET call resolves on every platform.
+$msgFile = Join-Path ([System.IO.Path]::GetTempPath()) "contexa-commit-msg.txt"
 [System.IO.File]::WriteAllText($msgFile, $msg, [System.Text.UTF8Encoding]::new($false))
 git commit -F $msgFile
 $commitOk = $LASTEXITCODE
