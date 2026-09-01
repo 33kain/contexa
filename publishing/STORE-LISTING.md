@@ -1,214 +1,161 @@
 # CONTEXA — Chrome Web Store listing copy
 
-> **SUPERSEDED — do not paste from this file.**
->
-> Everything below describes the **chip era**: five auto-firing chips, a fixed
-> five-lens taxonomy, a name the product stopped using. It was already two
-> generations stale before the 2026-08-31 history-mining pivot, which retired
-> the interview as well.
->
-> **Source of truth is the `claude/CONTEXA-store-listing.md` project doc** — see
-> `LISTING.md` at the repo root, which explains why the copy lives there and not
-> here. It is kept in one place because a file that duplicates the listing drifts
-> from it, and a drifted listing is worse than no file at all. Rewriting this one
-> would create a third copy and prove the point again.
->
-> Retained only as the record of what was claimed when. The *current* product:
-> one trigger, clicked on demand; up to four independent moves mined from the
-> session's own prompts; each already a complete message; one click puts it in
-> the box; nothing earned means no row; 20 replies a day free.
+**This file is the listing. Written for 0.9.68, 2026-08-31.**
+
+It used to be a tombstone pointing at a project doc outside the repo, on the
+argument that a file duplicating the listing drifts from it. That argument was
+right and its conclusion was wrong. Keeping the copy outside meant nobody
+working in the repo could check it, and at 0.9.68 nobody could say whether the
+live listing still advertised suggestion chips — a mechanism deleted at 0.9.30.
+The copy now lives here, versioned with the code that has to match it, for the
+same reason `publishing/PRIVACY.md` is now the URL the listing points at.
+
+**So there is one copy, and it is this one.** If you paste from anywhere else,
+you are pasting from something nothing updates. The chip-era text is in git
+history, which is all it was ever being kept for.
 
 ---
 
-## Name (45 char limit)
+## Name — 45 char limit
 
 ```
-CONTEXA — Next-Step Prompt Suggestions
+CONTEXA - Claude prompts, without the writing
 ```
 
-*38 characters.*
+*45 characters — exactly on the limit, so any addition overflows.* Unchanged,
+and byte-identical to `name` in `extension/manifest.json`.
 
-**Note on naming:** I deliberately kept "Claude" out of the extension **name**.
-Chrome Web Store policy prohibits listings that imply affiliation with another
-company, and a name like "… for Claude" is a common trigger for that review.
-Describing the integration in the description is fine and normal; putting it in
-the name invites scrutiny. The disclaimer at the end of the description covers
-the rest.
+Do not put Anthropic's wordmark or logo on any store asset, and do not let the
+name read as first-party. The reasoning is in `SUBMISSION.md` § "The name, and
+the one policy call worth remembering".
 
 ---
 
-## Short description (132 char limit)
+## Short description — 132 char limit
 
 ```
-Get five smart next-step prompts after every Claude reply. Click one to load it, edit it, send it. No API key required.
+Claude replies. Press one button and CONTEXA reads your session, then writes up to four next messages. Pick one, you send it.
 ```
 
-*118 characters.*
+*125 characters.* **This is the `description` field in `extension/manifest.json`,
+verbatim.** Keep it that way — two copies of one sentence is how the last three
+surfaces drifted.
 
 ---
 
-## Detailed description
+## Detailed description — 16,000 char limit
 
 ```
-CONTEXA suggests what to ask next.
+CONTEXA writes your next message, so you don't have to.
 
-When a Claude reply finishes, five short chips appear beneath it — each one a
-concrete next step for the work you're actually doing. Click a chip and the full,
-specific prompt loads into the composer, where you can read it, edit it, or send
-it as-is.
+You are already deep in a conversation with Claude. You know roughly where you
+want it to go. The hard part is turning that into a message specific enough to
+get a good answer back — and that is a skill, not a mood.
 
-It's the moment you didn't know what to ask, solved.
+CONTEXA reads where the conversation has been going and offers you the messages
+you could send next. Each one is already written, in full. You pick one, read
+it, change anything you like, and send it yourself.
 
-WHY IT HELPS
+NOTHING HAPPENS UNTIL YOU ASK
 
-Most of us send vague prompts and get vague answers back. The fix isn't a longer
-prompt, it's a more specific one — and writing specific prompts is a skill.
-CONTEXA reads the conversation you're already in and proposes the five moves a
-sharp collaborator would suggest: going deeper on the valuable part, resolving
-what the reply assumed, producing the actual artifact, trying a different framing,
-or pressure-testing the result.
+When a Claude reply finishes, one small trigger appears above your message box.
+That is all. No model call, no request, nothing about your conversation leaves
+the page, and nothing counts against your daily allowance.
 
-The chips stay short so you can scan them in a second. The prompt behind each one
-is detailed — it names the deliverable, the format, the length, the constraint.
-You always see the full text in the composer before anything is sent.
+Press it and CONTEXA reads your own messages from the conversation — what you
+have been building toward across the whole thread, not just the last thing you
+typed — and offers up to four next moves.
 
-HOW IT WORKS
+FOUR MESSAGES, NOT FOUR TOPICS
 
-• Install it, open claude.ai, and send a message.
-• When the reply finishes, five chips appear underneath.
-• Click one. The full prompt lands in your composer. Edit or send.
+Each move is a complete message on its own. They do not run in order, they do
+not build on each other, and picking one throws the rest away. It is a menu,
+not a checklist — you only need one.
 
-No setup, no account, no sign-in. 20 replies per day are included free. If you
-have an Anthropic API key, you can add it in settings to remove the limit
-entirely — requests then go straight from your browser to Anthropic.
+Click the one you want and the whole message lands in your box. You can edit
+it. Nothing is ever sent without you pressing send.
 
-PRIVACY
+Where a message needs something only you have — a file, a link, a detail only
+you could know — CONTEXA marks the spot instead of inventing it. It may also
+add a line starting "Assume:" for anything the conversation already settled, so
+you can change it before you send rather than discovering it in the answer.
+
+WHEN IT HAS NOTHING TO SAY, IT SAYS NOTHING
+
+If the conversation has nothing worth taking further, CONTEXA shows you
+nothing at all. No filler, no padded row, no suggestion whose only virtue is
+that it could be shown.
+
+That is deliberate, and it is the part most of these tools get wrong. Every
+move has to be earned by something actually said in the conversation. Nothing
+earned, nothing offered.
+
+WHAT IT WILL NOT DO
+
+It does not grade your prompts or tell you how to write. It does not overlay
+your message box or interrupt your typing. It does not send anything on your
+behalf, ever. And when something goes wrong — a limit reached, a network
+failure — it tells you what actually happened instead of quietly showing you
+canned suggestions.
+
+HOW TO USE IT
+
+1. Install it and open a conversation on claude.ai.
+2. When a reply finishes, press the CONTEXA trigger above your message box.
+3. Pick one of the messages it offers. It lands in your box, whole.
+4. Edit if you want. Send when you are ready.
+
+No account. No sign-up. No API key needed. 20 replies a day are free — that is
+how many answers you can ask about, and picking a message costs nothing extra.
+
+If you have your own Anthropic API key you can add it in settings, which
+removes the daily limit — and in that mode requests go straight from your
+browser to Anthropic, so nothing passes through our server at all.
+
+PRIVACY, PLAINLY
 
 • CONTEXA runs only on claude.ai. It touches no other site.
-• It sends only your latest message and the reply you just received — never your
-  history, your other conversations, or your account details.
-• Your conversation text is never stored.
-• No accounts, no profiles, no tracking, no analytics, no ads, no data selling.
+• Nothing is sent anywhere until you press the button. A reply you never ask
+  about never leaves your browser.
+• When you do press it, CONTEXA sends your own messages from that conversation
+  and the reply you just received. Claude's earlier replies are never sent.
+• There are hard limits on how much that can be: at most 40 of your messages,
+  12,000 characters in total, and 6,000 characters of the reply. The backend
+  enforces these itself.
+• Your conversation text is never stored. It is used to write the suggestions
+  and then discarded.
+• No accounts, no profiles, no tracking, no analytics, no advertising, and
+  nothing sold or shared.
 • Your API key, if you provide one, stays on your device and goes only to
   Anthropic.
 
-Full policy: [YOUR_PRIVACY_POLICY_URL]
+Full policy:
+https://github.com/33kain/contexa/blob/main/publishing/PRIVACY.md
 
-WHAT IT DOESN'T DO
-
-It doesn't score your writing, nag you, or interrupt your typing. Nothing
-overlays the composer. If it can't generate real suggestions, it says so plainly
-instead of showing filler.
+CONTEXA is open source: https://github.com/33kain/contexa
 
 CONTEXA is an independent project. It is not affiliated with, endorsed by, or
 sponsored by Anthropic.
 ```
 
+**The last line is mandatory and must never be softened**, whatever else in
+this file changes.
+
 ---
 
 ## Category
 
-**Productivity** (secondary, if offered: Workflow & Planning)
+**Productivity.** Secondary, if offered: Workflow & Planning.
 
 ---
 
-## Single purpose description
+## Before you paste
 
-Required field. Reviewers reject vague answers here.
-
-```
-CONTEXA has one purpose: to suggest follow-up prompts inside conversations on
-claude.ai. After a Claude reply finishes, it generates five suggested next
-messages and displays them beneath the reply; clicking one inserts that prompt
-into the page's message composer.
-```
-
----
-
-## Permission justifications
-
-Each permission must be justified individually and specifically.
-
-### `storage`
-
-```
-Stores the user's own settings on their device: whether the extension is enabled,
-their optional Anthropic API key, the backend URL, and a randomly generated
-anonymous token used solely to apply a fair-use daily limit. No browsing data is
-stored, and none of this is transmitted to us.
-```
-
-### Host permission: `https://claude.ai/*`
-
-```
-This is the only site the extension operates on and is essential to its single
-purpose. The content script detects when a Claude reply has finished rendering,
-reads the text of that reply and the user's preceding message in order to generate
-relevant suggestions, and inserts the user's chosen prompt into the page's message
-composer when they click a suggestion.
-```
-
-### Host permission: `https://api.anthropic.com/*`
-
-```
-Used only when the user has chosen to supply their own Anthropic API key. In that
-mode the extension calls the Anthropic Messages API directly from the browser to
-generate suggestions, so the user's key and conversation text never pass through
-any server of ours.
-```
-
-### Host permission: `[YOUR_WORKER_HOST]/*`
-
-```
-The extension's own backend, which generates suggestions for users who have not
-supplied an API key. It receives only the user's latest message and the reply just
-received, forwards them to Anthropic's API, returns the suggestions, and stores
-nothing.
-```
-
-**Before you submit:** replace the `https://*.workers.dev/*` wildcard in
-`manifest.json` with your exact deployed host. A wildcard across an entire
-shared domain is a legitimate review flag; a single pinned host is not.
-
----
-
-## Data usage disclosures (dashboard checkboxes)
-
-Answer these exactly as follows, because they must match the code.
-
-**Does your extension collect user data?** — Yes (conversation text is
-transmitted for processing, which counts as collection even though it isn't
-stored).
-
-Data types to declare:
-
-| Type | Declare? | Why |
-|---|---|---|
-| Personally identifiable information | No | No name, address, email, or ID is collected. |
-| Health information | No | — |
-| Financial and payment information | No | — |
-| Authentication information | **Yes** | The user's optional API key is stored locally. |
-| Personal communications | **Yes** | The message and reply text sent for processing. |
-| Location | No | — |
-| Web history | No | Only the active claude.ai reply is read; no history is accessed. |
-| User activity | No | No clicks, analytics, or behavioural monitoring. |
-| Website content | **Yes** | Text of the current reply is read from the page. |
-
-Three certifications to check (all true of this build):
-
-- I do not sell or transfer user data to third parties outside of approved use
-  cases. ✔
-- I do not use or transfer user data for purposes unrelated to my item's single
-  purpose. ✔
-- I do not use or transfer user data to determine creditworthiness or for lending
-  purposes. ✔
-
----
-
-## Placeholders to fill
-
-| Placeholder | Where | What to put |
-|---|---|---|
-| `[YOUR_PRIVACY_POLICY_URL]` | Detailed description + dashboard privacy field | Public URL of `PRIVACY.md` (GitHub Pages or Gist works) |
-| `[YOUR_WORKER_HOST]` | Permission justification | Your deployed Worker host |
-| `[YOUR_CONTACT_EMAIL]` | Inside `PRIVACY.md` | A contact address — consider a dedicated one rather than your personal inbox, since it will be public |
+- The four review-facing fields — single purpose, permission justifications,
+  data usage, certifications — are **not** here. They are in `SUBMISSION.md`,
+  and they are written to match this copy. If you change what the product reads
+  or sends, all three files move in the same release.
+- Screenshots: `publishing/screenshots/`, regenerated for 0.9.68.
+- Check the live listing against this file before pasting. It has been on
+  0.9.57 for eleven versions and nobody in the repo can see what it currently
+  says.

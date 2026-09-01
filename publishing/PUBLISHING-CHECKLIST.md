@@ -62,7 +62,7 @@ hosted mode is the default.
 
 ## Phase 5 — fill the listing
 
-Copy comes from the `claude/CONTEXA-store-listing.md` project doc — see `LISTING.md`. `publishing/STORE-LISTING.md` is superseded chip-era text kept only as a record; do not paste from it.
+Copy comes from `publishing/STORE-LISTING.md`, which since 2026-08-31 IS the listing rather than a record of one. It was moved into the repo because a copy kept outside it could not be checked against the code — see `LISTING.md` for that reversal.
 
 - [ ] Name, short description, detailed description.
 - [ ] Category: Productivity.
@@ -78,7 +78,8 @@ Copy comes from the `claude/CONTEXA-store-listing.md` project doc — see `LISTI
       screenshots against actual behaviour, and real ones are simply more honest
       and more convincing — and only a live session proves the selectors still
       match the site as it stands today.
-- [ ] Single purpose description (verbatim from the listing doc).
+- [ ] Single purpose description (verbatim from `SUBMISSION.md` — it is a
+      review-facing field, so it lives there, not in the listing copy).
 - [ ] Privacy policy URL.
 - [ ] Permission justifications — one per permission, specific.
 - [ ] Data usage disclosures and the three certifications.
@@ -89,7 +90,13 @@ Copy comes from the `claude/CONTEXA-store-listing.md` project doc — see `LISTI
 because that is what the extension works with. Nominative use is allowed;
 implying endorsement is not.
 
-- [ ] "Claude" appears nowhere in the extension **name**.
+- [x] ~~"Claude" appears nowhere in the extension **name**.~~ **Reversed, and
+      deliberately.** The shipped name is `CONTEXA - Claude prompts, without the
+      writing`. The policy forbids implying endorsement, not naming the service
+      an extension works with — and dropping the word cost the single most
+      obvious search term against a speculative risk. Full reasoning in
+      `SUBMISSION.md` § "The name, and the one policy call worth remembering".
+      Do not "fix" this back.
 - [ ] The disclaimer is present: *"CONTEXA is an independent project. It is not
       affiliated with, endorsed by, or sponsored by Anthropic."*
 - [ ] No Anthropic logo, and no icon or promo image resembling Anthropic's marks.
@@ -100,7 +107,8 @@ implying endorsement is not.
 scrutiny.
 
 - [ ] Disclosures declare Authentication information, Personal communications,
-      and Website content (see the listing doc for why each).
+      and Website content (see `SUBMISSION.md` § "Data usage" for the exact
+      wording and why each one is declared).
 - [ ] The description states plainly that conversation text is never stored.
 - [ ] No permission is requested that the code doesn't use. Your manifest asks
       for `storage` plus three hosts — nothing else. Keep it minimal; that
