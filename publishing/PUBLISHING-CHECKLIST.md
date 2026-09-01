@@ -79,7 +79,7 @@ Copy comes from the `claude/CONTEXA-store-listing.md` project doc — see `LISTI
       and more convincing — and only a live session proves the selectors still
       match the site as it stands today.
 - [ ] Single purpose description (verbatim from the listing doc).
-- [ ] Privacy policy URL.
+- [x] Privacy policy URL. **Set 2026-09-01** to the repo file — see Phase 2.
 - [ ] Permission justifications — one per permission, specific.
 - [ ] Data usage disclosures and the three certifications.
 

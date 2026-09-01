@@ -17,7 +17,7 @@ Read this first, then `SUBMISSION.md` for the four fields a reviewer reads.
 | Cloudflare Worker | **0.9.68** | deployed and verified on `/v1/health` |
 | `SUBMISSION.md` declarations | 0.9.68 | corrected 2026-08-31 |
 | `publishing/PRIVACY.md` | 0.9.68 | corrected 2026-08-31 |
-| **The privacy URL the listing points at** | **pre-0.9.53 gist** | **repoint it at the repo file — step 1 below** |
+| **The privacy URL the listing points at** | **repo file** | **done 2026-09-01 — see step 1** |
 | Store screenshots | moves-era | need retaking against a live session |
 
 `npm test` and `npm run build` are green; the zip's internal manifest reads
@@ -25,38 +25,24 @@ Read this first, then `SUBMISSION.md` for the four fields a reviewer reads.
 
 ---
 
-## 1. Repoint the privacy policy URL — do this first, it is one field
+## 1. Repoint the privacy policy URL — done 2026-09-01
 
-**Editing `publishing/PRIVACY.md` changed nothing a user can see.** The policy
-the listing points at is a **gist**, and it still holds pre-0.9.53 text.
-
-Do not re-paste the gist. Point the listing at the repo file instead:
+Privacy tab → *Privacy policy URL* now points at the repo file instead of the
+stale pre-0.9.53 gist:
 
 ```
 https://github.com/33kain/contexa/blob/main/publishing/PRIVACY.md
 ```
 
-Privacy tab → *Privacy policy URL* → replace. The repo is public, that URL
-renders the policy as formatted markdown, and it is **already serving the
-corrected 0.9.68 text** — verified 2026-08-31, HTTP 200.
+The repo is public, that URL renders the policy as formatted markdown, and it
+is serving the corrected 0.9.68 text. This makes `publishing/PRIVACY.md` the
+single source: it updates when you push, so the policy and the code cannot
+describe different products again — the trade is that the published policy is
+whatever is on `main` at that moment, which is the point. See `SUBMISSION.md`
+for the full history of why the gist was wrong in both directions.
 
-This is not housekeeping. The gist was stale in a way that was in our favour (it
-claimed data was sent when a reply finished; nothing is sent until the button is
-pressed). **It is now also stale in the other direction**, which is the one that
-gets an item removed: it said
-
-> *"CONTEXA does not read your conversation history"*
-
-which is precisely what the product has done since the history-mining pivot.
-
-**Why the repo file rather than a fresh gist.** The gist was a second copy of a
-document that has to track the code, and it drifted silently for months because
-nothing connects a gist to a release. A `main` URL updates on push, so the policy
-and the code cannot describe different products again. The trade is that the
-published policy is whatever is on `main` at that moment — which is the point,
-and which means `publishing/PRIVACY.md` is never a scratch file.
-
-**Until that field changes, the published policy contradicts the extension.**
+**Nothing further to do here.** The remaining outstanding item in this file is
+the screenshots (§2) and verifying the live listing copy (§3).
 
 ---
 
