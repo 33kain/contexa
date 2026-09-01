@@ -2,8 +2,9 @@
 
 **Written 2026-09-01.** Paste the block below into a fresh Claude Code session
 opened on this repo. It is a prompt, not a plan: the session it starts is
-expected to build `publishing/website/index.html` (or propose it for review),
-not to guess at facts about the product.
+expected to build a draft of `publishing/website/index.html` and show it
+before committing anything — not to guess at facts about the product, and
+not to treat "build the site" as license to also commit it unasked.
 
 Why it lives here: `publishing/` is where the public-facing copy lives, and
 `publishing/STORE-LISTING.md` is what this prompt exists to translate into a
@@ -138,8 +139,12 @@ navigable, real contrast, alt text on every image. Save it as
 5. Footer — GitHub link, MIT license mention, the mandatory non-affiliation
    line.
 
-When the page is built, run `npm test` and `npm run build` to confirm
-nothing under `extension/` or `worker/` was touched by mistake — this is a
-static file, not a code change — then present it for review before treating
-it as final.
+BEFORE YOU COMMIT ANYTHING: build a draft, run `npm test` and `npm run build`
+to confirm nothing under `extension/` or `worker/` was touched by mistake
+(this is a static file, not a code change), and show the draft for review.
+Do not `git add`, commit, or push until it's been looked at and approved —
+"build the site" is not standing permission to also commit it. If anything
+above still leaves a real ambiguity (which screenshots, how much copy to
+carry over, hosting target), ask rather than guess; don't hold up a draft
+over a small one.
 ```
