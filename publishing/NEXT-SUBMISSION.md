@@ -12,7 +12,7 @@ Read this first, then `SUBMISSION.md` for the four fields a reviewer reads.
 
 | | version | state |
 |---|---|---|
-| Chrome Web Store listing | **0.9.57** | live, public, eleven versions behind |
+| Chrome Web Store listing | **0.9.68** | live since 2026-09-01 |
 | Package built and ready | **0.9.68** | `contexa-v0.9.68.zip` at the repo root |
 | Cloudflare Worker | **0.9.68** | deployed and verified on `/v1/health` |
 | `SUBMISSION.md` declarations | 0.9.68 | corrected 2026-08-31 |
@@ -48,8 +48,8 @@ the screenshots (§2) and verifying the live listing copy (§3).
 
 ## 2. Screenshots
 
-**Regenerated 2026-08-31 against 0.9.68 — they are current.** Five PNGs,
-1280×800, in `publishing/screenshots/`: `1-moves`, `2-composed`, `3-trigger`,
+**Regenerated 2026-09-01 against 0.9.68 with the history-mining session — they are current.** Five PNGs,
+1280×800, in `publishing/screenshots/`: `1-composed`, `2-moves`, `3-trigger`,
 `4-light`, `5-settings`.
 
 Two things were wrong before that run, worth knowing since both are invisible

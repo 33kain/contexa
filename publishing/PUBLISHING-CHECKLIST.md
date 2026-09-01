@@ -69,7 +69,7 @@ Copy comes from `publishing/STORE-LISTING.md`, which since 2026-08-31 IS the lis
 - [ ] Category: Productivity.
 - [ ] Icon: `extension/icons/icon128.png`.
 - [ ] Screenshots: the five 1280×800 PNGs in `publishing/screenshots/`.
-      Order them `1-moves` → `2-composed` → `3-trigger` → `4-light` →
+      Order them `1-composed` → `2-moves` → `3-trigger` → `4-light` →
       `5-settings`; the first is what most people judge the listing by.
       Regenerate with `xvfb-run -a node scripts/screenshots/capture.mjs` rather
       than editing the PNGs by hand.

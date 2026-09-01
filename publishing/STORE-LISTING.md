@@ -1,7 +1,8 @@
 # CONTEXA — Chrome Web Store listing copy
 
-**This file is the listing. Written for 0.9.68, 2026-08-31; detailed
-description lightly revised for search terms on 2026-09-01 (see below).**
+**This file is the listing. Written for 0.9.68; detailed description rewritten
+for positioning on 2026-09-01 (history mining leads, the mascot is named, the
+vocabulary matches the name). Name and short description unchanged.**
 
 It used to be a tombstone pointing at a project doc outside the repo, on the
 argument that a file duplicating the listing drifts from it. That argument was
@@ -47,40 +48,44 @@ surfaces drifted.
 ## Detailed description — 16,000 char limit
 
 ```
-CONTEXA writes your next message, so you don't have to.
+You are deep in a conversation on Claude.ai. You know where it should go next.
+Turning that into a message precise enough to get a good answer back is the
+part that costs you — and that is a skill, not a mood.
 
-CONTEXA is a free Chrome extension for Claude.ai. You are already deep in a
-conversation with Claude. You know roughly where you want it to go. The hard
-part is turning that into a message specific enough to get a good answer back
-— and that is a skill, not a mood.
-
-CONTEXA reads where the conversation has been going and offers you the messages
-you could send next. Each one is already written, in full. You pick one, read
-it, change anything you like, and send it yourself.
+CONTEXA is a free Chrome extension that skips the writing. Press one button and
+it reads your side of the conversation, then offers up to four next prompts,
+each one already written in full. Pick one and it lands in your message box,
+whole. You read it, change what you like, and send it yourself.
 
 NOTHING HAPPENS UNTIL YOU ASK
 
-When a Claude reply finishes, one small trigger appears above your message box.
-That is all. No model call, no request, nothing about your conversation leaves
-the page, and nothing counts against your daily allowance.
+When a Claude reply finishes, a small CONTEXA mascot appears above your message
+box and asks one thing: What now? That is all it does. No request, no model
+call, nothing about your conversation leaves the page, and nothing counts
+against your daily allowance. A reply you never ask about never leaves your
+browser.
 
-Press it and CONTEXA reads your own messages from the conversation — what you
-have been building toward across the whole thread, not just the last thing you
-typed — and offers up to four next moves.
+IT READS WHAT YOU SAID, NOT JUST WHAT CLAUDE SAID
 
-FOUR MESSAGES, NOT FOUR TOPICS
+A follow-up written from the last answer alone is mostly about the last answer.
+So when you press the button, CONTEXA reads your own messages across the whole
+conversation — the first one, which is usually where you said what you were
+trying to do, and everything you kept coming back to since — and mines the next
+move from that. Claude's reply is material, not the subject: what it just built
+is what makes a new move possible. A move that sends you back over an answer
+you have already read is the one thing it is written never to offer.
 
-Each move is a complete message on its own. They do not run in order, they do
-not build on each other, and picking one throws the rest away. It is a menu,
-not a checklist — you only need one.
+A MENU, NOT A CHECKLIST
 
-Click the one you want and the whole message lands in your box. You can edit
-it. Nothing is ever sent without you pressing send.
+Each move is a complete prompt on its own: one ask, in your words, ready to
+send. The moves do not run in order and do not build on each other. Picking
+one throws the rest away. You only ever need one.
 
-Where a message needs something only you have — a file, a link, a detail only
-you could know — CONTEXA marks the spot instead of inventing it. It may also
-add a line starting "Assume:" for anything the conversation already settled, so
-you can change it before you send rather than discovering it in the answer.
+Where a prompt needs something only you have — a file, a link, a story only
+you can tell — CONTEXA marks the spot as <paste here> instead of inventing it.
+Where the conversation already settled something, it may add a line starting
+"Assume:", so you can change it before you send rather than discover it in the
+answer.
 
 WHEN IT HAS NOTHING TO SAY, IT SAYS NOTHING
 
@@ -88,31 +93,33 @@ If the conversation has nothing worth taking further, CONTEXA shows you
 nothing at all. No filler, no padded row, no suggestion whose only virtue is
 that it could be shown.
 
-That is deliberate, and it is the part most of these tools get wrong. Every
-move has to be earned by something actually said in the conversation. Nothing
-earned, nothing offered.
+Every move has to be earned by something actually said in the conversation —
+by you or by Claude — and that is checked before anything reaches your screen.
+Nothing earned, nothing offered. On a one-question chat that is the usual
+result, and the correct one.
 
 WHAT IT WILL NOT DO
 
-It does not grade your prompts or tell you how to write. It does not overlay
-your message box or interrupt your typing. It does not send anything on your
-behalf, ever. And when something goes wrong — a limit reached, a network
-failure — it tells you what actually happened instead of quietly showing you
-canned suggestions.
+It will not rewrite what you typed. There is nothing to type into. It will not
+grade your prompts or tell you how to write. It will not overlay your message
+box or interrupt you mid-sentence. It will not keep a conversation going on its
+own, and it will not send anything on your behalf, ever. And when something
+goes wrong — a limit reached, a network failure — it tells you what happened
+instead of quietly showing you canned suggestions.
 
 HOW TO USE IT
 
-1. Install it and open a conversation on claude.ai.
-2. When a reply finishes, press the CONTEXA trigger above your message box.
-3. Pick one of the messages it offers. It lands in your box, whole.
+1. Install it and open a conversation on Claude.ai.
+2. When a reply finishes, press the CONTEXA mascot above your message box.
+3. Pick one of the prompts it offers. It lands in your box, whole.
 4. Edit if you want. Send when you are ready.
 
 No account. No sign-up. No API key needed. 20 replies a day are free — that is
-how many answers you can ask about, and picking a message costs nothing extra.
+how many answers you can ask about, and picking a prompt costs nothing extra.
 
 If you have your own Anthropic API key you can add it in settings, which
-removes the daily limit — and in that mode requests go straight from your
-browser to Anthropic, so nothing passes through our server at all.
+removes the daily limit. In that mode requests go straight from your browser
+to Anthropic, so nothing passes through our server at all.
 
 PRIVACY, PLAINLY
 
@@ -157,7 +164,8 @@ this file changes.
   data usage, certifications — are **not** here. They are in `SUBMISSION.md`,
   and they are written to match this copy. If you change what the product reads
   or sends, all three files move in the same release.
-- Screenshots: `publishing/screenshots/`, regenerated for 0.9.68.
-- Check the live listing against this file before pasting. It has been on
-  0.9.57 for eleven versions and nobody in the repo can see what it currently
-  says.
+- Screenshots: `publishing/screenshots/`, regenerated on 2026-09-01 against
+  0.9.68 with the history-mining session. Upload in filename order — the
+  composed frame goes first.
+- The live listing went to 0.9.68 on 2026-09-01. Check it against this file
+  before pasting; this file is what it is supposed to say.
