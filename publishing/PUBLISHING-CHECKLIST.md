@@ -80,7 +80,7 @@ Copy comes from `publishing/STORE-LISTING.md`, which since 2026-08-31 IS the lis
       match the site as it stands today.
 - [ ] Single purpose description (verbatim from `SUBMISSION.md` — it is a
       review-facing field, so it lives there, not in the listing copy).
-- [ ] Privacy policy URL.
+- [x] Privacy policy URL. **Set 2026-09-01** to the repo file — see Phase 2.
 - [ ] Permission justifications — one per permission, specific.
 - [ ] Data usage disclosures and the three certifications.
 
