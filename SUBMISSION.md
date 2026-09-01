@@ -24,10 +24,13 @@ until these four fields are re-read.** Nothing in the test suite can catch this 
 the suite proves the code does what it does, not that this document says so.
 
 **What this file deliberately does NOT contain: the store description.** That
-lives in `claude/CONTEXA-store-listing.md` §1 and nowhere else. `LISTING.md`
-became a tombstone precisely because it duplicated the listing and drifted from
-it; this file will not repeat that. Public-facing copy → listing doc.
-Review-facing declarations → here. No overlap, nothing to drift.
+lives in `publishing/STORE-LISTING.md` and nowhere else. Public-facing copy →
+that file. Review-facing declarations → here. No overlap, nothing to drift.
+
+The two are written to agree, and that is not optional: a reviewer reads the
+description and these declarations side by side. If what the product reads or
+sends ever changes, both move in the same release, along with
+`publishing/PRIVACY.md`.
 
 ---
 
@@ -159,11 +162,11 @@ not to quietly drop a category that is still accurate.
 **Read the exact policy clause cited, fix only that, and resubmit noting what
 changed.** Do not volunteer changes to anything they did not raise.
 
-**Never re-paste from an old copy of this file, or from `LISTING.md`.** Both
-described suggestion chips, a mechanism gone since 0.9.30, and the auto-firing
-card, gone since 0.9.53. If a field needs text, take it from this document (for
-review-facing fields) or `claude/CONTEXA-store-listing.md` (for public-facing
-copy).
+**Never re-paste from an old copy of this file.** Old copies described
+suggestion chips, a mechanism gone since 0.9.30, and the auto-firing card, gone
+since 0.9.53. If a field needs text, take it from this document (review-facing
+fields) or `publishing/STORE-LISTING.md` (public-facing copy). Nothing else in
+the repo is listing copy, and nothing outside it is either.
 
 **The two questions most likely to come up, and the honest answers:**
 

@@ -1,47 +1,25 @@
 # CONTEXA — store listing
 
-**This file is NOT the listing.** It described the chip-era product and went
-stale for sixteen releases, at which point it was still recommending a name the
-product had already stopped using.
+**The listing copy is `publishing/STORE-LISTING.md`.** Paste from there.
 
-**Source of truth:** the `claude/CONTEXA-store-listing.md` project doc. It has
-the paste-ready description, the submission checklist, the asset specs and the
-timing rule for when the description may be published.
+## Why this file is now three lines
 
-Copy is kept there, not here, for one reason: **a file that duplicates the
-listing will drift from it, and a drifted listing is worse than no file at all.**
-Three surfaces proved that on 2026-08-23 — this file, the settings page, and both
-promo tiles were all still advertising suggestion chips.
+It used to be a tombstone arguing that the copy belonged *outside* the repo, in
+a `claude/` project doc, because "a file that duplicates the listing will drift
+from it, and a drifted listing is worse than no file at all."
 
-It proved it again on 2026-08-31. The settings page had drifted a second time,
-now to interview copy, and had to be rewritten with the history-mining pivot.
-The lesson did not need relearning; the surface just had no guard on it.
+The premise was right. The conclusion was backwards, and 2026-08-31 showed how:
+with the copy outside, nobody working in the repo could read it. At 0.9.68 — with
+the store still on 0.9.57, eleven versions behind — nobody could say whether the
+live listing was still advertising suggestion chips, a mechanism deleted at
+0.9.30. An unverifiable copy is not protection from drift; it is drift you
+cannot see.
 
----
+So the copy moved in, next to the code that has to match it, on the same
+reasoning that moved the privacy policy URL to `publishing/PRIVACY.md` the same
+day: **one copy, versioned with the release that changes it.** The rule was never
+"keep it elsewhere". It was "keep one".
 
-## The one thing worth preserving from the old version
-
-It argued that **"Claude" should be absent from the extension name**, on the
-grounds that Chrome Web Store policy prohibits listings implying affiliation.
-
-**That was over-cautious, and the shipped name is
-`CONTEXA - Claude prompts, without the writing`.** Reasoning, checked against
-the policy on 2026-08-23:
-
-- The rule is about **impersonation and false endorsement** — *"don't represent
-  that your product is authorized by, endorsed by, or produced by another company
-  … if that is not the case."* It does not prohibit naming the service an
-  extension works with.
-- The name **leads with our own brand**, and describes a function rather than
-  claiming to be a first-party product.
-- The description carries an explicit non-affiliation line, which is mandatory
-  and must never be softened.
-- Omitting "Claude" cost the single most obvious search term for this extension,
-  which is a certain loss against a speculative risk.
-
-**What WOULD move this into real risk**, and is worth re-checking if any of it
-ever changes: a name that reads as first-party (`Claude Prompts`, `Claude
-Assistant`); Anthropic's wordmark or logo on any store asset; or copy that
-implies review, partnership or endorsement.
-
-Source: [Impersonation & Intellectual Property](https://developer.chrome.com/docs/webstore/program-policies/impersonation-and-intellectual-property)
+The naming and trademark analysis this file used to carry lives in
+`SUBMISSION.md` § "The name, and the one policy call worth remembering", where
+it was already duplicated.

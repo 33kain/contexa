@@ -95,18 +95,21 @@ worth photographing.
 
 ---
 
-## 3. The listing copy — verify before pasting anything
+## 3. The listing copy — written 2026-08-31, in the repo
 
-The public description lives in `claude/CONTEXA-store-listing.md`, **outside this
-repo**. Nobody in this session could see it, so nobody can tell you whether it is
-current.
+**`publishing/STORE-LISTING.md` is the listing copy.** Name, short description,
+detailed description and category, all written for 0.9.68 and checked against
+the character limits. Paste from there.
 
-Two files in this repo look like listing copy and are **tombstones**:
+It used to be a tombstone pointing at `claude/CONTEXA-store-listing.md`, outside
+the repo, on the argument that a duplicate drifts. The premise was right and the
+conclusion was backwards: with the copy outside, nobody working in the repo
+could read it, and at 0.9.68 nobody could say whether the live listing still
+advertised suggestion chips. `LISTING.md` records that reversal.
 
-- `LISTING.md` — chip-era, marked "This file is NOT the listing"
-- `publishing/STORE-LISTING.md` — chip-era, marked superseded
-
-`publishing/PUBLISHING-CHECKLIST.md` says explicitly: do not paste from either.
+The description is written to agree with `SUBMISSION.md` and
+`publishing/PRIVACY.md`, because a reviewer reads all three together. If what
+the product reads or sends changes, all three move in the same release.
 
 **What to check on the live listing:** that it does not still describe five
 auto-firing chips, an interview, or questions the user answers by clicking. All
