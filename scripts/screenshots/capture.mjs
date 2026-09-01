@@ -106,55 +106,78 @@ const SHOT = { width: 1280, height: 800 };
 const MOVES = {
   moves: [
     {
-      label: 'Build the day-by-day Lisbon itinerary',
+      /* Earned by turn 2, which the reply on screen never mentions. This is
+         the chip that shows history mining without a caption: a visitor can
+         see the itinerary the reply just wrote and a move about a birthday
+         card it did not. It is also the one the composed frame clicks, because
+         it carries both devices the listing describes — a <paste here> slot
+         and an "Assume:" line. */
+      label: 'Write the birthday card revealing Lisbon',
       text:
-        'Turn the Lisbon plan into a full day-by-day itinerary.\n' +
-        '- mid-range budget, a mix of casual spots and one nicer dinner\n' +
-        '- four days, arriving Thursday evening\n' +
-        'Keep the neighbourhoods you already suggested; just sequence them.',
-      evidence: 'a packed itinerary or a slower pace',
+        'Write the birthday card that gives my dad the Lisbon trip.\n' +
+        '- four days at the end of May, just the two of us\n' +
+        "- hint at what's planned without giving the days away\n" +
+        '- short and warm, nothing about his age\n' +
+        '- work in one memory of ours: <paste here>\n' +
+        "Assume: he still doesn't know.",
+      evidence: "I'm giving him the plan as a birthday present on the 12th",
     },
     {
-      label: 'Add two day trips from Lisbon',
+      /* Earned by turn 1. The reply forgot the heat limit; the move remembers
+         it. That is the pitch in one label. */
+      label: 'Move the walking into the mornings',
       text:
-        'Add two day trips to the Lisbon plan — one coastal, one inland.\n' +
-        'For each: how to get there without a car, how long it really takes, ' +
-        'and what to skip.',
-      evidence: 'a day trip to Sintra',
+        'Reorder each day of the Lisbon plan so the walking happens before noon.\n' +
+        '- climbs and long walks in the morning\n' +
+        '- something indoors or shaded after lunch\n' +
+        '- keep the four days and the slow day as they are; only move things within each day\n' +
+        "He can't do heat, so this matters more than the order of the sights.",
+      evidence: "can't do heat",
     },
     {
-      /* Was "Book the flights", which the product cannot do and which its own
-         `text` never claimed — the prompt underneath asks Claude to WRITE a
-         search. The label was lying about the move it belonged to. */
-      label: 'Write the flight search for Lisbon',
+      /* Earned by the reply — by what now EXISTS (a plan with open evenings),
+         not by an offer the reply made. The reply must never end on a
+         question or an "I can also…", or the row becomes a transcript of it. */
+      label: 'Pick one dinner for each night',
       text:
-        'Write the search I should run for flights to Lisbon. <paste here> is ' +
-        'my rough date range. Tell me which days are cheapest to fly and how ' +
-        'far ahead to book.',
-      evidence: 'Let me know your budget range',
+        'Pick one dinner for each of the four nights in Lisbon, near wherever ' +
+        'that day ends. One place per night, a line on why it fits, and how ' +
+        "far ahead it needs booking. Nothing formal — he'd hate that.",
+      evidence: "Evenings I've left open",
     },
   ],
-  grounding: { total: 3, kept: 3, grounded: 3, fromTurns: 1, fromReply: 2,
+  grounding: { total: 3, kept: 3, grounded: 3, fromTurns: 2, fromReply: 1,
     droppedByAction: 0, emptiedBy: null },
   quota: { used: 3, limit: 20 },
 };
 
+/* The reply under the camera. Two rules it has to obey, both learned from the
+   previous set (2026-08-31 → 2026-09-01), which ended "Let me know your budget
+   range … and I'll turn this into a proper day-by-day" and then showed a row
+   whose every move quoted the reply — two of them the reply's own offer handed
+   back, which MOVES_SYSTEM names as the worst thing it can produce, and one
+   composed prompt that invented a budget and an arrival day the session never
+   stated. So: the reply does NOT end on a question or an offer, and it does
+   NOT mention the heat, so that the second chip visibly reaches back into
+   turn 1 for something the reply forgot. The session it answers is in
+   mock-claude.html; the evidence strings above are verbatim from there or
+   from here. */
 const REPLY_HTML = `
-<p>Lisbon's a great pick for a first visit — walkable, and four days is enough to
-see the main neighbourhoods without rushing. Rough shape for the trip:</p>
-<p><strong>Day 1 — Alfama &amp; the castle.</strong> Wander the old quarter, climb
-up to S&atilde;o Jorge Castle for the view, and catch a fado show in the evening
-if you're up for it.</p>
-<p><strong>Day 2 — Baixa &amp; Chiado.</strong> The grid streets downtown, Pra&ccedil;a
-do Com&eacute;rcio by the river, and the Elevador de Santa Justa. Good area for
-shopping and caf&eacute;s.</p>
-<p><strong>Day 3 — Bel&eacute;m.</strong> The tower, the monastery, and the original
-pastel de nata bakery — worth the queue.</p>
-<p><strong>Day 4 — a day trip to Sintra</strong>, if you don't mind an early start —
-the palaces there are worth it and it's 40 minutes by train.</p>
-<p>Let me know your budget range and whether you want a packed itinerary or a
-slower pace with more downtime, and I'll turn this into a proper day-by-day with
-times and specific restaurant picks.</p>`;
+<p>Four days in Lisbon in late May works well for him — mild, walkable, and the
+hills are real but they come with trams and lifts. Here's the shape:</p>
+<p><strong>Day 1 — Alfama and the castle.</strong> The old quarter first, while
+it's quiet, then up to S&atilde;o Jorge Castle for the view. Tram 28 back down
+rather than the stairs.</p>
+<p><strong>Day 2 — Baixa and Chiado.</strong> The grid streets downtown, Pra&ccedil;a
+do Com&eacute;rcio by the river, the Santa Justa lift, and the bookshops and
+caf&eacute;s of Chiado. Ends at the river for sunset.</p>
+<p><strong>Day 3 — Bel&eacute;m, and the slow day you asked for.</strong> The tower
+and the monastery in the morning, the original pastel de nata bakery for lunch,
+and nothing scheduled after that.</p>
+<p><strong>Day 4 — Sintra.</strong> Forty minutes by train, an early start, the
+palaces, back by late afternoon so the last evening is in the city.</p>
+<p>Evenings I've left open. Nothing here needs booking except Sintra, which
+sells out on weekends.</p>`;
 
 /* ---------------------------------------------------------------- local TLS */
 
@@ -313,7 +336,7 @@ async function main() {
     await page.waitForTimeout(400);
     await page.evaluate(() => window.__mock.finishStream());
 
-    // ---- 3-trigger: the row as it arrives, before anything is asked ---------
+    // ---- 3-trigger: the mascot as it arrives, before anything is asked ------
     await page.waitForSelector(MASCOT, { timeout: 15000 });
     await page.evaluate(() => window.__mock.bottom());
     await page.waitForTimeout(900);              // let the entrance settle
@@ -322,8 +345,8 @@ async function main() {
     /* ---- CX_TURNS: does captureTurns() actually see a long conversation?
        The question the field test could not answer and no assertion could
        reach. fitTurns is unit-tested on synthetic arrays; the DOM walk that
-       feeds it had no coverage at all, and this mock carried two user turns, so
-       a twenty-turn session had never been read by the real code in a real
+       feeds it had no coverage at all, and this mock carried two user turns (three
+       since 2026-09-01), so a twenty-turn session had never been read by the real code in a real
        browser.
 
        This does not screenshot anything. It pads the thread to twenty turns,
@@ -331,7 +354,7 @@ async function main() {
        i range. A complete DOM must yield 1..20 — if it does not, the bug is in
        capture and nothing about the prompt matters. */
     if (TURNS_CHECK) {
-      const total = await page.evaluate(() => window.__mock.padTurns(18));
+      const total = await page.evaluate(() => window.__mock.padTurns(17));
       await page.waitForTimeout(200);
       const got = await page.evaluate(() => {
         /* Reach the shipped function through the page's own copy of content.js
@@ -394,14 +417,19 @@ async function main() {
       return;
     }
 
-    // ---- 1-moves: click it, the mined row arrives --------------------------
+    /* The frames are numbered in LISTING order, not capture order: the composed
+       frame is shot second but ships first. The row alone reads as smart-reply
+       stubs, which is the category the product is not in; a full prompt in the
+       box under a highlighted chip is the proof of "without the writing", so
+       that is what a visitor sees first. */
+    // ---- 2-moves: click it, the mined row arrives --------------------------
     await page.click(MASCOT);
     await page.waitForSelector(`${CARD} .chip.move`, { timeout: 15000 });
     await page.evaluate(() => window.__mock.bottom());
     await page.waitForTimeout(600);
-    await shoot(page, '1-moves.png', 'the mined row of next moves', { card: true });
+    await shoot(page, '2-moves.png', 'the mined row of next moves', { card: true });
 
-    // ---- 2-composed: one click, the whole prompt lands in the box -----------
+    // ---- 1-composed: one click, the whole prompt lands in the box -----------
     /* One click, not a walk through four. That is the shot: the old sequence
        clicked a pill per question because the prompt was assembled from the
        answers, and this one exists to show that it no longer is. */
@@ -412,7 +440,7 @@ async function main() {
     );
     await page.evaluate(() => window.__mock.bottom());
     await page.waitForTimeout(600);
-    await shoot(page, '2-composed.png', 'the prompt, landed in the message box', { card: true });
+    await shoot(page, '1-composed.png', 'the prompt, landed in the message box', { card: true });
 
     // ---- 4-light: the same row, host in light mode -------------------------
     await page.evaluate(() => window.__mock.setTheme('light'));

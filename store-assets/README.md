@@ -16,7 +16,7 @@ extension or the worker at runtime — the shipped extension icons live in
   click at a time, and the interview no longer exists. It was a faithful
   recreation of the UI when made (same markup, CSS and animation timings as
   `content.js`) and is no longer one. Needs remaking against the mined row before
-  it is used anywhere public; `publishing/screenshots/1-moves.png` is the current
+  it is used anywhere public; `publishing/screenshots/2-moves.png` is the current
   shape, not a literal screen recording of the extension running on
   claude.ai — good for the README and social use, but it is **not** a
   substitute for real Chrome Web Store screenshots. See

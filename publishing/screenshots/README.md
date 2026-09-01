@@ -1,6 +1,8 @@
 # Store screenshots
 
-**Captured from 0.9.68, on 2026-08-31.**
+**Captured from 0.9.68, on 2026-09-01, with the history-mining session** (a
+three-turn Lisbon thread whose first chip is earned by a turn the visible reply
+never mentions). The previous set, captured 2026-08-31, is in git history.
 
 That stamp is here because its absence cost something. The previous set was
 captured at 0.9.58 and nothing recorded the fact, so nobody noticed when commit
@@ -16,15 +18,18 @@ in `MOVES` at the top of `scripts/screenshots/capture.mjs`. If the label rule,
 the move count or the card changes, that constant has to change with it, or a
 re-run faithfully reproduces the old product.
 
-Five PNGs, each exactly 1280×800, in listing order. The set is dark apart from
+Five PNGs, each exactly 1280×800, numbered in listing order (which is not
+capture order: the composed frame ships first because the row alone reads as
+smart-reply stubs, and a full prompt in the box is the proof of "without the
+writing"). The set is dark apart from
 `4-light.png`, which exists to show that the card follows the host's theme
 rather than imposing its own.
 
 | File | Shows |
 |---|---|
-| `1-moves.png` | the mined row — up to four next moves, each a whole message |
-| `2-composed.png` | one click later: the whole prompt in the message box, nothing sent |
-| `3-trigger.png` | the trigger as it arrives, before anything is asked or spent |
+| `1-composed.png` | one click later: the whole prompt in the message box, with a `<paste here>` slot and an `Assume:` line, nothing sent |
+| `2-moves.png` | the mined row — three next moves, the first two earned by turns the visible reply never mentions |
+| `3-trigger.png` | the mascot as it arrives, before anything is asked or spent |
 | `4-light.png` | the same row with claude.ai in light mode |
 | `5-settings.png` | the settings page |
 

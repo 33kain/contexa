@@ -132,32 +132,54 @@
   <div class="thread" id="thread">
     <div class="col" id="col">
 
-      <!-- An earlier turn, so the thread genuinely overflows. Scrolled to the
+      <!-- Earlier turns, so the thread genuinely overflows. Scrolled to the
            bottom the conversation then runs right up against the card, which is
            how this looks in life; a short thread leaves a pool of dead space
-           above the card that reads as a layout bug in a screenshot. -->
+           above the card that reads as a layout bug in a screenshot.
+
+           They are also the SESSION the canned moves are mined from. Turn 1
+           states the goal and carries the heat limit the second chip remembers;
+           turn 2 carries the birthday present the first chip is about. Neither
+           is in frame — only the last turn and the current reply are — which is
+           the point: the chips visibly reach back to something the visible
+           reply never mentions. The evidence strings in capture.mjs are verbatim
+           from these two turns, so edit them together. -->
       <div class="group/message-row">
         <div class="user-row">
-          <div data-testid="user-message">I've got a week off in May and can't decide where to go.</div>
+          <div data-testid="user-message">I want to take my dad somewhere for four days at the end of May. He's 72, walks a lot, can't do heat, and has never been to Portugal.</div>
         </div>
       </div>
 
       <div class="group/message-row">
         <div data-is-streaming="false">
           <div class="font-claude-response">
-            <p>A few directions, depending on what you want the week to feel like.
-            If you want warm weather without peak crowds, southern Europe in May is
-            close to ideal — Portugal, Andalusia, Sicily. If you'd rather walk than
-            sit, the Dolomites and the Scottish Highlands are just opening up.</p>
-            <p>Cities are the easy win for a first proper break in a while: one
-            base, no logistics, and you can do as much or as little as you like.</p>
+            <p>Portugal in late May is close to ideal for him: mild, long evenings,
+            and the heat that arrives in July hasn't yet. Lisbon or Porto both fit.
+            Porto is smaller and steeper; Lisbon gives you four days without
+            repeating yourself, and the day trips are easy by train.</p>
           </div>
         </div>
       </div>
 
       <div class="group/message-row">
         <div class="user-row">
-          <div data-testid="user-message">Can you help me plan a 4-day trip to Lisbon? I've never been.</div>
+          <div data-testid="user-message">Lisbon then. One thing — he doesn't know yet. I'm giving him the plan as a birthday present on the 12th.</div>
+        </div>
+      </div>
+
+      <div class="group/message-row">
+        <div data-is-streaming="false">
+          <div class="font-claude-response">
+            <p>Good choice, and a good present. Lisbon in late May is mild, the light
+            is long, and a plan with dates on it is a better present than a vague
+            promise. Tell me how you want the days to feel and I'll lay them out.</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="group/message-row">
+        <div class="user-row">
+          <div data-testid="user-message">Plan the four days. He'll want to see everything, but I want one slow day in there.</div>
         </div>
       </div>
 
