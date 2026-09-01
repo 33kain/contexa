@@ -1,6 +1,7 @@
 # CONTEXA — Chrome Web Store listing copy
 
-**This file is the listing. Written for 0.9.68, 2026-08-31.**
+**This file is the listing. Written for 0.9.68, 2026-08-31; detailed
+description lightly revised for search terms on 2026-09-01 (see below).**
 
 It used to be a tombstone pointing at a project doc outside the repo, on the
 argument that a file duplicating the listing drifts from it. That argument was
@@ -48,9 +49,10 @@ surfaces drifted.
 ```
 CONTEXA writes your next message, so you don't have to.
 
-You are already deep in a conversation with Claude. You know roughly where you
-want it to go. The hard part is turning that into a message specific enough to
-get a good answer back — and that is a skill, not a mood.
+CONTEXA is a free Chrome extension for Claude.ai. You are already deep in a
+conversation with Claude. You know roughly where you want it to go. The hard
+part is turning that into a message specific enough to get a good answer back
+— and that is a skill, not a mood.
 
 CONTEXA reads where the conversation has been going and offers you the messages
 you could send next. Each one is already written, in full. You pick one, read
