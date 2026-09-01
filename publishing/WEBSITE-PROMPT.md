@@ -85,10 +85,15 @@ A SEPARATE DECISION:
   — this is the extension ID, which is stable across version bumps.
   Confirm the listing still resolves before shipping the link; if it
   doesn't, flag that rather than guessing a replacement URL.
-- Supported install path is Chromium-based desktop browsers only (Chrome
-  primary; Edge, Brave, Opera, Vivaldi, Arc install from the same URL).
-  State plainly that Firefox, Safari, and mobile browsers are not
-  supported — don't just stay silent about them.
+- Supported install path is Chromium-based browsers (Chrome primary; Edge,
+  Brave, Opera, Vivaldi, Arc install from the same URL) — desktop **and**
+  mobile, per README.md's "Status" line ("mobile via Chromium browsers that
+  support extensions"). Most mobile browsers, including Chrome for Android
+  and Safari on iOS, do not support extensions at all and cannot install it
+  — state that precisely rather than as a blanket "no mobile." Do not copy
+  the desktop-only claim from docs/archive/website-build-prompt.md; that
+  file predates mobile support and is wrong on this point, which is exactly
+  why it's superseded rather than a source.
 - Numbers (replies/day, message caps) must match the constants read in step
   7 above, not the "10 prompts a day" figure in the archived prompt.
 
