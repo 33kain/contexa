@@ -24,8 +24,9 @@ hosted mode is the default.
 
 ## Phase 2 — host the privacy policy
 
-- [ ] Fill `[YOUR_CONTACT_EMAIL]` in `publishing/PRIVACY.md`. Consider a
-      dedicated address; this becomes public and permanent.
+- [x] Fill `[YOUR_CONTACT_EMAIL]` in `publishing/PRIVACY.md`. Consider a
+      dedicated address; this becomes public and permanent. **Done —
+      `michu110899@gmail.com` is live in the Contact section.**
 - [x] Publish it at a stable public URL. **Settled 2026-08-31: the listing points
       at the repo file itself**, `https://github.com/33kain/contexa/blob/main/publishing/PRIVACY.md`.
       It must stay reachable for as long as the extension is listed.
