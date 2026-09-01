@@ -26,11 +26,23 @@ hosted mode is the default.
 
 - [ ] Fill `[YOUR_CONTACT_EMAIL]` in `publishing/PRIVACY.md`. Consider a
       dedicated address; this becomes public and permanent.
-- [ ] Publish it at a stable public URL (GitHub Pages, a Gist, or your own site).
+- [x] Publish it at a stable public URL. **Settled 2026-08-31: the listing points
+      at the repo file itself**, `https://github.com/33kain/contexa/blob/main/publishing/PRIVACY.md`.
       It must stay reachable for as long as the extension is listed.
 - [ ] ⚠️ Verify the policy matches what the code actually does. If you later
       change what data is sent, the policy has to change in the same release —
       a mismatch is the fastest route to removal.
+
+      **This line was already here, and it still got missed.** The policy was
+      hosted as a Gist — a second copy — and the history-mining pivot changed
+      what data is sent without it. The gist went on claiming CONTEXA "does not
+      read your conversation history" for nine versions, which is the exact
+      mismatch this checkbox warns about.
+
+      So do not host a copy. Pointing the listing at the repo file makes the
+      release and the policy the same push, which is the only version of this
+      rule that enforces itself. GitHub Pages or your own site are fine too **as
+      long as they serve `publishing/PRIVACY.md` rather than a duplicate of it.**
 
 ## Phase 3 — developer account
 

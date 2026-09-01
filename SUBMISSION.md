@@ -43,20 +43,41 @@ Review-facing declarations → here. No overlap, nothing to drift.
   the "anyone with the Worker URL can spend your budget" hole is closed.
 - **Privacy policy URL** — see the warning below.
 
-### ⚠️ The privacy policy URL is almost certainly stale
+### ⚠️ The privacy policy URL still points at a stale gist
 
 The listing declares **Personal communications**, and Chrome requires a policy
 URL when you declare data collection — so a URL exists and review accepted it.
-It points at a gist created from the **pre-0.9.53** `PRIVACY.md`, which said
-conversation text is sent *when a Claude reply finishes*. That is no longer true:
-nothing is sent until the button is pressed.
+It points at a **gist** created from the pre-0.9.53 `PRIVACY.md`. That gist has
+been wrong twice over since:
 
-`publishing/PRIVACY.md` was rewritten 2026-08-26. **The hosted gist still needs
-replacing with it** — check the Privacy tab for the exact URL, edit that gist,
-paste the new text. The error is in our favour (we transmit *less* than the
-policy claims) which is why it is a correction and not an emergency, but a
-privacy policy that misstates when data leaves the browser is the one document
-where accuracy is not cosmetic.
+- it says conversation text is sent *when a Claude reply finishes* — untrue
+  since 0.9.53; nothing is sent until the button is pressed
+- it says CONTEXA *"does not read your conversation history"* — untrue since the
+  history-mining pivot, and that is the direction that gets an item removed
+
+**The fix is not to re-paste the gist. It is to stop having two copies.**
+
+Canonical, as of 2026-08-31:
+
+```
+https://github.com/33kain/contexa/blob/main/publishing/PRIVACY.md
+```
+
+The repo is public, that URL renders the policy as formatted markdown, and it is
+**already serving the corrected 0.9.68 text**. Pointing the listing at it makes
+`publishing/PRIVACY.md` the single source: it updates when you push, so the
+policy and the code can never again describe different products.
+
+**Outstanding, and it is one field:** Privacy tab → *Privacy policy URL* →
+replace the gist URL with the one above. Until that is done the published policy
+still describes an extension with an interview in it.
+
+**What this buys, and what it demands.** The gist drifted for months and nothing
+could warn anyone, because nothing links a gist to a release. A `main` URL cannot
+drift — but it also means the published policy is whatever is on `main` at that
+moment. A commit-pinned permalink would freeze it and bring the drift straight
+back, so `main` is the right target; the discipline it asks for is that
+`publishing/PRIVACY.md` is never treated as a scratch file.
 
 ---
 
