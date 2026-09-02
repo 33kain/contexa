@@ -5,7 +5,7 @@
 **CONTEXA reads where your conversation has been going and writes the messages
 you could send next — as a menu you pick from with one click.**
 
-![CONTEXA offering a row of next moves and landing one in the message box](store-assets/contexa-demo.gif)
+![CONTEXA offering a row of next moves and landing one in the message box](publishing/community-posts/contexa-social-1200x675.png)
 
 CONTEXA is a Chrome extension for claude.ai. When Claude finishes a reply, a
 single chip appears above your message box. **Nothing happens until you click
