@@ -9,7 +9,10 @@ styles rather than retouched from a screenshot).
 node scripts/social/render.mjs
 ```
 
-Writes `publishing/community-posts/contexa-social-1200x675.png` at 2× (2400×1350).
+Writes two PNGs into `publishing/community-posts/`, both at 2×:
+`contexa-social-1200x675.png` (16:9, X) and `contexa-social-1080x1080.png`
+(square, Reddit). The square is the same HTML with `data-format="square"` on
+`<html>`; square-only pieces carry `.p-square` / `.turn`.
 Needs Playwright (global install is fine, same resolver as `screenshots/`);
 headless, no Xvfb. Edit the HTML, not the PNG. Coral `#D97757` is claude.ai's
 send button and stays out of it.

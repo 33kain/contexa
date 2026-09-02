@@ -32,6 +32,8 @@
   /* right: composer scene */
   .scene{border:1px solid var(--border);border-radius:18px;background:#262523;padding:34px 36px 32px;
     display:flex;flex-direction:column;justify-content:flex-end;position:relative;overflow:hidden}
+  .p-square{display:none}
+  .turn{display:none}
   .reply{color:var(--text2);font-size:15px;line-height:1.55;margin-bottom:26px}
   .reply p+p{margin-top:8px}
   .reply strong{color:var(--text);font-weight:600}
@@ -48,6 +50,30 @@
   .box .assume{color:var(--text2)}
   .send{position:absolute;right:16px;bottom:16px;width:34px;height:34px;border-radius:50%;background:var(--border2)}
   .send::after{content:"";position:absolute;left:11px;top:9px;border:6px solid transparent;border-bottom:10px solid var(--text2);border-top:0}
+
+  /* square (1080x1080): pitch on top, scene below, footer last */
+  html[data-format="square"],html[data-format="square"] body{width:1080px;height:1080px}
+  html[data-format="square"] .card{grid-template-columns:auto 1fr;grid-template-rows:auto auto auto 1fr auto;
+    gap:0 36px;padding:52px 56px 44px;height:1080px}
+  html[data-format="square"] .pitch{display:contents}
+  html[data-format="square"] .hero{grid-column:1;grid-row:1/4;flex-direction:column;align-items:center;gap:14px;margin:0 0 30px}
+  html[data-format="square"] .mascot{width:144px;height:144px}
+  html[data-format="square"] .p-square{display:block}
+  html[data-format="square"] .bubble{margin:0;font-size:16px;padding:7px 16px}
+  html[data-format="square"] .eyebrow{grid-column:2;grid-row:1}
+  html[data-format="square"] h1{grid-column:2;grid-row:2;font-size:44px}
+  html[data-format="square"] .br-wide{display:none}
+  html[data-format="square"] .sub{grid-column:2;grid-row:3;max-width:none;margin:16px 0 36px;font-size:17.5px}
+  html[data-format="square"] .scene{grid-column:1/3;grid-row:4;padding:30px 32px 28px}
+  html[data-format="square"] .turn{display:block;margin:0 0 26px auto;max-width:66%;background:var(--surface2);
+    border:1px solid var(--border);border-radius:16px;padding:14px 18px;font-size:16px;line-height:1.5;color:var(--text)}
+  html[data-format="square"] .reply{margin-bottom:24px;font-size:16px}
+  html[data-format="square"] .chip{font-size:15.5px;padding:8px 16px}
+  html[data-format="square"] .box{font-size:17px;padding:22px 24px 20px}
+  html[data-format="square"] .box .paste{font-size:15.5px}
+  html[data-format="square"] .foot{grid-column:1/3;grid-row:5;margin-top:22px}
+  html[data-format="square"] .foot br{display:none}
+  html[data-format="square"] .foot .repo::after{content:" · "; color:var(--text2); font-weight:400}
 </style>
 <div class="card">
   <div class="pitch">
@@ -56,14 +82,16 @@
       <span class="bubble">What now? <b>✦</b></span>
     </div>
     <div class="eyebrow"><b>✦</b>CONTEXA</div>
-    <h1>Claude replies.<br>Press one button.<br><span>The next prompt<br>is written.</span></h1>
+    <h1>Claude replies.<br>Press one button.<br><span>The next prompt <br class="br-wide">is written.</span></h1>
     <p class="sub">Chrome extension for claude.ai. Reads your side of the chat, offers up to four next moves, each a complete message you send yourself.</p>
     <div class="foot">Open source · MIT · <span class="repo">github.com/33kain/contexa</span><br>Not affiliated with Anthropic.</div>
   </div>
 
   <div class="scene">
     <div class="fade"></div>
+    <div class="turn p-square">Plan the four days. He'll want to see everything, but I want one slow day in there.</div>
     <div class="reply">
+      <p class="p-square"><strong>Day 2 — Baixa and Chiado.</strong> The grid streets downtown, Praça do Comércio by the river, the Santa Justa lift, and the bookshops and cafés of Chiado. Ends at the river for sunset.</p>
       <p><strong>Day 3 — Belém, and the slow day you asked for.</strong> The tower and the monastery in the morning, the original pastel de nata bakery for lunch, and nothing scheduled after that.</p>
       <p>Evenings I've left open. Nothing here needs booking except Sintra, which sells out on weekends.</p>
     </div>
