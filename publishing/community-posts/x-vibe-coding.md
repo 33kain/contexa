@@ -34,7 +34,7 @@ How it's built:
 - extension/: plain MV3 JS, no bundler, no node_modules
 - worker/: Cloudflare Worker, holds the API key, 20 replies/day per device
 - 313 tests in two flat Node scripts
-- Claude Code writes the code, I write the rules. CLAUDE.md is the contract each session starts from.
+- Claude Code writes the code, I write the rules. CLAUDE.md is the contract.
 ```
 
 ## Reply 2 — the one lesson (post as a second reply)
