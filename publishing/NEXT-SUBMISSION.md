@@ -19,6 +19,7 @@ Read this first, then `SUBMISSION.md` for the four fields a reviewer reads.
 | `publishing/PRIVACY.md` | 0.9.68 | corrected 2026-08-31 |
 | **The privacy URL the listing points at** | **repo file** | **done 2026-09-01 — see step 1** |
 | Store screenshots | moves-era | need retaking against a live session |
+| Store promo tiles | **0.9.68** | rebuilt 2026-09-02 in `store-assets/` — upload both; the live pair still shows the interview card |
 
 `npm test` and `npm run build` are green; the zip's internal manifest reads
 0.9.68 (checked, not assumed).

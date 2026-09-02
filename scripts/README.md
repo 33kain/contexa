@@ -8,6 +8,8 @@ root) — these are convenience scripts run by hand.
   `publishing/screenshots/`, by driving the real unpacked extension in a real
   Chromium against a mock of claude.ai's DOM. Needs Playwright and Xvfb; not
   part of the test suite. See `scripts/screenshots/README.md`.
+- `promo/` — generates the two Chrome Web Store promo tiles into
+  `store-assets/` from an HTML source, headless. See `scripts/promo/README.md`.
 - `release-commit.ps1` — release ceremony: bump, build, tag, push.
 - `dogfood-test.ps1` — drive three real sessions through the live backend for
   manual scoring. The session accumulates across the run, so the last turn is
