@@ -1,0 +1,184 @@
+<!doctype html>
+<!--
+  CONTEXA — Chrome Web Store promo tiles, as HTML.
+
+  Rendered to PNG by scripts/promo/render.mjs. Two fixed-size boards:
+
+    #tile     440 x 280   small promo tile
+    #marquee  1400 x 560  marquee promo tile
+
+  Everything shown is the product as it ships at 0.9.68 — the mascot trigger,
+  the "✦ CONTEXA" label, the row of moves, the composed prompt in the message
+  box — drawn with the same tokens content.js uses (dark theme, brand teal
+  accent). The example session and the three moves are the same canned Lisbon
+  session the screenshot harness shows (MOVES in scripts/screenshots/
+  capture.mjs), so the tiles and the screenshots describe one product.
+
+  No Anthropic wordmark or logo, anywhere. "Claude" is named the way the
+  listing names it — as the site the extension works on — and nothing here
+  reads as first-party.
+
+  Copy comes from publishing/STORE-LISTING.md. The tagline is the name's own
+  second half; the lead is the short description's three sentences; the
+  footer is the listing's "No account. No sign-up. No API key needed."
+-->
+<meta charset="utf-8">
+<style>
+  :root{
+    --bg:#1f1e1d; --panel:#262624; --surface:#30302E; --surface2:#3A3A37;
+    --text:#EDECE6; --text2:#A6A49B; --text3:#8F8D85;
+    --border:#3F3F3C; --border2:#4A4A46;
+    --accent:#2cc4ae; --accent-deep:#15a594; --accent-soft:#274641;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:#fff;font-family:"Liberation Sans",Arial,Helvetica,sans-serif;
+    -webkit-font-smoothing:antialiased;color:var(--text)}
+  .board{position:relative;overflow:hidden;background:var(--bg);color:var(--text)}
+  /* a faint teal wash behind the brand column, so the tile is not a flat slab */
+  .board::before{content:"";position:absolute;inset:0;pointer-events:none;
+    background:radial-gradient(ellipse 60% 80% at 0% 50%, rgba(44,196,174,.10), transparent 70%)}
+
+  .wordmark{display:flex;align-items:center;gap:14px}
+  .wordmark .name{font-weight:700;letter-spacing:.22em;color:var(--text);line-height:1}
+  .mascot{display:block;flex:none}
+
+  .tag{font-weight:700;letter-spacing:-.015em;line-height:1.12;color:var(--text)}
+  .lead{color:var(--text2);line-height:1.45}
+  .lead b{color:var(--text);font-weight:600}
+  .foot{display:flex;align-items:center;gap:10px;color:var(--text2);font-weight:600;letter-spacing:.02em}
+  .foot i{font-style:normal;color:var(--accent);font-weight:700}
+
+  /* ---- the product, drawn with content.js's own tokens ---- */
+  .label{display:flex;align-items:center;gap:6px;font-size:9.5px;letter-spacing:.15em;
+    text-transform:uppercase;color:var(--text2);margin-bottom:6px}
+  .label b{color:var(--accent);font-weight:700;letter-spacing:.17em}
+  .chips{display:flex;flex-wrap:wrap;gap:6px}
+  .chip{display:inline-flex;align-items:center;background:var(--surface);
+    border:1px solid var(--border2);border-radius:999px;padding:5px 12px;
+    font-size:12px;line-height:1.35;color:var(--text);white-space:nowrap}
+  .chip.hover{border-color:var(--accent);color:var(--accent);background:var(--surface2)}
+  .box{background:var(--surface);border:1px solid var(--border);border-radius:16px;
+    padding:14px 18px;position:relative;color:var(--text);font-size:13px;line-height:1.55;
+    white-space:pre-line}
+  .box .paste{color:var(--accent)}
+  .box .send{position:absolute;right:14px;bottom:12px;width:28px;height:28px;border-radius:50%;
+    background:var(--surface2);border:1px solid var(--border2);display:grid;place-items:center;
+    color:var(--text3);font-size:11px}
+  .reply{color:var(--text);font-size:13px;line-height:1.6}
+  .reply p+p{margin-top:8px}
+  .reply strong{font-weight:700}
+  .turn{display:flex;justify-content:flex-end}
+  .turn span{background:var(--surface);border:1px solid var(--border);border-radius:14px;
+    padding:10px 16px;font-size:13px;line-height:1.55;color:var(--text);max-width:540px}
+
+  /* ================= 440 x 280 ================= */
+  #tile{width:440px;height:280px;padding:26px 28px 24px}
+  #tile .wordmark .name{font-size:22px}
+  #tile .mascot{width:44px;height:38px}
+  #tile .tag{font-size:21px;margin:16px 0 14px;white-space:nowrap}
+  #tile .label{margin-bottom:7px}
+  #tile .chip{font-size:12px;padding:5px 12px}
+  #tile .chips{gap:5px}
+  #tile .foot{position:absolute;left:28px;bottom:20px;font-size:11px}
+
+  /* ================= 1400 x 560 ================= */
+  #marquee{width:1400px;height:560px;display:grid;grid-template-columns:600px 1fr;gap:0}
+  #marquee .brand{padding:88px 40px 0 80px;position:relative}
+  #marquee .wordmark .name{font-size:34px}
+  #marquee .mascot{width:70px;height:60px}
+  #marquee .tag{font-size:44px;margin:34px 0 22px;max-width:15ch}
+  #marquee .lead{font-size:18.5px;max-width:30ch}
+  #marquee .foot{position:absolute;left:80px;bottom:56px;font-size:14px}
+  #marquee .stage{position:relative;padding:36px 0 0 0}
+  #marquee .frame{position:absolute;left:0;top:64px;width:760px;height:600px;
+    background:var(--panel);border:1px solid var(--border);border-radius:14px 0 0 0;
+    box-shadow:0 20px 60px rgba(0,0,0,.45);padding:26px 56px 0 40px;overflow:hidden}
+  #marquee .frame .top{position:absolute;left:0;right:0;top:0;height:40px;
+    border-bottom:1px solid var(--border);padding:12px 18px;font-size:13px;font-weight:700;
+    letter-spacing:.01em;color:var(--text)}
+  #marquee .frame .body{position:relative;margin-top:22px}
+  #marquee .frame .reply{max-width:650px;margin-top:18px}
+  #marquee .frame .label{margin:22px 0 7px}
+  #marquee .frame .box{margin-top:14px;max-width:650px;font-size:13.5px}
+</style>
+
+<!-- ============ small promo tile ============ -->
+<div class="board" id="tile">
+  <div class="wordmark">
+    <svg class="mascot" viewBox="0 0 58 58" aria-hidden="true">
+      <defs><linearGradient id="G" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0" stop-color="#2cc4ae"/><stop offset="1" stop-color="#15a594"/>
+      </linearGradient></defs>
+      <g transform="translate(0,8)">
+        <path d="M29 3 C43 3 53 12 53 26 L53 50 L5 50 L5 26 C5 12 15 3 29 3 Z" fill="url(#G)"/>
+        <ellipse cx="21" cy="25.5" rx="7.4" ry="8.6" fill="#fff"/>
+        <ellipse cx="37" cy="25.5" rx="7.4" ry="8.6" fill="#fff"/>
+        <circle cx="22.9" cy="27.2" r="3.8" fill="#000"/>
+        <circle cx="38.9" cy="27.2" r="3.8" fill="#000"/>
+        <circle cx="21.7" cy="25.9" r="1.3" fill="#fff" opacity=".95"/>
+        <circle cx="37.7" cy="25.9" r="1.3" fill="#fff" opacity=".95"/>
+        <path d="M25 37 Q29 39.5 33 37" stroke="#0a352f" stroke-width="2.6" fill="none" stroke-linecap="round"/>
+      </g>
+    </svg>
+    <span class="name">CONTEXA</span>
+  </div>
+  <div class="tag">Claude prompts, without the writing.</div>
+  <div class="label"><b>✦</b> CONTEXA</div>
+  <div class="chips">
+    <span class="chip hover">Write the birthday card revealing Lisbon</span>
+    <span class="chip">Move the walking into the mornings</span>
+    <span class="chip">Pick one dinner for each night</span>
+  </div>
+  <div class="foot">Free <i>·</i> No account <i>·</i> No API key needed</div>
+</div>
+
+<!-- ============ marquee promo tile ============ -->
+<div class="board" id="marquee">
+  <div class="brand">
+    <div class="wordmark">
+      <svg class="mascot" viewBox="0 0 58 58" aria-hidden="true">
+      <defs><linearGradient id="G" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0" stop-color="#2cc4ae"/><stop offset="1" stop-color="#15a594"/>
+      </linearGradient></defs>
+      <g transform="translate(0,8)">
+        <path d="M29 3 C43 3 53 12 53 26 L53 50 L5 50 L5 26 C5 12 15 3 29 3 Z" fill="url(#G)"/>
+        <ellipse cx="21" cy="25.5" rx="7.4" ry="8.6" fill="#fff"/>
+        <ellipse cx="37" cy="25.5" rx="7.4" ry="8.6" fill="#fff"/>
+        <circle cx="22.9" cy="27.2" r="3.8" fill="#000"/>
+        <circle cx="38.9" cy="27.2" r="3.8" fill="#000"/>
+        <circle cx="21.7" cy="25.9" r="1.3" fill="#fff" opacity=".95"/>
+        <circle cx="37.7" cy="25.9" r="1.3" fill="#fff" opacity=".95"/>
+        <path d="M25 37 Q29 39.5 33 37" stroke="#0a352f" stroke-width="2.6" fill="none" stroke-linecap="round"/>
+      </g>
+    </svg>
+      <span class="name">CONTEXA</span>
+    </div>
+    <div class="tag">Claude prompts, without the writing.</div>
+    <p class="lead">Claude replies. Press one button and CONTEXA reads your session, then writes up to four next messages. <b>Pick one, you send it.</b></p>
+    <div class="foot">Free <i>·</i> No account <i>·</i> No API key needed</div>
+  </div>
+  <div class="stage">
+    <div class="frame">
+      <div class="top">Claude</div>
+      <div class="body">
+        <div class="turn"><span>Plan the four days. He'll want to see everything, but I want one slow day in there.</span></div>
+        <div class="reply">
+          <p><strong>Day 4 — Sintra.</strong> Forty minutes by train, an early start, the palaces, back by late afternoon so the last evening is in the city.</p>
+          <p>Evenings I've left open. Nothing here needs booking except Sintra, which sells out on weekends.</p>
+        </div>
+        <div class="label"><b>✦</b> CONTEXA</div>
+        <div class="chips">
+          <span class="chip hover">Write the birthday card revealing Lisbon</span>
+          <span class="chip">Move the walking into the mornings</span>
+          <span class="chip">Pick one dinner for each night</span>
+        </div>
+        <div class="box">Write the birthday card that gives my dad the Lisbon trip.
+- four days at the end of May, just the two of us
+- hint at what's planned without giving the days away
+- short and warm, nothing about his age
+- work in one memory of ours: <span class="paste">&lt;paste here&gt;</span>
+Assume: he still doesn't know.<span class="send">▲</span></div>
+      </div>
+    </div>
+  </div>
+</div>

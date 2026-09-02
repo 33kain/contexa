@@ -4,8 +4,13 @@ Brand, marketing, and store-listing images. Nothing here is loaded by the
 extension or the worker at runtime — the shipped extension icons live in
 `extension/icons/`.
 
-- `store-icon-128.png`, `promo-tile-440x280.png`, `promo-marquee-1400x560.png` —
-  Chrome Web Store listing images.
+- `store-icon-128.png` — Chrome Web Store listing icon.
+- `promo-tile-440x280.png`, `promo-marquee-1400x560.png` — the Chrome Web Store
+  promo tiles. **Rebuilt 2026-09-02 against 0.9.68** by
+  `node scripts/promo/render.mjs` from `scripts/promo/tiles.html`; the
+  previous pair (in git history) still showed the interview card deleted at
+  0.9.58 and the pre-mascot spark icon. Do not retouch these by hand — edit
+  the HTML and re-run, then update this line. See `scripts/promo/README.md`.
 - `contexa-mascot-icon-{16,32,48,128,512}.png`, `contexa-mascot-icon.svg` — the
   mascot's master export set (added 0.9.55). `contexa-mascot-icon-128.png` is
   byte-identical to `extension/icons/icon128.png`; this set is the source the
