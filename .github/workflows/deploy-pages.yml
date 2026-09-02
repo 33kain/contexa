@@ -1,0 +1,42 @@
+name: Deploy website to Cloudflare Pages
+
+# Deploys publishing/website/ to the "contexa-website" Cloudflare Pages project
+# whenever it changes on main, or on demand. Separate from ci.yml because this
+# is a deploy, not a test run, and it needs its own secrets
+# (CLOUDFLARE_API_TOKEN, CLOUDFLARE_ACCOUNT_ID) set in the repo's Actions
+# secrets — nothing here touches extension/ or worker/, which deploy on their
+# own separate paths per CLAUDE.md.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'publishing/website/**'
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      deployments: write
+    steps:
+      - name: Check out the repo
+        uses: actions/checkout@v4
+
+      # wrangler pages deploy refuses to create a new project non-interactively
+      # ("cannot be run in a non-interactive context"). This creates it once;
+      # `|| true` makes every later push a no-op once the project exists.
+      - name: Ensure the Pages project exists
+        run: npx wrangler pages project create contexa-website --production-branch=main || true
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+
+      - name: Deploy publishing/website
+        uses: cloudflare/wrangler-action@v4
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: pages deploy publishing/website --project-name=contexa-website
+          gitHubToken: ${{ secrets.GITHUB_TOKEN }}
