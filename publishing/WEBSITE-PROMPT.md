@@ -1,10 +1,16 @@
 # Website-creation prompt
 
-**Written 2026-09-01.** Paste the block below into a fresh Claude Code session
-opened on this repo. It is a prompt, not a plan: the session it starts is
-expected to build a draft of `publishing/website/index.html` and show it
-before committing anything — not to guess at facts about the product, and
-not to treat "build the site" as license to also commit it unasked.
+**Written 2026-09-01. Updated 2026-09-02:** `publishing/website/index.html` now
+exists (PR #24) and its "proof" is an animated JavaScript reproduction of the
+card, not screenshots — the draft that used four embedded PNGs was reviewed
+and replaced before merge. Step 6 below and the deliverable's proof section
+were rewritten to match what actually shipped; nothing else about the
+prompt's intent changed. Paste the block below into a fresh Claude Code
+session opened on this repo if the site ever needs rebuilding from scratch.
+It is a prompt, not a plan: the session it starts is expected to build a
+draft and show it before committing anything — not to guess at facts about
+the product, and not to treat "build the site" as license to also commit it
+unasked.
 
 Why it lives here: `publishing/` is where the public-facing copy lives, and
 `publishing/STORE-LISTING.md` is what this prompt exists to translate into a
@@ -48,12 +54,27 @@ READ FIRST, IN THIS ORDER:
    mascot is the only illustration this product has. Read the SVG directly
    for the exact gradient (`#2cc4ae` → `#15a594`) and ink colors
    (`#173b35`, `#0e6e63`); do not eyeball them from a PNG export.
-6. publishing/screenshots/README.md and the five PNGs in that folder — real
-   captures of the shipped UI, current as of the date on that README. These
-   are the product visuals. Do not invent a mockup of the card, the row of
-   moves, or the composed message box — use these images or regenerate them
-   with `scripts/screenshots/capture.mjs` if you need a different session
-   shown.
+6. The product's visual proof is an animated reproduction of the card, not
+   screenshots — do not embed the PNGs in `publishing/screenshots/` (they
+   are the Chrome Web Store's own listing images, a separate asset with its
+   own README). Build the animation from source instead:
+   - `extension/content.js` — the card's real markup, classes and CSS
+     (`.wrap`, `.label`, `.chips`, `.chip`, `.chip.busy`), the mascot SVG
+     (`MASCOT_SVG`) and its animations (`ctxa-popin`, the idle wink/glance,
+     `ctxa-peek`, `ctxa-hop`), `renderTrigger`/`renderMoves`/
+     `appendIdeaChip` for what the DOM looks like in each state, and
+     `insertPrompt` for how the chosen prompt lands in the composer (set in
+     one assignment, never typed, no "picked" state on the chip).
+   - `scripts/screenshots/mock-claude.html` — the claude.ai frame's own
+     color tokens (dark and light), composer placeholder text, and send
+     button, so the surrounding page reads as claude.ai rather than an
+     invented chat UI.
+   - Write a fresh, short conversation for the demo rather than reusing the
+     screenshot harness's canned session — it only has to fit the animated
+     frame, not match any existing capture. Keep the product's own rules
+     for moves: each is a single complete ask, earned by something actually
+     said in the conversation, and a label of up to six words naming the
+     action and the thing it acts on.
 7. worker/src/index.js — REPLIES_PER_DAY, MAX_TURNS, MAX_TURN_CHARS,
    MAX_TURNS_TOTAL_CHARS, MAX_REPLY_CHARS. Any number this page states about
    limits is read from these constants at the moment of writing, never
@@ -104,20 +125,21 @@ VISUAL IDENTITY:
 - The mascot is the only illustration. No stock photography, no generic
   line-icon rows, no purple-to-blue SaaS gradient.
 - The product follows the host page's light/dark theme rather than
-  imposing one — `publishing/screenshots/4-light.png` exists specifically
-  to prove that. The site itself can commit to one look, but if it shows
-  the product, show both the dark and light captures somewhere, not just
-  the dark one.
+  imposing one. If the site shows the card (animated or not), give it a
+  way to show both light and dark, not just one — a toggle on the demo is
+  simpler than showing two static states.
 
 OPEN FOR YOUR WORK:
 - Section order and how much of STORE-LISTING.md's detailed description to
   carry over verbatim versus compress for a page instead of a store listing.
 - One long page versus a few distinct sections — the product is small and
   the copy is not long; don't pad it into more sections than it needs.
-- Which of the five real screenshots to feature and in what sequence — the
-  "composed prompt in the message box" frame is the one proof image the
-  archived prompt got right: showing the click and its result, not just
-  the row, is the whole pitch.
+- The shape of the animation — how many scenes, how it loops, whether it
+  autoplays or waits for interaction — as long as it reproduces the card
+  faithfully (per step 6) and ends on the composed-prompt state, which is
+  the one proof image the archived prompt got right: showing the click and
+  its result, not just the row of moves, is the whole pitch. Respect
+  `prefers-reduced-motion`: no autoplay, land on the result.
 - Hosting target: no build step is required either way, but note if you're
   assuming static hosting (e.g. Cloudflare Pages, GitHub Pages) so the
   output stays deployable without one.
@@ -126,25 +148,28 @@ DELIVERABLE:
 One self-contained HTML file — inline CSS and JS, no build step, no
 external network requests except an optional Google Fonts stylesheet if you
 use one. Responsive down to a phone screen, semantic HTML, keyboard
-navigable, real contrast, alt text on every image. Save it as
-`publishing/website/index.html`. Sections at minimum:
+navigable, real contrast, alt text on every image (there should be none
+beyond the inline mascot SVG, which needs a role and aria-label instead).
+Save it as `publishing/website/index.html`. Sections at minimum:
 1. Hero — mascot, the name and short description from STORE-LISTING.md
    (byte-identical to the manifest), one primary "Add to Chrome" button.
 2. How it works — the click-costs-nothing-until-you-ask flow, using
-   README's ASCII diagram or STORE-LISTING's four-step list as source.
-3. Proof — real screenshots showing the row of moves and the composed
-   message box.
+   README's ASCII diagram or STORE-LISTING's four-step list as source,
+   alongside the animated reproduction of the card described in step 6.
+3. What it does — the listing's principle blocks (reads your own messages,
+   a menu not a checklist, says nothing when it has nothing, what it will
+   not do).
 4. Privacy, plainly — the bullet list from STORE-LISTING.md's privacy
    section, unchanged in substance.
-5. Footer — GitHub link, MIT license mention, the mandatory non-affiliation
-   line.
+5. Footer — GitHub link, MIT license mention, the shipped version number,
+   and the mandatory non-affiliation line.
 
 BEFORE YOU COMMIT ANYTHING: build a draft, run `npm test` and `npm run build`
 to confirm nothing under `extension/` or `worker/` was touched by mistake
 (this is a static file, not a code change), and show the draft for review.
 Do not `git add`, commit, or push until it's been looked at and approved —
 "build the site" is not standing permission to also commit it. If anything
-above still leaves a real ambiguity (which screenshots, how much copy to
-carry over, hosting target), ask rather than guess; don't hold up a draft
-over a small one.
+above still leaves a real ambiguity (how to shape the animation, how much
+copy to carry over, hosting target), ask rather than guess; don't hold up a
+draft over a small one.
 ```
