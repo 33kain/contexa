@@ -74,5 +74,4 @@ true of how you actually work:
 - "Claude Code for nearly all of the code. I write the rules and the changelog, it writes the JavaScript."
 - "I paste into a fresh session when I need that job done again." (from `publishing/BRAND-PROMPT.md` and `WEBSITE-PROMPT.md`)
 
-Attach `store-assets/contexa-demo.gif` or `publishing/screenshots/2-moves.png`
-as the post image.
+Attach `contexa-social-1200x675.png` (in this folder) as the post image.

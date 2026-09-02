@@ -8,7 +8,10 @@ post to explain how the thing was built, not just link to it.
 |---|---|---|
 | `x-vibe-coding.md` | X community, as the tool submission | first |
 | `reddit-vibe-coding.md` | r/vibecoding | after the X mods approve |
+| `contexa-social-1200x675.png` | the image for both posts, rendered by `scripts/social/render.mjs` | attach to each |
 
 Every number in both posts comes from the repo at 0.9.68 (test counts,
 quota, the 14-of-36 dropped-moves measurement in `CHANGELOG.md` 0.9.67).
-If the numbers move, re-read the posts before reusing them.
+If the numbers move, re-read the posts before reusing them. The image is
+generated, not drawn: change `scripts/social/social-card.html` and re-render.
+`store-assets/contexa-demo.gif` is stale and must not be attached.

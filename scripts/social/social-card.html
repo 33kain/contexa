@@ -1,0 +1,88 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>CONTEXA social card</title>
+<style>
+  :root{
+    --bg:#1f1e1d; --surface:#30302E; --surface2:#3A3A37; --text:#EDECE6; --text2:#A6A49B;
+    --border:#3F3F3C; --border2:#4A4A46; --accent:#2cc4ae; --accent-deep:#15a594;
+    --amber-bg:#403823; --amber-text:#E0C382;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{width:1200px;height:675px;overflow:hidden;background:var(--bg);color:var(--text);
+    font-family:ui-sans-serif,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    -webkit-font-smoothing:antialiased}
+  .card{display:grid;grid-template-columns:440px 1fr;gap:56px;padding:56px 60px 48px 60px;height:675px}
+
+  /* left */
+  .pitch{display:flex;flex-direction:column;height:100%}
+  .hero{display:flex;align-items:flex-end;gap:16px;margin-bottom:34px}
+  .mascot{width:132px;height:132px;flex:none;filter:drop-shadow(0 12px 28px rgba(21,165,148,.28))}
+  .bubble{display:inline-flex;align-items:center;gap:6px;background:var(--surface);border:1px solid var(--border2);
+    border-radius:999px;padding:8px 18px;font-size:17px;color:var(--text);box-shadow:0 2px 8px rgba(0,0,0,.25);
+    margin-bottom:22px;white-space:nowrap}
+  .bubble b{color:var(--accent);font-weight:700}
+  .eyebrow{font-size:12px;letter-spacing:.17em;text-transform:uppercase;color:var(--text2);font-weight:600}
+  .eyebrow b{color:var(--accent);font-weight:700;margin-right:6px}
+  h1{margin-top:12px;font-size:41px;line-height:1.14;font-weight:650;letter-spacing:-.015em}
+  h1 span{color:var(--accent)}
+  .sub{margin-top:18px;font-size:17px;line-height:1.5;color:var(--text2);max-width:400px}
+  .foot{margin-top:auto;font-size:13px;line-height:1.6;color:var(--text2)}
+  .foot .repo{color:var(--text);font-weight:600}
+
+  /* right: composer scene */
+  .scene{border:1px solid var(--border);border-radius:18px;background:#262523;padding:34px 36px 32px;
+    display:flex;flex-direction:column;justify-content:flex-end;position:relative;overflow:hidden}
+  .reply{color:var(--text2);font-size:15px;line-height:1.55;margin-bottom:26px}
+  .reply p+p{margin-top:8px}
+  .reply strong{color:var(--text);font-weight:600}
+  .fade{position:absolute;left:0;right:0;top:0;height:90px;background:linear-gradient(#262523,rgba(38,37,35,0))}
+  .row{margin:0 0 14px}
+  .chips{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}
+  .chip{background:var(--surface);border:1px solid var(--border2);border-radius:999px;padding:7px 15px;
+    font-size:14.5px;line-height:1.35;color:var(--text);white-space:nowrap}
+  .chip.hot{border-color:var(--accent);color:var(--accent);background:var(--surface2)}
+  .box{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:20px 22px 18px;
+    font-size:16px;line-height:1.55;color:var(--text);position:relative}
+  .box .paste{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:14.5px;background:var(--amber-bg);
+    color:var(--amber-text);border-radius:5px;padding:1px 6px}
+  .box .assume{color:var(--text2)}
+  .send{position:absolute;right:16px;bottom:16px;width:34px;height:34px;border-radius:50%;background:var(--border2)}
+  .send::after{content:"";position:absolute;left:11px;top:9px;border:6px solid transparent;border-bottom:10px solid var(--text2);border-top:0}
+</style>
+<div class="card">
+  <div class="pitch">
+    <div class="hero">
+      <svg class="mascot" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 58 58" aria-label="CONTEXA mascot"><defs><linearGradient id="g" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#2cc4ae"/><stop offset="1" stop-color="#15a594"/></linearGradient></defs><g transform="translate(0,8)"><path d="M29 3 C43 3 53 12 53 26 L53 50 L5 50 L5 26 C5 12 15 3 29 3 Z" fill="url(#g)"/><ellipse cx="21" cy="25.5" rx="7.4" ry="8.6" fill="#fff"/><ellipse cx="37" cy="25.5" rx="7.4" ry="8.6" fill="#fff"/><circle cx="22.9" cy="27.2" r="3.8" fill="#000"/><circle cx="38.9" cy="27.2" r="3.8" fill="#000"/><circle cx="21.7" cy="25.9" r="1.3" fill="#fff" opacity=".95"/><circle cx="37.7" cy="25.9" r="1.3" fill="#fff" opacity=".95"/><path d="M25 37 Q29 39.5 33 37" stroke="#0a352f" stroke-width="2.6" fill="none" stroke-linecap="round"/></g></svg>
+      <span class="bubble">What now? <b>✦</b></span>
+    </div>
+    <div class="eyebrow"><b>✦</b>CONTEXA</div>
+    <h1>Claude replies.<br>Press one button.<br><span>The next prompt<br>is written.</span></h1>
+    <p class="sub">Chrome extension for claude.ai. Reads your side of the chat, offers up to four next moves, each a complete message you send yourself.</p>
+    <div class="foot">Open source · MIT · <span class="repo">github.com/33kain/contexa</span><br>Not affiliated with Anthropic.</div>
+  </div>
+
+  <div class="scene">
+    <div class="fade"></div>
+    <div class="reply">
+      <p><strong>Day 3 — Belém, and the slow day you asked for.</strong> The tower and the monastery in the morning, the original pastel de nata bakery for lunch, and nothing scheduled after that.</p>
+      <p>Evenings I've left open. Nothing here needs booking except Sintra, which sells out on weekends.</p>
+    </div>
+    <div class="row">
+      <div class="eyebrow"><b>✦</b>CONTEXA</div>
+      <div class="chips">
+        <span class="chip hot">Write the birthday card revealing Lisbon</span>
+        <span class="chip">Move the walking into the mornings</span>
+        <span class="chip">Pick one dinner for each night</span>
+      </div>
+    </div>
+    <div class="box">
+      Write the birthday card that gives my dad the Lisbon trip.<br>
+      - four days at the end of May, just the two of us<br>
+      - hint at what's planned without giving the days away<br>
+      - short and warm, nothing about his age<br>
+      - work in one memory of ours: <span class="paste">&lt;paste here&gt;</span><br>
+      <span class="assume">Assume: he still doesn't know.</span>
+      <span class="send"></span>
+    </div>
+  </div>
+</div>

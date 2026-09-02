@@ -4,7 +4,7 @@ Rule 2 of the community says every tool has to be posted inside the X
 community first and approved by the mods before it can be posted anywhere
 else. This is that post. Post it **inside** the community
 (https://x.com/i/communities/1898129646782497027), not on your timeline,
-and attach `store-assets/contexa-demo.gif` as the media.
+and attach `contexa-social-1200x675.png` (in this folder) as the media.
 
 Rule 1 says keep it human and Rule 3 says a link alone is low-effort promo, so
 the post names the stack and one real build lesson. Everything below is a fact
