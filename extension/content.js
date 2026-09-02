@@ -779,13 +779,13 @@
   <path d="M29 3 C43 3 53 12 53 26 L53 50 L5 50 L5 26 C5 12 15 3 29 3 Z" fill="url(#ctxaMg)"/>
   <g class="ctxa-mas-pup">
     <g><ellipse cx="21" cy="25.5" rx="7.4" ry="8.6" fill="#fff"/>
-       <circle cx="22.9" cy="27.2" r="3.3" fill="#173b35"/>
-       <circle cx="21.9" cy="26.1" r="1.2" fill="#fff" opacity=".95"/></g>
+       <circle cx="22.9" cy="27.2" r="3.8" fill="#000"/>
+       <circle cx="21.7" cy="25.9" r="1.3" fill="#fff" opacity=".95"/></g>
     <g class="ctxa-mas-wink"><ellipse cx="37" cy="25.5" rx="7.4" ry="8.6" fill="#fff"/>
-       <circle cx="38.9" cy="27.2" r="3.3" fill="#173b35"/>
-       <circle cx="37.9" cy="26.1" r="1.2" fill="#fff" opacity=".95"/></g>
+       <circle cx="38.9" cy="27.2" r="3.8" fill="#000"/>
+       <circle cx="37.7" cy="25.9" r="1.3" fill="#fff" opacity=".95"/></g>
   </g>
-  <path d="M25 37 Q29 39.5 33 37" stroke="#0e6e63" stroke-width="2" fill="none" stroke-linecap="round"/>
+  <path d="M25 37 Q29 39.5 33 37" stroke="#0a352f" stroke-width="2.6" fill="none" stroke-linecap="round"/>
   <ellipse class="ctxa-mas-whisp" cx="41" cy="37" rx="4.6" ry="3.4" fill="#2cc4ae"/>
 </svg>`;
 
