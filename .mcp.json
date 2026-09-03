@@ -2,7 +2,10 @@
   "mcpServers": {
     "playwright": {
       "command": "npx",
-      "args": ["-y", "@playwright/mcp@latest"]
+      "args": ["-y", "@playwright/mcp@latest"],
+      "env": {
+        "PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD": "0"
+      }
     }
   }
 }
