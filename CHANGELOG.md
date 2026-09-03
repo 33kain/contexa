@@ -7,6 +7,90 @@ free to diverge, and the settings page labels them separately for that reason.
 
 ---
 
+## 0.9.70 — Extension
+
+*The mascot's face was not too small. It was being inverted — and 0.9.69 made
+it worse by making the ink darker.*
+
+### What 0.9.69 got wrong
+
+0.9.69 read a field screenshot of washed-out pupils as an anti-aliasing problem
+at 40×34.5 px and darkened the ink: pupils `#173b35` → `#000`, mouth `#0e6e63` →
+`#0a352f`. The next screenshot from the same phone had **no pupils at all** and a
+**white mouth**. That is not a fix decaying, it is a fix pointed the wrong way,
+and the direction of the failure was the diagnosis: darker in, lighter out.
+
+The phone runs the browser's force-dark ("night mode"). Chromium force-dark
+sorts every paint into one of two roles and inverts on Rec.601 brightness
+`B = .299R + .587G + .114B`:
+
+| role | what counts | inverted when |
+|---|---|---|
+| foreground | a **flat** `fill="#hex"` / `stroke="#hex"`, and text | `B < 150` |
+| background | CSS backgrounds, gradients, and **SVG paint servers** `fill="url(#…)"` | `B > 205` |
+
+So flat `#000` pupils (B = 0) invert to pure white and vanish into the white
+sclera — 21:1 contrast becomes **1.00:1**, mathematically erased. The body was
+never affected because it was always a gradient. The same threshold caught a
+second bug nobody had reported: the hover whisper puff, flat `#2cc4ae` at
+B = 148.04, rendered **pink** under one inversion method.
+
+### Why no palette could have worked
+
+A scan of all 16,777,216 sRGB colours says the set of flat colours that hold
+4.5:1 against the white sclera in all four render modes is **empty** — the best
+possible is 3.13:1. A colour dark enough to read on white is dark enough to be
+inverted; a colour light enough to survive inversion is too light to read. Every
+further round of "pick a better colour" was going to fail the same way.
+
+The escape is the **role, not the colour**. Wrapped in a two-stop gradient of a
+single colour, the ink is classified as a background, sits far under the 205
+threshold, and is never touched — while rasterising exactly as the flat colour
+did. Pupils, mouth and whisper now paint through `url(#ctxaPg/Og/Wg)`.
+Measured on the shipped constant, at the shipped size, in both themes:
+
+| | no force-dark | cielab | hsl | rgb |
+|---|---|---|---|---|
+| 0.9.69 pupil/sclera | 21.00:1 | **1.00:1** | **1.00:1** | **1.00:1** |
+| 0.9.70 pupil/sclera | 21.00:1 | 21.00:1 | 21.00:1 | 21.00:1 |
+| 0.9.70 mouth/body | 4.48:1 | 4.48:1 | 4.48:1 | 4.48:1 |
+
+Every pixel of ink is byte-identical across all four modes. Geometry, classes,
+`viewBox` and all six gestures are untouched, so the wink, the glance, the
+whisper puff and the bubble still fire; the render with force-dark off differs
+from 0.9.69's by at most 3/255 on the anti-aliased rim of a pupil.
+
+The rule is **asymmetric**, which is the trap worth naming: white is safe only
+as a flat fill (255 ≥ 150), and as a gradient stop its 255 clears 205 and
+inverts the whole eye to near-black. `extension/test.mjs` now asserts both
+directions and names the offending colours on failure — it fails on 0.9.69's
+source, so it would have caught this. There were no mascot assertions at all
+before this; the 0.9.55 set went with the card it tested.
+
+`gradientUnits="userSpaceOnUse"` on all three: an `objectBoundingBox` paint
+server paints **nothing** when a shape's box is flat in either axis, and the
+mouth is 1.25 units tall — one "straighten the smile" edit from invisible in
+every mode, force-dark or not.
+
+### Also in this release
+
+The website's three mascot copies (hero, demo player, favicon) had drifted to
+pre-0.9.69 ink and carried the same bug on the same phones; all three are now in
+step with the extension. The favicon stays flat on purpose — it is browser
+chrome, force-dark never reaches it. The icon PNGs did **not** need
+regenerating: the patched master renders md5-identical at 16/32/48/128/512, so
+`store-assets/README.md`'s byte-identity claim still holds.
+
+### Known ceiling, stated so it is not re-derived as a bug
+
+A remapper that inverted even pure white as a foreground would darken the sclera
+and leave the pupils black (1.12:1). No role assignment survives both ends —
+white is safe only flat, dark ink only as a paint server. Windows forced-colors
+mode is a separate subsystem this does not address, and could not be exercised
+on the build these measurements came from, so nothing was shipped claiming to.
+
+---
+
 ## 0.9.69 — Extension
 
 *The mascot's face was disappearing at small sizes — reported from a real phone.*

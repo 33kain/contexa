@@ -583,6 +583,44 @@ const TURNS = [
     humanTexts.every(x => /[.!?]$/.test(x)));
 }
 
+/* ---- v0.9.70: the mascot survives force-dark ----------------------------
+   A phone running the browser's night mode erased the mascot's face, and 0.9.69
+   made it worse by darkening the ink. Chromium force-dark inverts a FLAT fill or
+   stroke when its Rec.601 brightness is under 150, and inverts the output of a
+   PAINT SERVER only when it is over 205 — so dark ink is safe only as
+   `url(#...)`, and white is safe only as a flat fill. Both directions are
+   asserted because the rule is asymmetric: turning the sclera into a gradient
+   inverts the whole eye to near-black, which is the same bug wearing the
+   opposite costume. Nothing checked the mascot before this; the earlier
+   structural set went with 0.9.55's card. */
+{
+  const c = readFileSync('./content.js', 'utf8');
+  const svg = (c.match(/const MASCOT_SVG = `([\s\S]*?)`;/) || [])[1] || '';
+  const b601 = hex => {
+    const n = hex.length === 4
+      ? [...hex.slice(1)].map(ch => parseInt(ch + ch, 16))
+      : [1, 3, 5].map(i => parseInt(hex.slice(i, i + 2), 16));
+    return 0.299 * n[0] + 0.587 * n[1] + 0.114 * n[2];
+  };
+  const flat = [...svg.matchAll(/(?:fill|stroke)="(#[0-9a-fA-F]{3,6})"/g)].map(m => m[1]);
+  const stops = [...svg.matchAll(/stop-color="(#[0-9a-fA-F]{3,6})"/g)].map(m => m[1]);
+  const tooDark = flat.filter(h => b601(h) < 150);
+  const tooLight = stops.filter(h => b601(h) > 205);
+  /* `.length` guards because [].every() is true — deleting all the ink would
+     otherwise pass both assertions in silence. */
+  t('every flat mascot paint is light enough that force-dark leaves it alone',
+    flat.length > 0 && tooDark.length === 0, tooDark.join(' '));
+  t('and every gradient stop is dark enough that force-dark leaves it alone',
+    stops.length > 0 && tooLight.length === 0, tooLight.join(' '));
+  t('so the dark ink reaches the page through a paint server, never a flat paint',
+    (svg.match(/fill="url\(#ctxaPg\)"/g) || []).length === 2 &&
+    svg.includes('stroke="url(#ctxaOg)"') && svg.includes('fill="url(#ctxaWg)"'));
+  /* An objectBoundingBox paint server paints nothing when a shape's box is flat
+     in either axis, and the mouth is 1.25 units tall. */
+  t('and those gradients are anchored in user space, not the shape bounding box',
+    (svg.match(/gradientUnits="userSpaceOnUse"/g) || []).length === 3);
+}
+
 /* ---- v0.9.46: the scroll watcher, actually run --------------------------
    Fourth rewrite of this fixture, and the first one whose model matches the
    requirement instead of the implementation. No clock: the rule has no timers.
