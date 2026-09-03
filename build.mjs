@@ -1,4 +1,4 @@
-/* CONTEXA build Ã¢â‚¬â€ extension/ (canonical, placeholder-carrying) -> build-ready/ (shippable).
+/* CONTEXA build — extension/ (canonical, placeholder-carrying) -> build-ready/ (shippable).
    Exists because every hand-rebuild is a chance to forget the URL bake, the host
    pin, or the version bump. Run: node build.mjs
    Fails loudly rather than shipping a half-baked bundle. */
@@ -30,13 +30,13 @@ mkdirSync(join(OUT, 'icons'), { recursive: true });
 
 /* --- background.js: bake the real backend URL ------------------------------ */
 /* Must be idempotent. The git repo tracks the BUILT extension, so SRC often
-   already contains the real URL Ã¢â‚¬â€ in which case the replace is a no-op and that
+   already contains the real URL — in which case the replace is a no-op and that
    is success, not failure. An earlier version of this guard compared the string
    before and after and threw whenever nothing changed, which broke the build on
    the only machine that runs it. Assert the pattern MATCHED, not that it changed. */
 let bg = readFileSync(join(SRC, 'background.js'), 'utf8');
 const proxyRe = /const DEFAULT_PROXY_URL = '[^']*';/;
-if (!proxyRe.test(bg)) throw new Error('DEFAULT_PROXY_URL not found Ã¢â‚¬â€ did background.js change shape?');
+if (!proxyRe.test(bg)) throw new Error('DEFAULT_PROXY_URL not found — did background.js change shape?');
 bg = bg.replace(proxyRe, `const DEFAULT_PROXY_URL = '${BACKEND}';`);
 // Drop the now-answered TODO so the shipped file does not tell a reviewer it is unfinished.
 bg = bg.replace(
@@ -179,20 +179,20 @@ if (superseded.includes(`'${modelExt}'`))
 /* Storing a concrete model as the default is the bug that froze installs on Haiku.
    Guard both files against it coming back. */
 if (/model: '[^']+'/.test(outOpts.match(/const DEFAULTS = \{[\s\S]*?\};/)?.[0] || ''))
-  fails.push("options.js DEFAULTS seeds a concrete model Ã¢â‚¬â€ must be '' so shipped defaults can change");
+  fails.push("options.js DEFAULTS seeds a concrete model — must be '' so shipped defaults can change");
 if (/model: '[^']+'/.test(outBg.match(/const DEFAULTS = \{[\s\S]*?\};/)?.[0] || ''))
-  fails.push("background.js DEFAULTS seeds a concrete model Ã¢â‚¬â€ must be '' so shipped defaults can change");
+  fails.push("background.js DEFAULTS seeds a concrete model — must be '' so shipped defaults can change");
 if (/\.value\.trim\(\)\s*\|\|\s*DEFAULTS\.model/.test(outOpts))
-  fails.push('options.js backfills an empty model field with the default Ã¢â‚¬â€ that is the freeze bug');
+  fails.push('options.js backfills an empty model field with the default — that is the freeze bug');
 
 if (fails.length) {
   console.error('BUILD FAILED');
-  for (const f of fails) console.error('  Ã¢Å“â€” ' + f);
+  for (const f of fails) console.error('  ✗ ' + f);
   process.exit(1);
 }
 
-console.log(`built ${OUT}/ Ã¢â‚¬â€ v${VERSION}, model ${modelExt}, backend ${BACKEND}`);
-console.log('  prompt identical across extension and worker Ã¢Å“â€œ');
+console.log(`built ${OUT}/ — v${VERSION}, model ${modelExt}, backend ${BACKEND}`);
+console.log('  prompt identical across extension and worker ✓');
 
 
 /* --- zip, with manifest.json at the ARCHIVE ROOT --------------------------- */
@@ -297,7 +297,7 @@ const readBack = [];
 const missing = [...shipFiles, 'icons/icon16.png', 'icons/icon48.png', 'icons/icon128.png']
   .filter(f => !readBack.includes(f));
 const stray = readBack.filter(f => /test\.mjs|\.map$|^__MACOSX|\.DS_Store|^[^/]*\/$/.test(f));
-if (missing.length) { console.error('ZIP INCOMPLETE Ã¢â‚¬â€ missing: ' + missing.join(', ')); process.exit(1); }
+if (missing.length) { console.error('ZIP INCOMPLETE — missing: ' + missing.join(', ')); process.exit(1); }
 if (stray.length) { console.error('ZIP HAS STRAY ENTRIES: ' + stray.join(', ')); process.exit(1); }
 if (readBack[0] !== 'manifest.json') { console.error('manifest.json is not the first root entry'); process.exit(1); }
-console.log(`  ${zipName} Ã¢â‚¬â€ ${readBack.length} entries, manifest at root Ã¢Å“â€œ`);
+console.log(`  ${zipName} — ${readBack.length} entries, manifest at root ✓`);

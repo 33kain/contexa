@@ -1,9 +1,11 @@
 # Changelog
 
-Versions are per-artifact. The **extension** version is `manifest.json`; the
-**backend** version is `BUILD` in `worker/src/index.js`. They deploy on separate
-paths — a worker fix must not force a Chrome Web Store resubmission — so they are
-free to diverge, and the settings page labels them separately for that reason.
+One version number per generation. Its home is `extension/manifest.json`; the
+**backend** carries the same number as `BUILD` in `worker/src/index.js`, and
+`build.mjs` fails if the two disagree. They still deploy on separate paths — a
+worker fix must not force a Chrome Web Store resubmission — so an entry below
+says which artifact(s) actually shipped, and the settings page reports the
+backend's live version separately so a deploy can be told from a no-op.
 
 ---
 
