@@ -7,6 +7,26 @@ free to diverge, and the settings page labels them separately for that reason.
 
 ---
 
+## 0.9.69 — Extension
+
+*The mascot's face was disappearing at small sizes — reported from a real phone.*
+
+The pupil circles (r=3.3, `#173b35`) and the mouth stroke (2px, `#0e6e63`) held
+up fine at the 128px reference size, but a field screenshot of the in-page
+trigger chip on mobile showed both washed toward the background — pupils
+essentially gone, mouth barely a line. Rendering the 16px manifest icon next to
+the 128px one made the same defect reproducible at the desk: the 16px face was
+already close to featureless before any phone-specific compression touched it.
+
+Pupils enlarged (3.3 → 3.8) and switched to pure black; the mouth stroke
+widened (2 → 2.6) and darkened. Changed in both places the geometry is
+duplicated — `extension/content.js`'s inline trigger SVG and
+`store-assets/contexa-mascot-icon.svg` — then the manifest and store PNG
+exports (16/32/48/128, plus the 512 store asset) were regenerated from the
+updated source so all three stay pixel-identical, as before.
+
+---
+
 ## 0.9.68 — Extension + Worker
 
 *One more verb, found by verifying the last release.*
