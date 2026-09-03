@@ -772,21 +772,60 @@
     return wrap;
   }
 
+  /* 0.9.70 — every dark paint here goes through a paint server, and that is
+     load-bearing, not decoration. A phone running the browser's force-dark
+     ("night mode") erased the mascot's face: pupils vanished, the mouth turned
+     white. Chromium force-dark classifies each paint into one of two roles and
+     inverts on Rec.601 brightness B = .299R + .587G + .114B — a FLAT fill or
+     stroke is a foreground, inverted iff B < 150; the output of a PAINT SERVER
+     (fill="url(#...)") is a background, inverted iff B > 205. So flat #000
+     pupils invert to pure white and disappear into the white sclera, while the
+     body has always been safe: it was already a gradient.
+     0.9.69 read the same symptom as an anti-aliasing problem and made the ink
+     DARKER, which is exactly backwards — lower B is further under the
+     threshold, so the fix is what turned "pale" into "gone".
+     A sweep of all 16,777,216 sRGB colours says no flat colour can be picked
+     out of this: zero of them hold 4.5:1 against the white sclera in all four
+     render modes (best is 3.13:1). The escape is the ROLE, not the colour.
+     Wrapped in a two-stop gradient of one colour, #000 stays #000 under every
+     inversion method, pixel for pixel, and renders flat as before.
+     The asymmetry is the trap: white must stay FLAT (255 >= 150, safe as a
+     foreground; as a gradient stop its 255 clears 205 and the whole eye
+     inverts to near-black). extension/test.mjs guards both directions.
+     gradientUnits="userSpaceOnUse" because an objectBoundingBox paint server
+     paints NOTHING when a shape's box is flat in either axis — the mouth is
+     1.25 units tall today, and one "straighten the smile" edit away from
+     invisible in every mode, force-dark or not.
+     Known ceiling, so it is not re-derived as a bug later: a remapper that
+     inverts even pure white as a foreground would darken the sclera and leave
+     the pupils black (1.12:1). No role assignment survives both ends — white
+     is only safe flat, dark ink only as a paint server. Windows
+     forced-colors mode is a separate subsystem this does not address, and
+     could not be exercised on the build these measurements came from. */
   const MASCOT_SVG = `<svg width="58" height="50" viewBox="0 0 58 50" aria-hidden="true">
   <defs><linearGradient id="ctxaMg" x1="0" y1="0" x2="0" y2="1">
     <stop offset="0" stop-color="#2cc4ae"/><stop offset="1" stop-color="#15a594"/>
+  </linearGradient>
+  <linearGradient id="ctxaPg" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="58" y2="0">
+    <stop offset="0" stop-color="#000"/><stop offset="1" stop-color="#000"/>
+  </linearGradient>
+  <linearGradient id="ctxaOg" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="58" y2="0">
+    <stop offset="0" stop-color="#0a352f"/><stop offset="1" stop-color="#0a352f"/>
+  </linearGradient>
+  <linearGradient id="ctxaWg" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="58" y2="0">
+    <stop offset="0" stop-color="#2cc4ae"/><stop offset="1" stop-color="#2cc4ae"/>
   </linearGradient></defs>
   <path d="M29 3 C43 3 53 12 53 26 L53 50 L5 50 L5 26 C5 12 15 3 29 3 Z" fill="url(#ctxaMg)"/>
   <g class="ctxa-mas-pup">
     <g><ellipse cx="21" cy="25.5" rx="7.4" ry="8.6" fill="#fff"/>
-       <circle cx="22.9" cy="27.2" r="3.8" fill="#000"/>
+       <circle cx="22.9" cy="27.2" r="3.8" fill="url(#ctxaPg)"/>
        <circle cx="21.7" cy="25.9" r="1.3" fill="#fff" opacity=".95"/></g>
     <g class="ctxa-mas-wink"><ellipse cx="37" cy="25.5" rx="7.4" ry="8.6" fill="#fff"/>
-       <circle cx="38.9" cy="27.2" r="3.8" fill="#000"/>
+       <circle cx="38.9" cy="27.2" r="3.8" fill="url(#ctxaPg)"/>
        <circle cx="37.7" cy="25.9" r="1.3" fill="#fff" opacity=".95"/></g>
   </g>
-  <path d="M25 37 Q29 39.5 33 37" stroke="#0a352f" stroke-width="2.6" fill="none" stroke-linecap="round"/>
-  <ellipse class="ctxa-mas-whisp" cx="41" cy="37" rx="4.6" ry="3.4" fill="#2cc4ae"/>
+  <path d="M25 37 Q29 39.5 33 37" stroke="url(#ctxaOg)" stroke-width="2.6" fill="none" stroke-linecap="round"/>
+  <ellipse class="ctxa-mas-whisp" cx="41" cy="37" rx="4.6" ry="3.4" fill="url(#ctxaWg)"/>
 </svg>`;
 
   function renderTrigger(anchor, ctx) {
