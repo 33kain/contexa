@@ -2,10 +2,11 @@
   "mcpServers": {
     "playwright": {
       "command": "npx",
-      "args": ["-y", "@playwright/mcp@latest"],
-      "env": {
-        "PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD": "0"
-      }
+      "args": [
+        "-y",
+        "@playwright/mcp@latest",
+        "--executable-path=/opt/pw-browsers/chromium-1194/chrome-linux/chrome"
+      ]
     }
   }
 }
