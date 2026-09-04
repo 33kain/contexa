@@ -28,9 +28,9 @@
 <body>
 <a class="skip" href="#main">Skip to content</a>
 <header class="site">
-  <svg class="mascot" viewBox="0 0 58 58" role="img" aria-label="The CONTEXA mascot: a teal rounded shape with two wide eyes and a small smile">
+  <svg class="mascot" viewBox="0 0 58 50" role="img" aria-label="The CONTEXA mascot: a teal rounded shape with two wide eyes and a small smile">
     <defs><linearGradient id="mg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#2cc4ae"/><stop offset="1" stop-color="#15a594"/></linearGradient><linearGradient id="mp" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="58" y2="0"><stop offset="0" stop-color="#000"/><stop offset="1" stop-color="#000"/></linearGradient><linearGradient id="mo" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="58" y2="0"><stop offset="0" stop-color="#0a352f"/><stop offset="1" stop-color="#0a352f"/></linearGradient></defs>
-    <g transform="translate(0,8)"><path d="M29 3 C43 3 53 12 53 26 L53 50 L5 50 L5 26 C5 12 15 3 29 3 Z" fill="url(#mg)"/><ellipse cx="21" cy="25.5" rx="7.4" ry="8.6" fill="#fff"/><ellipse cx="37" cy="25.5" rx="7.4" ry="8.6" fill="#fff"/><circle cx="22.9" cy="27.2" r="3.8" fill="url(#mp)"/><circle cx="38.9" cy="27.2" r="3.8" fill="url(#mp)"/><circle cx="21.7" cy="25.9" r="1.3" fill="#fff" opacity=".95"/><circle cx="37.7" cy="25.9" r="1.3" fill="#fff" opacity=".95"/><path d="M25 37 Q29 39.5 33 37" stroke="url(#mo)" stroke-width="2.6" fill="none" stroke-linecap="round"/></g>
+    <g><path d="M29 3 C43 3 53 12 53 26 L53 50 L5 50 L5 26 C5 12 15 3 29 3 Z" fill="url(#mg)"/><ellipse cx="21" cy="25.5" rx="7.4" ry="8.6" fill="#fff"/><ellipse cx="37" cy="25.5" rx="7.4" ry="8.6" fill="#fff"/><circle cx="22.9" cy="27.2" r="3.8" fill="url(#mp)"/><circle cx="38.9" cy="27.2" r="3.8" fill="url(#mp)"/><circle cx="21.7" cy="25.9" r="1.3" fill="#fff" opacity=".95"/><circle cx="37.7" cy="25.9" r="1.3" fill="#fff" opacity=".95"/><path d="M25 37 Q29 39.5 33 37" stroke="url(#mo)" stroke-width="2.6" fill="none" stroke-linecap="round"/></g>
   </svg>
   <div>
     <a class="name" href="/">CONTEXA</a>
@@ -38,37 +38,37 @@
   </div>
 </header>
 <nav class="site" aria-label="Site">
-  <a href="/">Overview</a>
-  <a href="/how-it-works/" aria-current="page">How it works</a>
-  <a href="/privacy/">Privacy</a>
-  <a href="/notes/">Notes</a>
-  <a href="https://github.com/33kain/contexa">Source</a>
+  <a href="/">Overview</a> · <a href="/how-it-works/" aria-current="page">How it works</a> · <a href="/privacy/">Privacy</a> · <a href="/notes/">Notes</a> · <a href="https://github.com/33kain/contexa">Source</a>
 </nav>
 
 <main id="main">
 <h1>How it works</h1>
-<p class="stamp">Describes version 0.9.70. Names in monospace are identifiers in the code; the numbers are read from <code>worker/src/index.js</code>, which stays the source when the two disagree.</p>
+<p class="stamp">Describes version 0.9.70. Names in monospace are identifiers in the code. The numbers are read from <code>worker/src/index.js</code> and, where the table says so, <code>extension/content.js</code>; the code stays the source when the two disagree.</p>
 
 <p>There are two moments, and only the second costs anything.</p>
-<p>The first is the reply finishing. The content script watches claude.ai's <code>data-is-streaming</code> attribute; when it flips to false (a 1.2 s settle timer is the fallback), the script copies the reply out of the page and stops. It draws one trigger above the message box. No request, no model call. A reply you never ask about never leaves the page.</p>
-<p>The second is you pressing that trigger. Only now does it read your own messages off the page and send them with the reply to the backend, or, with your own key, straight to Anthropic. The model proposes, two gates dispose, and what survives is a row of at most four. Nothing survives, no row.</p>
+<p>The first is the reply finishing. The content script watches claude.ai's <code>data-is-streaming</code> attribute; when it flips to false (a 1.2 s settle timer is the fallback), the script copies the reply out of the page and stops. It draws one trigger above the message box. It makes no request and no model call. A reply you never ask about never leaves the page.</p>
+<p>The second is you pressing that trigger. Only now does it read your own messages off the page and send them with the reply to the backend, or, with your own key, straight to Anthropic. The model returns candidate moves, two gates check each one, and what survives is a row of at most four. If nothing survives, there is no row.</p>
 
 <h2 id="pipeline">The pipeline</h2>
 <pre>claude.ai reply finishes
-   └─ content.js detects [data-is-streaming] flipping to false
-        └─ captures the reply from the DOM, and STOPS
-             └─ renders one trigger. No model call. Nothing sent.
+ └─ content.js detects [data-is-streaming] flipping to false
+    └─ captures the reply from the DOM, and STOPS
+       └─ renders one trigger. No model call. Nothing sent.
 
 you click the trigger
-   └─ content.js reads your own messages from the session,
-      live off the DOM ([data-testid="user-message"])
-        └─ { reply, turns[] } goes to the backend
-             └─ the Worker adds the system prompt, calls Anthropic,
-                enforces the quota
-                  └─ two gates run on every returned move
-                       └─ moves earned → a flat row of up to four
-                          nothing      → no row at all
-                            └─ you click one; its whole prompt lands in the box</pre>
+ └─ content.js reads your own messages from the session,
+    live off the DOM ([data-testid="user-message"])
+    └─ { reply, turns[] } goes to the backend
+       └─ the Worker adds MOVES_SYSTEM, calls Anthropic, enforces the quota
+          (own key: the extension does the same, without a quota)
+          └─ two gates run on every returned move
+             ├─ groundMoves: no verbatim quote in your messages
+             │              or the reply → dropped
+             └─ enforceAction: label must open with a verb in
+                              ACTION_OPENERS → else dropped
+                └─ moves earned → a flat row of up to four
+                   nothing      → no row at all
+                   └─ you click one; its whole prompt lands in the box</pre>
 
 <h2 id="what-is-read">What is read, and how much</h2>
 <p>The capture is every <code>[data-testid="user-message"]</code> on the page, read at the moment you press. Claude's earlier replies are not read; only the reply you pressed under is. The session is then trimmed to fit, by a policy with a wrong answer that still looks right. The first captured message is pinned: it is the closest thing to a stated goal, and a conversation read without its opening has lost the point of itself. When the budget is exceeded, the oldest <em>middle</em> messages go first, whole messages only, down to a floor of two. A window that kept the last <em>n</em> messages would have tested perfectly and silently decapitated every long session.</p>
@@ -81,11 +81,12 @@ you click the trigger
     <tr><th scope="row">Characters per message</th><td>2,000</td><td><code>MAX_TURN_CHARS</code></td><td>the extension, then the worker</td></tr>
     <tr><th scope="row">Characters of your messages, in total</th><td>12,000</td><td><code>MAX_TURNS_TOTAL_CHARS</code></td><td>the extension, then the worker</td></tr>
     <tr><th scope="row">Characters of the reply</th><td>6,000</td><td><code>MAX_REPLY_CHARS</code></td><td>the extension, then the worker</td></tr>
-    <tr><th scope="row">Shortest reply it will ask about</th><td>50 characters</td><td><code>MIN_REPLY_CHARS</code></td><td>the worker, before any upstream call</td></tr>
+    <tr><th scope="row">Shortest reply that gets a trigger</th><td>120 characters</td><td>a literal in <code>scan()</code>, <code>extension/content.js</code></td><td>the extension, before any trigger is drawn</td></tr>
+    <tr><th scope="row">Shortest reply the backend accepts</th><td>50 characters</td><td><code>MIN_REPLY_CHARS</code></td><td>the worker, before any upstream call</td></tr>
     <tr><th scope="row">Presses per device per day</th><td>20, reset at midnight UTC</td><td><code>REPLIES_PER_DAY</code></td><td>the worker</td></tr>
     <tr><th scope="row">Presses per hashed IP address per day</th><td>200</td><td><code>IP_DAILY_LIMIT</code></td><td>the worker</td></tr>
     <tr><th scope="row">Moves returned</th><td>0 to 4</td><td></td><td>the prompt, then the gates</td></tr>
-    <tr><th scope="row">Model, on both paths</th><td><code>claude-sonnet-5</code></td><td><code>MODEL</code></td><td>the worker and the extension</td></tr>
+    <tr><th scope="row">Model, shipped default on both paths</th><td><code>claude-sonnet-5</code></td><td><code>MODEL</code> (worker), <code>SHIPPED_MODEL</code> (extension)</td><td>the worker; the extension, unless a model name is set in its settings</td></tr>
   </tbody>
 </table>
 </div>
@@ -102,21 +103,21 @@ own key   extension → api.anthropic.com
 <p>Both paths send a byte-identical system prompt and run byte-identical gate code. The build script extracts both copies and fails the build if they differ, on the rule that a gate living only in the worker is a gate half the users do not have.</p>
 
 <h2 id="gate-one">Gate one: evidence</h2>
-<p><code>groundMoves</code> checks every returned move for a verbatim quote, over your messages and the reply as two separate haystacks, in that order, so the session's own material is never credited to the reply. Each move records which haystack earned it (<code>fromTurns</code> or <code>fromReply</code>). No evidence at all: dropped. A near-miss quote renders, but is counted and logged.</p>
+<p><code>groundMoves</code> checks every returned move for a verbatim quote, over your messages and the reply as two separate haystacks, in that order, so the session's own material is never credited to the reply. Each move records which haystack earned it (<code>sources</code>), and the row tallies them as <code>fromTurns</code> and <code>fromReply</code>. No evidence at all: dropped. A near-miss quote renders, but is counted and logged.</p>
 <p>A perfect quote is not proof of a good row. A row transcribed from the reply's own list of options grounds flawlessly. The prompt names that as the most seductive failure: the reply is material, never the subject. Once a session has more than a couple of messages, at least one move has to be earned by something you wrote. It was the first defect the field test found; the entry is on <a href="/notes/">Notes</a>.</p>
 
 <h2 id="gate-two">Gate two: action</h2>
-<p><code>enforceAction</code> drops any move whose label does not open with a doable imperative verb from an allowlist (<code>ACTION_OPENERS</code>, English and Serbian). It fails closed: an unknown verb is a drop, not a warning, so a row of good moves can be emptied by the verb list rather than by the model. A label is at most six words and names the action and the thing it acts on, as in <em>Plan three weeks of rehearsal</em>.</p>
+<p><code>enforceAction</code> drops any move whose label does not open with a doable imperative verb from an allowlist (<code>ACTION_OPENERS</code>, English and Serbian). It fails closed: an unknown verb is a drop, not a warning, so a row of good moves can be emptied by the verb list rather than by the model. The label rule itself is the prompt's, not the gate's: up to six words, naming the action and the thing it acts on, as in <em>Plan three weeks of rehearsal</em>. The code only clamps a label at 60 characters.</p>
 
 <h2 id="empty">An empty row has two causes</h2>
-<p>The model can honestly earn nothing, or the action gate can drop everything it returned. The grounding result carries <code>total</code>, the number of moves before any gate ran, so the two are told apart: <code>total = 0</code> is an honest zero, and <code>total &gt; 0</code> with nothing left is a gate emptying the row. The card says which. It is inert, with no pointer events, because an element that looks clickable would be a floor. Until 0.9.64 both causes drew the same card.</p>
+<p>The model can honestly earn nothing, or the action gate can drop everything it returned. The grounding result carries <code>total</code>, the number of moves before any gate ran. <code>total = 0</code> is an honest zero; <code>total &gt; 0</code> with nothing left is a gate emptying the row. The card says which. It is inert, with no pointer events, because an element that looks clickable would be a floor, and it removes itself after a moment. Until 0.9.64 every cause drew the same card; since 0.9.66 only these two remain.</p>
 
 <h2 id="box">What lands in the box</h2>
-<p>Clicking a move places its whole prompt in the message box in one assignment. Nothing is typed for you and nothing is sent; you edit and send it yourself. Picking costs nothing, because the messages arrived already written. Everything the model returns (labels, texts, evidence) is rendered as text, never as markup, because it is generated text drawn into a third-party page. The suggestions for a reply are cached briefly in your browser, so pressing twice under the same reply does not spend twice.</p>
+<p>Clicking a move puts its whole prompt in the message box in one step, as a single block of text. If you already have a draft there, the prompt goes below it; nothing you typed is replaced. Nothing is sent; you edit and send it yourself. Picking costs nothing, because the messages arrived already written. Everything the model returns (labels, texts, evidence) is rendered as text, never as markup, because it is generated text drawn into a third-party page. The row for a reply is kept in the extension's session storage (<code>chrome.storage.session</code>: gone when the browser closes, sixty entries, oldest out, errors never kept), so pressing twice under the same reply does not spend twice.</p>
 
 <h2 id="known-limits">Known limits</h2>
 <ul>
-  <li>A virtualised transcript only has its rendered rows in the DOM, so on a very long page the capture sees the tail, not the whole conversation. Turn numbers are capture positions, not conversation positions, and the prompt is written to say "the earliest message you can see" for that reason. The console logs the message count and index range, so a contiguous 1 to 4 on a long conversation can be recognised as a truncated read.</li>
+  <li>On a very long conversation claude.ai keeps only the rows near where you are in the page and unloads the rest, so the capture sees the tail, not the whole conversation. The numbering the model sees starts at the earliest message still on the page, not at the first message of the conversation, and the prompt says so: the earliest message it is given "is not guaranteed to be the conversation's true first", and it is told to "treat it as the oldest thing you can see rather than as the beginning". The extension logs to the browser console how many messages it read and their positions, so a short contiguous run on a long conversation can be recognised as a truncated read.</li>
   <li>The selectors for claude.ai's own elements are pinned constants. If claude.ai changes its structure, the extension goes quiet rather than breaking the page.</li>
   <li>The action gate's verb list is an allowlist, so a good move with a verb it does not know is dropped. The list is extended as drops are read; the reading is on <a href="/notes/">Notes</a>.</li>
   <li>Zero moves is a real outcome. How often a press earns nothing in real use is what the field test is measuring.</li>

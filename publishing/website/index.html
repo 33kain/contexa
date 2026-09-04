@@ -29,11 +29,11 @@
 <body>
 <a class="skip" href="#main">Skip to content</a>
 <header class="site">
-  <svg class="mascot" viewBox="0 0 58 58" role="img" aria-label="The CONTEXA mascot: a teal rounded shape with two wide eyes and a small smile">
+  <svg class="mascot" viewBox="0 0 58 50" role="img" aria-label="The CONTEXA mascot: a teal rounded shape with two wide eyes and a small smile">
     <!-- Dark ink goes through a paint server and the eye whites stay flat, so a
          phone's force-dark mode cannot invert the face. See extension/content.js MASCOT_SVG. -->
     <defs><linearGradient id="mg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#2cc4ae"/><stop offset="1" stop-color="#15a594"/></linearGradient><linearGradient id="mp" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="58" y2="0"><stop offset="0" stop-color="#000"/><stop offset="1" stop-color="#000"/></linearGradient><linearGradient id="mo" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="58" y2="0"><stop offset="0" stop-color="#0a352f"/><stop offset="1" stop-color="#0a352f"/></linearGradient></defs>
-    <g transform="translate(0,8)"><path d="M29 3 C43 3 53 12 53 26 L53 50 L5 50 L5 26 C5 12 15 3 29 3 Z" fill="url(#mg)"/><ellipse cx="21" cy="25.5" rx="7.4" ry="8.6" fill="#fff"/><ellipse cx="37" cy="25.5" rx="7.4" ry="8.6" fill="#fff"/><circle cx="22.9" cy="27.2" r="3.8" fill="url(#mp)"/><circle cx="38.9" cy="27.2" r="3.8" fill="url(#mp)"/><circle cx="21.7" cy="25.9" r="1.3" fill="#fff" opacity=".95"/><circle cx="37.7" cy="25.9" r="1.3" fill="#fff" opacity=".95"/><path d="M25 37 Q29 39.5 33 37" stroke="url(#mo)" stroke-width="2.6" fill="none" stroke-linecap="round"/></g>
+    <g><path d="M29 3 C43 3 53 12 53 26 L53 50 L5 50 L5 26 C5 12 15 3 29 3 Z" fill="url(#mg)"/><ellipse cx="21" cy="25.5" rx="7.4" ry="8.6" fill="#fff"/><ellipse cx="37" cy="25.5" rx="7.4" ry="8.6" fill="#fff"/><circle cx="22.9" cy="27.2" r="3.8" fill="url(#mp)"/><circle cx="38.9" cy="27.2" r="3.8" fill="url(#mp)"/><circle cx="21.7" cy="25.9" r="1.3" fill="#fff" opacity=".95"/><circle cx="37.7" cy="25.9" r="1.3" fill="#fff" opacity=".95"/><path d="M25 37 Q29 39.5 33 37" stroke="url(#mo)" stroke-width="2.6" fill="none" stroke-linecap="round"/></g>
   </svg>
   <div>
     <h1 class="name">CONTEXA</h1>
@@ -41,15 +41,11 @@
   </div>
 </header>
 <nav class="site" aria-label="Site">
-  <a href="/" aria-current="page">Overview</a>
-  <a href="/how-it-works/">How it works</a>
-  <a href="/privacy/">Privacy</a>
-  <a href="/notes/">Notes</a>
-  <a href="https://github.com/33kain/contexa">Source</a>
+  <a href="/" aria-current="page">Overview</a> · <a href="/how-it-works/">How it works</a> · <a href="/privacy/">Privacy</a> · <a href="/notes/">Notes</a> · <a href="https://github.com/33kain/contexa">Source</a>
 </nav>
 
 <main id="main">
-<p>CONTEXA is a Chrome extension for claude.ai. When Claude finishes a reply, one trigger appears above the message box. Nothing has been read from the conversation, sent, or spent. Press it, and the extension reads your own messages from the whole conversation (not Claude's earlier replies) and sends them with the reply just received. It comes back with up to four next messages, each written in full. Click one and the whole text lands in the message box, unsent. You edit it and send it yourself. It never sends on your behalf.</p>
+<p>CONTEXA is a Chrome extension for claude.ai. When Claude finishes a reply, one trigger appears above the message box. The reply itself has been copied from the page, and that is all: nothing else has been read, and nothing has been sent or spent. Press it, and the extension reads your own messages from the whole conversation (not Claude's earlier replies) and sends them with the reply just received. It comes back with up to four next messages, each written in full. Click one and the whole text lands in the message box, unsent. You edit it and send it yourself. It never sends on your behalf.</p>
 <p>Every message has to be earned by a verbatim quote from the conversation or the reply, checked before it is drawn. When nothing qualifies, nothing is drawn. Free, no account, 20 presses a day per device; your own API key removes the limit. Version 0.9.70, MIT, <a href="https://github.com/33kain/contexa">source on GitHub</a>.</p>
 <p><a href="https://chromewebstore.google.com/detail/phhamigkjeeabbjncpmhkppkjccfglhb">Install it from the Chrome Web Store</a>. Which browsers can, and how to tell it is working, are under <a href="#install">Install</a> below.</p>
 
@@ -84,7 +80,7 @@
   <p class="sr-only" id="live" aria-live="polite"></p>
   <figcaption>
     <p class="scene" id="cap" aria-hidden="true"></p>
-    <p class="figure-controls"><button type="button" id="replay">Replay</button><button type="button" id="toggle" aria-pressed="false">Pause</button></p>
+    <p class="figure-controls" hidden><button type="button" id="replay">Replay</button><button type="button" id="toggle">Pause</button></p>
     <p id="fig1">Figure 1. The card as the extension draws it, in an invented conversation about a wedding toast. Pressing the trigger offered three moves. Clicking the first put the whole prompt in the message box, unsent; the line beginning <code>Assume:</code> is the part you change before sending. The markup, styles and gestures are the extension's own (<code>extension/content.js</code>); the conversation and the moves are canned for this figure, and nothing here is recorded or sent anywhere. <noscript>The figure animates with JavaScript; without it, this is the frame before the trigger appears.</noscript></p>
   </figcaption>
 </figure>
@@ -92,18 +88,18 @@
 <h2 id="quick-start">Quick start</h2>
 <ol>
   <li><a href="https://chromewebstore.google.com/detail/phhamigkjeeabbjncpmhkppkjccfglhb">Install it from the Chrome Web Store</a>.</li>
-  <li>Open claude.ai and ask anything. When the reply finishes, the mascot appears above the message box. Nothing has been read from the conversation or sent.</li>
-  <li>Press it. This spends one of the day's 20. A row of up to four moves appears, or nothing does.</li>
+  <li>Open claude.ai and ask something that takes a paragraph to answer; a reply under 120 characters gets no trigger. When the reply finishes, the mascot appears above the message box. The reply has been copied from the page; nothing else has been read, and nothing has been sent.</li>
+  <li>Press it. This spends one of the day's 20. A row of up to four moves appears, or a one-line notice says nothing was earned and removes itself.</li>
   <li>Click a move. The whole prompt is in the box, unsent, and picking it cost nothing. Edit it if you want, then send it yourself.</li>
 </ol>
 
 <h2 id="what-it-does">What it does</h2>
-<h3>It reads what you wrote, not only what Claude wrote</h3>
-<p>A follow-up written from the last answer alone is mostly about the last answer. So when you press, it reads your own messages across the whole conversation: the first one, which is usually where you said what you were trying to do, and everything you kept coming back to since. Claude's reply is material, not the subject; what it just built is what makes a new move possible. A move that sends you back over an answer you have already read is the one thing it is written never to offer.</p>
+<h3>It reads your messages across the conversation</h3>
+<p>A follow-up written from the last answer alone is mostly about the last answer. So when you press, it reads your own messages across the conversation as the page holds it: the earliest one it can see, which is usually the first and usually where you said what you were trying to do, and everything you kept coming back to since. On a very long conversation the page holds only its tail; that limit is stated under <a href="/how-it-works/#known-limits">Known limits</a>. Claude's reply is material, not the subject; what it just built is what makes a new move possible. A move that sends you back over an answer you have already read is the one thing it is written never to offer.</p>
 <h3>Each move stands alone</h3>
 <p>Each move is one complete prompt with one ask, ready to send. The moves do not run in order and do not build on each other; picking one discards the rest. Where a prompt needs something only you have (a file, a link, a story only you can tell) it writes <code>&lt;paste here&gt;</code> instead of inventing it. Where the conversation already settled something, it may add a line starting <code>Assume:</code>, so you can change it before you send rather than discover it in the answer.</p>
-<h3>Nothing earned, nothing shown</h3>
-<p>Every move must be earned by a verbatim quote from something actually said in the conversation, by you or by Claude, and that is checked before anything reaches your screen. When nothing is earned, no row is drawn: no filler, no padded row, no suggestion whose only virtue is that it could be shown. On a one-question chat that is the usual result, and the correct one. How often it happens in real use is the open question the current field test exists to answer.</p>
+<h3>Zero is a valid outcome</h3>
+<p>Every move must be earned by a verbatim quote from something actually said in the conversation, by you or by Claude, and that is checked before anything reaches your screen. When nothing is earned, no row is drawn, and no suggestion is shown only because it could be. On a one-question chat that is the usual result, and the correct one. How often it happens in real use is the open question the current field test exists to answer.</p>
 <h3>What it will not do</h3>
 <ul>
   <li>Send anything on your behalf. The message box is where you see the full text before anything goes.</li>
@@ -136,9 +132,9 @@
 <h3>Your own API key</h3>
 <p>Add it in the extension's settings. The daily limit goes away, and requests go from your browser to <code>api.anthropic.com</code> only; no CONTEXA server is involved. The key is stored on your device and is sent nowhere else. Use under your own key falls under your own agreement with Anthropic.</p>
 <h3>How to tell it is working</h3>
-<p>Open claude.ai and send a message. When the reply finishes, the mascot appears above the message box; hover it and it asks <em>What now?</em> If it does not appear, CONTEXA is switched off in its settings, or claude.ai changed its page structure and the extension went quiet, which is what it is built to do instead of breaking the page.</p>
+<p>Open claude.ai and ask something that takes a paragraph to answer. When the reply finishes, the mascot appears above the message box; hover or tab to it and it asks <em>What now?</em> If it does not appear, one of three things is true. The reply was under 120 characters, which never gets a trigger. CONTEXA is switched off in its settings. Or claude.ai changed its page structure and the extension went quiet, which is what it is built to do instead of breaking the page.</p>
 <h3>Developer install</h3>
-<pre>chrome://extensions  →  Developer mode  →  Load unpacked  →  the extension/ folder of the source</pre>
+<p><code>chrome://extensions</code> → Developer mode → Load unpacked → the <code>extension/</code> folder of the source.</p>
 <p>Chrome will warn that it cannot verify where an unpacked extension comes from. That is expected, and it goes away only when installing from the store.</p>
 </main>
 

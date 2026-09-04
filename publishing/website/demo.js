@@ -1,13 +1,15 @@
 /* The reproduced card on the overview page. The card's markup and classes are
    the ones extension/content.js renders (renderTrigger, renderMoves,
-   appendIdeaChip); the prompt is placed in the box in one assignment, as
-   insertPrompt does. The conversation is invented; the mechanism is not.
+   appendIdeaChip); the prompt is placed in the box as one block of text, as
+   insertPrompt does (which, in the extension, appends below any draft). The conversation is invented; the mechanism is not.
    No network, no storage, nothing measured. The frame follows the visitor's
    colour scheme; the only controls are Replay and Pause. */
 (function () {
   'use strict';
   var demo = document.getElementById('demo');
   if (!demo) return;
+  var controls = document.querySelector('.figure-controls');
+  if (controls) controls.hidden = false;
 
   var MOVES = [
     { label: 'Plan three weeks of rehearsal',
@@ -181,7 +183,7 @@
     },
     composed: function () {
       pointerPress();
-      box.textContent = MOVES[0].text;   // one assignment, as insertPrompt does
+      box.textContent = MOVES[0].text;   // one block of text; the extension's insertPrompt appends below any existing draft
       composer.classList.add('filled');
       var c = firstChip();
       later(function () { if (c) c.classList.remove('is-hover'); pointerOff(); }, 420);
@@ -200,7 +202,6 @@
     }
     current = i;
     cap.textContent = SCENES[i][2];
-    live.textContent = SCENES[i][2];
   }
   function scheduleNext() {
     clearTimers();
@@ -224,7 +225,6 @@
     if (playing) return;
     playing = true;
     toggle.textContent = 'Pause';
-    toggle.setAttribute('aria-pressed', 'false');
     if (current >= SCENES.length - 1 || current < 0) { current = -1; setScene(0); }
     scheduleNext();
   }
@@ -232,11 +232,12 @@
     playing = false;
     clearTimers();
     toggle.textContent = 'Play';
-    toggle.setAttribute('aria-pressed', 'true');
   }
+  // The live region speaks only for what the visitor did; the loop itself
+  // stays silent, and the sr-only transcript tells the whole story once.
   toggle.addEventListener('click', function () {
-    if (playing) { userPaused = true; pause(); }
-    else { userPaused = false; play(); }
+    if (playing) { userPaused = true; pause(); live.textContent = 'Paused. ' + SCENES[current][2]; }
+    else { userPaused = false; play(); live.textContent = 'Playing.'; }
   });
   replay.addEventListener('click', function () {
     userPaused = false;
@@ -244,6 +245,7 @@
     current = -1;
     setScene(0);
     play();
+    live.textContent = 'Replaying from the start.';
   });
 
   // Start. Reduced motion: no autoplay, land on the result.
