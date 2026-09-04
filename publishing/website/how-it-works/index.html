@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>How it works - CONTEXA</title>
+<meta name="description" content="What physically happens between a Claude reply finishing and a prompt appearing in your message box: the pipeline, the limits, the two gates, and the known limits.">
+<meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#111111" media="(prefers-color-scheme: dark)">
+<link rel="canonical" href="https://contexa-website.pages.dev/how-it-works/">
+<link rel="stylesheet" href="/site.css">
+<link rel="icon" href="/icon.svg" type="image/svg+xml">
+<link rel="icon" href="/favicon-32.png" type="image/png" sizes="32x32">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="CONTEXA">
+<meta property="og:title" content="How CONTEXA works">
+<meta property="og:description" content="What physically happens between a Claude reply finishing and a prompt appearing in your message box: the pipeline, the limits, the two gates, and the known limits.">
+<meta property="og:url" content="https://contexa-website.pages.dev/how-it-works/">
+<meta property="og:image" content="https://contexa-website.pages.dev/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:type" content="image/png">
+<meta property="og:image:alt" content="The CONTEXA mascot, a teal rounded shape with two wide eyes, beside the words: Claude prompts, without the writing">
+<meta name="twitter:card" content="summary_large_image">
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+<header class="site">
+  <svg class="mascot" viewBox="0 0 58 58" role="img" aria-label="The CONTEXA mascot: a teal rounded shape with two wide eyes and a small smile">
+    <defs><linearGradient id="mg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#2cc4ae"/><stop offset="1" stop-color="#15a594"/></linearGradient><linearGradient id="mp" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="58" y2="0"><stop offset="0" stop-color="#000"/><stop offset="1" stop-color="#000"/></linearGradient><linearGradient id="mo" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="58" y2="0"><stop offset="0" stop-color="#0a352f"/><stop offset="1" stop-color="#0a352f"/></linearGradient></defs>
+    <g transform="translate(0,8)"><path d="M29 3 C43 3 53 12 53 26 L53 50 L5 50 L5 26 C5 12 15 3 29 3 Z" fill="url(#mg)"/><ellipse cx="21" cy="25.5" rx="7.4" ry="8.6" fill="#fff"/><ellipse cx="37" cy="25.5" rx="7.4" ry="8.6" fill="#fff"/><circle cx="22.9" cy="27.2" r="3.8" fill="url(#mp)"/><circle cx="38.9" cy="27.2" r="3.8" fill="url(#mp)"/><circle cx="21.7" cy="25.9" r="1.3" fill="#fff" opacity=".95"/><circle cx="37.7" cy="25.9" r="1.3" fill="#fff" opacity=".95"/><path d="M25 37 Q29 39.5 33 37" stroke="url(#mo)" stroke-width="2.6" fill="none" stroke-linecap="round"/></g>
+  </svg>
+  <div>
+    <a class="name" href="/">CONTEXA</a>
+    <p class="tagline">Claude prompts, without the writing</p>
+  </div>
+</header>
+<nav class="site" aria-label="Site">
+  <a href="/">Overview</a>
+  <a href="/how-it-works/" aria-current="page">How it works</a>
+  <a href="/privacy/">Privacy</a>
+  <a href="/notes/">Notes</a>
+  <a href="https://github.com/33kain/contexa">Source</a>
+</nav>
+
+<main id="main">
+<h1>How it works</h1>
+<p class="stamp">Describes version 0.9.70. Names in monospace are identifiers in the code; the numbers are read from <code>worker/src/index.js</code>, which stays the source when the two disagree.</p>
+
+<p>There are two moments, and only the second costs anything.</p>
+<p>The first is the reply finishing. The content script watches claude.ai's <code>data-is-streaming</code> attribute; when it flips to false (a 1.2 s settle timer is the fallback), the script copies the reply out of the page and stops. It draws one trigger above the message box. No request, no model call. A reply you never ask about never leaves the page.</p>
+<p>The second is you pressing that trigger. Only now does it read your own messages off the page and send them with the reply to the backend, or, with your own key, straight to Anthropic. The model proposes, two gates dispose, and what survives is a row of at most four. Nothing survives, no row.</p>
+
+<h2 id="pipeline">The pipeline</h2>
+<pre>claude.ai reply finishes
+   └─ content.js detects [data-is-streaming] flipping to false
+        └─ captures the reply from the DOM, and STOPS
+             └─ renders one trigger. No model call. Nothing sent.
+
+you click the trigger
+   └─ content.js reads your own messages from the session,
+      live off the DOM ([data-testid="user-message"])
+        └─ { reply, turns[] } goes to the backend
+             └─ the Worker adds the system prompt, calls Anthropic,
+                enforces the quota
+                  └─ two gates run on every returned move
+                       └─ moves earned → a flat row of up to four
+                          nothing      → no row at all
+                            └─ you click one; its whole prompt lands in the box</pre>
+
+<h2 id="what-is-read">What is read, and how much</h2>
+<p>The capture is every <code>[data-testid="user-message"]</code> on the page, read at the moment you press. Claude's earlier replies are not read; only the reply you pressed under is. The session is then trimmed to fit, by a policy with a wrong answer that still looks right. The first captured message is pinned: it is the closest thing to a stated goal, and a conversation read without its opening has lost the point of itself. When the budget is exceeded, the oldest <em>middle</em> messages go first, whole messages only, down to a floor of two. A window that kept the last <em>n</em> messages would have tested perfectly and silently decapitated every long session.</p>
+<div class="scroll">
+<table>
+  <caption>Limits, and where each one binds</caption>
+  <thead><tr><th scope="col">Limit</th><th scope="col">Value</th><th scope="col">Constant</th><th scope="col">Enforced by</th></tr></thead>
+  <tbody>
+    <tr><th scope="row">Your messages sent</th><td>at most 40</td><td><code>MAX_TURNS</code></td><td>the extension, then the worker</td></tr>
+    <tr><th scope="row">Characters per message</th><td>2,000</td><td><code>MAX_TURN_CHARS</code></td><td>the extension, then the worker</td></tr>
+    <tr><th scope="row">Characters of your messages, in total</th><td>12,000</td><td><code>MAX_TURNS_TOTAL_CHARS</code></td><td>the extension, then the worker</td></tr>
+    <tr><th scope="row">Characters of the reply</th><td>6,000</td><td><code>MAX_REPLY_CHARS</code></td><td>the extension, then the worker</td></tr>
+    <tr><th scope="row">Shortest reply it will ask about</th><td>50 characters</td><td><code>MIN_REPLY_CHARS</code></td><td>the worker, before any upstream call</td></tr>
+    <tr><th scope="row">Presses per device per day</th><td>20, reset at midnight UTC</td><td><code>REPLIES_PER_DAY</code></td><td>the worker</td></tr>
+    <tr><th scope="row">Presses per hashed IP address per day</th><td>200</td><td><code>IP_DAILY_LIMIT</code></td><td>the worker</td></tr>
+    <tr><th scope="row">Moves returned</th><td>0 to 4</td><td></td><td>the prompt, then the gates</td></tr>
+    <tr><th scope="row">Model, on both paths</th><td><code>claude-sonnet-5</code></td><td><code>MODEL</code></td><td>the worker and the extension</td></tr>
+  </tbody>
+</table>
+</div>
+<p>The caps are applied twice, by the extension before it sends and again by the worker before anything is forwarded, and the second one is what binds: a modified client cannot make a request cost more. With your own key there is no daily limit, and the size caps are the extension's own.</p>
+
+<h2 id="request">The request, and the two paths</h2>
+<pre>request   { reply, turns[] }
+response  { moves: [{ label, text, evidence }], grounding, quota }</pre>
+<p>A request with no turns is refused before either quota is charged. Error bodies from upstream are never forwarded to the browser.</p>
+<pre>hosted    extension → Cloudflare Worker → Anthropic
+          (the worker holds the API key and enforces the quotas)
+own key   extension → api.anthropic.com
+          (no server involved, no daily limit)</pre>
+<p>Both paths send a byte-identical system prompt and run byte-identical gate code. The build script extracts both copies and fails the build if they differ, on the rule that a gate living only in the worker is a gate half the users do not have.</p>
+
+<h2 id="gate-one">Gate one: evidence</h2>
+<p><code>groundMoves</code> checks every returned move for a verbatim quote, over your messages and the reply as two separate haystacks, in that order, so the session's own material is never credited to the reply. Each move records which haystack earned it (<code>fromTurns</code> or <code>fromReply</code>). No evidence at all: dropped. A near-miss quote renders, but is counted and logged.</p>
+<p>A perfect quote is not proof of a good row. A row transcribed from the reply's own list of options grounds flawlessly. The prompt names that as the most seductive failure: the reply is material, never the subject. Once a session has more than a couple of messages, at least one move has to be earned by something you wrote. It was the first defect the field test found; the entry is on <a href="/notes/">Notes</a>.</p>
+
+<h2 id="gate-two">Gate two: action</h2>
+<p><code>enforceAction</code> drops any move whose label does not open with a doable imperative verb from an allowlist (<code>ACTION_OPENERS</code>, English and Serbian). It fails closed: an unknown verb is a drop, not a warning, so a row of good moves can be emptied by the verb list rather than by the model. A label is at most six words and names the action and the thing it acts on, as in <em>Plan three weeks of rehearsal</em>.</p>
+
+<h2 id="empty">An empty row has two causes</h2>
+<p>The model can honestly earn nothing, or the action gate can drop everything it returned. The grounding result carries <code>total</code>, the number of moves before any gate ran, so the two are told apart: <code>total = 0</code> is an honest zero, and <code>total &gt; 0</code> with nothing left is a gate emptying the row. The card says which. It is inert, with no pointer events, because an element that looks clickable would be a floor. Until 0.9.64 both causes drew the same card.</p>
+
+<h2 id="box">What lands in the box</h2>
+<p>Clicking a move places its whole prompt in the message box in one assignment. Nothing is typed for you and nothing is sent; you edit and send it yourself. Picking costs nothing, because the messages arrived already written. Everything the model returns (labels, texts, evidence) is rendered as text, never as markup, because it is generated text drawn into a third-party page. The suggestions for a reply are cached briefly in your browser, so pressing twice under the same reply does not spend twice.</p>
+
+<h2 id="known-limits">Known limits</h2>
+<ul>
+  <li>A virtualised transcript only has its rendered rows in the DOM, so on a very long page the capture sees the tail, not the whole conversation. Turn numbers are capture positions, not conversation positions, and the prompt is written to say "the earliest message you can see" for that reason. The console logs the message count and index range, so a contiguous 1 to 4 on a long conversation can be recognised as a truncated read.</li>
+  <li>The selectors for claude.ai's own elements are pinned constants. If claude.ai changes its structure, the extension goes quiet rather than breaking the page.</li>
+  <li>The action gate's verb list is an allowlist, so a good move with a verb it does not know is dropped. The list is extended as drops are read; the reading is on <a href="/notes/">Notes</a>.</li>
+  <li>Zero moves is a real outcome. How often a press earns nothing in real use is what the field test is measuring.</li>
+  <li>Not built: a prompt library or templates with variables; cross-device sync, which would need accounts, and the device token is anonymous by design.</li>
+</ul>
+
+<p><a href="https://chromewebstore.google.com/detail/phhamigkjeeabbjncpmhkppkjccfglhb">Install it from the Chrome Web Store</a>, or read the source: the content script is <code>extension/content.js</code>, the backend is <code>worker/src/index.js</code>, and the gates are duplicated across both on purpose.</p>
+</main>
+
+<footer class="site">
+  <p>CONTEXA is an independent project. It is not affiliated with, endorsed by, or sponsored by Anthropic.</p>
+  <p><a href="https://chromewebstore.google.com/detail/phhamigkjeeabbjncpmhkppkjccfglhb">Chrome Web Store</a> · <a href="https://github.com/33kain/contexa">Source on GitHub</a> · <a href="https://github.com/33kain/contexa/blob/main/LICENSE">MIT licence</a> · <a href="https://github.com/33kain/contexa/blob/main/publishing/PRIVACY.md">Privacy policy</a> · <a href="https://github.com/33kain/contexa/blob/main/CHANGELOG.md">Changelog</a></p>
+  <p class="muted">Version 0.9.70. This site is static files served from one origin: no fonts, scripts, images or analytics are loaded from anywhere else.</p>
+</footer>
+</body>
+</html>

@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>Notes - CONTEXA</title>
+<meta name="description" content="The rules CONTEXA follows, the versions that broke them, and what is deliberately not built. Things learned the hard way, newest first.">
+<meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#111111" media="(prefers-color-scheme: dark)">
+<link rel="canonical" href="https://contexa-website.pages.dev/notes/">
+<link rel="stylesheet" href="/site.css">
+<link rel="icon" href="/icon.svg" type="image/svg+xml">
+<link rel="icon" href="/favicon-32.png" type="image/png" sizes="32x32">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="CONTEXA">
+<meta property="og:title" content="CONTEXA notes: things learned the hard way">
+<meta property="og:description" content="The rules CONTEXA follows, the versions that broke them, and what is deliberately not built. Newest first.">
+<meta property="og:url" content="https://contexa-website.pages.dev/notes/">
+<meta property="og:image" content="https://contexa-website.pages.dev/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:type" content="image/png">
+<meta property="og:image:alt" content="The CONTEXA mascot, a teal rounded shape with two wide eyes, beside the words: Claude prompts, without the writing">
+<meta name="twitter:card" content="summary_large_image">
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+<header class="site">
+  <svg class="mascot" viewBox="0 0 58 58" role="img" aria-label="The CONTEXA mascot: a teal rounded shape with two wide eyes and a small smile">
+    <defs><linearGradient id="mg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#2cc4ae"/><stop offset="1" stop-color="#15a594"/></linearGradient><linearGradient id="mp" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="58" y2="0"><stop offset="0" stop-color="#000"/><stop offset="1" stop-color="#000"/></linearGradient><linearGradient id="mo" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="58" y2="0"><stop offset="0" stop-color="#0a352f"/><stop offset="1" stop-color="#0a352f"/></linearGradient></defs>
+    <g transform="translate(0,8)"><path d="M29 3 C43 3 53 12 53 26 L53 50 L5 50 L5 26 C5 12 15 3 29 3 Z" fill="url(#mg)"/><ellipse cx="21" cy="25.5" rx="7.4" ry="8.6" fill="#fff"/><ellipse cx="37" cy="25.5" rx="7.4" ry="8.6" fill="#fff"/><circle cx="22.9" cy="27.2" r="3.8" fill="url(#mp)"/><circle cx="38.9" cy="27.2" r="3.8" fill="url(#mp)"/><circle cx="21.7" cy="25.9" r="1.3" fill="#fff" opacity=".95"/><circle cx="37.7" cy="25.9" r="1.3" fill="#fff" opacity=".95"/><path d="M25 37 Q29 39.5 33 37" stroke="url(#mo)" stroke-width="2.6" fill="none" stroke-linecap="round"/></g>
+  </svg>
+  <div>
+    <a class="name" href="/">CONTEXA</a>
+    <p class="tagline">Claude prompts, without the writing</p>
+  </div>
+</header>
+<nav class="site" aria-label="Site">
+  <a href="/">Overview</a>
+  <a href="/how-it-works/">How it works</a>
+  <a href="/privacy/">Privacy</a>
+  <a href="/notes/" aria-current="page">Notes</a>
+  <a href="https://github.com/33kain/contexa">Source</a>
+</nav>
+
+<main id="main">
+<h1>Notes</h1>
+<p class="stamp">The rules the product follows, the versions that broke them, and what is deliberately not built. Condensed from the <a href="https://github.com/33kain/contexa/blob/main/CHANGELOG.md">changelog</a>, which has the measurements. Nothing here is a roadmap.</p>
+
+<p>The rule that produced most of the others: zero is a valid outcome. There is no floor, no fallback move, no minimum count and no ceiling. Every failure class this project has recorded came from something that guaranteed a non-empty row.</p>
+
+<h2 id="rules">Rules, and the failure behind each</h2>
+<h3>Never fake output</h3>
+<p>Earlier builds fell back to canned suggestions when the API failed, which made a broken integration look like a working one. Degraded states now say what actually happened: a limit reached, a parse failure, a network error.</p>
+<h3>Clicking is the only input</h3>
+<p>There is no box to type into anywhere in the product. Material you have to supply becomes a <code>&lt;paste here&gt;</code> slot inside the written prompt, which you fill in the message box before sending.</p>
+<h3>One move, one verb</h3>
+<p>Within a single move, if a bullet could be sent on its own as a complete request, it is a second job and does not belong there. Between moves the rule inverts, deliberately: every move must stand alone as a complete request. That is the difference between a menu and a checklist, and it is the whole point of the row.</p>
+<h3>No categories or personas</h3>
+<p>An earlier version tagged suggestions by lens (sharpen, explore, constrain). It made the output feel like a taxonomy exercise instead of a colleague talking. Removed.</p>
+<h3>One control, one job</h3>
+<p>The trigger and a type-it-yourself chip once shared a row and did different things, which needed a rule to keep them apart. The second control is gone; the rule it needed is why a second one should not return without a reason better than convenience.</p>
+<h3>Selectors degrade quietly</h3>
+<p>If claude.ai's page structure changes, the extension goes silent rather than breaking the page. The selectors are pinned constants at the top of the content script.</p>
+
+<h2 id="versions">By version, newest first</h2>
+<dl>
+  <dt><code>0.9.70</code></dt>
+  <dd>The mascot's face was not too small on phones; it was being inverted. A browser's force-dark mode inverts flat fills darker than a brightness threshold but leaves SVG paint servers alone, and a scan of all 16,777,216 sRGB colours found no flat colour that survives every render mode at 4.5:1. So the escape was the role, not the colour: the pupils, mouth and whisper now paint through single-colour gradients, and every pixel of ink is byte-identical across all four modes. The test suite asserts it.</dd>
+  <dt><code>0.9.69</code></dt>
+  <dd>A field screenshot from a phone showed washed-out pupils, and the ink was darkened. The next screenshot had no pupils at all. A fix pointed the wrong way; the direction of the failure was the diagnosis.</dd>
+  <dt><code>0.9.67</code></dt>
+  <dd>The action gate's drops were read for the first time, from a live tail of the worker across ten sessions, half of them in Serbian. 36 moves came back and 14 were dropped; nine of the drops were doable clicks the verb list did not know. The gate fails closed, so an unknown verb does not degrade a row, it empties one. Verbs were added; 0.9.68 added one more, found by verifying that release.</dd>
+  <dt><code>0.9.66</code></dt>
+  <dd>A third gate, which required a spread of sources across the row, was removed after measurement: one run in six was emptied by it, and every row it took was good.</dd>
+  <dt><code>0.9.64</code></dt>
+  <dd>An empty row started saying which kind of empty it is. Three causes had drawn one identical card: the model earning nothing (the product working), the action gate finding no verb it knew, and the spread gate dropping an all-reply row. Only the first is honest. The diagnostics were console-only, and the product is field-tested on a phone, which has no console, so the card now carries the reason. The same release moved the result cache out of the service worker, which Chrome tears down at will; a second press under the same reply had been a fresh sample.</dd>
+  <dt><code>0.9.59</code></dt>
+  <dd>The first field test, on Android, sideloaded with an own key. Mobile worked with nothing changed. The defect it found: on a short session with a long enumerative reply, the row transcribed the reply's own list of options, and the evidence gate scored that as flawless. The gate built to prevent invention was quietly selecting for transcription. The prompt now names copying the reply's list as the most seductive failure.</dd>
+  <dt><code>0.9.58</code></dt>
+  <dd>The history-mining pivot. It stopped reading the reply for a question and started reading your own messages across the whole session for an idea: up to four independent moves, each send-ready. The click-to-answer interview, its pagination, the free-text box, the fifth chip, and the three-generation schema negotiation were deleted, 4,222 lines in all. The first message was pinned and the oldest middle ones made to drop first, whole messages only. Grounding widened to your messages plus the reply; checked against the reply alone, a working product would have reported itself broken.</dd>
+  <dt><code>0.9.55</code></dt>
+  <dd>The mascot became the trigger: a real button with the label "What now?", a hover bubble that can never intercept a click, a fade instead of a pop-in under reduced motion.</dd>
+  <dt><code>0.9.53</code></dt>
+  <dd>The model call stopped happening for every reply and started happening on the press. Before, every completed reply spent a call, so a twenty-message conversation could exhaust the day without a single click. The larger consequence was a side effect: nothing about the conversation leaves the page until a deliberate click. Capture of the reply stayed eager, because it is free and the page is settled at that moment; only the call moved.</dd>
+  <dt><code>0.9.31</code></dt>
+  <dd>The Chrome Web Store approves updates on its own clock, so no deploy order avoids a window in which old and new clients hit the same backend. The worker learned to serve two client generations at once. A bug caught by its own test: a parser that read one key only would have turned every legacy call into "the model earned nothing", a total outage wearing the mask of correct behaviour.</dd>
+  <dt><code>0.9.30</code></dt>
+  <dd>The product became a click-to-answer interview: one question at a time, numbered options, a free-text "Something else". All of it was deleted at 0.9.58.</dd>
+</dl>
+
+<h2 id="not-built">Not built</h2>
+<ul>
+  <li>A prompt library, or templates with variables.</li>
+  <li>Cross-device sync. It would need accounts, and the device token is anonymous by design.</li>
+</ul>
+
+<h2 id="status">Status</h2>
+<p>Version 0.9.70 is the number in the extension's manifest and in the worker's <code>BUILD</code> constant; the worker's <code>/v1/health</code> reports it with the model and the limit, so a deploy can be told from a no-op. The shipped model on both paths is <code>claude-sonnet-5</code>. The open question of the field test is how often a press earns nothing.</p>
+</main>
+
+<footer class="site">
+  <p>CONTEXA is an independent project. It is not affiliated with, endorsed by, or sponsored by Anthropic.</p>
+  <p><a href="https://chromewebstore.google.com/detail/phhamigkjeeabbjncpmhkppkjccfglhb">Chrome Web Store</a> · <a href="https://github.com/33kain/contexa">Source on GitHub</a> · <a href="https://github.com/33kain/contexa/blob/main/LICENSE">MIT licence</a> · <a href="https://github.com/33kain/contexa/blob/main/publishing/PRIVACY.md">Privacy policy</a> · <a href="https://github.com/33kain/contexa/blob/main/CHANGELOG.md">Changelog</a></p>
+  <p class="muted">Version 0.9.70. This site is static files served from one origin: no fonts, scripts, images or analytics are loaded from anywhere else.</p>
+</footer>
+</body>
+</html>
