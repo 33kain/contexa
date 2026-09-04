@@ -27,8 +27,13 @@ jobs:
       # wrangler pages deploy refuses to create a new project non-interactively
       # ("cannot be run in a non-interactive context"). This creates it once;
       # `|| true` makes every later push a no-op once the project exists.
+      # Bounded and non-interactive: on 2026-09-04 this step hung for good
+      # (the project already existed, and the previous run had taken 14 s),
+      # so a prompt or a stalled install can no longer hold the deploy.
       - name: Ensure the Pages project exists
-        run: npx wrangler pages project create contexa-website --production-branch=main || true
+        timeout-minutes: 3
+        continue-on-error: true
+        run: npx --yes wrangler pages project create contexa-website --production-branch=main < /dev/null || true
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
