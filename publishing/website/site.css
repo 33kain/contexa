@@ -1,0 +1,243 @@
+/* CONTEXA website. Hand-written; no framework, no build step, no web font, no
+   script or image loaded from anywhere else. One stylesheet for four pages.
+
+   The page is black-ish on white by choice: the system sans, one link colour
+   (the mascot's ink, #0e6e63), rules between sections, tables for numbers,
+   <pre> for anything the code names. Dark follows the visitor's system
+   setting; there is no toggle. Nothing here has a gradient, a shadow, a glow
+   or a transition, except inside the reproduced card, which is the product
+   and keeps its own look (see the demo block at the end). */
+
+:root {
+  color-scheme: light dark;
+  --bg: #fff;
+  --text: #333;
+  --strong: #111;
+  --muted: #666;
+  --rule: #ccc;
+  --hair: #e6e6e6;
+  --code-bg: #f4f4f4;
+  --link: #0e6e63;      /* 6.1:1 on white */
+  --warn: #900;         /* 8.9:1 on white */
+  --focus: #0e6e63;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #111;
+    --text: #ccc;
+    --strong: #eee;
+    --muted: #999;
+    --rule: #444;
+    --hair: #2a2a2a;
+    --code-bg: #1c1c1c;
+    --link: #2cc4ae;    /* 8.6:1 on #111 */
+    --warn: #f0917f;
+    --focus: #2cc4ae;
+  }
+}
+
+html { background: var(--bg); color: var(--text); }
+body {
+  margin: 0 auto;
+  max-width: 48rem;
+  padding: 0 1.25rem 3rem;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Noto Sans", Helvetica, Arial, sans-serif;
+  font-size: 17px;
+  line-height: 1.5;
+}
+@media (max-width: 40em) { body { font-size: 16px; padding: 0 1rem 2rem; } }
+
+h1, h2, h3 { color: var(--strong); line-height: 1.2; }
+h1 { font-size: 2em; font-weight: 400; margin: 1.5rem 0 .25rem; }
+h2 { font-size: 1.35em; font-weight: 600; margin: 2.4rem 0 .6rem; }
+h3 { font-size: 1.05em; font-weight: 600; margin: 1.6rem 0 .4rem; }
+p, ul, ol, dl, table, pre, figure, blockquote { margin: 0 0 1rem; }
+p, li, dd, figcaption { max-width: 72ch; text-wrap: pretty; }
+ul, ol { padding-left: 1.4rem; }
+li { margin-bottom: .35rem; }
+li > ul, li > ol { margin-top: .35rem; }
+strong { color: var(--strong); font-weight: 600; }
+small, .muted { color: var(--muted); }
+.muted { font-size: .92em; }
+.warn { color: var(--warn); }
+
+a { color: var(--link); text-decoration: underline; text-decoration-thickness: 1px; text-underline-offset: .15em; }
+a:hover { text-decoration-thickness: 2px; }
+:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+
+hr { border: 0; border-top: 1px solid var(--rule); margin: 2rem 0; }
+
+code, pre, kbd, samp {
+  font-family: ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, "Cascadia Mono", "Liberation Mono", "DejaVu Sans Mono", monospace;
+  font-size: .9em;
+}
+code { background: var(--code-bg); padding: 1px 4px; border-radius: 2px; }
+pre {
+  background: var(--code-bg);
+  border: 1px solid var(--hair);
+  padding: .7rem .9rem;
+  overflow-x: auto;
+  line-height: 1.4;
+  tab-size: 4;
+}
+pre code { background: none; padding: 0; font-size: inherit; }
+
+table { border-collapse: collapse; width: 100%; font-size: .95em; font-variant-numeric: tabular-nums; }
+caption { text-align: left; color: var(--muted); font-size: .92em; padding: 0 0 .4rem; }
+th, td { text-align: left; vertical-align: top; padding: .4rem .6rem .4rem 0; }
+th { color: var(--strong); font-weight: 600; border-bottom: 1px solid var(--rule); }
+td { border-bottom: 1px solid var(--hair); }
+tbody th { font-weight: 400; color: var(--text); border-bottom: 1px solid var(--hair); }
+.scroll { overflow-x: auto; margin: 0 0 1rem; }
+.scroll table { margin: 0; min-width: 32rem; }
+
+dl { display: grid; grid-template-columns: max-content 1fr; gap: .3rem 1.2rem; }
+dt { color: var(--strong); font-weight: 600; }
+dd { margin: 0; }
+@media (max-width: 40em) { dl { grid-template-columns: 1fr; gap: 0; } dt { margin-top: .6rem; } }
+
+/* masthead: mascot, name, tagline, one line of text links, a rule */
+.skip { position: absolute; left: -10000px; top: auto; width: 1px; height: 1px; overflow: hidden; }
+.skip:focus { position: static; width: auto; height: auto; display: inline-block; padding: .25rem .5rem; }
+header.site { display: flex; align-items: center; gap: 1rem; margin: 1.75rem 0 0; }
+header.site .mascot { width: 58px; height: 50px; flex: none; }
+header.site .name { font-size: 1.5em; color: var(--strong); text-decoration: none; font-weight: 400; line-height: 1.1; margin: 0; display: block; }
+header.site .tagline { margin: .15rem 0 0; color: var(--muted); font-style: italic; }
+nav.site { margin: 1rem 0 0; padding-bottom: 1rem; border-bottom: 1px solid var(--rule); color: var(--muted); word-spacing: .15em; }
+nav.site a { white-space: nowrap; word-spacing: normal; }
+nav.site [aria-current="page"] { color: var(--strong); text-decoration: none; }
+
+/* footer */
+footer.site { margin-top: 3rem; padding-top: 1rem; border-top: 1px solid var(--rule); font-size: .95em; }
+footer.site p { margin: .4rem 0; max-width: none; }
+
+/* figures */
+figure { margin: 1.5rem 0; }
+figcaption { color: var(--muted); font-size: .92em; margin-top: .6rem; }
+figcaption p { margin: 0 0 .5rem; max-width: none; }
+.figure-controls { font-size: .92em; }
+.figure-controls button {
+  background: none; border: 0; padding: 0; margin: 0 .6rem 0 0;
+  font: inherit; color: var(--link); text-decoration: underline; text-underline-offset: .15em; cursor: pointer;
+}
+.figure-controls button:hover { text-decoration-thickness: 2px; }
+.figure-controls button[disabled] { color: var(--muted); text-decoration: none; cursor: default; }
+.scene { min-height: 2.8em; }
+.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+
+/* the version stamp under a page title */
+.stamp { color: var(--muted); font-size: .92em; margin: 0 0 1.5rem; }
+
+@media print {
+  :root { --bg: #fff; --text: #000; --strong: #000; --muted: #333; --link: #000; --rule: #999; --hair: #bbb; --code-bg: #fff; }
+  nav.site, .skip, .figure-controls, .demo .pointer { display: none !important; }
+  body { padding: 0; }
+  pre { font-size: .75em; }
+  a[href^="http"]::after { content: " (" attr(href) ")"; font-size: .9em; }
+  table, figure, pre { break-inside: avoid; }
+  h2, h3 { break-after: avoid; }
+  @page { margin: 2cm; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .demo .pointer { display: none; }
+  .demo *, .demo *::before, .demo *::after { animation: none !important; transition: none !important; }
+}
+
+/* ------------------------------------------------------------------------
+   The reproduced card. Everything from here down draws claude.ai's frame
+   (tokens from scripts/screenshots/mock-claude.html) and the card exactly as
+   extension/content.js draws it (.wrap, .label, .chips, .chip, the mascot
+   trigger and its gestures). It keeps the product's own pill chips, its
+   sparkle label and its animations because it is the product; the frame
+   around it is a plain 1px rule, not a window. data-mode is set by demo.js
+   from the visitor's colour scheme.
+   ------------------------------------------------------------------------ */
+.demo {
+  --bg: #262624; --panel: #30302E; --line: #3F3F3C; --ink: #F5F4EF; --ink2: #C2C0B6; --ink3: #8F8D85;
+  --user-bg: #3A3A37; --coral: #D97757; --cx: #2cc4ae;
+  position: relative; overflow: hidden; background: var(--bg); color: var(--ink);
+  border: 1px solid var(--rule); max-width: 680px;
+  font: 13px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Noto Sans", Helvetica, Arial, sans-serif;
+}
+.demo[data-mode="light"] {
+  --bg: #FAF9F5; --panel: #FFFFFF; --line: #E8E6DE; --ink: #3D3929; --ink2: #5A574A; --ink3: #8A877A;
+  --user-bg: #FFFFFF; --cx: #15a594;
+}
+.demo .stage { transition: opacity .3s ease; pointer-events: none; }
+.demo.fade .stage { opacity: 0; }
+.demo.noanim *, .demo.noanim *::before, .demo.noanim *::after { animation: none !important; transition: none !important; }
+.demo .top { padding: 10px 16px; border-bottom: 1px solid var(--line); font-size: 14px; font-weight: 600; letter-spacing: .01em; }
+.demo .col { padding: 18px 18px 0; }
+.demo .row { margin-bottom: 14px; }
+.demo .user { display: flex; justify-content: flex-end; }
+.demo .user span { display: block; background: var(--user-bg); border: 1px solid var(--line); border-radius: 12px;
+  padding: 9px 13px; max-width: 82%; transition: box-shadow .25s, border-color .25s; }
+.demo .user.lit span { border-color: var(--cx); box-shadow: 0 0 0 1px var(--cx); }
+.demo .reply p { margin: 0 0 9px; color: var(--ink); max-width: none; line-height: 1.6; }
+.demo .reply strong { font-weight: 650; color: inherit; }
+.demo .slot { min-height: 66px; display: flex; align-items: flex-end; }
+.demo .dock { padding: 0 18px 18px; }
+.demo .composer { display: flex; align-items: flex-end; gap: 10px; background: var(--panel); border: 1px solid var(--line);
+  border-radius: 16px; padding: 11px 11px 11px 15px; box-shadow: 0 2px 14px rgba(0,0,0,.16); transition: border-color .2s; }
+.demo[data-mode="light"] .composer { box-shadow: 0 2px 14px rgba(0,0,0,.05); }
+.demo .composer.filled { border-color: var(--ink3); }
+.demo .box { flex: 1; min-height: 22px; white-space: pre-wrap; color: var(--ink); line-height: 1.5; align-self: center; }
+.demo .box:empty::before { content: attr(data-placeholder); color: var(--ink3); }
+.demo .send { flex: none; width: 28px; height: 28px; border: none; border-radius: 50%; background: var(--coral); color: #fff;
+  font-size: 11px; display: grid; place-items: center; }
+.demo .pointer { position: absolute; left: 0; top: 0; width: 14px; height: 14px; border: 2px solid var(--cx); border-radius: 50%;
+  box-shadow: 0 0 0 3px rgba(44,196,174,.18); transform: translate(-50%,-50%); opacity: 0; pointer-events: none; z-index: 3;
+  transition: left .6s cubic-bezier(.4,0,.2,1), top .6s cubic-bezier(.4,0,.2,1), transform .12s, opacity .2s; }
+.demo .pointer.on { opacity: 1; }
+.demo .pointer.press { transform: translate(-50%,-50%) scale(.68); }
+/* the card, as extension/content.js draws it */
+.demo .wrap { --surface: #FFFFFF; --surface2: #FAF9F5; --text: #3D3929; --text2: #73726C;
+  --border: #E8E6DE; --border2: #DEDCD1; --accent: #15a594; --accent-soft: #E0F2EF;
+  display: block; margin: 8px 0 16px; max-width: 680px;
+  opacity: 0; transform: translateY(4px); transition: opacity .22s ease, transform .22s ease; }
+.demo .wrap[data-theme="dark"] { --surface: #30302E; --surface2: #3A3A37; --text: #EDECE6;
+  --text2: #A6A49B; --border: #3F3F3C; --border2: #4A4A46; --accent: #2cc4ae; --accent-soft: #274641; }
+.demo .wrap.show { opacity: 1; transform: none; }
+.demo .label { display: flex; align-items: center; gap: 6px; font-size: 9.5px; letter-spacing: .15em;
+  text-transform: uppercase; color: var(--text2); margin-bottom: 6px; }
+.demo .label b { color: var(--accent); font-weight: 700; letter-spacing: .17em; }
+.demo .chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.demo .chip { display: inline-flex; align-items: center; background: var(--surface);
+  border: 1px solid var(--border2); border-radius: 999px; padding: 5px 12px; cursor: pointer;
+  font-size: 12px; line-height: 1.35; color: var(--text); font-family: inherit; white-space: nowrap;
+  max-width: 100%; overflow: hidden; text-overflow: ellipsis;
+  transition: border-color .14s, color .14s, transform .1s, background .14s; }
+.demo .chip:hover, .demo .chip.is-hover { border-color: var(--accent); color: var(--accent); background: var(--surface2);
+  transform: translateY(-1px); }
+.demo .chip.busy { border-style: dashed; color: var(--text2); cursor: default; animation: cxpulse 1.2s ease-in-out infinite; }
+@keyframes cxpulse { 0%,100% { opacity: .55; } 50% { opacity: 1; } }
+.demo .ctxa-mas-slot { display: inline-flex; align-items: center; gap: 8px; }
+.demo .ctxa-mas { background: none; border: none; padding: 0; cursor: pointer; position: relative; display: inline-flex; line-height: 0; }
+.demo .ctxa-mas svg { width: 40px; height: 34.5px; display: block; }
+.demo .ctxa-mas:disabled { cursor: default; }
+.demo .ctxa-mas-bubble { position: absolute; bottom: 100%; left: 50%;
+  transform: translateX(-50%) translateY(3px);
+  margin-bottom: 7px; background: var(--surface); color: var(--text);
+  border: 1px solid var(--border2); border-radius: 999px; padding: 4px 11px;
+  font-size: 11px; line-height: 1.35; white-space: nowrap; opacity: 0; transition: .2s;
+  pointer-events: none; box-shadow: 0 2px 8px rgba(0,0,0,.07); }
+.demo .ctxa-mas.ctxa-peek .ctxa-mas-bubble { transform: translateX(-50%) translateY(0); opacity: 1; }
+.demo .ctxa-mas-bubble b { color: var(--accent); font-weight: 700; }
+.demo .ctxa-mas { animation: ctxa-popin .55s cubic-bezier(.3,1.2,.4,1); transform-origin: 50% 100%; }
+@keyframes ctxa-popin { 0% { transform: scale(0); } 62% { transform: scale(1.12,.86); } 82% { transform: scale(.95,1.06); } 100% { transform: scale(1); } }
+.demo .ctxa-mas-wink { animation: ctxa-winkIdle 6s infinite; transform-box: fill-box; transform-origin: center; }
+@keyframes ctxa-winkIdle { 0%,93%,100% { transform: scaleY(1); } 94.5%,96.5% { transform: scaleY(.08); } }
+.demo .ctxa-mas-pup { animation: ctxa-glance 8s ease-in-out infinite; }
+@keyframes ctxa-glance { 0%,72%,100% { transform: translateX(0); } 80%,90% { transform: translateX(1.5px); } }
+.demo .ctxa-mas.ctxa-peek .ctxa-mas-wink { animation: ctxa-winkOnce .4s ease; }
+@keyframes ctxa-winkOnce { 0%,100% { transform: scaleY(1); } 35%,65% { transform: scaleY(.08); } }
+.demo .ctxa-mas-whisp { opacity: 0; transition: .2s; }
+.demo .ctxa-mas.ctxa-peek .ctxa-mas-whisp { opacity: 1; }
+.demo .ctxa-mas.ctxa-hop { animation: ctxa-hop .35s ease; }
+@keyframes ctxa-hop { 40% { transform: translateY(-8px); } }
+@media (prefers-reduced-motion: reduce) {
+  .demo .ctxa-mas { animation: ctxa-fadein .3s ease; }
+  @keyframes ctxa-fadein { from { opacity: 0; } to { opacity: 1; } }
+  .demo .ctxa-mas-wink, .demo .ctxa-mas-pup { animation: none; }
+}
+@media (max-width: 480px) { .demo .user span { max-width: 92%; } }

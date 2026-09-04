@@ -1,0 +1,18 @@
+# Cloudflare Pages response headers for publishing/website/. The CSP allows
+# nothing but this origin: no inline script or style, no data: URIs, nothing
+# from anywhere else. That is what makes the footer's "loads nothing from
+# anywhere else" a checkable claim rather than a promise.
+/*
+  Content-Security-Policy: default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: no-referrer
+  Permissions-Policy: camera=(), microphone=(), geolocation=(), payment=(), usb=(), browsing-topics=()
+  X-Frame-Options: DENY
+/og.png
+  Cache-Control: public, max-age=604800
+/icon.svg
+  Cache-Control: public, max-age=604800
+/favicon-32.png
+  Cache-Control: public, max-age=604800
+/apple-touch-icon.png
+  Cache-Control: public, max-age=604800

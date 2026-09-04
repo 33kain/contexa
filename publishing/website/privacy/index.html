@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>Privacy - CONTEXA</title>
+<meta name="description" content="What leaves your browser, and when: nothing until you press the trigger, then your own messages from that conversation and the reply, never stored. The short form of the CONTEXA privacy policy.">
+<meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#111111" media="(prefers-color-scheme: dark)">
+<link rel="canonical" href="https://contexa-website.pages.dev/privacy/">
+<link rel="stylesheet" href="/site.css">
+<link rel="icon" href="/icon.svg" type="image/svg+xml">
+<link rel="icon" href="/favicon-32.png" type="image/png" sizes="32x32">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="CONTEXA">
+<meta property="og:title" content="CONTEXA privacy: what leaves your browser, and when">
+<meta property="og:description" content="Nothing until you press the trigger, then your own messages from that conversation and the reply, never stored. The short form of the CONTEXA privacy policy.">
+<meta property="og:url" content="https://contexa-website.pages.dev/privacy/">
+<meta property="og:image" content="https://contexa-website.pages.dev/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:type" content="image/png">
+<meta property="og:image:alt" content="The CONTEXA mascot, a teal rounded shape with two wide eyes, beside the words: Claude prompts, without the writing">
+<meta name="twitter:card" content="summary_large_image">
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+<header class="site">
+  <svg class="mascot" viewBox="0 0 58 50" role="img" aria-label="The CONTEXA mascot: a teal rounded shape with two wide eyes and a small smile">
+    <defs><linearGradient id="mg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#2cc4ae"/><stop offset="1" stop-color="#15a594"/></linearGradient><linearGradient id="mp" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="58" y2="0"><stop offset="0" stop-color="#000"/><stop offset="1" stop-color="#000"/></linearGradient><linearGradient id="mo" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="58" y2="0"><stop offset="0" stop-color="#0a352f"/><stop offset="1" stop-color="#0a352f"/></linearGradient></defs>
+    <g><path d="M29 3 C43 3 53 12 53 26 L53 50 L5 50 L5 26 C5 12 15 3 29 3 Z" fill="url(#mg)"/><ellipse cx="21" cy="25.5" rx="7.4" ry="8.6" fill="#fff"/><ellipse cx="37" cy="25.5" rx="7.4" ry="8.6" fill="#fff"/><circle cx="22.9" cy="27.2" r="3.8" fill="url(#mp)"/><circle cx="38.9" cy="27.2" r="3.8" fill="url(#mp)"/><circle cx="21.7" cy="25.9" r="1.3" fill="#fff" opacity=".95"/><circle cx="37.7" cy="25.9" r="1.3" fill="#fff" opacity=".95"/><path d="M25 37 Q29 39.5 33 37" stroke="url(#mo)" stroke-width="2.6" fill="none" stroke-linecap="round"/></g>
+  </svg>
+  <div>
+    <a class="name" href="/">CONTEXA</a>
+    <p class="tagline">Claude prompts, without the writing</p>
+  </div>
+</header>
+<nav class="site" aria-label="Site">
+  <a href="/">Overview</a> · <a href="/how-it-works/">How it works</a> · <a href="/privacy/" aria-current="page">Privacy</a> · <a href="/notes/">Notes</a> · <a href="https://github.com/33kain/contexa">Source</a>
+</nav>
+
+<main id="main">
+<h1>What leaves your browser, and when</h1>
+<p class="stamp">The short form. The full policy is <a href="https://github.com/33kain/contexa/blob/main/publishing/PRIVACY.md">publishing/PRIVACY.md</a> on GitHub, last updated 31 August 2026; where the two differ, it governs.</p>
+
+<p><strong class="warn">Changed on 31 August 2026.</strong> Earlier versions sent only your latest message and the reply. Since then, your side of the whole conversation goes, bounded as below, and still only when you press.</p>
+
+<p>CONTEXA runs only on claude.ai and touches no other site. Nothing leaves your browser until you press the trigger, and the text that leaves is never stored.</p>
+
+<h2 id="when">In the order it happens</h2>
+<div class="scroll">
+<table>
+  <caption>What is read, sent and spent at each moment</caption>
+  <thead><tr><th scope="col">Moment</th><th scope="col">Read</th><th scope="col">Sent</th><th scope="col">Spent</th></tr></thead>
+  <tbody>
+    <tr><th scope="row">A reply finishes</th><td>That reply, copied from the page, so the trigger knows what it would be about</td><td>Nothing</td><td>Nothing</td></tr>
+    <tr><th scope="row">You never press</th><td>Nothing more</td><td>Nothing</td><td>Nothing</td></tr>
+    <tr><th scope="row">You press the trigger</th><td>Your own messages in that conversation</td><td>Your own messages (at most 40, 2,000 characters each, 12,000 in total) and that reply (at most 6,000 characters)</td><td>One of the day's 20</td></tr>
+    <tr><th scope="row">You click a move</th><td>Nothing</td><td>Nothing</td><td>Nothing</td></tr>
+  </tbody>
+</table>
+</div>
+<p>Claude's earlier replies are never sent. Your other conversations, your account details and other pages are never read. The limits are applied by the extension before it sends and again by the backend before anything is forwarded; the second one binds.</p>
+
+<h2 id="where">Where it goes</h2>
+<p>By default, to the CONTEXA backend, a Cloudflare Worker, which applies the limits, forwards the text to Anthropic's API to write the messages, returns them, and discards the text. It does not write your conversation to any database, log or file. With your own API key, the text goes from your browser to <code>api.anthropic.com</code> directly, and the backend receives nothing.</p>
+
+<h2 id="kept">What is kept, and for how long</h2>
+<div class="scroll">
+<table>
+  <caption>Retention</caption>
+  <thead><tr><th scope="col">Data</th><th scope="col">Kept</th></tr></thead>
+  <tbody>
+    <tr><th scope="row">Your messages and the reply</th><td>Not stored. Held in memory for the duration of the request, then discarded. Not used to train any model.</td></tr>
+    <tr><th scope="row">The suggested messages</th><td>Not stored on the backend. Cached briefly in your own browser so pressing twice under the same reply does not repeat the request.</td></tr>
+    <tr><th scope="row">Anonymous device token</th><td>On your device until you clear the extension's storage or uninstall.</td></tr>
+    <tr><th scope="row">Daily counters (token and hashed IP)</th><td>Deleted after 48 hours.</td></tr>
+    <tr><th scope="row">Your API key and settings</th><td>On your device only, until you remove them.</td></tr>
+  </tbody>
+</table>
+</div>
+
+<h2 id="stored">The two things that are stored, and why</h2>
+<p>The device token is a random identifier generated on first use and kept in the extension's local storage. It exists only to apply the daily limit. It is not derived from you, your browser profile, your hardware or your claude.ai account, it is not linked to an email address or a name, and reinstalling generates a new one.</p>
+<p>The backend receives your IP address, as any web server does, and uses it for a second rate limit. It is never stored in readable form: it is combined with a secret salt and hashed with SHA-256, and only the hash is kept as a counter key.</p>
+
+<h2 id="third-parties">Who else is involved</h2>
+<dl>
+  <dt>Anthropic PBC</dt><dd>Processes the text to write the messages, under Anthropic's API terms. With your own key, under your own agreement with Anthropic.</dd>
+  <dt>Cloudflare, Inc.</dt><dd>Hosts the backend and handles the network request.</dd>
+</dl>
+<p>No other third party receives any data. There are no accounts, no profiles, no tracking, no analytics and no advertising, and nothing is sold or shared.</p>
+
+<h2 id="permissions">What the extension asks the browser for</h2>
+<ul>
+  <li>Access to <code>claude.ai</code>, to read the page and draw the card. It runs on no other site.</li>
+  <li>Access to <code>api.anthropic.com</code>, used only when you supply your own key.</li>
+  <li>Access to the CONTEXA backend, the default path.</li>
+  <li>Local storage, for the settings kept on your device: on or off, your API key if you add one, the backend URL and a model name (both advanced settings), and the device token.</li>
+</ul>
+
+<h2 id="choices">Your choices</h2>
+<ul>
+  <li>Switch it off in the extension's settings. Nothing is sent while it is off.</li>
+  <li>Use your own API key. No CONTEXA server is involved, so no third party besides Anthropic.</li>
+  <li>Uninstall it. All locally stored settings, including the key and the device token, go with it; the counters on the backend expire on their own within 48 hours.</li>
+</ul>
+
+<h2 id="this-site">This site</h2>
+<p>These pages are static files served from one origin. No fonts, scripts, images or analytics are loaded from anywhere else, nothing is measured, and there is no cookie banner because there is nothing to consent to.</p>
+</main>
+
+<footer class="site">
+  <p>CONTEXA is an independent project. It is not affiliated with, endorsed by, or sponsored by Anthropic.</p>
+  <p><a href="https://chromewebstore.google.com/detail/phhamigkjeeabbjncpmhkppkjccfglhb">Chrome Web Store</a> · <a href="https://github.com/33kain/contexa">Source on GitHub</a> · <a href="https://github.com/33kain/contexa/blob/main/LICENSE">MIT licence</a> · <a href="https://github.com/33kain/contexa/blob/main/publishing/PRIVACY.md">Privacy policy</a> · <a href="https://github.com/33kain/contexa/blob/main/CHANGELOG.md">Changelog</a></p>
+  <p class="muted">Version 0.9.70. This site is static files served from one origin: no fonts, scripts, images or analytics are loaded from anywhere else.</p>
+</footer>
+</body>
+</html>

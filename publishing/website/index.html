@@ -3,731 +3,145 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
 <title>CONTEXA - Claude prompts, without the writing</title>
 <meta name="description" content="Claude replies. Press one button and CONTEXA reads your session, then writes up to four next messages. Pick one, you send it.">
-<meta name="color-scheme" content="dark light">
-<meta name="theme-color" content="#1f1e1d" media="(prefers-color-scheme: dark)">
-<meta name="theme-color" content="#FAF9F5" media="(prefers-color-scheme: light)">
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 58 58'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='0' y2='1'%3E%3Cstop offset='0' stop-color='%232cc4ae'/%3E%3Cstop offset='1' stop-color='%2315a594'/%3E%3C/linearGradient%3E%3C/defs%3E%3Cg transform='translate(0,8)'%3E%3Cpath d='M29 3 C43 3 53 12 53 26 L53 50 L5 50 L5 26 C5 12 15 3 29 3 Z' fill='url(%23g)'/%3E%3Cellipse cx='21' cy='25.5' rx='7.4' ry='8.6' fill='%23fff'/%3E%3Cellipse cx='37' cy='25.5' rx='7.4' ry='8.6' fill='%23fff'/%3E%3Ccircle cx='22.9' cy='27.2' r='3.8' fill='%23000'/%3E%3Ccircle cx='38.9' cy='27.2' r='3.8' fill='%23000'/%3E%3Ccircle cx='21.7' cy='25.9' r='1.3' fill='%23fff' opacity='.95'/%3E%3Ccircle cx='37.7' cy='25.9' r='1.3' fill='%23fff' opacity='.95'/%3E%3Cpath d='M25 37 Q29 39.5 33 37' stroke='%230a352f' stroke-width='2.6' fill='none' stroke-linecap='round'/%3E%3C/g%3E%3C/svg%3E">
-<style>
-  /* Palette: the card's own tokens from extension/content.js, and the mascot's
-     gradient from store-assets/contexa-mascot-icon.svg. Dark is the default;
-     light follows the visitor's system setting, the way the card follows the
-     host page. Nothing on this page is loaded from the network. */
-  :root{
-    --bg:#1f1e1d; --surface:#30302E; --surface2:#3A3A37;
-    --text:#EDECE6; --text2:#A6A49B; --border:#3F3F3C; --border2:#4A4A46;
-    --accent:#2cc4ae; --accent-deep:#15a594; --accent-soft:#274641;
-    --ink:#173b35; --ink2:#0e6e63; --link:#2cc4ae;
-    --grad:linear-gradient(180deg,#2cc4ae 0%,#15a594 100%);
-    --paste-bg:#403823; --paste-text:#E0C382;
-    --max:1040px;
-  }
-  @media (prefers-color-scheme: light){
-    :root{
-      --bg:#FAF9F5; --surface:#FFFFFF; --surface2:#F3F1EA;
-      --text:#3D3929; --text2:#5F5E57; --border:#E8E6DE; --border2:#DEDCD1;
-      --accent:#15a594; --accent-deep:#0e6e63; --accent-soft:#E0F2EF;
-      --link:#0e6e63;
-      --paste-bg:#F7F0DF; --paste-text:#6B5216;
-    }
-  }
-  *{box-sizing:border-box;margin:0;padding:0}
-  html{scroll-behavior:smooth}
-  @media (prefers-reduced-motion: reduce){ html{scroll-behavior:auto} }
-  body{
-    background:var(--bg); color:var(--text);
-    font:16px/1.6 ui-sans-serif,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
-    -webkit-font-smoothing:antialiased;
-  }
-  a{color:var(--link); text-decoration-thickness:1px; text-underline-offset:.15em}
-  a:hover{color:var(--accent-deep)}
-  :focus-visible{outline:2px solid var(--accent); outline-offset:3px; border-radius:4px}
-  code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-size:.92em}
-  button{font:inherit; color:inherit}
-  .skip{position:absolute; left:-999px; top:8px; background:var(--surface); color:var(--text);
-    padding:8px 12px; border:1px solid var(--border2); border-radius:8px; z-index:10}
-  .skip:focus{left:8px}
-  .sr-only{position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0 0 0 0); white-space:nowrap}
-
-  .shell{max-width:var(--max); margin:0 auto; padding:0 24px}
-  section{padding:72px 0}
-  section + section{border-top:1px solid var(--border)}
-
-  /* the card's own eyebrow: ✦ in accent, letters quiet */
-  .eyebrow{display:flex; align-items:center; gap:8px; font-size:11px; letter-spacing:.18em;
-    text-transform:uppercase; color:var(--text2); font-weight:600}
-  .eyebrow b{color:var(--accent); font-weight:700; letter-spacing:.2em}
-
-  h2{font-size:clamp(24px,3.4vw,32px); line-height:1.2; letter-spacing:-.01em; font-weight:650; margin:10px 0 22px}
-  h3{font-size:12px; letter-spacing:.16em; text-transform:uppercase; color:var(--accent); font-weight:700; margin:0 0 10px}
-  p{max-width:64ch}
-  p + p{margin-top:1em}
-  .muted{color:var(--text2)}
-
-  /* hero */
-  header.hero{padding:56px 0 64px}
-  .hero-grid{display:grid; grid-template-columns:minmax(0,1fr) auto; gap:40px; align-items:center}
-  .mascot{width:132px; height:132px; flex:none; filter:drop-shadow(0 12px 28px rgba(21,165,148,.28))}
-  h1{font-size:clamp(30px,5vw,54px); line-height:1.08; letter-spacing:-.02em; font-weight:700; margin:18px 0 20px; max-width:16ch}
-  h1 .name{color:var(--accent); letter-spacing:.06em}
-  h1 .dash{color:var(--text2); font-weight:400}
-  .lead{font-size:clamp(17px,2vw,20px); line-height:1.5; max-width:56ch}
-  .cta-row{display:flex; flex-wrap:wrap; gap:14px 18px; align-items:center; margin-top:30px}
-  .btn{display:inline-flex; align-items:center; gap:10px; padding:14px 22px; border-radius:12px;
-    font-weight:700; font-size:16px; text-decoration:none; line-height:1;
-    background:var(--grad); color:var(--ink); border:1px solid transparent;
-    box-shadow:0 8px 22px rgba(21,165,148,.25); transition:transform .12s, box-shadow .12s}
-  .btn:hover{transform:translateY(-1px); color:var(--ink); box-shadow:0 12px 26px rgba(21,165,148,.34)}
-  .btn svg{width:18px; height:18px; flex:none}
-  .btn-quiet{display:inline-flex; align-items:center; padding:13px 18px; border-radius:12px; text-decoration:none;
-    color:var(--text); border:1px solid var(--border2); background:transparent; font-weight:600; font-size:15px; line-height:1}
-  .btn-quiet:hover{border-color:var(--accent); color:var(--accent)}
-  .fine{margin-top:18px; font-size:14px; color:var(--text2); max-width:58ch}
-  .fine b{color:var(--text); font-weight:600}
-  .paste{font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-size:.88em; background:var(--paste-bg);
-    color:var(--paste-text); padding:1px 6px; border-radius:6px; white-space:nowrap}
-
-  /* how it works: steps on the left, the animated example on the right */
-  .intro{display:grid; grid-template-columns:repeat(auto-fit,minmax(280px,1fr)); gap:24px 40px; margin-bottom:40px}
-  .how-grid{display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1.3fr); gap:44px; align-items:start}
-  .steps{counter-reset:s; list-style:none; display:grid; gap:10px}
-  .steps li{counter-increment:s}
-  .step{display:grid; grid-template-columns:28px 1fr; gap:14px; align-items:start; width:100%; text-align:left;
-    background:transparent; border:1px solid transparent; border-radius:12px; padding:10px 12px 10px 10px; cursor:pointer;
-    transition:border-color .15s, background .15s}
-  .step:hover{border-color:var(--border2)}
-  .step[aria-current="step"]{background:var(--surface); border-color:var(--border2)}
-  .step .num{width:28px; height:28px; border-radius:99px; background:var(--accent-soft); color:var(--accent);
-    font-size:13px; font-weight:700; display:inline-flex; align-items:center; justify-content:center; margin-top:1px;
-    transition:background .15s, color .15s}
-  .step .num::before{content:counter(s)}
-  .step[aria-current="step"] .num{background:var(--accent); color:var(--ink)}
-  .step strong{display:block; font-size:16.5px; font-weight:600; line-height:1.4}
-  .step .sub{display:block; font-size:14.5px; color:var(--text2); margin-top:4px; line-height:1.5}
-
-  .demo-wrap{position:sticky; top:24px}
-  .demo-cap{margin-top:12px; font-size:14px; min-height:3.2em; max-width:none}
-  .demo-cap code{font-size:.9em}
-  .controls{display:flex; flex-wrap:wrap; gap:8px 10px; align-items:center; margin-top:12px}
-  .ctl{border:1px solid var(--border2); background:transparent; color:var(--text2); border-radius:8px;
-    padding:6px 12px; font-size:12.5px; letter-spacing:.04em; cursor:pointer}
-  .ctl:hover{color:var(--accent); border-color:var(--accent)}
-  .ctl[aria-pressed="true"]{color:var(--text); border-color:var(--accent); background:var(--accent-soft)}
-  .seg{display:inline-flex; border:1px solid var(--border2); border-radius:8px; overflow:hidden; margin-left:auto}
-  .seg .ctl{border:none; border-radius:0}
-  .seg .ctl + .ctl{border-left:1px solid var(--border2)}
-
-  /* ---- the frame: a claude.ai conversation, using the tokens of the mock page
-     the screenshot harness drives (scripts/screenshots/mock-claude.html). ---- */
-  .demo{
-    --bg:#262624; --panel:#30302E; --line:#3F3F3C; --ink:#F5F4EF; --ink2:#C2C0B6; --ink3:#8F8D85;
-    --user-bg:#3A3A37; --coral:#D97757; --cx:#2cc4ae;
-    position:relative; overflow:hidden; background:var(--bg); color:var(--ink);
-    border:1px solid var(--border2); border-radius:14px; box-shadow:0 20px 50px rgba(0,0,0,.35);
-    font:13px/1.55 ui-sans-serif,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
-  }
-  .demo[data-mode="light"]{
-    --bg:#FAF9F5; --panel:#FFFFFF; --line:#E8E6DE; --ink:#3D3929; --ink2:#5A574A; --ink3:#8A877A;
-    --user-bg:#FFFFFF; --cx:#15a594;
-  }
-  @media (prefers-color-scheme: light){ .demo{box-shadow:0 18px 40px rgba(61,57,41,.14)} }
-  .demo .stage{transition:opacity .3s ease}
-  .demo.fade .stage{opacity:0}
-  .demo.noanim *, .demo.noanim *::before, .demo.noanim *::after{animation:none !important; transition:none !important}
-  .demo .top{padding:10px 16px; border-bottom:1px solid var(--line); font-size:14px; font-weight:600; letter-spacing:.01em}
-  .demo .col{padding:18px 18px 0}
-  .demo .row{margin-bottom:14px}
-  .demo .user{display:flex; justify-content:flex-end}
-  .demo .user span{display:block; background:var(--user-bg); border:1px solid var(--line); border-radius:12px;
-    padding:9px 13px; max-width:82%; transition:box-shadow .25s, border-color .25s}
-  .demo .user.lit span{border-color:var(--cx); box-shadow:0 0 0 1px var(--cx)}
-  .demo .reply p{margin:0 0 9px; color:var(--ink); max-width:none; line-height:1.6}
-  .demo .reply strong{font-weight:650}
-  .demo .slot{min-height:66px; display:flex; align-items:flex-end}
-  .demo .dock{padding:0 18px 18px}
-  .demo .composer{display:flex; align-items:flex-end; gap:10px; background:var(--panel); border:1px solid var(--line);
-    border-radius:16px; padding:11px 11px 11px 15px; box-shadow:0 2px 14px rgba(0,0,0,.16); transition:border-color .2s}
-  .demo[data-mode="light"] .composer{box-shadow:0 2px 14px rgba(0,0,0,.05)}
-  .demo .composer.filled{border-color:var(--ink3)}
-  .demo .box{flex:1; min-height:22px; white-space:pre-wrap; color:var(--ink); line-height:1.5; align-self:center}
-  .demo .box:empty::before{content:attr(data-placeholder); color:var(--ink3)}
-  .demo .send{flex:none; width:28px; height:28px; border:none; border-radius:50%; background:var(--coral); color:#fff;
-    font-size:11px; display:grid; place-items:center}
-  .demo .pointer{position:absolute; left:0; top:0; width:14px; height:14px; border:2px solid var(--cx); border-radius:50%;
-    box-shadow:0 0 0 3px rgba(44,196,174,.18); transform:translate(-50%,-50%); opacity:0; pointer-events:none; z-index:3;
-    transition:left .6s cubic-bezier(.4,0,.2,1), top .6s cubic-bezier(.4,0,.2,1), transform .12s, opacity .2s}
-  .demo .pointer.on{opacity:1}
-  .demo .pointer.press{transform:translate(-50%,-50%) scale(.68)}
-  @media (prefers-reduced-motion: reduce){ .demo .pointer{display:none} }
-
-  /* ---- the card, as extension/content.js draws it (scoped under .demo) ---- */
-  .demo .wrap{--surface:#FFFFFF;--surface2:#FAF9F5;--text:#3D3929;--text2:#73726C;
-    --border:#E8E6DE;--border2:#DEDCD1;--accent:#15a594;--accent-soft:#E0F2EF;
-    display:block;margin:8px 0 16px;max-width:680px;
-    opacity:0;transform:translateY(4px);transition:opacity .22s ease,transform .22s ease}
-  .demo .wrap[data-theme="dark"]{--surface:#30302E;--surface2:#3A3A37;--text:#EDECE6;
-    --text2:#A6A49B;--border:#3F3F3C;--border2:#4A4A46;--accent:#2cc4ae;--accent-soft:#274641}
-  .demo .wrap.show{opacity:1;transform:none}
-  .demo .label{display:flex;align-items:center;gap:6px;font-size:9.5px;letter-spacing:.15em;
-    text-transform:uppercase;color:var(--text2);margin-bottom:6px}
-  .demo .label b{color:var(--accent);font-weight:700;letter-spacing:.17em}
-  .demo .chips{display:flex;flex-wrap:wrap;gap:6px}
-  .demo .chip{display:inline-flex;align-items:center;background:var(--surface);
-    border:1px solid var(--border2);border-radius:999px;padding:5px 12px;cursor:pointer;
-    font-size:12px;line-height:1.35;color:var(--text);font-family:inherit;white-space:nowrap;
-    max-width:100%;overflow:hidden;text-overflow:ellipsis;
-    transition:border-color .14s,color .14s,transform .1s,background .14s}
-  .demo .chip:hover,.demo .chip.is-hover{border-color:var(--accent);color:var(--accent);background:var(--surface2);
-    transform:translateY(-1px)}
-  .demo .chip.busy{border-style:dashed;color:var(--text2);cursor:default;
-    animation:cxpulse 1.2s ease-in-out infinite}
-  @keyframes cxpulse{0%,100%{opacity:.55}50%{opacity:1}}
-  .demo .ctxa-mas-slot{display:inline-flex;align-items:center;gap:8px}
-  .demo .ctxa-mas{background:none;border:none;padding:0;cursor:pointer;position:relative;
-    display:inline-flex;line-height:0}
-  .demo .ctxa-mas svg{width:40px;height:34.5px;display:block}
-  .demo .ctxa-mas:disabled{cursor:default}
-  .demo .ctxa-mas-bubble{position:absolute;bottom:100%;left:50%;
-    transform:translateX(-50%) translateY(3px);
-    margin-bottom:7px;background:var(--surface);color:var(--text);
-    border:1px solid var(--border2);border-radius:999px;padding:4px 11px;
-    font-size:11px;line-height:1.35;white-space:nowrap;opacity:0;transition:.2s;
-    pointer-events:none;box-shadow:0 2px 8px rgba(0,0,0,.07)}
-  .demo .ctxa-mas.ctxa-peek .ctxa-mas-bubble{transform:translateX(-50%) translateY(0);opacity:1}
-  .demo .ctxa-mas-bubble b{color:var(--accent);font-weight:700}
-  .demo .ctxa-mas{animation:ctxa-popin .55s cubic-bezier(.3,1.2,.4,1);transform-origin:50% 100%}
-  @keyframes ctxa-popin{0%{transform:scale(0)}62%{transform:scale(1.12,.86)}
-                        82%{transform:scale(.95,1.06)}100%{transform:scale(1)}}
-  .demo .ctxa-mas-wink{animation:ctxa-winkIdle 6s infinite;transform-box:fill-box;transform-origin:center}
-  @keyframes ctxa-winkIdle{0%,93%,100%{transform:scaleY(1)}94.5%,96.5%{transform:scaleY(.08)}}
-  .demo .ctxa-mas-pup{animation:ctxa-glance 8s ease-in-out infinite}
-  @keyframes ctxa-glance{0%,72%,100%{transform:translateX(0)}80%,90%{transform:translateX(1.5px)}}
-  .demo .ctxa-mas.ctxa-peek .ctxa-mas-wink{animation:ctxa-winkOnce .4s ease}
-  @keyframes ctxa-winkOnce{0%,100%{transform:scaleY(1)}35%,65%{transform:scaleY(.08)}}
-  .demo .ctxa-mas-whisp{opacity:0;transition:.2s}
-  .demo .ctxa-mas.ctxa-peek .ctxa-mas-whisp{opacity:1}
-  .demo .ctxa-mas.ctxa-hop{animation:ctxa-hop .35s ease}
-  @keyframes ctxa-hop{40%{transform:translateY(-8px)}}
-  @media (prefers-reduced-motion:reduce){
-    .demo .ctxa-mas{animation:ctxa-fadein .3s ease}
-    @keyframes ctxa-fadein{from{opacity:0}to{opacity:1}}
-    .demo .ctxa-mas-wink,.demo .ctxa-mas-pup{animation:none}
-  }
-
-  /* principles */
-  .blocks{display:grid; grid-template-columns:repeat(auto-fit,minmax(300px,1fr)); gap:34px 44px; margin-top:36px}
-  .blocks p{font-size:15.5px}
-
-  /* privacy */
-  .plain{list-style:none; display:grid; gap:12px; max-width:66ch; margin:0 0 22px}
-  .plain li{display:grid; grid-template-columns:14px 1fr; gap:12px; font-size:15.5px}
-  .plain li::before{content:"•"; color:var(--accent); font-weight:700; line-height:1.6}
-  .note{border:1px dashed var(--border2); border-radius:10px; padding:14px 16px; font-size:14px; color:var(--text2); max-width:66ch}
-  .note b{color:var(--text); font-weight:600}
-  .note a,.foot-row a{overflow-wrap:anywhere}
-
-  /* install */
-  .install{display:grid; grid-template-columns:repeat(auto-fit,minmax(280px,1fr)); gap:24px 44px; align-items:start}
-  .install p{font-size:15.5px}
-
-  /* footer */
-  footer{border-top:1px solid var(--border); padding:36px 0 48px; font-size:14px; color:var(--text2)}
-  .foot-row{display:flex; flex-wrap:wrap; gap:10px 22px; align-items:center; margin-bottom:16px}
-  .foot-row a{color:var(--text)}
-  .foot-row a:hover{color:var(--accent)}
-  .indep{max-width:66ch; color:var(--text)}
-
-  @media (max-width:820px){
-    section{padding:52px 0}
-    header.hero{padding:40px 0 52px}
-    .hero-grid{grid-template-columns:1fr; gap:22px}
-    .hero-grid .mascot{order:-1; width:96px; height:96px}
-    .how-grid{grid-template-columns:1fr; gap:34px}
-    .demo-wrap{position:static}
-  }
-  @media (max-width:480px){
-    .shell{padding:0 18px}
-    .btn,.btn-quiet{width:100%; justify-content:center}
-    .demo .user span{max-width:92%}
-  }
-</style>
+<meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#111111" media="(prefers-color-scheme: dark)">
+<link rel="canonical" href="https://contexa-website.pages.dev/">
+<link rel="stylesheet" href="/site.css">
+<link rel="icon" href="/icon.svg" type="image/svg+xml">
+<link rel="icon" href="/favicon-32.png" type="image/png" sizes="32x32">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="CONTEXA">
+<meta property="og:title" content="CONTEXA - Claude prompts, without the writing">
+<meta property="og:description" content="Claude replies. Press one button and CONTEXA reads your session, then writes up to four next messages. Pick one, you send it.">
+<meta property="og:url" content="https://contexa-website.pages.dev/">
+<meta property="og:image" content="https://contexa-website.pages.dev/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:type" content="image/png">
+<meta property="og:image:alt" content="The CONTEXA mascot, a teal rounded shape with two wide eyes, beside the words: Claude prompts, without the writing">
+<meta name="twitter:card" content="summary_large_image">
+<script src="/demo.js" defer></script>
 </head>
 <body>
-<a class="skip" href="#how">Skip to how it works</a>
-
-<header class="hero">
-  <div class="shell hero-grid">
-    <div>
-      <div class="eyebrow"><b>✦</b> CONTEXA</div>
-      <h1><span class="name">CONTEXA</span><span class="dash"> - </span>Claude prompts, without the writing</h1>
-      <p class="lead">Claude replies. Press one button and CONTEXA reads your session, then writes up to four next messages. Pick one, you send it.</p>
-      <div class="cta-row">
-        <a class="btn" href="https://chromewebstore.google.com/detail/phhamigkjeeabbjncpmhkppkjccfglhb" rel="noopener">
-          <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="4"/><path d="M21.17 8H12M3.95 6.06 8.54 14M10.88 21.94 15.46 14"/></svg>
-          Add to Chrome
-        </a>
-        <a class="btn-quiet" href="https://github.com/33kain/contexa" rel="noopener">Source on GitHub</a>
-      </div>
-      <p class="fine"><b>Free.</b> No account, no sign-up, no API key needed. Nothing is sent anywhere until you press the button.</p>
-    </div>
-    <svg class="mascot" viewBox="0 0 58 58" role="img" aria-label="The CONTEXA mascot: a teal rounded shape with two wide eyes and a small smile">
-      <!-- Dark ink goes through a paint server, and the eye whites stay flat.
-           Chromium force-dark inverts a flat fill under Rec.601 brightness 150
-           and a paint server only over 205, so this is the one arrangement that
-           survives a phone's night mode. See extension/content.js MASCOT_SVG. -->
-      <defs><linearGradient id="mg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#2cc4ae"/><stop offset="1" stop-color="#15a594"/></linearGradient><linearGradient id="mp" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="58" y2="0"><stop offset="0" stop-color="#000"/><stop offset="1" stop-color="#000"/></linearGradient><linearGradient id="mo" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="58" y2="0"><stop offset="0" stop-color="#0a352f"/><stop offset="1" stop-color="#0a352f"/></linearGradient></defs>
-      <g transform="translate(0,8)"><path d="M29 3 C43 3 53 12 53 26 L53 50 L5 50 L5 26 C5 12 15 3 29 3 Z" fill="url(#mg)"/><ellipse cx="21" cy="25.5" rx="7.4" ry="8.6" fill="#fff"/><ellipse cx="37" cy="25.5" rx="7.4" ry="8.6" fill="#fff"/><circle cx="22.9" cy="27.2" r="3.8" fill="url(#mp)"/><circle cx="38.9" cy="27.2" r="3.8" fill="url(#mp)"/><circle cx="21.7" cy="25.9" r="1.3" fill="#fff" opacity=".95"/><circle cx="37.7" cy="25.9" r="1.3" fill="#fff" opacity=".95"/><path d="M25 37 Q29 39.5 33 37" stroke="url(#mo)" stroke-width="2.6" fill="none" stroke-linecap="round"/></g>
-    </svg>
+<a class="skip" href="#main">Skip to content</a>
+<header class="site">
+  <svg class="mascot" viewBox="0 0 58 50" role="img" aria-label="The CONTEXA mascot: a teal rounded shape with two wide eyes and a small smile">
+    <!-- Dark ink goes through a paint server and the eye whites stay flat, so a
+         phone's force-dark mode cannot invert the face. See extension/content.js MASCOT_SVG. -->
+    <defs><linearGradient id="mg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#2cc4ae"/><stop offset="1" stop-color="#15a594"/></linearGradient><linearGradient id="mp" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="58" y2="0"><stop offset="0" stop-color="#000"/><stop offset="1" stop-color="#000"/></linearGradient><linearGradient id="mo" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="58" y2="0"><stop offset="0" stop-color="#0a352f"/><stop offset="1" stop-color="#0a352f"/></linearGradient></defs>
+    <g><path d="M29 3 C43 3 53 12 53 26 L53 50 L5 50 L5 26 C5 12 15 3 29 3 Z" fill="url(#mg)"/><ellipse cx="21" cy="25.5" rx="7.4" ry="8.6" fill="#fff"/><ellipse cx="37" cy="25.5" rx="7.4" ry="8.6" fill="#fff"/><circle cx="22.9" cy="27.2" r="3.8" fill="url(#mp)"/><circle cx="38.9" cy="27.2" r="3.8" fill="url(#mp)"/><circle cx="21.7" cy="25.9" r="1.3" fill="#fff" opacity=".95"/><circle cx="37.7" cy="25.9" r="1.3" fill="#fff" opacity=".95"/><path d="M25 37 Q29 39.5 33 37" stroke="url(#mo)" stroke-width="2.6" fill="none" stroke-linecap="round"/></g>
+  </svg>
+  <div>
+    <h1 class="name">CONTEXA</h1>
+    <p class="tagline">Claude prompts, without the writing</p>
   </div>
 </header>
+<nav class="site" aria-label="Site">
+  <a href="/" aria-current="page">Overview</a> · <a href="/how-it-works/">How it works</a> · <a href="/privacy/">Privacy</a> · <a href="/notes/">Notes</a> · <a href="https://github.com/33kain/contexa">Source</a>
+</nav>
 
-<main>
-  <section id="how" aria-labelledby="how-h">
-    <div class="shell">
-      <div class="eyebrow"><b>✦</b> How it works</div>
-      <h2 id="how-h">Nothing happens until you ask</h2>
-      <div class="intro">
-        <p>You are deep in a conversation on Claude.ai. You know where it should go next. Turning that into a message precise enough to get a good answer back is the part that costs you — and that is a skill, not a mood.</p>
-        <p>CONTEXA is a free Chrome extension that skips the writing. Press one button and it reads your side of the conversation, then offers up to four next prompts, each one already written in full. Pick one and it lands in your message box, whole. You read it, change what you like, and send it yourself.</p>
+<main id="main">
+<p>CONTEXA is a Chrome extension for claude.ai. When Claude finishes a reply, one trigger appears above the message box. The reply itself has been copied from the page, and that is all: nothing else has been read, and nothing has been sent or spent. Press it, and the extension reads your own messages from the whole conversation (not Claude's earlier replies) and sends them with the reply just received. It comes back with up to four next messages, each written in full. Click one and the whole text lands in the message box, unsent. You edit it and send it yourself. It never sends on your behalf.</p>
+<p>Every message has to be earned by a verbatim quote from the conversation or the reply, checked before it is drawn. When nothing qualifies, nothing is drawn. Free, no account, 20 presses a day per device; your own API key removes the limit. Version 0.9.70, MIT, <a href="https://github.com/33kain/contexa">source on GitHub</a>.</p>
+<p><a href="https://chromewebstore.google.com/detail/phhamigkjeeabbjncpmhkppkjccfglhb">Install it from the Chrome Web Store</a>. Which browsers can, and how to tell it is working, are under <a href="#install">Install</a> below.</p>
+
+<figure aria-labelledby="fig1">
+  <div class="demo" id="demo" data-mode="light" role="group" aria-label="Animated reproduction of the card in a claude.ai conversation">
+    <div class="stage" aria-hidden="true">
+      <div class="top">Claude</div>
+      <div class="col">
+        <div class="row user" id="turn1"><span>I'm giving a five-minute toast at my sister's wedding in three weeks. I've never spoken in public and I'm dreading it.</span></div>
+        <div class="row reply"><p>Five minutes is about six hundred words, which is less than it sounds. The ones that work have three parts: one story only you can tell, one honest line about the person she's marrying, and a short toast to end on. Want me to lay out a structure you can fill in?</p></div>
+        <div class="row user"><span>Yes, lay it out. Keep it simple, I'll add the stories.</span></div>
+        <div class="row reply">
+          <p>Here's the shape, with rough timings:</p>
+          <p><strong>Who you are to her</strong> (30 seconds). One line, and how old you both were in the story that's coming.</p>
+          <p><strong>The story</strong> (2 minutes). One story, told straight, with a detail nobody else would know.</p>
+          <p><strong>What changed when she met him</strong> (1 minute). One thing you noticed, not a list.</p>
+          <p><strong>The toast</strong> (30 seconds). Ask everyone to stand, one sentence, glasses up.</p>
+          <p>Write it out in full first, then cut it to cards later.</p>
+        </div>
       </div>
-
-      <div class="how-grid">
-        <ol class="steps" id="steps">
-          <li><button type="button" class="step" data-step="1"><span class="num" aria-hidden="true"></span><span>
-            <strong>Install it and open a conversation on Claude.ai.</strong>
-          </span></button></li>
-          <li><button type="button" class="step" data-step="2"><span class="num" aria-hidden="true"></span><span>
-            <strong>When a reply finishes, press the CONTEXA mascot above your message box.</strong>
-            <span class="sub">It asks one thing: What now? That is all it does. No request, no model call, nothing about your conversation leaves the page, and nothing counts against your daily allowance. A reply you never ask about never leaves your browser.</span>
-          </span></button></li>
-          <li><button type="button" class="step" data-step="3"><span class="num" aria-hidden="true"></span><span>
-            <strong>Pick one of the prompts it offers. It lands in your box, whole.</strong>
-            <span class="sub">Up to four, each a complete message on its own. They do not run in order and do not build on each other. Picking one throws the rest away. You only ever need one.</span>
-          </span></button></li>
-          <li><button type="button" class="step" data-step="4"><span class="num" aria-hidden="true"></span><span>
-            <strong>Edit if you want. Send when you are ready.</strong>
-            <span class="sub">CONTEXA never sends anything on your behalf. The message box is where you see the full text before anything goes.</span>
-          </span></button></li>
-        </ol>
-
-        <div class="demo-wrap">
-          <div class="demo" id="demo" data-mode="dark" role="group" aria-label="Animated example: CONTEXA in a claude.ai conversation">
-            <div class="stage" aria-hidden="true">
-              <div class="top">Claude</div>
-              <div class="col">
-                <div class="row user" id="turn1"><span>I'm giving a five-minute toast at my sister's wedding in three weeks. I've never spoken in public and I'm dreading it.</span></div>
-                <div class="row reply"><p>Five minutes is about six hundred words, which is less than it sounds. The ones that work have three parts: one story only you can tell, one honest line about the person she's marrying, and a short toast to end on. Want me to lay out a structure you can fill in?</p></div>
-                <div class="row user"><span>Yes, lay it out. Keep it simple, I'll add the stories.</span></div>
-                <div class="row reply">
-                  <p>Here's the shape, with rough timings:</p>
-                  <p><strong>Who you are to her</strong> (30 seconds). One line, and how old you both were in the story that's coming.</p>
-                  <p><strong>The story</strong> (2 minutes). One story, told straight, with a detail nobody else would know.</p>
-                  <p><strong>What changed when she met him</strong> (1 minute). One thing you noticed, not a list.</p>
-                  <p><strong>The toast</strong> (30 seconds). Ask everyone to stand, one sentence, glasses up.</p>
-                  <p>Write it out in full first, then cut it to cards later.</p>
-                </div>
-              </div>
-              <div class="dock">
-                <div class="slot" id="slot"></div>
-                <div class="composer" id="composer">
-                  <div class="box" id="box" data-placeholder="Reply to Claude..."></div>
-                  <span class="send">&#9650;</span>
-                </div>
-              </div>
-            </div>
-            <span class="pointer" id="pointer" aria-hidden="true"></span>
-          </div>
-          <p class="sr-only" id="demo-text">In the example, pressing the mascot offers three next moves: "Plan three weeks of rehearsal", "Turn the structure into cue cards", and "Write the closing toast line". Clicking the first puts this in the message box, unsent: Give me a three-week rehearsal plan for a five-minute wedding toast, for someone who has never spoken in public. Week by week, ten minutes a day at most. What to do about a shaking voice and losing my place. When to stop editing the words and only practise saying them. Assume: the four-part structure is settled; this is about delivery, not writing.</p>
-          <p class="demo-cap muted" id="cap" aria-hidden="true"></p>
-          <p class="sr-only" id="live" aria-live="polite"></p>
-          <div class="controls">
-            <button type="button" class="ctl" id="replay">Replay</button>
-            <button type="button" class="ctl" id="toggle" aria-pressed="false">Pause</button>
-            <div class="seg" role="group" aria-label="Theme of the example conversation">
-              <button type="button" class="ctl" data-mode="dark" aria-pressed="true">Dark</button>
-              <button type="button" class="ctl" data-mode="light" aria-pressed="false">Light</button>
-            </div>
-          </div>
+      <div class="dock">
+        <div class="slot" id="slot"></div>
+        <div class="composer" id="composer">
+          <div class="box" id="box" data-placeholder="Reply to Claude..."></div>
+          <span class="send">&#9650;</span>
         </div>
       </div>
     </div>
-  </section>
+    <span class="pointer" id="pointer" aria-hidden="true"></span>
+  </div>
+  <p class="sr-only" id="demo-text">In the figure, pressing the trigger offers three next moves: "Plan three weeks of rehearsal", "Turn the structure into cue cards", and "Write the closing toast line". Clicking the first puts this in the message box, unsent: Give me a three-week rehearsal plan for a five-minute wedding toast, for someone who has never spoken in public. Week by week, ten minutes a day at most. What to do about a shaking voice and losing my place. When to stop editing the words and only practise saying them. Assume: the four-part structure is settled; this is about delivery, not writing.</p>
+  <p class="sr-only" id="live" aria-live="polite"></p>
+  <figcaption>
+    <p class="scene" id="cap" aria-hidden="true"></p>
+    <p class="figure-controls" hidden><button type="button" id="replay">Replay</button><button type="button" id="toggle">Pause</button></p>
+    <p id="fig1">Figure 1. The card as the extension draws it, in an invented conversation about a wedding toast. Pressing the trigger offered three moves. Clicking the first put the whole prompt in the message box, unsent; the line beginning <code>Assume:</code> is the part you change before sending. The markup, styles and gestures are the extension's own (<code>extension/content.js</code>); the conversation and the moves are canned for this figure, and nothing here is recorded or sent anywhere. <noscript>The figure animates with JavaScript; without it, this is the frame before the trigger appears.</noscript></p>
+  </figcaption>
+</figure>
 
-  <section id="what" aria-labelledby="what-h">
-    <div class="shell">
-      <div class="eyebrow"><b>✦</b> What it does</div>
-      <h2 id="what-h">Earned by the conversation, or not offered</h2>
-      <p>Every "prompt" extension we could find either rewrites what you already typed or saves snippets for later. We didn't find one that reads your whole session and writes the next message for you, complete and ready to send.</p>
-      <div class="blocks">
-        <div>
-          <h3>It reads what you said, not just what Claude said</h3>
-          <p>A follow-up written from the last answer alone is mostly about the last answer. So when you press the button, CONTEXA reads your own messages across the whole conversation — the first one, which is usually where you said what you were trying to do, and everything you kept coming back to since — and mines the next move from that. Claude's reply is material, not the subject: what it just built is what makes a new move possible. A move that sends you back over an answer you have already read is the one thing it is written never to offer.</p>
-        </div>
-        <div>
-          <h3>A menu, not a checklist</h3>
-          <p>Each move is a complete prompt on its own: one ask, in your words, ready to send. The moves do not run in order and do not build on each other. Picking one throws the rest away. You only ever need one.</p>
-          <p>Where a prompt needs something only you have — a file, a link, a story only you can tell — CONTEXA marks the spot as <span class="paste">&lt;paste here&gt;</span> instead of inventing it. Where the conversation already settled something, it may add a line starting <code>Assume:</code>, so you can change it before you send rather than discover it in the answer.</p>
-        </div>
-        <div>
-          <h3>When it has nothing to say, it says nothing</h3>
-          <p>If the conversation has nothing worth taking further, CONTEXA shows you nothing at all. No filler, no padded row, no suggestion whose only virtue is that it could be shown.</p>
-          <p>Every move has to be earned by something actually said in the conversation — by you or by Claude — and that is checked before anything reaches your screen. Nothing earned, nothing offered. On a one-question chat that is the usual result, and the correct one.</p>
-        </div>
-        <div>
-          <h3>What it will not do</h3>
-          <p>It will not rewrite what you typed. There is nothing to type into. It will not grade your prompts or tell you how to write. It will not overlay your message box or interrupt you mid-sentence. It will not keep a conversation going on its own, and it will not send anything on your behalf, ever. And when something goes wrong — a limit reached, a network failure — it tells you what happened instead of quietly showing you canned suggestions.</p>
-        </div>
-      </div>
-    </div>
-  </section>
+<h2 id="quick-start">Quick start</h2>
+<ol>
+  <li><a href="https://chromewebstore.google.com/detail/phhamigkjeeabbjncpmhkppkjccfglhb">Install it from the Chrome Web Store</a>.</li>
+  <li>Open claude.ai and ask something that takes a paragraph to answer; a reply under 120 characters gets no trigger. When the reply finishes, the mascot appears above the message box. The reply has been copied from the page; nothing else has been read, and nothing has been sent.</li>
+  <li>Press it. This spends one of the day's 20. A row of up to four moves appears, or a one-line notice says nothing was earned and removes itself.</li>
+  <li>Click a move. The whole prompt is in the box, unsent, and picking it cost nothing. Edit it if you want, then send it yourself.</li>
+</ol>
 
-  <section id="privacy" aria-labelledby="privacy-h">
-    <div class="shell">
-      <div class="eyebrow"><b>✦</b> Privacy, plainly</div>
-      <h2 id="privacy-h">What leaves your browser, and when</h2>
-      <ul class="plain">
-        <li>CONTEXA runs only on claude.ai. It touches no other site.</li>
-        <li>Nothing is sent anywhere until you press the button. A reply you never ask about never leaves your browser.</li>
-        <li>When you do press it, CONTEXA sends your own messages from that conversation and the reply you just received. Claude's earlier replies are never sent.</li>
-        <li>There are hard limits on how much that can be: at most 40 of your messages, 2,000 characters each and 12,000 characters in total, and 6,000 characters of the reply. The backend enforces these itself.</li>
-        <li>Your conversation text is never stored. It is used to write the suggestions and then discarded.</li>
-        <li>No accounts, no profiles, no tracking, no analytics, no advertising, and nothing sold or shared.</li>
-        <li>Your API key, if you provide one, stays on your device and goes only to Anthropic.</li>
-      </ul>
-      <p class="note"><b>Full policy:</b> <a href="https://github.com/33kain/contexa/blob/main/publishing/PRIVACY.md" rel="noopener">publishing/PRIVACY.md on GitHub</a>. This page itself loads nothing from anywhere: no fonts, no scripts, no images from a server, no analytics.</p>
-    </div>
-  </section>
+<h2 id="what-it-does">What it does</h2>
+<h3>It reads your messages across the conversation</h3>
+<p>A follow-up written from the last answer alone is mostly about the last answer. So when you press, it reads your own messages across the conversation as the page holds it: the earliest one it can see, which is usually the first and usually where you said what you were trying to do, and everything you kept coming back to since. On a very long conversation the page holds only its tail; that limit is stated under <a href="/how-it-works/#known-limits">Known limits</a>. Claude's reply is material, not the subject; what it just built is what makes a new move possible. A move that sends you back over an answer you have already read is the one thing it is written never to offer.</p>
+<h3>Each move stands alone</h3>
+<p>Each move is one complete prompt with one ask, ready to send. The moves do not run in order and do not build on each other; picking one discards the rest. Where a prompt needs something only you have (a file, a link, a story only you can tell) it writes <code>&lt;paste here&gt;</code> instead of inventing it. Where the conversation already settled something, it may add a line starting <code>Assume:</code>, so you can change it before you send rather than discover it in the answer.</p>
+<h3>Zero is a valid outcome</h3>
+<p>Every move must be earned by a verbatim quote from something actually said in the conversation, by you or by Claude, and that is checked before anything reaches your screen. When nothing is earned, no row is drawn, and no suggestion is shown only because it could be. On a one-question chat that is the usual result, and the correct one. How often it happens in real use is the open question the current field test exists to answer.</p>
+<h3>What it will not do</h3>
+<ul>
+  <li>Send anything on your behalf. The message box is where you see the full text before anything goes.</li>
+  <li>Read Claude's earlier replies, your other conversations, or any other site.</li>
+  <li>Store your conversation text.</li>
+  <li>Rewrite what you typed. There is nothing to type into; clicking is the only input.</li>
+  <li>Grade your prompts or tell you how to write.</li>
+  <li>Overlay the message box, interrupt you mid-sentence, or keep a conversation going on its own.</li>
+  <li>Show canned suggestions when something fails. A limit reached, a parse failure or a network error is reported as what it is.</li>
+</ul>
 
-  <section id="install" aria-labelledby="install-h">
-    <div class="shell">
-      <div class="eyebrow"><b>✦</b> Install</div>
-      <h2 id="install-h">No account. No sign-up. No API key needed.</h2>
-      <div class="install">
-        <div>
-          <p>20 replies a day are free — that is how many answers you can ask about, and picking a prompt costs nothing extra.</p>
-          <p>If you have your own Anthropic API key you can add it in settings, which removes the daily limit. In that mode requests go straight from your browser to Anthropic, so nothing passes through our server at all.</p>
-        </div>
-        <div>
-          <p>CONTEXA installs from the Chrome Web Store into Chrome and other Chromium browsers — Edge, Brave, Opera, Vivaldi and Arc use the same link — on desktop, and on mobile in Chromium browsers that support extensions.</p>
-          <p class="muted">Most mobile browsers, including Chrome for Android and Safari on iOS, do not support extensions at all and cannot install it.</p>
-          <div class="cta-row">
-            <a class="btn" href="https://chromewebstore.google.com/detail/phhamigkjeeabbjncpmhkppkjccfglhb" rel="noopener">
-              <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="4"/><path d="M21.17 8H12M3.95 6.06 8.54 14M10.88 21.94 15.46 14"/></svg>
-              Add to Chrome
-            </a>
-          </div>
-        </div>
-      </div>
-    </div>
-  </section>
+<h2 id="compared">Compared with other prompt extensions</h2>
+<p>Every "prompt" extension we could find either rewrites what you already typed or saves snippets for later. We didn't find one that reads your whole session and writes the next message for you, complete and ready to send.</p>
+<p>It is for people who already use Claude every day, developers or not. It does not grade prompts: making bad prompts good is worth nothing to someone whose prompts are already good. The parts of the mechanism that are worth knowing before you trust it are on <a href="/how-it-works/">How it works</a>; what leaves your browser, and when, is on <a href="/privacy/">Privacy</a>.</p>
+
+<h2 id="install">Install</h2>
+<p><a href="https://chromewebstore.google.com/detail/phhamigkjeeabbjncpmhkppkjccfglhb">Install it from the Chrome Web Store</a>. It is free. There is no account, no sign-up and no API key to enter. 20 presses a day per device are included, reset at midnight UTC, and picking a move costs nothing.</p>
+<div class="scroll">
+<table>
+  <caption>Where the store link installs it</caption>
+  <thead><tr><th scope="col">Browser</th><th scope="col">Installs it?</th></tr></thead>
+  <tbody>
+    <tr><th scope="row">Chrome, desktop</th><td>Yes, from the store link.</td></tr>
+    <tr><th scope="row">Edge, Brave, Opera, Vivaldi, Arc, desktop</th><td>Yes, from the same link.</td></tr>
+    <tr><th scope="row">Chromium browsers on a phone that support extensions</th><td>Yes, from the same link.</td></tr>
+    <tr><th scope="row">Chrome for Android, Safari on iOS</th><td>No. They cannot install extensions from the Chrome Web Store, and most mobile browsers cannot.</td></tr>
+  </tbody>
+</table>
+</div>
+<h3>Your own API key</h3>
+<p>Add it in the extension's settings. The daily limit goes away, and requests go from your browser to <code>api.anthropic.com</code> only; no CONTEXA server is involved. The key is stored on your device and is sent nowhere else. Use under your own key falls under your own agreement with Anthropic.</p>
+<h3>How to tell it is working</h3>
+<p>Open claude.ai and ask something that takes a paragraph to answer. When the reply finishes, the mascot appears above the message box; hover or tab to it and it asks <em>What now?</em> If it does not appear, one of three things is true. The reply was under 120 characters, which never gets a trigger. CONTEXA is switched off in its settings. Or claude.ai changed its page structure and the extension went quiet, which is what it is built to do instead of breaking the page.</p>
+<h3>Developer install</h3>
+<p><code>chrome://extensions</code> → Developer mode → Load unpacked → the <code>extension/</code> folder of the source.</p>
+<p>Chrome will warn that it cannot verify where an unpacked extension comes from. That is expected, and it goes away only when installing from the store.</p>
 </main>
 
-<footer>
-  <div class="shell">
-    <div class="foot-row">
-      <span class="eyebrow"><b>✦</b> CONTEXA</span>
-      <!-- version: bump with extension/manifest.json on release -->
-      <span>v0.9.68</span>
-      <a href="https://github.com/33kain/contexa" rel="noopener">Open source on GitHub</a>
-      <a href="https://github.com/33kain/contexa/blob/main/LICENSE" rel="noopener">MIT licence</a>
-      <a href="https://github.com/33kain/contexa/blob/main/publishing/PRIVACY.md" rel="noopener">Privacy policy</a>
-    </div>
-    <p class="indep">CONTEXA is an independent project. It is not affiliated with, endorsed by, or sponsored by Anthropic.</p>
-  </div>
+<footer class="site">
+  <p>CONTEXA is an independent project. It is not affiliated with, endorsed by, or sponsored by Anthropic.</p>
+  <p><a href="https://chromewebstore.google.com/detail/phhamigkjeeabbjncpmhkppkjccfglhb">Chrome Web Store</a> · <a href="https://github.com/33kain/contexa">Source on GitHub</a> · <a href="https://github.com/33kain/contexa/blob/main/LICENSE">MIT licence</a> · <a href="https://github.com/33kain/contexa/blob/main/publishing/PRIVACY.md">Privacy policy</a> · <a href="https://github.com/33kain/contexa/blob/main/CHANGELOG.md">Changelog</a></p>
+  <p class="muted">Version 0.9.70. This site is static files served from one origin: no fonts, scripts, images or analytics are loaded from anywhere else.</p>
 </footer>
-
-<script>
-  /* The animated example. The card's markup and classes are the ones
-     extension/content.js renders (renderTrigger, renderMoves, appendIdeaChip);
-     the prompt is placed in the box in one assignment, as insertPrompt does.
-     No network, no storage, nothing measured. */
-  (function () {
-    var MOVES = [
-      { label: 'Plan three weeks of rehearsal',
-        text: 'Give me a three-week rehearsal plan for a five-minute wedding toast, for someone who has never spoken in public.\n' +
-              '- week by week, ten minutes a day at most\n' +
-              '- what to do about a shaking voice and losing my place\n' +
-              '- when to stop editing the words and only practise saying them\n' +
-              'Assume: the four-part structure is settled; this is about delivery, not writing.' },
-      { label: 'Turn the structure into cue cards',
-        text: 'Turn the four-part toast structure into cue cards.\n' +
-              '- one card per part, five words or fewer on each\n' +
-              '- the opening line and the closing toast written out in full\n' +
-              '- nothing else on the cards\n' +
-              'Keep the timings from the structure.' },
-      { label: 'Write the closing toast line',
-        text: 'Write five options for the closing line of the toast, the sentence I say as everyone raises a glass. ' +
-              'Short and warm, not a joke. One sentence each, and say which one you would pick.' }
-    ];
-
-    // Kept in step with extension/content.js MASCOT_SVG, paint servers included:
-    // the demo shows the product, so it must not show a face the product fixed.
-    var MASCOT_SVG = '<svg width="58" height="50" viewBox="0 0 58 50" aria-hidden="true">' +
-      '<defs><linearGradient id="ctxaMg" x1="0" y1="0" x2="0" y2="1">' +
-      '<stop offset="0" stop-color="#2cc4ae"/><stop offset="1" stop-color="#15a594"/>' +
-      '</linearGradient>' +
-      '<linearGradient id="ctxaPg" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="58" y2="0">' +
-      '<stop offset="0" stop-color="#000"/><stop offset="1" stop-color="#000"/></linearGradient>' +
-      '<linearGradient id="ctxaOg" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="58" y2="0">' +
-      '<stop offset="0" stop-color="#0a352f"/><stop offset="1" stop-color="#0a352f"/></linearGradient>' +
-      '<linearGradient id="ctxaWg" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="58" y2="0">' +
-      '<stop offset="0" stop-color="#2cc4ae"/><stop offset="1" stop-color="#2cc4ae"/></linearGradient>' +
-      '</defs>' +
-      '<path d="M29 3 C43 3 53 12 53 26 L53 50 L5 50 L5 26 C5 12 15 3 29 3 Z" fill="url(#ctxaMg)"/>' +
-      '<g class="ctxa-mas-pup">' +
-      '<g><ellipse cx="21" cy="25.5" rx="7.4" ry="8.6" fill="#fff"/>' +
-      '<circle cx="22.9" cy="27.2" r="3.8" fill="url(#ctxaPg)"/>' +
-      '<circle cx="21.7" cy="25.9" r="1.3" fill="#fff" opacity=".95"/></g>' +
-      '<g class="ctxa-mas-wink"><ellipse cx="37" cy="25.5" rx="7.4" ry="8.6" fill="#fff"/>' +
-      '<circle cx="38.9" cy="27.2" r="3.8" fill="url(#ctxaPg)"/>' +
-      '<circle cx="37.7" cy="25.9" r="1.3" fill="#fff" opacity=".95"/></g>' +
-      '</g>' +
-      '<path d="M25 37 Q29 39.5 33 37" stroke="url(#ctxaOg)" stroke-width="2.6" fill="none" stroke-linecap="round"/>' +
-      '<ellipse class="ctxa-mas-whisp" cx="41" cy="37" rx="4.6" ry="3.4" fill="url(#ctxaWg)"/>' +
-      '</svg>';
-
-    // scene name, time offset from the start of the loop, step it belongs to, caption
-    var SCENES = [
-      ['idle',     0,     1, 'A reply just finished. Nothing has been read, sent, or spent.'],
-      ['trigger',  500,   2, 'The mascot appears above the message box. That is all it does.'],
-      ['peek',     2300,  2, 'The mascot appears above the message box. That is all it does.'],
-      ['busy',     3100,  2, 'Only now does it read your own messages from this conversation.'],
-      ['moves',    4400,  3, 'Three next moves, each a complete message. You only ever need one.'],
-      ['hover',    5700,  3, 'The first one comes from your first message, which the reply on screen never mentions.'],
-      ['composed', 6500,  4, 'One click later: the whole prompt in the box, with an Assume: line you can change. Nothing sent.']
-    ];
-    var LOOP_AT = 11000;
-    var STEP_START = { 1: 0, 2: 1, 3: 4, 4: 6 };
-
-    var demo = document.getElementById('demo');
-    var slot = document.getElementById('slot');
-    var box = document.getElementById('box');
-    var composer = document.getElementById('composer');
-    var turn1 = document.getElementById('turn1');
-    var pointer = document.getElementById('pointer');
-    var cap = document.getElementById('cap');
-    var live = document.getElementById('live');
-    var steps = Array.prototype.slice.call(document.querySelectorAll('#steps .step'));
-    var toggle = document.getElementById('toggle');
-    var replay = document.getElementById('replay');
-    var modeButtons = Array.prototype.slice.call(document.querySelectorAll('.seg .ctl'));
-
-    var reduced = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    var mode = 'dark';
-    var current = -1;
-    var currentStep = 0;
-    var timers = [];
-    var playing = false;
-    var userPaused = false;
-    var inView = true;
-
-    function later(fn, ms) { timers.push(setTimeout(fn, ms)); }
-    function clearTimers() { timers.forEach(clearTimeout); timers = []; }
-
-    function newWrap() {
-      var w = document.createElement('div');
-      w.className = 'wrap';
-      w.setAttribute('data-theme', mode);
-      w.innerHTML = '<div class="label"><b>✦</b> CONTEXA</div><div class="chips"></div>';
-      slot.replaceChildren(w);
-      if (demo.classList.contains('noanim')) { w.classList.add('show'); }
-      else { requestAnimationFrame(function () { requestAnimationFrame(function () { w.classList.add('show'); }); }); }
-      return w;
-    }
-    function mascot() { return slot.querySelector('.ctxa-mas'); }
-    function firstChip() { return slot.querySelector('.chip.move'); }
-
-    function pointerTo(el) {
-      if (!el || reduced) return;
-      var a = demo.getBoundingClientRect(), b = el.getBoundingClientRect();
-      pointer.style.left = (b.left - a.left + b.width / 2) + 'px';
-      pointer.style.top = (b.top - a.top + b.height / 2) + 'px';
-      pointer.classList.add('on');
-    }
-    function pointerPress() {
-      if (reduced) return;
-      pointer.classList.add('press');
-      later(function () { pointer.classList.remove('press'); }, 160);
-    }
-    function pointerOff() { pointer.classList.remove('on'); }
-
-    function setStep(n, text) {
-      steps.forEach(function (b) {
-        if (Number(b.getAttribute('data-step')) === n) b.setAttribute('aria-current', 'step');
-        else b.removeAttribute('aria-current');
-      });
-      if (n !== currentStep) { currentStep = n; live.textContent = 'Step ' + n + '. ' + text; }
-    }
-
-    // Each delta moves the frame forward by exactly one scene.
-    var DELTA = {
-      idle: function () {
-        slot.replaceChildren();
-        box.textContent = '';
-        composer.classList.remove('filled');
-        turn1.classList.remove('lit');
-        pointerOff();
-      },
-      trigger: function () {
-        var w = newWrap();
-        var s = document.createElement('span');
-        s.className = 'ctxa-mas-slot';
-        var b = document.createElement('button');
-        b.className = 'ctxa-mas';
-        b.type = 'button';
-        b.tabIndex = -1;
-        b.setAttribute('aria-label', 'What now?');
-        b.innerHTML = MASCOT_SVG + '<span class="ctxa-mas-bubble">What now? <b>✦</b></span>';
-        s.appendChild(b);
-        w.querySelector('.chips').appendChild(s);
-      },
-      peek: function () {
-        var m = mascot();
-        if (m) { m.classList.add('ctxa-peek'); pointerTo(m); }
-      },
-      busy: function () {
-        var m = mascot();
-        pointerPress();
-        if (m) {
-          m.disabled = true;
-          m.classList.add('ctxa-hop');
-          var b = document.createElement('span');
-          b.className = 'chip busy';
-          b.textContent = '✦ reading…';
-          m.parentNode.appendChild(b);
-        }
-      },
-      moves: function () {
-        pointerOff();
-        var w = newWrap();
-        var row = w.querySelector('.chips');
-        MOVES.forEach(function (m) {
-          var chip = document.createElement('button');
-          chip.className = 'chip move';
-          chip.type = 'button';
-          chip.tabIndex = -1;
-          chip.textContent = m.label;
-          chip.title = m.text;
-          row.appendChild(chip);
-        });
-      },
-      hover: function () {
-        var c = firstChip();
-        if (c) { c.classList.add('is-hover'); pointerTo(c); }
-        turn1.classList.add('lit');
-      },
-      composed: function () {
-        pointerPress();
-        box.textContent = MOVES[0].text;   // one assignment, as insertPrompt does
-        composer.classList.add('filled');
-        var c = firstChip();
-        later(function () { if (c) c.classList.remove('is-hover'); pointerOff(); }, 420);
-      }
-    };
-
-    function setScene(i) {
-      i = Math.max(0, Math.min(SCENES.length - 1, i));
-      if (i === current + 1) {
-        DELTA[SCENES[i][0]]();
-      } else {
-        demo.classList.add('noanim');
-        for (var k = 0; k <= i; k++) DELTA[SCENES[k][0]]();
-        void demo.offsetWidth;
-        requestAnimationFrame(function () { demo.classList.remove('noanim'); });
-      }
-      current = i;
-      cap.textContent = SCENES[i][3];
-      setStep(SCENES[i][2], SCENES[i][3]);
-    }
-
-    function scheduleNext() {
-      clearTimers();
-      if (!playing) return;
-      var next = current + 1;
-      if (next < SCENES.length) {
-        later(function () { setScene(next); scheduleNext(); }, SCENES[next][1] - SCENES[current][1]);
-      } else {
-        later(function () {
-          demo.classList.add('fade');
-          later(function () {
-            current = -1;
-            setScene(0);
-            demo.classList.remove('fade');
-            scheduleNext();
-          }, 320);
-        }, LOOP_AT - SCENES[current][1]);
-      }
-    }
-
-    function play() {
-      if (playing) return;
-      playing = true;
-      toggle.textContent = 'Pause';
-      toggle.setAttribute('aria-pressed', 'false');
-      if (current >= SCENES.length - 1 || current < 0) { current = -1; setScene(0); }
-      scheduleNext();
-    }
-    function pause() {
-      playing = false;
-      clearTimers();
-      toggle.textContent = 'Play';
-      toggle.setAttribute('aria-pressed', 'true');
-    }
-
-    toggle.addEventListener('click', function () {
-      if (playing) { userPaused = true; pause(); }
-      else { userPaused = false; play(); }
-    });
-    replay.addEventListener('click', function () {
-      userPaused = false;
-      pause();
-      current = -1;
-      setScene(0);
-      play();
-    });
-    steps.forEach(function (b) {
-      b.addEventListener('click', function () {
-        var wasPlaying = playing;
-        clearTimers();
-        playing = false;
-        current = -1;
-        setScene(STEP_START[Number(b.getAttribute('data-step'))]);
-        if (wasPlaying) { playing = true; scheduleNext(); }
-      });
-    });
-    modeButtons.forEach(function (b) {
-      b.addEventListener('click', function () {
-        mode = b.getAttribute('data-mode');
-        demo.setAttribute('data-mode', mode);
-        Array.prototype.forEach.call(slot.querySelectorAll('.wrap'), function (w) { w.setAttribute('data-theme', mode); });
-        modeButtons.forEach(function (x) { x.setAttribute('aria-pressed', x === b ? 'true' : 'false'); });
-      });
-    });
-
-    // Start. Reduced motion: no autoplay, land on the result.
-    if (reduced) {
-      setScene(SCENES.length - 1);
-      pause();
-    } else {
-      setScene(0);
-      if ('IntersectionObserver' in window) {
-        new IntersectionObserver(function (entries) {
-          inView = entries[0].isIntersecting;
-          if (inView && !userPaused) play();
-          else if (!inView && playing) { playing = false; clearTimers(); }
-        }, { threshold: 0.25 }).observe(demo);
-      } else {
-        play();
-      }
-    }
-    window.addEventListener('resize', function () {
-      if (!pointer.classList.contains('on')) return;
-      var name = SCENES[current][0];
-      if (name === 'peek' || name === 'busy') pointerTo(mascot());
-      else if (name === 'hover') pointerTo(firstChip());
-    });
-  })();
-</script>
 </body>
 </html>

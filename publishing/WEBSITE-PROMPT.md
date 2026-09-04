@@ -1,5 +1,37 @@
 # Website-creation prompt
 
+**Written 2026-09-01. Updated 2026-09-02** (`publishing/website/index.html`
+landed in PR #24 with an animated reproduction of the card as its proof).
+**Rebuilt 2026-09-04:** the single page was replaced by a four-page site on
+the argument that the old one looked like every generated landing page
+(gradient button with a glow, sparkle eyebrows, pill chips, a drop-shadowed
+mascot, a sticky demo with a control strip, a dark default). What ships now is
+hand-written HTML in the register of an engineer's own site or a README:
+black-ish on white, the system sans, one link colour (the mascot's ink), rules
+between sections, tables for every number, `<pre>` for the pipeline, the
+mascot at its natural size, the card reproduction as a captioned figure with
+two text controls, dark only via `prefers-color-scheme`. The layout is
+
+```
+publishing/website/
+  index.html                overview: what it is, the figure, quick start, what it does, install
+  how-it-works/index.html   the pipeline, what is read and how much, the two gates, known limits
+  privacy/index.html        what leaves the browser and when, retention, third parties
+  notes/index.html          rules and the failure behind each, by version, not built, status
+  site.css  demo.js         one stylesheet, one script (the card figure), nothing external
+  _headers                  Cloudflare Pages headers: a CSP that allows only this origin
+  404.html  robots.txt  sitemap.xml  icon.svg  favicon-32.png  apple-touch-icon.png  og.png
+```
+
+Cloudflare Pages serves `dir/index.html` at `/dir/`, so the pages link to
+`/how-it-works/`, `/privacy/` and `/notes/`. The two PNGs are rendered by
+`node scripts/website/render.mjs` from `scripts/website/assets.html`; edit the
+HTML and re-run rather than retouching them. Numbers on the site are read from
+`worker/src/index.js` and the version from `extension/manifest.json`; the
+footer's version line is the one most likely to drift, so bump it with the
+manifest. The prompt below still describes the intent and the sources; its
+deliverable section was rewritten to match the four-page shape.
+
 **Written 2026-09-01. Updated 2026-09-02:** `publishing/website/index.html` now
 exists (PR #24) and its "proof" is an animated JavaScript reproduction of the
 card, not screenshots — the draft that used four embedded PNGs was reviewed
@@ -145,24 +177,23 @@ OPEN FOR YOUR WORK:
   output stays deployable without one.
 
 DELIVERABLE:
-One self-contained HTML file — inline CSS and JS, no build step, no
-external network requests except an optional Google Fonts stylesheet if you
-use one. Responsive down to a phone screen, semantic HTML, keyboard
-navigable, real contrast, alt text on every image (there should be none
-beyond the inline mascot SVG, which needs a role and aria-label instead).
-Save it as `publishing/website/index.html`. Sections at minimum:
-1. Hero — mascot, the name and short description from STORE-LISTING.md
-   (byte-identical to the manifest), one primary "Add to Chrome" button.
-2. How it works — the click-costs-nothing-until-you-ask flow, using
-   README's ASCII diagram or STORE-LISTING's four-step list as source,
-   alongside the animated reproduction of the card described in step 6.
-3. What it does — the listing's principle blocks (reads your own messages,
-   a menu not a checklist, says nothing when it has nothing, what it will
-   not do).
-4. Privacy, plainly — the bullet list from STORE-LISTING.md's privacy
-   section, unchanged in substance.
-5. Footer — GitHub link, MIT license mention, the shipped version number,
-   and the mandatory non-affiliation line.
+Four hand-written static pages under publishing/website/, sharing one
+stylesheet (site.css) and one script (demo.js, the reproduction of the card),
+with no build step and no external network requests of any kind: no web
+fonts, no CDN, no analytics. The pages are index.html (overview), how-it-
+works/index.html, privacy/index.html and notes/index.html; keep the
+directory form so Cloudflare Pages serves them at /, /how-it-works/,
+/privacy/ and /notes/ without redirects. Keep _headers (a CSP that allows
+only this origin, which is what makes "loads nothing from anywhere else" a
+checkable claim), 404.html, robots.txt and sitemap.xml. Responsive down to a
+phone, semantic HTML (one h1 per page, landmarks, tables with captions and
+scope, a skip link), keyboard navigable, AA contrast in both colour schemes,
+prefers-reduced-motion honoured by the figure. The register is an engineer's
+own site, not a launch page: no hero, no buttons outside the reproduced
+card, no gradients, shadows, glows, pills, sparkle glyphs, tracked-uppercase
+labels, card grids or toggles; the store call to action is a sentence with
+an inline link. Every number is read from the code at the time of writing,
+and the mandatory non-affiliation line closes every page.
 
 BEFORE YOU COMMIT ANYTHING: build a draft, run `npm test` and `npm run build`
 to confirm nothing under `extension/` or `worker/` was touched by mistake

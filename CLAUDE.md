@@ -13,7 +13,7 @@ Two artifacts ship from this repo:
 
 They deploy on separate paths on purpose (a worker fix shouldn't force a Chrome Web Store resubmission), but they ship **one product per generation**: `build.mjs` fails if `BUILD` and the manifest version disagree, and they **share a byte-identical system prompt** — see Architecture below. (`CHANGELOG.md`'s header still says the two numbers are "free to diverge"; the build guard is the current rule.)
 
-A third, unrelated deploy exists: `publishing/website/` is a static product site pushed to Cloudflare Pages by `.github/workflows/deploy-pages.yml` whenever it changes on `main`. It touches neither `extension/` nor `worker/`.
+A third, unrelated deploy exists: `publishing/website/` is a static product site (four hand-written pages, one stylesheet, one script, no build step) pushed to Cloudflare Pages by `.github/workflows/deploy-pages.yml` whenever it changes on `main`. It touches neither `extension/` nor `worker/`. Its numbers are copies of the worker's constants and its footer carries the manifest version, so both move with a release; `publishing/WEBSITE-PROMPT.md` records the layout and the design stance.
 
 ## Commands
 
@@ -89,6 +89,7 @@ store-assets/         store listing images, promo tiles, mascot brand source ass
 scripts/              dev/release tooling (release-commit, dogfood-test, reproduce-test)
 scripts/screenshots/  regenerates publishing/screenshots/ by driving the real extension against a mock claude.ai DOM (Playwright + Xvfb; not part of the test suite)
 scripts/promo/        renders the store promo tiles into store-assets/ from an HTML source
+scripts/website/      renders the site's social preview and touch icon into publishing/website/ from an HTML source
 scripts/archive/      one-off scripts from closed investigations — not part of the workflow
 docs/history-mining-audit.md   the pre-pivot audit, annotated with what was overruled afterwards
 docs/archive/         shipped planning docs and specs, kept for provenance only

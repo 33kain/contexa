@@ -28,3 +28,6 @@ scripts/contexa-test-*.txt
 .DS_Store
 Thumbs.db
 desktop.ini
+
+# playwright mcp scratch (created by the .mcp.json browser server)
+.playwright-mcp/
