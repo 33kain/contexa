@@ -20,14 +20,14 @@ Brakes don't raise anyone's cap. They cut the share of the cap that goes to wast
 | 2 | Fork thread with summary | CONTEXA | **built in 0.9.73**, not field-tested |
 | 3 | Send-cost preview + long-thread warning | CONTEXA | **built in 0.9.73** (cost line only; no peak-window indicator, no usage-page read) |
 | 4 | What's eating your tokens | `tokenbrake report` | **built**, run on one real 64-request session |
-| 5 | Batch + model-routing nudge | CONTEXA | spec'd only |
+| 5 | Batch + model-routing nudge | CONTEXA | **built in 0.9.74**, not field-tested |
 
 Shared plumbing across all five: one Worker backend, one token-estimation module
 (`chars/4` is accurate enough for warnings), one settings/telemetry schema.
 
 Ship order: 1 → (2 + 3 as one CONTEXA release) → 4 → 5. Brakes 2 + 3 shipped as CONTEXA 0.9.73 on 2026-09-05
-(worker deployed; extension awaits the Chrome Web Store). Brake 4 built the same day as `tokenbrake report`.
-Next: brake 5, and publishing tokenbrake.
+(worker deployed; extension awaits the Chrome Web Store). Brake 4 built the same day as `tokenbrake report`;
+brake 5 as CONTEXA 0.9.74. All five exist. Next: publish tokenbrake, submit 0.9.74 to the store, and field-test.
 
 ---
 
@@ -217,8 +217,16 @@ exactly the class brake 1's Read cap exists for. The ledger gained `id` (tool_us
 (transcript_path) so the join is exact rather than by command string. Not built: anything live or
 cross-session; it is a per-session report on purpose.
 
-**5. Batch + model nudge (CONTEXA).** Three short follow-ups in a row → offer to merge into one turn.
-Simple fragment (ŠRAF classification already knows) → suggest Sonnet before sending.
+**5. Batch + model nudge (CONTEXA) — built, 0.9.74.** Two lines on the card, no button, chosen by
+`weightLine` after the long-thread cost line: three short user turns in a row on a thread of ≥ 4,000
+estimated tokens ("each re-reading the thread… one message reads it once"), and a short code-free last turn
+sent while claude.ai's model selector (`[data-testid="model-selector-dropdown"]`, pinned) reads Opus ("about
+2.5× Sonnet's usage per token", the API list-price ratio, source named in the code). Retrospective by design:
+said when the reply lands, the one moment the pattern is complete and the composer is empty; nothing watches
+the composer. "ŠRAF classification" does not exist in this repository; the fragment definition is the
+one in `content.js`. The selector name is the one part not verified against live claude.ai — the mock uses
+it; if the live page names its selector differently, the model line simply never renders, and the first
+live session should check for the `[CONTEXA] nudge — model opus` console line on an Opus chat.
 
 ## Launch vehicle
 

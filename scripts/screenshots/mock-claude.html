@@ -286,6 +286,33 @@
       }
       return document.body.textContent.length;
     },
+    /* 0.9.74 — for the CX_NUDGE pass. Short user turns appended just before
+       the live reply, so they are the LAST three the page holds; and a stand-in
+       for claude.ai's model selector, by the testid content.js pins. */
+    appendShort(texts) {
+      const col = document.getElementById('col');
+      const last = col.lastElementChild;
+      for (const text of texts) {
+        const row = document.createElement('div');
+        row.className = 'group/message-row';
+        const u = document.createElement('div'); u.className = 'user-row';
+        const m = document.createElement('div'); m.setAttribute('data-testid', 'user-message');
+        m.textContent = text;
+        u.appendChild(m); row.appendChild(u);
+        col.insertBefore(row, last);
+      }
+      return document.querySelectorAll('[data-testid="user-message"]').length;
+    },
+    setModel(name) {
+      let b = document.querySelector('[data-testid="model-selector-dropdown"]');
+      if (!b) {
+        b = document.createElement('button');
+        b.setAttribute('data-testid', 'model-selector-dropdown');
+        b.style.cssText = 'position:absolute;left:24px;bottom:22px;font:12px ui-sans-serif,sans-serif;color:#a6a49b;background:none;border:1px solid #4a4a46;border-radius:8px;padding:3px 8px';
+        document.querySelector('.app').appendChild(b);
+      }
+      b.textContent = 'Claude ' + name;
+    },
     padTurns(n) {
       const col = document.getElementById('col');
       const first = col.firstElementChild;

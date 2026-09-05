@@ -183,7 +183,7 @@ A spend limit in the Anthropic console is the only hard ceiling. Set one.
 
 Full policy: [`publishing/PRIVACY.md`](publishing/PRIVACY.md)
 
-## The exit from a long thread
+## The weight of the thread
 
 Every message on claude.ai re-reads the whole thread. When the thread on the
 page passes roughly 12,000 estimated tokens, the card says so next to the
@@ -194,6 +194,12 @@ fact, a `<paste here>` slot for anything the new chat will not have. The brief
 is the hover text of a single chip, and that chip opens a new chat with the
 brief already in its message box. Nothing is sent for you. A thread with
 nothing to carry over gets an empty brief, and the card says that instead.
+
+Two more lines, each with no button, because the action is your next message:
+three short messages in a row on a heavy thread, and the card notes that each
+one re-read the whole thread; a short question sent on Opus, and it notes that
+Opus spends about 2.5× Sonnet's usage per token. At most one line at a time,
+and the long-thread line wins because it has an action.
 
 ## Design notes
 

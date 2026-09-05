@@ -27,7 +27,10 @@ also says what the next send costs to re-read, and offers **Start fresh**: one
 click writes a brief of the thread (what you set out to do, what was settled,
 what exists now, what's next), a second opens a new chat with that brief already
 in the message box. You read it and send it yourself. That spends one call, the
-same as asking for moves.
+same as asking for moves. On a heavy thread it also notes when your last three
+messages were all short (each one re-read the whole thread), and when a short
+question went out on Opus (about 2.5× Sonnet's usage per token). One quiet line,
+no button — the action is your next message.
 
 No account, no API key, free to use. Nothing overlays your composer, nothing
 scores your writing, and nothing appears unless it's real.

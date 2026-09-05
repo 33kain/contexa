@@ -9,6 +9,56 @@ backend's live version separately so a deploy can be told from a no-op.
 
 ---
 
+## 0.9.74 — Extension (worker build number only)
+
+*Brake 5 of the token-savings plan: the two nudges. One quiet line on the card,
+no button, because the action is the next message the user writes.*
+
+### Fragments
+
+Three short user messages in a row (`FRAGMENT_RUN` of them, each under
+`SHORT_TURN_CHARS`) on a thread of at least `FRAGMENT_MIN_THREAD_TOKENS`
+(4,000 estimated) and the label row says: "Three short messages in a row,
+each re-reading the thread (≈ 6k tokens). One message that asks for the whole
+thing reads it once." The floor exists because three "ok"s on a two-turn chat
+cost nothing worth a line.
+
+### Model
+
+A short, code-free last message (`simpleLast`) sent while claude.ai's model
+selector reads Opus, and the row says: "Sent on Opus, about 2.5× Sonnet's usage
+per token. A question this short is what Sonnet is for." The ratio is the API
+list price, Opus 5 $5/$25 against Sonnet 5 $2/$10 per million tokens; claude.ai's
+own weighting is not published, so the line says "about" and the comment names
+the source. The selector is a pinned constant (`MODEL_SEL`) like every other
+host selector, and an absent selector means no line, never a guess. The
+extension cannot switch the model; it can only say.
+
+### Precedence
+
+`weightLine` chooses at most one line for the label row, in order of what it
+saves: the long-thread cost line with its Start fresh control, then fragments,
+then the model note. Both cards (the trigger and the mined row) go through it.
+
+### What this is not
+
+Retrospective, on purpose: the lines describe the message just sent, at the
+one moment the pattern is complete and the composer is empty, and nothing
+watches or overlays the composer. The plan's "ŠRAF classification" does not
+exist in this repository; a simple fragment is defined in `content.js` as
+short and free of code characters, and the field test will say whether that
+is the right line. Verified in a real Chromium against the mock page
+(`CX_NUDGE=1`): both lines render, neither carries a button, Sonnet on a
+plain short thread draws nothing, and Opus on a long thread draws the cost
+line rather than the model note.
+
+### What ships
+
+The extension. The worker's `BUILD` moves to 0.9.74 with the manifest because
+the build guard requires it; its behaviour is unchanged from 0.9.73.
+
+---
+
 ## 0.9.73 — Extension + Worker
 
 *Brakes 2 and 3 of the token-savings plan (`tokenbrake/HANDOFF.md`): the

@@ -1554,8 +1554,27 @@ const TURNS = [
     t('the click stages the brief, then opens a fresh chat', /type: 'stageBrief', brief/.test(card) && /window\.open\(NEW_CHAT_URL, '_blank', 'noopener'\)/.test(card) && /NEW_CHAT_URL = 'https:\/\/claude\.ai\/new'/.test(c));
     t('the landing is restricted to /new', /location\.pathname !== '\/new'\) return;/.test(c));
     t('and goes through insertPrompt, which never overwrites a draft', /function landBrief\(\)[\s\S]{0,300}insertPrompt\(text\)/.test(c));
-    t('the fork control stays on the mined row', /function renderMoves\(anchor, moves, ctx\)[\s\S]{0,600}costLine\(/.test(c));
+    t('the fork control stays on the mined row', /function renderMoves\(anchor, moves, ctx\)[\s\S]{0,600}weightLine\(/.test(c));
   }
+}
+
+/* ---- 0.9.74 — brake 5: the nudges --------------------------------------- */
+{
+  const c = readFileSync('./content.js', 'utf8');
+  t('the model selector is a pinned constant, like every other host selector', /const MODEL_SEL = '\[data-testid="model-selector-dropdown"\]';/.test(c));
+  t('an absent selector means no model, never a guess', /function pageModel\(\)[\s\S]{0,250}return m \? m\[0\]\.toLowerCase\(\) : null;/.test(c));
+  t('a simple fragment is short and free of code characters', /function simpleLast\(\)[\s\S]{0,250}t\.length < SIMPLE_TURN_CHARS && !\/\[/.test(c));
+  t('the fragments run is the last three user turns, all short', /function fragmentRun\(\)[\s\S]{0,250}t\.length === FRAGMENT_RUN && t\.every\(x => x\.length > 0 && x\.length < SHORT_TURN_CHARS\)/.test(c));
+  const w = (c.match(/function weightLine\([\s\S]*?\n  \}/) || [''])[0];
+  t('weightLine exists and gates on a real reply', /if \(!ctx \|\| !ctx\.reply\) return;/.test(w));
+  t('the long-thread line outranks both nudges', /ctx\.thread >= LONG_THREAD_TOKENS\) return costLine\(/.test(w));
+  t('fragments need a thread heavy enough to matter', /ctx\.thread >= FRAGMENT_MIN_THREAD_TOKENS && fragmentRun\(\)/.test(w));
+  t('the model note needs Opus on the page and a simple last turn', /pageModel\(\) === 'opus' && simpleLast\(\)/.test(w));
+  t('fragments outrank the model note', w.indexOf('fragmentRun()') < w.indexOf("pageModel() === 'opus'"));
+  t('a nudge renders through textContent and carries no button', /function note\(label, text, why\)[\s\S]{0,300}words\.textContent = text;/.test(c) && !/function note\([\s\S]{0,400}createElement\('button'\)/.test(c));
+  t('every nudge logs its cause for the field test', /console\.log\('\[CONTEXA\] nudge —', why\);/.test(c));
+  t('the ratio names its source', /OPUS_OVER_SONNET = '2\.5×'/.test(c) && /\$5\/\$25 against Sonnet 5 \$2\/\$10/.test(c));
+  t('both cards go through weightLine, and none still call costLine directly', (c.match(/weightLine\(wrap\.querySelector\('\.label'\), anchor, ctx\)/g) || []).length === 2 && (c.match(/costLine\(/g) || []).length === 2);
 }
 
 console.log(fails.length ? '\nFAILED: ' + fails.join(', ') : '\nall extension checks passed');

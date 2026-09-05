@@ -46,6 +46,11 @@ writes under `build-ready/` (git-ignored) and never into the listing set:
   notice and asserts it cannot be clicked.
 - `CX_TURNS=1` — pads the thread to twenty user turns and asserts the shipped
   `captureTurns()` reads all of them, `i=1..20`.
+- `CX_NUDGE=1` (0.9.74) — three short turns on a mid-weight thread draw the
+  fragments line; a short question with Opus in the (mock) model selector
+  draws the model line; Sonnet on a plain short thread draws nothing; Opus on
+  a long thread draws the cost line, not the model note. Neither nudge may
+  carry a button.
 - `CX_FORK=1` (0.9.73) — pads the thread past the cost line's threshold,
   asserts the "≈ Nk tokens re-read per send" line and the **Start fresh**
   control render, clicks it against a canned `/v1/fork`, asserts the brief

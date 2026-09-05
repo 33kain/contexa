@@ -157,6 +157,10 @@
     animation:cxpulse 1.2s ease-in-out infinite}
   .brief{display:flex;flex-wrap:wrap;align-items:center;gap:8px 10px;font-size:11.5px;
     color:var(--text2);line-height:1.45}
+  /* 0.9.74 — a nudge is the same quiet line with no button, so it may run to two
+     lines on a narrow card; right-aligned so it stays visually attached to the
+     row's edge rather than drifting toward the wordmark. */
+  .ctxa-cost.note{max-width:72%;text-align:right;line-height:1.35}
   /* 0.9.55 §1 — the mascot trigger. Everything under ctxa-mas-*; it shares no
      class with the pencil chip (criterion P's trigger half closes here) and no
      label (the comparison assertion keeps guarding the literals). */
@@ -467,6 +471,79 @@
     });
     cost.append(words, btn);
     label.appendChild(cost);
+  }
+
+  /* ---------------- 0.9.74 — the nudges (brake 5) ------------------------ */
+  /* Two patterns that spend usage for nothing, read off the page when the card
+     renders and said in one quiet line. Neither has a button, because the
+     action is the next message the user writes — and the card is where the
+     next message starts. Retrospective on purpose: the reply has just landed,
+     which is the one moment the pattern is complete and the composer is empty,
+     and nothing here overlays or watches the composer.
+
+     FRAGMENTS. Three short messages in a row each re-read the whole thread;
+     one message that asks for the whole thing reads it once. Said only when
+     the thread is heavy enough for the re-read to matter (the floor below),
+     because three "ok"s on a two-turn chat cost nothing worth a line.
+
+     MODEL. A short question sent on Opus. Opus is the tier claude.ai spends
+     fastest, and a question that fits in a line does not use what it is for.
+     The ratio is the API list price, Opus 5 $5/$25 against Sonnet 5 $2/$10 per
+     million tokens (2026-09); claude.ai's own weighting is not published, so
+     the line says "about" and names where the number is from in this comment
+     rather than pretending to a precision it does not have. The page's model
+     is read from claude.ai's selector by a pinned selector, and an absent
+     selector means no line, never a guess. The extension cannot switch the
+     model; it can only say.
+
+     The plan called this "ŠRAF classification"; nothing by that name exists in
+     this repository, so a simple fragment is defined here: short, and free of
+     the characters that mean code. One line at most: the long-thread cost line
+     outranks both (it has an action), fragments outrank the model note. */
+  const SHORT_TURN_CHARS = 120;
+  const FRAGMENT_RUN = 3;
+  const FRAGMENT_MIN_THREAD_TOKENS = 4000;
+  const SIMPLE_TURN_CHARS = 200;
+  const MODEL_SEL = '[data-testid="model-selector-dropdown"]';
+  const OPUS_OVER_SONNET = '2.5×';
+  function lastTurns(n) {
+    return [...document.querySelectorAll(USER_MSG_SEL)].slice(-n).map(el => (el.textContent || '').trim());
+  }
+  function fragmentRun() {
+    const t = lastTurns(FRAGMENT_RUN);
+    return t.length === FRAGMENT_RUN && t.every(x => x.length > 0 && x.length < SHORT_TURN_CHARS);
+  }
+  function pageModel() {
+    const el = document.querySelector(MODEL_SEL);
+    const m = ((el && el.textContent) || '').match(/opus|sonnet|haiku/i);
+    return m ? m[0].toLowerCase() : null;
+  }
+  function simpleLast() {
+    const t = lastTurns(1)[0] || '';
+    return t.length > 0 && t.length < SIMPLE_TURN_CHARS && !/[`{}()<>=;]/.test(t);
+  }
+  function note(label, text, why) {
+    const el = document.createElement('span');
+    el.className = 'ctxa-cost note';
+    const words = document.createElement('span');
+    words.textContent = text;
+    el.appendChild(words);
+    label.appendChild(el);
+    console.log('[CONTEXA] nudge —', why);
+  }
+  /* The one line the label row may carry, chosen in order of what it saves. */
+  function weightLine(label, anchor, ctx) {
+    if (!ctx || !ctx.reply) return;
+    if (ctx.thread == null) ctx.thread = threadTokens();
+    if (ctx.thread >= LONG_THREAD_TOKENS) return costLine(label, anchor, ctx);
+    if (ctx.thread >= FRAGMENT_MIN_THREAD_TOKENS && fragmentRun()) {
+      return note(label, 'Three short messages in a row, each re-reading the thread (≈ '
+        + kTokens(ctx.thread) + ' tokens). One message that asks for the whole thing reads it once.', 'fragments');
+    }
+    if (pageModel() === 'opus' && simpleLast()) {
+      return note(label, 'Sent on Opus, about ' + OPUS_OVER_SONNET
+        + ' Sonnet\'s usage per token. A question this short is what Sonnet is for.', 'model opus');
+    }
   }
 
   /* 0.9.73 — brake 2: the fork. Spends one call, like the mascot, and reads
@@ -1012,7 +1089,7 @@
     if (!wrap) return;
     wrap.innerHTML = `<div class="label"><b>✦</b> CONTEXA</div>` +
       `<div class="chips"></div>`;
-    costLine(wrap.querySelector('.label'), anchor, ctx);
+    weightLine(wrap.querySelector('.label'), anchor, ctx);
     const slot = document.createElement('span');
     slot.className = 'ctxa-mas-slot';
     wrap.querySelector('.chips').appendChild(slot);
@@ -1089,7 +1166,7 @@
     /* The fork stays offered on the mined row: a long thread is long whether
        or not it earned moves, and the exit should not vanish because the
        menu arrived. */
-    costLine(wrap.querySelector('.label'), anchor, ctx);
+    weightLine(wrap.querySelector('.label'), anchor, ctx);
     const row = wrap.querySelector('.chips');
     for (const m of moves) appendIdeaChip(row, m);
   }

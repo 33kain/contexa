@@ -78,9 +78,14 @@ const TURNS_CHECK = process.env.CX_TURNS === '1';
    by a real browser: the source assertions can see that stageBrief is called
    and that /new collects it, but not that a second tab actually receives it. */
 const FORK = process.env.CX_FORK === '1';
+/* CX_NUDGE (0.9.74) renders the two brake-5 lines — a run of short turns on a
+   mid-weight thread, and a short question sent on Opus — and checks that the
+   long-thread cost line outranks both. Verification only, like the others. */
+const NUDGE = process.env.CX_NUDGE === '1';
 const OUT = ZERO
   ? join(REPO, 'build-ready', 'zero-check')
   : FORK ? join(REPO, 'build-ready', 'fork-check')
+  : NUDGE ? join(REPO, 'build-ready', 'nudge-check')
   : join(REPO, 'publishing', 'screenshots');
 const MOCK = join(HERE, 'mock-claude.html');
 
@@ -357,6 +362,10 @@ async function main() {
       const chars = await page.evaluate(() => window.__mock.padLong(30, 1700));
       console.log('  long thread: page holds', chars, 'chars ≈', Math.round(chars / 4), 'tokens');
     }
+    if (NUDGE) {
+      const chars = await page.evaluate(() => { window.__mock.padLong(12, 1700); window.__mock.appendShort(['Ok.', 'And the tram?', 'Do that.']); return document.body.textContent.length; });
+      console.log('  mid thread with three short turns: page holds', chars, 'chars ≈', Math.round(chars / 4), 'tokens');
+    }
     await page.evaluate(html => window.__mock.streamReply(html), REPLY_HTML);
     await page.waitForTimeout(400);
     await page.evaluate(() => window.__mock.finishStream());
@@ -408,6 +417,54 @@ async function main() {
         throw new Error(`captureTurns read i=${m[1]}..${m[2]} from a complete 20-turn DOM`);
       }
       console.log('\ncapture verified: a complete DOM yields all 20 turns, i=1..20');
+      return;
+    }
+
+    /* ---- CX_NUDGE: the two brake-5 lines, and their precedence. */
+    if (NUDGE) {
+      const readLine = async (p) => p.evaluate(() => {
+        const host = document.querySelector('[data-contexa]');
+        const el = host && host.shadowRoot.querySelector('.ctxa-cost');
+        return el ? { text: el.textContent.trim(), button: !!el.querySelector('button') } : null;
+      });
+      const nudges = [];
+      page.on('console', m => { if (m.text().includes('[CONTEXA] nudge')) nudges.push(m.text()); });
+      let line = await readLine(page);
+      console.log('  fragments:', JSON.stringify(line));
+      if (!line || !/Three short messages in a row, each re-reading the thread \(≈ \d+k tokens\)/.test(line.text)) throw new Error('fragments nudge did not render');
+      if (line.button) throw new Error('a nudge must carry no button');
+      await shoot(page, 'nudge-1-fragments.png', 'three short turns on a mid-weight thread', { card: true });
+
+      /* The model note: a fresh page, Opus in the selector, the mock's own last
+         turn (82 chars, no code) as the short question. */
+      const again = async (prep) => {
+        await page.reload({ waitUntil: 'domcontentloaded' });
+        await page.waitForTimeout(1200);
+        await page.evaluate(prep);
+        await page.evaluate(html => window.__mock.streamReply(html), REPLY_HTML);
+        await page.waitForTimeout(400);
+        await page.evaluate(() => window.__mock.finishStream());
+        await page.waitForSelector(MASCOT, { timeout: 15000 });
+        await page.evaluate(() => window.__mock.bottom());
+        await page.waitForTimeout(700);
+      };
+      await again(() => window.__mock.setModel('Opus 4.1'));
+      line = await readLine(page);
+      console.log('  model:', JSON.stringify(line));
+      if (!line || !/Sent on Opus, about 2\.5× Sonnet/.test(line.text)) throw new Error('model nudge did not render on Opus');
+      await shoot(page, 'nudge-2-model.png', 'a short question, sent on Opus', { card: true });
+
+      await again(() => window.__mock.setModel('Sonnet 4.5'));
+      line = await readLine(page);
+      if (line) throw new Error('a line rendered on Sonnet with a plain short thread: ' + line.text);
+      console.log('  sonnet, short thread: no line (correct)');
+
+      await again(() => { window.__mock.setModel('Opus 4.1'); window.__mock.padLong(30, 1700); });
+      line = await readLine(page);
+      console.log('  opus + long thread:', JSON.stringify(line));
+      if (!line || !/re-read per send/.test(line.text) || !line.button) throw new Error('the cost line did not outrank the model note');
+      if (nudges.some(n => /model opus/.test(n) && nudges.indexOf(n) > 0) && nudges.filter(n => /model opus/.test(n)).length !== 1) throw new Error('model nudge logged more than once: ' + nudges.join(' | '));
+      console.log(`\nnudges verified, shots written to ${OUT}`);
       return;
     }
 
