@@ -541,41 +541,77 @@
   });
   const shortPath = p => p.replace(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f-]{23}/gi, '<uuid>').replace(/\/([a-z]+_[A-Za-z0-9]{6})[A-Za-z0-9]{6,}/g, '/$1…');
 
-  /* 0.9.79 — the shape of the Cowork session API, for the diagnostic card only.
-     The page's own calls showed the base (/cowork/sessions/<id>/…) and not the
-     content, so four GETs under that base report their status and, on a JSON
-     200, the top-level key names — names, never values, never text. One round
-     of this replaces a week of guessing. */
-  const COWORK_TRIES = ['', '/events', '/messages', '/transcript'];
-  async function coworkProbe(ctx) {
+  /* 0.9.80 — the Cowork session, from the page's own session API.
+     The fourth card named it: the page fetches /v1/code/sessions/<id> and
+     /v1/code/sessions/<id>/events, same origin. A Cowork session is a Claude
+     Code session in Anthropic's cloud, and its record carries the one number
+     the cost line exists to show — context_usage.used_tokens, the context the
+     next message will re-read — exact, not chars/4. The session this was found
+     on read 123,813 tokens where the DOM estimate read 6,324.
+
+     The events are the session's transcript; the user's own messages are
+     taken from them for the moves and the brief, parsed defensively (an
+     array under `events` or at the top; entries whose type or role is
+     "user" and whose content is text). The record's and the events' key names
+     go to the diagnostic card so a shape that differs from this can be read
+     off a screenshot. Same rule as everywhere: any failure is one console
+     line and the rendered estimate stands. */
+  function firstArray(j) {
+    if (Array.isArray(j)) return j;
+    if (j && typeof j === 'object') for (const k of ['events', 'data', 'items', 'results']) if (Array.isArray(j[k])) return j[k];
+    return [];
+  }
+  function eventText(ev) {
+    const m = ev && (ev.message || ev);
+    const c = m && m.content;
+    if (typeof c === 'string') return c;
+    if (Array.isArray(c)) {
+      if (c.some(b => b && b.type === 'tool_result')) return '';
+      return c.map(b => (b && b.type === 'text' && typeof b.text === 'string') ? b.text : '').join('\n');
+    }
+    return typeof (m && m.text) === 'string' ? m.text : '';
+  }
+  async function coworkRead(anchor, ctx) {
     const cw = location.pathname.match(COWORK_RE);
     if (!cw) return;
-    const cookieOrg = (document.cookie.match(/(?:^|;\s*)lastActiveOrg=([0-9a-f-]{36})/i) || [])[1];
-    let org = cookieOrg;
-    if (!org) {
-      try { const list = await apiJson('/api/organizations'); org = ((Array.isArray(list) ? list : []).find(o => o && o.uuid) || {}).uuid; } catch (e) { ctx.coworkShape = ['org: ' + (e && e.message)]; refreshDiag(ctx); return; }
+    const base = '/v1/code/sessions/' + cw[1];
+    ctx.apiState = 'pending (cowork)';
+    refreshDiag(ctx);
+    let record = null, events = null;
+    try { record = await apiJson(base); } catch (e) { ctx.apiState = 'failed (cowork record): ' + (e && e.message); refreshDiag(ctx); console.log('[CONTEXA] cowork — session record unavailable (' + ctx.apiState + ')'); return; }
+    const r = record && (record.ccr || record.session || record);
+    const usage = r && (r.external_metadata && r.external_metadata.context_usage || r.context_usage) || null;
+    const used = usage && Number(usage.used_tokens);
+    ctx.coworkShape = ['record: {' + Object.keys(record || {}).slice(0, 12).join(',') + '}'
+      + (usage ? ' context_usage=' + JSON.stringify({ used_tokens: usage.used_tokens, max_tokens: usage.max_tokens }) : ' (no context_usage found)')];
+    try { events = await apiJson(base + '/events'); } catch (e) { ctx.coworkShape.push('events: ' + (e && e.message)); }
+    let turns = [], evCount = 0;
+    if (events) {
+      const arr = firstArray(events);
+      evCount = arr.length;
+      const first = arr[0];
+      ctx.coworkShape.push('events: ' + (Array.isArray(events) ? 'array' : '{' + Object.keys(events).slice(0, 10).join(',') + '}') + ' n=' + arr.length
+        + (first && typeof first === 'object' ? ' first={' + Object.keys(first).slice(0, 12).join(',') + '}' : ''));
+      for (const ev of arr) {
+        if (!ev || typeof ev !== 'object' || ev.isMeta || ev.isSidechain) continue;
+        const role = ev.type || ev.role || (ev.message && ev.message.role);
+        if (role !== 'user') continue;
+        const text = clampTurn(eventText(ev).trim());
+        if (text) turns.push({ i: turns.length + 1, text });
+      }
+      ctx.coworkShape.push('user turns parsed: ' + turns.length);
     }
-    if (!org) { ctx.coworkShape = ['org: none']; refreshDiag(ctx); return; }
-    const base = '/api/organizations/' + org + '/cowork/sessions/' + cw[1];
-    const out = [];
-    for (const suffix of COWORK_TRIES) {
-      try {
-        const r = await fetch(base + suffix, { credentials: 'same-origin', headers: { accept: 'application/json' } });
-        let shape = '';
-        if (r.ok) {
-          const ct = r.headers.get('content-type') || '';
-          if (/json/.test(ct)) {
-            const j = await r.json();
-            shape = Array.isArray(j) ? 'array[' + j.length + ']' + (j[0] && typeof j[0] === 'object' ? ' of {' + Object.keys(j[0]).slice(0, 12).join(',') + '}' : '')
-              : (j && typeof j === 'object') ? '{' + Object.keys(j).slice(0, 14).join(',') + '}' : typeof j;
-          } else shape = ct.slice(0, 30) || 'no content-type';
-        }
-        out.push(('sessions/…' + suffix) + ': ' + r.status + (shape ? ' ' + shape : ''));
-      } catch (e) { out.push(('sessions/…' + suffix) + ': ' + String(e && e.message || e).slice(0, 40)); }
+    ctx.api = { tokens: Number.isFinite(used) ? used : 0, chars: null, messages: evCount, human: turns.length, assistant: null, turns, exact: Number.isFinite(used) };
+    ctx.apiState = Number.isFinite(used) ? 'ok (cowork, exact)' : 'ok (cowork record, no token count)';
+    console.log('[CONTEXA] cowork — context ' + (Number.isFinite(used) ? used + ' tokens (exact)' : 'unknown') + ', ' + evCount + ' events, ' + turns.length + ' user turn(s)');
+    if (Number.isFinite(used) && used > (ctx.thread || 0)) {
+      ctx.thread = used;
+      if (lastThreadRead) Object.assign(lastThreadRead, { tokens: used, source: 'cowork api, exact' });
+      refreshWeight(anchor, ctx);
     }
-    ctx.coworkShape = out;
     refreshDiag(ctx);
   }
+
   async function apiJson(url) {
     const r = await fetch(url, { credentials: 'same-origin', headers: { accept: 'application/json' } });
     if (!r.ok) throw new Error('http_' + r.status);
@@ -643,7 +679,7 @@
      page's API answers and says the thread is bigger, the label row is redrawn
      with the better number — the line appears a beat late rather than never. */
   async function refineThread(anchor, ctx) {
-    if (COWORK_RE.test(location.pathname)) coworkProbe(ctx);
+    if (COWORK_RE.test(location.pathname)) return coworkRead(anchor, ctx);
     let api = null;
     try { api = await apiThread(ctx); }
     catch (e) { ctx.apiError = String(e && e.message || e); ctx.apiState = 'failed: ' + ctx.apiError; console.log('[CONTEXA] thread — page API unavailable (' + ctx.apiError + '); the rendered estimate stands'); refreshDiag(ctx); return; }
@@ -687,7 +723,7 @@
         : 'page API: ' + (ctx.apiState || 'not asked yet'),
       'user turns in DOM: ' + turns.length + ', last three: ' + (lastThree.join('/') || '-') + ' chars',
       'model on page: ' + (pageModel() || 'not found') + '; reply ' + ((ctx.reply || '').length) + ' chars',
-      ...(ctx.coworkShape ? ['cowork API shape:\n  ' + ctx.coworkShape.join('\n  ')] : []),
+      ...(ctx.coworkShape ? ['cowork session API:\n  ' + ctx.coworkShape.join('\n  ')] : []),
       'page API paths seen (' + apiPaths.length + '):' + (apiPaths.length ? '\n  ' + apiPaths.slice(-16).map(shortPath).join('\n  ') : ' none — probe not running?')
     ];
   }
@@ -852,11 +888,22 @@
       + kTokens(ctx.thread) + ' per send.';
     const chip = document.createElement('button');
     chip.className = 'chip move';
-    chip.textContent = 'Open a new chat with it';
+    /* 0.9.80 — on a Cowork page a fresh chat at /new is not the exit: the
+       work lives in a Cowork session with its folders and tools, and a new
+       one is started from Cowork's own screen, which this script does not
+       drive. So the chip copies the brief and says so — one paste, which is
+       the smallest honest step until a new session can be opened with it. */
+    const onCowork = COWORK_RE.test(location.pathname);
+    chip.textContent = onCowork ? 'Copy the brief for a new session' : 'Open a new chat with it';
     chip.title = brief;
     chip.addEventListener('click', async () => {
       if (chip.disabled) return;
       chip.disabled = true;
+      if (onCowork) {
+        try { await navigator.clipboard.writeText(brief); chip.textContent = 'Copied — start a new Cowork session and paste it'; }
+        catch (e) { chip.disabled = false; return renderQuiet(anchor, 'error', 'clipboard: ' + (e && e.message)); }
+        return;
+      }
       let ok = false;
       try {
         const r = await chrome.runtime.sendMessage({ type: 'stageBrief', brief });

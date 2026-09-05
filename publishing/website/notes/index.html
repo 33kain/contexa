@@ -63,6 +63,8 @@
 
 <h2 id="versions">By version, newest first</h2>
 <dl>
+  <dt><code>0.9.80</code></dt>
+  <dd>The number the plan was for. A Cowork session is a Claude Code session in Anthropic's cloud, and the page fetches its record, which carries the context the next message will re-read, exact. The session it was found on: 123,813 tokens, where the page's rendered part measured 6,324. The cost line on a Cowork page now shows that number, the moves and the brief are mined from the session's real turns, and the fork copies the brief for a new session rather than opening a chat that would not have the session's folders and tools.</dd>
   <dt><code>0.9.79</code></dt>
   <dd>Two cards from the field. On a chat, the page's API answered and the session the moves are mined from is now the whole one, six messages where the page showed three. On Cowork, the page's own calls showed the session's base and not its content, so the probe now also records WebSocket and EventSource connections and other hosts, and four read-only requests under the session's base report their status and key names, never values, into the card.</dd>
   <dt><code>0.9.78</code></dt>
@@ -112,13 +114,13 @@
 </ul>
 
 <h2 id="status">Status</h2>
-<p>Version 0.9.79 is the number in the extension's manifest and in the worker's <code>BUILD</code> constant; the worker's <code>/v1/health</code> reports it with the model and the limit, so a deploy can be told from a no-op. The shipped model on both paths is <code>claude-sonnet-5</code>. The open questions of the field test are how often a press earns nothing, and how much of a long thread a brief actually replaces.</p>
+<p>Version 0.9.80 is the number in the extension's manifest and in the worker's <code>BUILD</code> constant; the worker's <code>/v1/health</code> reports it with the model and the limit, so a deploy can be told from a no-op. The shipped model on both paths is <code>claude-sonnet-5</code>. The open questions of the field test are how often a press earns nothing, and how much of a long thread a brief actually replaces.</p>
 </main>
 
 <footer class="site">
   <p>CONTEXA is an independent project. It is not affiliated with, endorsed by, or sponsored by Anthropic.</p>
   <p><a href="https://chromewebstore.google.com/detail/phhamigkjeeabbjncpmhkppkjccfglhb">Chrome Web Store</a> · <a href="https://github.com/33kain/contexa">Source on GitHub</a> · <a href="https://github.com/33kain/contexa/blob/main/LICENSE">MIT licence</a> · <a href="https://github.com/33kain/contexa/blob/main/publishing/PRIVACY.md">Privacy policy</a> · <a href="https://github.com/33kain/contexa/blob/main/CHANGELOG.md">Changelog</a></p>
-  <p class="muted">Version 0.9.79. This site is static files served from one origin: no fonts, scripts, images or analytics are loaded from anywhere else.</p>
+  <p class="muted">Version 0.9.80. This site is static files served from one origin: no fonts, scripts, images or analytics are loaded from anywhere else.</p>
 </footer>
 </body>
 </html>

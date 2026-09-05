@@ -9,6 +9,43 @@ backend's live version separately so a deploy can be told from a no-op.
 
 ---
 
+## 0.9.80 — Extension (worker build number only)
+
+*The fifth card from the field, and the number the whole plan was for.*
+
+The card listed the page's own calls on a Cowork page: `/v1/code/sessions/
+<id>` and `/v1/code/sessions/<id>/events`, same origin. A Cowork session is a
+Claude Code session in Anthropic's cloud, and its record carries
+`context_usage.used_tokens` — the context the next message will re-read,
+exact. The session this was found on read **123,813 tokens** where the DOM
+estimate read 6,324 and the scaled one 8,320. Its lifetime figures: 245M
+tokens read from cache, $1,432. That is what "every send re-reads the whole
+thread" costs on a long Cowork session, measured.
+
+### The Cowork read
+
+`coworkRead` fetches the record and takes the exact count; it fetches the
+events and takes the user's own messages (entries whose type or role is
+"user" with text content; tool results are never a turn), parsed defensively
+because their shape has only been seen from one card. Both key sets go to the
+diagnostic card. The exact count outranks any estimate and redraws the label
+row; the moves and the brief are mined from the session's real turns.
+
+### The fork, on Cowork
+
+A fresh chat at `/new` is not the exit from a Cowork session: the work lives
+in a session with its folders and tools, and a new one starts from Cowork's
+own screen, which this script does not drive. On a Cowork page the chip reads
+"Copy the brief for a new session", copies it, and says so. One paste — the
+smallest honest step until a new session can be opened with the brief in it.
+
+### What ships
+
+The extension, as a field build. The worker's `BUILD` moves with the
+manifest; not redeployed.
+
+---
+
 ## 0.9.79 — Extension (worker build number only)
 
 *The third and fourth cards from the field, one from a chat and one from

@@ -1644,15 +1644,22 @@ const TURNS = [
   t('the build ships the probe', /'content\.js', 'probe\.js'/.test(readFileSync('../build.mjs', 'utf8')));
 }
 
-/* ---- 0.9.79 — the Cowork shape probe ------------------------------------ */
+/* ---- 0.9.80 — the Cowork session, from /v1/code/sessions ---------------- */
 {
   const c = readFileSync('./content.js', 'utf8');
-  const cp = (c.match(/async function coworkProbe\(ctx\)[\s\S]*?\n  \}/) || [''])[0];
-  t('the Cowork probe runs only on a Cowork page', /location\.pathname\.match\(COWORK_RE\);\s*if \(!cw\) return;/.test(cp));
-  t('it reports status and key names, never values', /Object\.keys\(j\)\.slice\(0, 14\)/.test(cp) && !/JSON\.stringify\(j/.test(cp) && !/j\.text|\.content/.test(cp));
-  t('it is GET-only and same-origin', !/method:/.test(cp) && /credentials: 'same-origin'/.test(cp));
-  t('it is kicked off with the refinement, on Cowork pages only', /if \(COWORK_RE\.test\(location\.pathname\)\) coworkProbe\(ctx\);/.test(c));
-  t('and lands in the diag card', /'cowork API shape:/.test(c));
+  const cr = (c.match(/async function coworkRead\(anchor, ctx\)[\s\S]*?\n  \}/) || [''])[0];
+  t('coworkRead runs only on a Cowork page and reads the session record the page itself fetches',
+    /location\.pathname\.match\(COWORK_RE\);\s*if \(!cw\) return;/.test(cr) && /'\/v1\/code\/sessions\/' \+ cw\[1\]/.test(cr));
+  t('the exact context count comes from context_usage.used_tokens', /context_usage/.test(cr) && /Number\(usage\.used_tokens\)/.test(cr));
+  t('an exact count outranks the rendered estimate and redraws the row', /if \(Number\.isFinite\(used\) && used > \(ctx\.thread \|\| 0\)\)[\s\S]{0,300}refreshWeight\(anchor, ctx\)/.test(cr));
+  t('the user turns come from the events, user entries with text only', /role !== 'user'\) continue;/.test(cr) && /clampTurn\(eventText\(ev\)\.trim\(\)\)/.test(cr));
+  t('tool results are never a turn', /c\.some\(b => b && b\.type === 'tool_result'\)\) return '';/.test(c));
+  t('a failed record read is one line and the estimate stands', /failed \(cowork record\)/.test(cr) && /console\.log\('\[CONTEXA\] cowork — session record unavailable/.test(cr));
+  t('the diag carries the record and events key names, never text', /Object\.keys\(record \|\| \{\}\)/.test(cr) && /Object\.keys\(first\)/.test(cr) && !/JSON\.stringify\(record/.test(cr));
+  t('refineThread hands a Cowork page to coworkRead', /if \(COWORK_RE\.test\(location\.pathname\)\) return coworkRead\(anchor, ctx\);/.test(c));
+  const card = (c.match(/function renderBrief\([\s\S]*?\n  \}/) || [''])[0];
+  t('on Cowork the fork chip copies the brief instead of opening /new', /onCowork \? 'Copy the brief for a new session'/.test(card) && /navigator\.clipboard\.writeText\(brief\)/.test(card));
+  t('and still opens a new chat everywhere else', /window\.open\(NEW_CHAT_URL, '_blank', 'noopener'\)/.test(card));
 }
 
 console.log(fails.length ? '\nFAILED: ' + fails.join(', ') : '\nall extension checks passed');
