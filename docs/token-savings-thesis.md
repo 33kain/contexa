@@ -288,8 +288,8 @@ habit of reading it.
 
 ## 8. Why this is the motto and not a feature
 
-"Claude prompts, without the writing" describes what CONTEXA does. "Every
-token earned" describes why every decision in the repository went the way it
+"Claude prompts, without the writing", the tagline the site carried until
+this document, describes what CONTEXA does. "Every token earned" describes why every decision in the repository went the way it
 did: the empty card, the single trigger, the lazy call, the pinned first turn,
 the collapsed code block, the byte-identical prefix, the refusal to add a text
 box. None of those was chosen to save tokens in the first instance; each was
