@@ -46,7 +46,7 @@
 
 <main id="main">
 <p>CONTEXA is a Chrome extension for claude.ai. When Claude finishes a reply, one trigger appears above the message box. The reply itself has been copied from the page, and that is all: nothing else has been read, and nothing has been sent or spent. Press it, and the extension reads your own messages from the whole conversation (not Claude's earlier replies) and sends them with the reply just received. It comes back with up to four next messages, each written in full. Click one and the whole text lands in the message box, unsent. You edit it and send it yourself. It never sends on your behalf.</p>
-<p>Every message has to be earned by a verbatim quote from the conversation or the reply, checked before it is drawn. When nothing qualifies, nothing is drawn. Free, no account, 20 presses a day per device; your own API key removes the limit. Version 0.9.71, MIT, <a href="https://github.com/33kain/contexa">source on GitHub</a>.</p>
+<p>Every message has to be earned by a verbatim quote from the conversation or the reply, checked before it is drawn. When nothing qualifies, nothing is drawn. The point of all of it is the messages you do not have to send: on a long conversation each one costs the whole conversation to re-read, and <a href="#tokens">the section below</a> puts a number on that. Free, no account, 20 presses a day per device; your own API key removes the limit. Version 0.9.71, MIT, <a href="https://github.com/33kain/contexa">source on GitHub</a>.</p>
 <p><a href="https://chromewebstore.google.com/detail/phhamigkjeeabbjncpmhkppkjccfglhb">Install it from the Chrome Web Store</a>. Which browsers can, and how to tell it is working, are under <a href="#install">Install</a> below.</p>
 
 <figure aria-labelledby="fig1">
@@ -84,6 +84,26 @@
     <p id="fig1">Figure 1. The card as the extension draws it, in an invented conversation about a wedding toast. Pressing the trigger offered three moves. Clicking the first put the whole prompt in the message box, unsent; the line beginning <code>Assume:</code> is the part you change before sending. The markup, styles and gestures are the extension's own (<code>extension/content.js</code>); the conversation and the moves are canned for this figure, and nothing here is recorded or sent anywhere. <noscript>The figure animates with JavaScript; without it, this is the frame before the trigger appears.</noscript></p>
   </figcaption>
 </figure>
+
+<h2 id="tokens">Save tokens. Extend your sessions.</h2>
+<p>On claude.ai, every message you send is processed with the whole conversation behind it. The cost of a message is not its length; it is how deep into the session you are when you send it. A wasted message on a forty-message thread costs a forty-message read. Three kinds of message get wasted, and none of them is a bad answer from Claude: the vague follow-up that comes back as a question ("which part?"), the three-jobs-in-one ask that comes back as three half-answers, and "explain that again", which re-reads everything to restate what is already on screen.</p>
+<p>CONTEXA writes the next message as one finished request. One job, one verb. The defaults the session already settled are stated on an <code>Assume:</code> line, so Claude does not ask. The material only you have is a <code>&lt;paste here&gt;</code> slot, so Claude does not ask for that either. A message that cannot draw a clarifying question is a round trip that never happens, and on a long session that round trip is the expensive one. Fewer messages per thing done is how the usage limit lasts longer.</p>
+<p>The table is a model, not a measurement, and it says so. An <em>ask</em> is one thing you want done. Each exchange is taken as about 150 tokens from you and 900 from Claude. Without CONTEXA an ask is taken to cost 1.7 messages on average, because some asks need a clarifying reply or a redo; with it, 1.1, allowing for the occasional edit. Tokens read is the sum, over every message sent, of the conversation as it stood at that moment.</p>
+<div class="scroll">
+<table>
+  <caption>Modelled spend on one session, without and with CONTEXA</caption>
+  <thead><tr><th scope="col">Session</th><th scope="col">Messages sent</th><th scope="col">Tokens read</th><th scope="col">Saved</th></tr></thead>
+  <tbody>
+    <tr><th scope="row">10 asks, at 1.7 messages per ask today</th><td>17 → 11</td><td>146k → 60k</td><td>about 59%</td></tr>
+    <tr><th scope="row">20 asks, at 1.7 messages per ask today</th><td>34 → 22</td><td>596k → 247k</td><td>about 59%</td></tr>
+    <tr><th scope="row">40 asks, at 1.7 messages per ask today</th><td>68 → 44</td><td>2.4M → 1.0M</td><td>about 58%</td></tr>
+    <tr><th scope="row">40 asks, at 1.5 messages per ask today</th><td>60 → 44</td><td>1.9M → 1.0M</td><td>about 46%</td></tr>
+    <tr><th scope="row">40 asks, at 2 messages per ask today</th><td>80 → 44</td><td>3.3M → 1.0M</td><td>about 70%</td></tr>
+  </tbody>
+</table>
+</div>
+<p>The percentage barely moves with session length. The absolute number is what grows: on the forty-ask session the difference is over a million tokens of re-reading, which is why the saving is felt most on exactly the sessions that hit the limit. Three things are worth knowing before repeating any of it. The whole estimate rests on how many messages an ask costs you today; if your sessions rarely need a clarifying round, the saving is nearer 20 to 30 percent. claude.ai almost certainly caches context, so a re-read message costs less than a fresh one, and how much of that reaches your usage limit is not published; treat the message counts as the firm figure and the token figures as the ceiling. And CONTEXA's own call is small next to any of this: at most about 4,500 tokens per press, on its own backend or your own API key, and none of it counts against your claude.ai usage.</p>
+<p class="muted">The rule behind this is the product's motto, <em>every token earned</em>: a token is earned when its message could not have been shorter, could not have been skipped, and will not need a follow-up to fix. The full argument, with each rule tied to the code that enforces it, is in <a href="https://github.com/33kain/contexa/blob/main/docs/token-savings-thesis.md">the token-savings thesis</a>.</p>
 
 <h2 id="quick-start">Quick start</h2>
 <ol>
