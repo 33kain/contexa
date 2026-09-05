@@ -962,7 +962,7 @@ t('unknown route 404', r.status === 404, String(r.status));
   t('fork: and lets an empty brief be the honest answer', /\{"brief":""\}/.test(sysText(p.system)));
   t('fork: the body is the same session the mining call reads', /^SESSION SO FAR:\n\[1\] make me a website/.test(p.messages[0].content)
     && /\n\nCLAUDE'S LATEST REPLY:\n/.test(p.messages[0].content));
-  t('fork: half the mining ceiling', p.max_tokens === 1200, String(p.max_tokens));
+  t('fork: below the mining ceiling', p.max_tokens === 2000, String(p.max_tokens));
   t('fork: thinking disabled, like every other call', p.thinking && p.thinking.type === 'disabled');
   t('fork: the response carries no grounding or moves fields', !('moves' in b) && !('grounding' in b));
 
@@ -989,12 +989,26 @@ t('unknown route 404', r.status === 404, String(r.status));
 
   // parse failure carries the fork's own ceiling in its diag
   globalThis.fetch = async () => ({ ok: true, status: 200, async text() { return ''; },
-    async json() { return { stop_reason: 'max_tokens', usage: { input_tokens: 400, output_tokens: 1200 },
-      content: [{ type: 'text', text: '{"brief":"Goal: never clo' }] }; } });
+    async json() { return { stop_reason: 'max_tokens', usage: { input_tokens: 400, output_tokens: 2000 },
+      content: [{ type: 'text', text: '{"brief":"Goal: the bakery site.\\nSettled:\\n- opening hours\\n- one slow day\\nExists now:\\n- the landing page <paste here>\\nNext: the menu pa' }] }; } });
   r = await w.fetch(fpost(), { ANTHROPIC_API_KEY: 'k', CX_KV: makeKV(), IP_SALT: 's' });
   b = await r.json();
-  t('fork: a truncated brief is reported with the fork ceiling in diag', r.status === 502 && b.error === 'truncated' && b.diag && b.diag.ceiling === 1200, JSON.stringify(b.diag));
-  t('fork: diag carries no brief text', !JSON.stringify(b).includes('never clo'));
+  /* 0.9.86 — a brief cut at the ceiling is salvaged, not refused: the text
+     after "brief":" is the brief, unescaped and cut at a clean line. */
+  t('fork: a truncated brief is salvaged at a clean boundary and flagged partial', r.status === 200 && b.partial === true && /^Goal: the bakery site\.\nSettled:/.test(b.brief) && /<paste here>$/.test(b.brief) && !/menu pa/.test(b.brief), JSON.stringify(b.brief));
+  globalThis.fetch = async () => ({ ok: true, status: 200, async text() { return ''; },
+    async json() { return { stop_reason: 'end_turn', usage: { input_tokens: 400, output_tokens: 300 },
+      content: [{ type: 'text', text: '{"brief":"Goal: raw line breaks.\nSettled:\n- unescaped, so this is not JSON\nNext: Pick up from here."}' }] }; } });
+  r = await w.fetch(fpost(), { ANTHROPIC_API_KEY: 'k', CX_KV: makeKV(), IP_SALT: 's' });
+  b = await r.json();
+  t('fork: raw line breaks inside the string are salvaged too', r.status === 200 && b.brief === 'Goal: raw line breaks.\nSettled:\n- unescaped, so this is not JSON\nNext: Pick up from here.', JSON.stringify(b.brief));
+  globalThis.fetch = async () => ({ ok: true, status: 200, async text() { return ''; },
+    async json() { return { stop_reason: 'max_tokens', usage: { input_tokens: 400, output_tokens: 2000 },
+      content: [{ type: 'text', text: 'Let me think about this brief for a' }] }; } });
+  r = await w.fetch(fpost(), { ANTHROPIC_API_KEY: 'k', CX_KV: makeKV(), IP_SALT: 's' });
+  b = await r.json();
+  t('fork: nothing after "brief": is still the truncated error, with the fork ceiling in diag', r.status === 502 && b.error === 'truncated' && b.diag && b.diag.ceiling === 2000, JSON.stringify(b.diag));
+  t('fork: diag carries no brief text', !JSON.stringify(b).includes('think about'));
 
   // the refactor did not move the mining endpoint's behaviour
   sent = [];

@@ -291,7 +291,7 @@ async function callClaude(system, userText, maxTokens) {
        and return the numbers that separate the possible causes. */
     const diag = diagnose(data, text, maxTokens);
     console.warn('[CONTEXA] parse failure', diag, 'text[0,300]=', text.slice(0, 300));
-    return { error: truncated ? 'truncated' : 'bad_json', diag };
+    return { error: truncated ? 'truncated' : 'bad_json', diag, text };
   }
 }
 
@@ -635,6 +635,25 @@ function cleanBrief(v) {
   const sp = cut.lastIndexOf(' ');
   return (sp > 0 ? cut.slice(0, sp) : cut).trimEnd();
 }
+/* 0.9.86 — the brief out of a broken answer. The first live fork on a
+   123k-token session came back as an error a user cannot act on; the two
+   likely causes are a brief cut at the output ceiling (the JSON never
+   closes) and raw line breaks inside the string (JSON that never parses).
+   Both leave the brief's text sitting in the reply after "brief":" — so take
+   it, unescape it, and let cleanBrief cut it at a clean boundary. The same
+   class of salvage the moves have had since extractJson learned to close a
+   truncated array: the model's own words, shorter, never invented. */
+function rawBrief(text) {
+  const m = String(text || '').match(/"brief"\s*:\s*"([\s\S]*)$/);
+  if (!m) return '';
+  const closed = /"\s*\}\s*$/.test(m[1]);
+  let t = m[1].replace(/"\s*\}\s*$/, '');
+  t = t.replace(/\\n/g, '\n').replace(/\\t/g, '\t').replace(/\\"/g, '"').replace(/\\\\/g, '\\');
+  /* Never closed means cut mid-line: the last line is a fragment and goes,
+     when there is a whole line before it to keep. */
+  if (!closed && t.includes('\n')) t = t.slice(0, t.lastIndexOf('\n'));
+  return cleanBrief(t);
+}
 /* end of the injected helper block — build.mjs reads to here for byte-identity */
 
 /* Hosted path: the proxy holds the API key, so the user needs nothing. Returns
@@ -872,10 +891,15 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
       const r = apiKey
         ? await callClaude(FORK_SYSTEM,
             'SESSION SO FAR:\n' + turnsSection(turns)
-              + '\n\nCLAUDE\'S LATEST REPLY:\n' + reply, 1200)
+              + '\n\nCLAUDE\'S LATEST REPLY:\n' + reply, 2000)
         : await callHostedFork(reply, turns);
       let out;
-      if (r.error) {
+      /* 0.9.86 — a cut or broken answer still carries the brief; see rawBrief. */
+      if (r.error && (r.error === 'truncated' || r.error === 'bad_json') && r.text && rawBrief(r.text)) {
+        const brief = rawBrief(r.text);
+        console.log('[CONTEXA] fork salvage — ' + r.error + ', kept ' + brief.length + ' chars', r.diag || '');
+        out = { brief, partial: true };
+      } else if (r.error) {
         out = r;
       } else if (apiKey) {
         const brief = cleanBrief(r.data && r.data.brief);

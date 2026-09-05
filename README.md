@@ -192,7 +192,9 @@ fresh**. It spends one call on a brief of the thread, written by the same rules
 as a move: nothing the session did not say, the session's own words for every
 fact, a `<paste here>` slot for anything the new chat will not have. The brief
 is the hover text of a single chip, and that chip opens a new chat with the
-brief already in its message box. Nothing is sent for you. A thread with
+brief already in its message box. On a Cowork session, where the thread's
+weight is read exactly from the session itself, it opens a new session in the
+same project instead. Nothing is sent for you. A thread with
 nothing to carry over gets an empty brief, and the card says that instead.
 
 Two more lines, each with no button, because the action is your next message:
