@@ -432,12 +432,49 @@
      stops paying it: the fork. */
   const CHARS_PER_TOKEN = 4;
   const LONG_THREAD_TOKENS = 12000;
+  /* 0.9.75 — the field found the flaw on day one: a plainly long chat on a
+     phone drew the model nudge and never the cost line, because the DOM held
+     only the rendered tail of the thread (the known virtualisation limit,
+     which fitTurns already lives with) and the sum below read a fraction of
+     the page. So the read is now scaled: the rendered blocks span some height,
+     the scroller is some height, and on a virtualised page the second is
+     much larger than the first. The ratio, capped, scales the character
+     count. A page that is not virtualised has the two within padding of each
+     other and scales by 1. It is still an estimate and still says ≈; what
+     changed is which direction it is wrong in. The read is kept on
+     `lastThreadRead` so the label's tooltip and the console can say what was
+     actually measured, which is the number the field test could not report. */
+  const VIRTUAL_MAX_SCALE = 20;
+  let lastThreadRead = null;
   function threadTokens() {
     let chars = 0;
+    const blocks = [];
     for (const sel of [USER_MSG_SEL, RESPONSE_SEL]) {
-      for (const el of document.querySelectorAll(sel)) chars += (el.textContent || '').length;
+      for (const el of document.querySelectorAll(sel)) { chars += (el.textContent || '').length; blocks.push(el); }
     }
-    return Math.round(chars / CHARS_PER_TOKEN);
+    let scale = 1, rendered = 0, total = 0;
+    if (blocks.length) {
+      let top = Infinity, bottom = -Infinity;
+      for (const b of blocks) { const r = b.getBoundingClientRect(); if (r.height) { top = Math.min(top, r.top); bottom = Math.max(bottom, r.bottom); } }
+      rendered = bottom > top ? bottom - top : 0;
+      const sc = findScroller(blocks[blocks.length - 1]);
+      total = sc ? sc.scrollHeight : 0;
+      if (rendered > 200 && total > rendered * 1.2) scale = Math.min(VIRTUAL_MAX_SCALE, total / rendered);
+    }
+    const tokens = Math.round(chars * scale / CHARS_PER_TOKEN);
+    lastThreadRead = { tokens, chars, blocks: blocks.length, scale, rendered: Math.round(rendered), total: Math.round(total) };
+    console.log('[CONTEXA] thread ≈', tokens, 'tokens —', chars, 'chars in', blocks.length, 'rendered blocks'
+      + (scale > 1 ? ', scaled ×' + scale.toFixed(1) + ' (rendered ' + Math.round(rendered) + 'px of ' + Math.round(total) + 'px)' : ''));
+    return tokens;
+  }
+  /* What the tooltip on the wordmark says — a long press on a phone, a hover on
+     a desktop. The field test runs where there is no console, and "why no
+     Start fresh here" is unanswerable without this number. */
+  function threadNote() {
+    const r = lastThreadRead;
+    if (!r) return '';
+    return '≈ ' + kTokens(r.tokens) + ' tokens on the page (' + r.chars.toLocaleString() + ' chars in ' + r.blocks + ' blocks'
+      + (r.scale > 1 ? ', scaled ×' + r.scale.toFixed(1) + ' for the part not rendered' : '') + '). Start fresh appears from ' + kTokens(LONG_THREAD_TOKENS) + '.';
   }
   const kTokens = n => (n >= 1000 ? Math.round(n / 1000) + 'k' : String(n));
 
@@ -701,6 +738,15 @@
       attributes: true, attributeFilter: ['data-is-streaming']
     });
     scan();
+    /* 0.9.75 — a page that loaded already finished, with no streaming flag on
+       its last reply, never mutates; the settle timer that stands in for the
+       flag was only ever armed BY a mutation, so such a page drew nothing,
+       forever, with nothing in the console. The field reported "on most
+       chats it does not open". Arm the fallback once at attach as well: the
+       same 1.2s of quiet, the same fail-closed scan, just not waiting for a
+       change that a static page will never make. */
+    clearTimeout(settleTimer);
+    settleTimer = setTimeout(() => { settled = true; scan(); }, 1200);
   }
 
   async function onReplyComplete(replyEl) {
@@ -1090,6 +1136,7 @@
     wrap.innerHTML = `<div class="label"><b>✦</b> CONTEXA</div>` +
       `<div class="chips"></div>`;
     weightLine(wrap.querySelector('.label'), anchor, ctx);
+    wrap.querySelector('.label').title = threadNote();
     const slot = document.createElement('span');
     slot.className = 'ctxa-mas-slot';
     wrap.querySelector('.chips').appendChild(slot);
@@ -1167,6 +1214,7 @@
        or not it earned moves, and the exit should not vanish because the
        menu arrived. */
     weightLine(wrap.querySelector('.label'), anchor, ctx);
+    wrap.querySelector('.label').title = threadNote();
     const row = wrap.querySelector('.chips');
     for (const m of moves) appendIdeaChip(row, m);
   }

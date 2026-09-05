@@ -9,6 +9,47 @@ backend's live version separately so a deploy can be told from a no-op.
 
 ---
 
+## 0.9.75 — Extension (worker build number only)
+
+*The first field session of 0.9.74, on a phone, in about an hour.*
+
+### What the field verified
+
+The model nudge rendered on real claude.ai — "Sent on Opus, about 2.5×
+Sonnet's usage per token" — on a chat whose composer bar read Opus 5. So
+`MODEL_SEL`, the one host selector that had only ever been matched against
+the mock, matches the live page.
+
+### What the field found
+
+**The cost line never rendered on a plainly long chat.** The reason is the
+known limit `captureTurns` already lives with: a virtualised transcript holds
+only its rendered rows in the DOM, so `threadTokens` summed a fraction of the
+thread and stayed under the threshold on exactly the pages the brake is for.
+The read is now scaled: the rendered blocks span some height, the scroller is
+some height, and on a virtualised page the second is much larger than the
+first. The ratio, capped at `VIRTUAL_MAX_SCALE`, scales the character count; a
+page that is not virtualised has the two within padding of each other and
+scales by 1. Still an estimate, still ≈; what changed is which direction it is
+wrong in. Every read logs what it measured, and the CONTEXA wordmark's tooltip
+(a long press on a phone) now says the number and the threshold, so "why no
+Start fresh here" has an answer where there is no console.
+
+**"On most chats it does not open."** A page that loaded already finished,
+whose last reply carries no `data-is-streaming` flag, never mutates — and the
+settle timer that stands in for the flag was armed only BY a mutation. Such a
+page drew nothing, forever, with nothing in the console. The fallback is now
+armed once at attach as well: the same 1.2 seconds of quiet, the same
+fail-closed scan. Whether this is the whole of the field report is not known;
+it is the one cause the code could produce on its own.
+
+### What ships
+
+The extension. The worker's `BUILD` moves with the manifest; its behaviour is
+unchanged and it was not redeployed for this number.
+
+---
+
 ## 0.9.74 — Extension (worker build number only)
 
 *Brake 5 of the token-savings plan: the two nudges. One quiet line on the card,

@@ -63,6 +63,8 @@
 
 <h2 id="versions">By version, newest first</h2>
 <dl>
+  <dt><code>0.9.75</code></dt>
+  <dd>The first field session of 0.9.74, on a phone, found two things in an hour. The model line rendered on real claude.ai, which verified the one selector nobody had checked. And a plainly long chat never drew the cost line: the page holds only the rendered part of a long thread, so the estimate read a fraction of it. The read now scales by how much taller the page is than the part on screen, capped, and the wordmark's tooltip (a long press on a phone) says what was measured. Also: a chat that loaded already finished, with no streaming flag on its last reply, could sit forever with no card, because the fallback timer was armed only by a change the page never made. It is armed once at attach as well.</dd>
   <dt><code>0.9.74</code></dt>
   <dd>Two nudges, one line, no button. Three short messages in a row on a thread heavy enough for it to matter, and the card says that each of them re-read the whole thread and that one message asking for the whole thing reads it once. A short question sent on Opus, and the card says Opus spends about 2.5× Sonnet's usage per token (the API list price; claude.ai's own weighting is not published) and that a question this short is what Sonnet is for. The page's model is read from claude.ai's own selector; no selector, no line. The long-thread cost line outranks both, because it has an action. The extension cannot switch the model or merge messages for you; it can only say, at the one moment the pattern is complete and the composer is empty.</dd>
   <dt><code>0.9.73</code></dt>
@@ -102,13 +104,13 @@
 </ul>
 
 <h2 id="status">Status</h2>
-<p>Version 0.9.74 is the number in the extension's manifest and in the worker's <code>BUILD</code> constant; the worker's <code>/v1/health</code> reports it with the model and the limit, so a deploy can be told from a no-op. The shipped model on both paths is <code>claude-sonnet-5</code>. The open questions of the field test are how often a press earns nothing, and how much of a long thread a brief actually replaces.</p>
+<p>Version 0.9.75 is the number in the extension's manifest and in the worker's <code>BUILD</code> constant; the worker's <code>/v1/health</code> reports it with the model and the limit, so a deploy can be told from a no-op. The shipped model on both paths is <code>claude-sonnet-5</code>. The open questions of the field test are how often a press earns nothing, and how much of a long thread a brief actually replaces.</p>
 </main>
 
 <footer class="site">
   <p>CONTEXA is an independent project. It is not affiliated with, endorsed by, or sponsored by Anthropic.</p>
   <p><a href="https://chromewebstore.google.com/detail/phhamigkjeeabbjncpmhkppkjccfglhb">Chrome Web Store</a> · <a href="https://github.com/33kain/contexa">Source on GitHub</a> · <a href="https://github.com/33kain/contexa/blob/main/LICENSE">MIT licence</a> · <a href="https://github.com/33kain/contexa/blob/main/publishing/PRIVACY.md">Privacy policy</a> · <a href="https://github.com/33kain/contexa/blob/main/CHANGELOG.md">Changelog</a></p>
-  <p class="muted">Version 0.9.74. This site is static files served from one origin: no fonts, scripts, images or analytics are loaded from anywhere else.</p>
+  <p class="muted">Version 0.9.75. This site is static files served from one origin: no fonts, scripts, images or analytics are loaded from anywhere else.</p>
 </footer>
 </body>
 </html>

@@ -1577,5 +1577,19 @@ const TURNS = [
   t('both cards go through weightLine, and none still call costLine directly', (c.match(/weightLine\(wrap\.querySelector\('\.label'\), anchor, ctx\)/g) || []).length === 2 && (c.match(/costLine\(/g) || []).length === 2);
 }
 
+/* ---- 0.9.75 — the thread read on a virtualised page, and the static page ---- */
+{
+  const c = readFileSync('./content.js', 'utf8');
+  const fn = (c.match(/function threadTokens\(\)[\s\S]*?\n  \}/) || [''])[0];
+  t('the thread read scales by scroller height over rendered height', /scale = Math\.min\(VIRTUAL_MAX_SCALE, total \/ rendered\)/.test(fn));
+  t('and only when the page is clearly taller than what is rendered', /rendered > 200 && total > rendered \* 1\.2/.test(fn));
+  t('the scale is capped', /const VIRTUAL_MAX_SCALE = \d+;/.test(c));
+  t('every read is logged with what was measured', /console\.log\('\[CONTEXA\] thread ≈', tokens/.test(fn));
+  t('the wordmark carries the number as its tooltip on both cards', (c.match(/\.title = threadNote\(\);/g) || []).length === 2);
+  t('the tooltip names the threshold so "why not here" has an answer', /Start fresh appears from ' \+ kTokens\(LONG_THREAD_TOKENS\)/.test(c));
+  const wr = (c.match(/function watchReplies\(\)[\s\S]*?\n  \}/) || [''])[0];
+  t('the settle fallback is armed at attach, not only by a mutation', /scan\(\);\s*\/\*[\s\S]*?\*\/\s*clearTimeout\(settleTimer\);\s*settleTimer = setTimeout\(\(\) => \{ settled = true; scan\(\); \}, 1200\);\s*\}$/.test(wr));
+}
+
 console.log(fails.length ? '\nFAILED: ' + fails.join(', ') : '\nall extension checks passed');
 process.exit(fails.length ? 1 : 0);
