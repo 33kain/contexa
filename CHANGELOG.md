@@ -9,6 +9,42 @@ backend's live version separately so a deploy can be told from a no-op.
 
 ---
 
+## 0.9.77 — Extension (worker build number only)
+
+*The first diagnostic card from the field, and what it said.*
+
+```
+thread ≈ 6324 tokens (dom); rendered: 6647 chars in 3 blocks, scale ×3.81
+page API: not asked
+user turns in DOM: 1
+```
+
+Three blocks and one user turn, on a long chat. The DOM read is not
+approximately wrong on that page; it is reading a different, much smaller
+conversation. And "not asked" was the card's own fault: it could not tell a
+pending API read from one never made.
+
+### The session from the page's API
+
+`apiThread` now keeps the user's own messages, whole and in order, clamped by
+`clampTurn` like the DOM read; `sessionTurns` hands `askNow` and `askFork`
+those turns through `fitTurns` when the API answered with more than the DOM
+holds, and the DOM read otherwise. What is billed does not change — the same
+clamps, the same ceiling — only how much of the session it is drawn from. On
+that phone it was one turn; the prompt was written for the whole session.
+
+### The card
+
+`apiState` tells pending, no conversation id (with the path it saw), failed
+(with the error) and ok apart, and the card redraws itself when the answer
+lands, so a tap taken during a slow read no longer reports a lie.
+
+### What ships
+
+The extension. The worker's `BUILD` moves with the manifest; not redeployed.
+
+---
+
 ## 0.9.76 — Extension (worker build number only)
 
 *The second field session, same phone, same hour: 0.9.75 changed nothing.*

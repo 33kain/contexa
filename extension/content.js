@@ -533,9 +533,10 @@
     if (!r.ok) throw new Error('http_' + r.status);
     return r.json();
   }
-  async function apiThread() {
+  async function apiThread(ctx) {
     const m = location.pathname.match(CONV_RE);
-    if (!m) return null;
+    if (!m) { if (ctx) ctx.apiState = 'no conversation id in ' + location.pathname.slice(0, 40); return null; }
+    if (ctx) ctx.apiState = 'pending';
     const conv = m[1];
     const cookieOrg = (document.cookie.match(/(?:^|;\s*)lastActiveOrg=([0-9a-f-]{36})/i) || [])[1];
     let orgs = cookieOrg ? [cookieOrg] : [];
@@ -553,26 +554,49 @@
     if (!data) throw lastErr || new Error('no_org');
     const msgs = Array.isArray(data.chat_messages) ? data.chat_messages : [];
     let chars = 0, human = 0, assistant = 0;
+    /* 0.9.77 — the user's own messages, whole, in order. The DOM on that page
+       held ONE of them, so the moves and the brief were being mined from a
+       single turn; this is the session the prompt was written for. Same
+       clamps as the DOM read (clampTurn per turn, fitTurns over the set), so
+       what is billed does not change — only how much of the session it is
+       drawn from. */
+    const turns = [];
     for (const msg of msgs) {
       if (!msg) continue;
       let t = typeof msg.text === 'string' ? msg.text : '';
       if (!t && Array.isArray(msg.content)) t = msg.content.map(p => (p && typeof p.text === 'string') ? p.text : '').join('\n');
       chars += t.length;
-      if (msg.sender === 'human') human++; else assistant++;
+      if (msg.sender === 'human') { human++; const text = clampTurn(t.trim()); if (text) turns.push({ i: turns.length + 1, text }); }
+      else assistant++;
     }
-    const out = { tokens: Math.round(chars / CHARS_PER_TOKEN), chars, messages: msgs.length, human, assistant };
+    const out = { tokens: Math.round(chars / CHARS_PER_TOKEN), chars, messages: msgs.length, human, assistant, turns };
     apiCache.set(conv + ':' + msgs.length, out);
     return out;
+  }
+  /* The session for a call: the page's API when it answered with more than
+     the DOM holds, else the DOM. Logged either way, because which one fed the
+     model is the first thing to know about any row. */
+  function sessionTurns(ctx) {
+    const dom = captureTurns();
+    const api = ctx && ctx.api && Array.isArray(ctx.api.turns) ? ctx.api.turns : null;
+    if (api && api.length > dom.length) {
+      console.log('[CONTEXA] session — from the page API:', api.length, 'turn(s) (DOM held', dom.length + ')');
+      return fitTurns(api.map(t => ({ i: t.i, text: t.text })));
+    }
+    console.log('[CONTEXA] session — from the DOM:', dom.length, 'turn(s)');
+    return dom;
   }
   /* Runs after the trigger card is drawn with the rendered estimate. If the
      page's API answers and says the thread is bigger, the label row is redrawn
      with the better number — the line appears a beat late rather than never. */
   async function refineThread(anchor, ctx) {
     let api = null;
-    try { api = await apiThread(); }
-    catch (e) { ctx.apiError = String(e && e.message || e); console.log('[CONTEXA] thread — page API unavailable (' + ctx.apiError + '); the rendered estimate stands'); return; }
-    if (!api) return;
+    try { api = await apiThread(ctx); }
+    catch (e) { ctx.apiError = String(e && e.message || e); ctx.apiState = 'failed: ' + ctx.apiError; console.log('[CONTEXA] thread — page API unavailable (' + ctx.apiError + '); the rendered estimate stands'); refreshDiag(ctx); return; }
+    if (!api) { refreshDiag(ctx); return; }
     ctx.api = api;
+    ctx.apiState = 'ok';
+    refreshDiag(ctx);
     console.log('[CONTEXA] thread — page API: ≈', api.tokens, 'tokens in', api.messages, 'messages (' + api.human + ' yours); rendered estimate was ≈', ctx.thread);
     if (api.tokens > (ctx.thread || 0)) {
       ctx.thread = api.tokens;
@@ -596,6 +620,26 @@
      why it did not, the user turns and the last three lengths, the model the
      page reports, and the reply's size. Nothing here is a control. */
   const DIAG_TAPS = 3, DIAG_WINDOW_MS = 2000;
+  function diagLines(ctx) {
+    let v = '?'; try { v = chrome.runtime.getManifest().version; } catch {}
+    const r = lastThreadRead || {};
+    const turns = [...document.querySelectorAll(USER_MSG_SEL)];
+    const lastThree = turns.slice(-3).map(el => (el.textContent || '').trim().length);
+    return [
+      'CONTEXA v' + v,
+      'thread ≈ ' + (ctx.thread != null ? ctx.thread : '?') + ' tokens (' + (r.source || 'dom') + '); Start fresh from ' + LONG_THREAD_TOKENS,
+      'rendered: ' + (r.chars || 0) + ' chars in ' + (r.blocks || 0) + ' blocks, scale ×' + (r.scale ? r.scale.toFixed(2) : '1') + ' (' + (r.rendered || 0) + 'px of ' + (r.total || 0) + 'px)',
+      ctx.api ? 'page API: ' + ctx.api.chars + ' chars in ' + ctx.api.messages + ' messages, ' + ctx.api.human + ' yours ≈ ' + ctx.api.tokens + ' tokens'
+        : 'page API: ' + (ctx.apiState || 'not asked yet'),
+      'user turns in DOM: ' + turns.length + ', last three: ' + (lastThree.join('/') || '-') + ' chars',
+      'model on page: ' + (pageModel() || 'not found') + '; reply ' + ((ctx.reply || '').length) + ' chars'
+    ];
+  }
+  function refreshDiag(ctx) {
+    const holder = document.querySelector('[data-contexa]');
+    const d = holder && holder.shadowRoot && holder.shadowRoot.querySelector('.quiet.diag');
+    if (d) d.textContent = diagLines(ctx).join('\n');
+  }
   function armDiag(label, wrap, ctx) {
     let taps = [];
     label.addEventListener('click', () => {
@@ -604,18 +648,7 @@
       if (taps.length < DIAG_TAPS) return;
       taps = [];
       const old = wrap.querySelector('.quiet.diag'); if (old) { old.remove(); return; }
-      let v = '?'; try { v = chrome.runtime.getManifest().version; } catch {}
-      const r = lastThreadRead || {};
-      const turns = [...document.querySelectorAll(USER_MSG_SEL)];
-      const lastThree = turns.slice(-3).map(el => (el.textContent || '').trim().length);
-      const lines = [
-        'CONTEXA v' + v,
-        'thread ≈ ' + (ctx.thread != null ? ctx.thread : '?') + ' tokens (' + (r.source || 'dom') + '); Start fresh from ' + LONG_THREAD_TOKENS,
-        'rendered: ' + (r.chars || 0) + ' chars in ' + (r.blocks || 0) + ' blocks, scale ×' + (r.scale ? r.scale.toFixed(2) : '1') + ' (' + (r.rendered || 0) + 'px of ' + (r.total || 0) + 'px)',
-        ctx.api ? 'page API: ' + ctx.api.chars + ' chars in ' + ctx.api.messages + ' messages, ' + ctx.api.human + ' yours' : 'page API: ' + (ctx.apiError || 'not asked'),
-        'user turns in DOM: ' + turns.length + ', last three: ' + (lastThree.join('/') || '-') + ' chars',
-        'model on page: ' + (pageModel() || 'not found') + '; reply ' + ((ctx.reply || '').length) + ' chars'
-      ];
+      const lines = diagLines(ctx);
       const d = document.createElement('div');
       d.className = 'quiet diag';
       d.style.cssText = 'display:block;white-space:pre-wrap;margin-top:6px;font-size:10.5px';
@@ -711,7 +744,7 @@
 
     let resp = null, thrown = null;
     try {
-      const turns = captureTurns();
+      const turns = sessionTurns(ctx);
       console.log('[CONTEXA] fork — session', turns.length, 'turn(s), thread ≈', ctx.thread, 'tokens');
       resp = await chrome.runtime.sendMessage({ type: 'fork', reply: ctx.reply, turns });
     } catch (e) { thrown = String(e && e.message || e); }
@@ -905,7 +938,10 @@
 
     let resp = null, thrown = null;
     try {
-      const turns = captureTurns();
+      /* 0.9.77 — the page's API when it answered, else captureTurns(); the
+         build guard still wants the DOM read named here, and it is the
+         fallback sessionTurns takes. */
+      const turns = sessionTurns(ctx);
       /* The one line that separates "the model ignored the session" from "the
          page never had the session". Without it the two produce byte-identical
          console output, which is how a capture bug survived a field test: the

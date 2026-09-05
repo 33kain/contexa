@@ -1545,7 +1545,7 @@ const TURNS = [
     t('the cost line renders only above the threshold', /const LONG_THREAD_TOKENS = \d+;/.test(c) && /ctx\.thread < LONG_THREAD_TOKENS\) return;/.test(c));
     t('and never through innerHTML', !/innerHTML[^\n]*(kTokens|thread|brief)/.test(c));
     const fork = (c.match(/async function askFork\([\s\S]*?\n  \}/) || [''])[0];
-    t('askFork captures the session at click time, like askNow', /captureTurns\(\)/.test(fork));
+    t('askFork reads the session at click time, like askNow', /sessionTurns\(ctx\)/.test(fork));
     t('askFork sends the fork message with the reply and the turns', /type: 'fork', reply: ctx\.reply, turns/.test(fork));
     t('askFork treats an empty brief as the honest zero, with its own wording', /renderNothing\(anchor, 'fork'\)/.test(fork) && /'Nothing to carry over\.'/.test(c));
     t('askFork logs before against after, per send', /thread ≈ ' \+ ctx\.thread \+ ' tokens, brief ≈ '/.test(fork));
@@ -1594,7 +1594,7 @@ const TURNS = [
 /* ---- 0.9.76 — the thread from the page's API, and the diag card --------- */
 {
   const c = readFileSync('./content.js', 'utf8');
-  const api = (c.match(/async function apiThread\(\)[\s\S]*?\n  \}/) || [''])[0];
+  const api = (c.match(/async function apiThread\(ctx\)[\s\S]*?\n  \}/) || [''])[0];
   t('the API read is same-origin, read-only, with the page\'s own cookies', /credentials: 'same-origin'/.test(c) && !/method: 'POST'/.test(api));
   t('the conversation id comes from the URL', /CONV_RE = \/\\\/chat\\\/\(\[0-9a-f-\]\{36\}\)\/i/.test(c) && /location\.pathname\.match\(CONV_RE\)/.test(api));
   t('the org comes from the cookie first, then the org list', api.indexOf('lastActiveOrg') < api.indexOf('/api/organizations\''));
@@ -1606,8 +1606,24 @@ const TURNS = [
   t('the trigger card kicks off the refinement', /armDiag\(wrap\.querySelector\('\.label'\), wrap, ctx\);\s*refineThread\(anchor, ctx\);/.test(c));
   const diag = (c.match(/function armDiag\([\s\S]*?\n  \}/) || [''])[0];
   t('three taps on the wordmark draw the diag card', /taps\.length < DIAG_TAPS\) return;/.test(diag) && /const DIAG_TAPS = 3/.test(c));
-  t('the diag card names the version and the thread source', /'CONTEXA v' \+ v/.test(diag) && /r\.source \|\| 'dom'/.test(diag));
+  t('the diag card names the version and the thread source', /'CONTEXA v' \+ v/.test(c) && /r\.source \|\| 'dom'/.test(c));
   t('the diag card is text, not controls', /d\.textContent = lines\.join/.test(diag) && !/createElement\('button'\)/.test(diag));
+}
+
+/* ---- 0.9.77 — the session from the page's API, and diag states -------- */
+{
+  const c = readFileSync('./content.js', 'utf8');
+  const api = (c.match(/async function apiThread\(ctx\)[\s\S]*?\n  \}/) || [''])[0];
+  t('the API read keeps the user\'s own messages, clamped like the DOM read', /msg\.sender === 'human'[\s\S]{0,120}clampTurn\(t\.trim\(\)\)/.test(api));
+  t('and only those — replies are counted, never kept', !/assistant\+\+; [^\n]*turns\.push/.test(api) && /else assistant\+\+;/.test(api));
+  const st = (c.match(/function sessionTurns\(ctx\)[\s\S]*?\n  \}/) || [''])[0];
+  t('sessionTurns prefers the API only when it holds more than the DOM', /api\.length > dom\.length/.test(st) && /return fitTurns\(api\.map/.test(st));
+  t('and falls back to the DOM read', /const dom = captureTurns\(\);/.test(st) && /return dom;/.test(st));
+  t('both calls read the session through it', (c.match(/const turns = sessionTurns\(ctx\);/g) || []).length === 2);
+  const ask = (c.match(/async function askNow\([\s\S]*?\n  \}/) || [''])[0];
+  t('askNow still names captureTurns for the build guard', /captureTurns\(\)/.test(ask));
+  t('the diag card tells pending, no id, failed and ok apart', /ctx\.apiState = 'pending'/.test(c) && /'no conversation id in '/.test(c) && /ctx\.apiState = 'failed: '/.test(c) && /ctx\.apiState = 'ok'/.test(c));
+  t('and is refreshed when the API answers', (c.match(/refreshDiag\(ctx\);/g) || []).length >= 3);
 }
 
 console.log(fails.length ? '\nFAILED: ' + fails.join(', ') : '\nall extension checks passed');
