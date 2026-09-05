@@ -24,6 +24,9 @@ confirm — a miss is a note on the diag card, not a block. The page-link
 scan, project details, conversations, code lists and resource timing of
 0.9.89–0.9.93 are removed.
 
+*Twentieth card: the chip opened the CONTEXA project page and the brief
+landed in its composer. Verified in the field.*
+
 ---
 
 ## 0.9.93 — Extension (worker build number only)
