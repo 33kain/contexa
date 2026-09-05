@@ -1685,5 +1685,14 @@ const TURNS = [
   t('the diag names the event types and a user payload\'s shape', /'event types: '/.test(c) && /'user event payload: '/.test(c));
 }
 
+/* ---- 0.9.83 — reading a Cowork session from its end --------------------- */
+{
+  const c = readFileSync('./content.js', 'utf8');
+  const pp = (c.match(/async function probeEventParams\(base, ctx\)[\s\S]*?\n  \}/) || [''])[0];
+  t('the parameter probe asks three questions and reads only status and count', /limit=500/.test(pp) && /from_sequence_num=999999999/.test(pp) && /firstArray\(j\)\.length/.test(pp) && !/eventText|JSON\.stringify/.test(pp));
+  t('the diag names the goal event and the turn summary by shape only', /'active_goal payload: '/.test(c) && /'post_turn_summary: '/.test(c) && /string\(' \+ pts\.length/.test(c));
+  t('and the walk reports what it saw', /'event types over the walk: '/.test(c));
+}
+
 console.log(fails.length ? '\nFAILED: ' + fails.join(', ') : '\nall extension checks passed');
 process.exit(fails.length ? 1 : 0);

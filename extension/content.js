@@ -615,6 +615,25 @@
     if (/tool_result|tool_use|attachment|meta/i.test(t)) return false;
     return /user/i.test(t) || role === 'user';
   }
+  /* 0.9.83 — does /events take a page size, and a starting sequence number?
+     Two GETs whose answers are a status and a count, nothing else: a limit of
+     500 (if honoured, one call reads ten pages), and from_sequence_num at a
+     number far beyond the end (a 200 with an empty page proves the parameter
+     is read; a 400 says it is not). The stream endpoint takes
+     from_sequence_num — the page's own call showed it — so the odds are good. */
+  async function probeEventParams(base, ctx) {
+    const out = [];
+    for (const q of ['?limit=500', '?from_sequence_num=999999999', '?from_sequence_num=1&limit=500']) {
+      try {
+        const r = await fetch(base + '/events' + q, { credentials: 'same-origin', headers: Object.assign({ accept: 'application/json' }, codeHeaders()) });
+        let n = '?';
+        if (r.ok) { try { const j = await r.json(); n = 'n=' + firstArray(j).length + (j.next_cursor ? ' more' : ' end'); } catch { n = 'not json'; } }
+        out.push('events' + q + ': ' + r.status + ' ' + n);
+      } catch (e) { out.push('events' + q + ': ' + String(e && e.message || e).slice(0, 30)); }
+    }
+    if (ctx.coworkShape) ctx.coworkShape.push(...out);
+    refreshDiag(ctx);
+  }
   async function coworkRead(anchor, ctx) {
     const cw = location.pathname.match(COWORK_RE);
     if (!cw) return;
@@ -647,6 +666,16 @@
         + (events.next_cursor ? '; more pages' : '; last page'));
       const sample = arr.find(ev => isUserEvent(ev));
       if (sample) ctx.coworkShape.push('user event payload: ' + shapeOf(sample.payload, 2));
+      /* 0.9.83 — the two cheap sources a Cowork brief could be built from,
+         and the event stream's coordinates, so the next round can read from
+         the END of a 23,000-event session instead of walking from its start. */
+      const goal = arr.find(ev => ev && /active_goal/i.test(String(ev.event_type || '')));
+      if (goal) ctx.coworkShape.push('active_goal payload: ' + shapeOf(goal.payload, 2));
+      const pts = (function find(o, d) { if (!o || typeof o !== 'object' || d > 3) return null; if (o.post_turn_summary != null) return o.post_turn_summary; for (const k of Object.keys(o)) { const r = find(o[k], d + 1); if (r) return r; } return null; })(record, 0);
+      if (pts != null) ctx.coworkShape.push('post_turn_summary: ' + (typeof pts === 'string' ? 'string(' + pts.length + ')' : shapeOf(pts, 2)));
+      const seqs = arr.map(ev => ev && ev.sequence_num).filter(n => Number.isFinite(n));
+      if (seqs.length) ctx.coworkShape.push('sequence_num on page 1: ' + Math.min(...seqs) + '…' + Math.max(...seqs));
+      probeEventParams(base, ctx);
       for (const ev of arr) {
         if (!isUserEvent(ev)) continue;
         const text = clampTurn(eventText(ev).trim());
@@ -744,9 +773,11 @@
     const base = '/v1/code/sessions/' + cw[1] + '/events';
     let cursor = ctx.coworkCursor, pages = 0;
     const turns = ctx.api.turns.slice();
+    const types = {};
     while (cursor && pages < COWORK_MAX_PAGES) {
       const page = await apiJson(base + '?cursor=' + encodeURIComponent(cursor), codeHeaders());
       const arr = firstArray(page);
+      for (const ev of arr) { const t = ev && (ev.event_type || ev.type) || '?'; types[t] = (types[t] || 0) + 1; }
       for (const ev of arr) {
         if (!isUserEvent(ev)) continue;
         const text = clampTurn(eventText(ev).trim());
@@ -755,7 +786,10 @@
       cursor = page.next_cursor || null; pages++;
     }
     ctx.api.turns = turns; ctx.api.human = turns.length; ctx.api.walked = true;
-    if (ctx.coworkShape) ctx.coworkShape.push('user turns after ' + (pages + 1) + ' page(s): ' + turns.length);
+    if (ctx.coworkShape) {
+      ctx.coworkShape.push('user turns after ' + (pages + 1) + ' page(s): ' + turns.length);
+      ctx.coworkShape.push('event types over the walk: ' + Object.entries(types).sort((x, y) => y[1] - x[1]).slice(0, 10).map(([k, v]) => k + '×' + v).join(', '));
+    }
     refreshDiag(ctx);
   }
   /* Runs after the trigger card is drawn with the rendered estimate. If the

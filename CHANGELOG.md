@@ -9,6 +9,25 @@ backend's live version separately so a deploy can be told from a no-op.
 
 ---
 
+## 0.9.83 — Extension (worker build number only)
+
+*Eighth card, and the line: `≈ 124k tokens re-read per send · Start fresh`,
+on a live Cowork session, from `context_usage.used_tokens: 123813` of
+1,000,000. Exact, not estimated. The rendered read on the same page said
+6,647 characters in three blocks.*
+
+The brief is what is left. The first page of events is the session's birth
+(control requests, environment logs, two `active_goal`s) and the session has
+over 23,000 events, so a walk of fifty a page from the start is not the way
+to the user's turns. This build asks the stream three questions whose answers
+are a status and a count — is `limit` honoured, is `from_sequence_num`
+accepted, both — and reports the shape of the two cheap sources a Cowork
+brief could be built from: the `active_goal` event's payload and the
+record's `post_turn_summary`. The walk, when a click runs it, now reports the
+event types it saw.
+
+---
+
 ## 0.9.82 — Extension (worker build number only)
 
 *Seventh card: both reads answer 200 with `anthropic-version`.* The record
