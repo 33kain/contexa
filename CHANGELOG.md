@@ -9,6 +9,36 @@ backend's live version separately so a deploy can be told from a no-op.
 
 ---
 
+## 0.9.78 — Extension (worker build number only)
+
+*The second card from the field.*
+
+```
+page API: no conversation id in /cowork/cse_013wFjkSS8bv1KkAUfnc6VqW
+```
+
+A Cowork session, not a chat. Cowork keeps three to five blocks on the page
+(the 0.9.55 measurement, met again) and fetches its session from an API this
+product does not know. Guessing an endpoint would produce a "failed: http_404"
+card and nothing learned.
+
+### The probe
+
+`probe.js` runs in the page's own world (`"world": "MAIN"`, `document_start`,
+claude.ai only) and wraps `fetch` and `XMLHttpRequest.open` to record the
+PATH of each same-origin `/api/` call the page makes — never a body, a header
+or a response — handing each new path to the content script as a string. The
+diagnostic card lists the last fourteen, ids shortened. A Cowork session is
+named as such in the card. A field diagnostic: to be removed, or kept as the
+selector-drift aid, once the endpoint is known and implemented.
+
+### What ships
+
+The extension. The worker's `BUILD` moves with the manifest; not redeployed.
+Not for the store in this form.
+
+---
+
 ## 0.9.77 — Extension (worker build number only)
 
 *The first diagnostic card from the field, and what it said.*

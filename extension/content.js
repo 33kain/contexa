@@ -527,7 +527,19 @@
      when present, else from /api/organizations, trying each until one owns
      the conversation. Cached per conversation for the page's life. */
   const CONV_RE = /\/chat\/([0-9a-f-]{36})/i;
+  /* 0.9.78 — a Cowork session is a different page with a different API. Named
+     so the diagnostic can say so instead of "no conversation id"; the endpoint
+     itself is what the probe below is for. */
+  const COWORK_RE = /\/cowork\/([A-Za-z0-9_-]{8,})/;
   const apiCache = new Map();
+  /* The page's own API paths, from probe.js (main world) — strings only, kept
+     for the diagnostic card and nothing else. */
+  const apiPaths = [];
+  document.addEventListener('contexa-api-path', e => {
+    const p = e && e.detail;
+    if (typeof p === 'string' && p.length < 300 && apiPaths.length < 40 && !apiPaths.includes(p)) apiPaths.push(p);
+  });
+  const shortPath = p => p.replace(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f-]{23}/gi, '<uuid>').replace(/\/([a-z]+_[A-Za-z0-9]{6})[A-Za-z0-9]{6,}/g, '/$1…');
   async function apiJson(url) {
     const r = await fetch(url, { credentials: 'same-origin', headers: { accept: 'application/json' } });
     if (!r.ok) throw new Error('http_' + r.status);
@@ -535,7 +547,12 @@
   }
   async function apiThread(ctx) {
     const m = location.pathname.match(CONV_RE);
-    if (!m) { if (ctx) ctx.apiState = 'no conversation id in ' + location.pathname.slice(0, 40); return null; }
+    if (!m) {
+      const cw = location.pathname.match(COWORK_RE);
+      if (ctx) ctx.apiState = cw ? 'cowork session ' + cw[1].slice(0, 12) + '… — endpoint not known yet; see paths below'
+        : 'no conversation id in ' + location.pathname.slice(0, 40);
+      return null;
+    }
     if (ctx) ctx.apiState = 'pending';
     const conv = m[1];
     const cookieOrg = (document.cookie.match(/(?:^|;\s*)lastActiveOrg=([0-9a-f-]{36})/i) || [])[1];
@@ -632,7 +649,8 @@
       ctx.api ? 'page API: ' + ctx.api.chars + ' chars in ' + ctx.api.messages + ' messages, ' + ctx.api.human + ' yours ≈ ' + ctx.api.tokens + ' tokens'
         : 'page API: ' + (ctx.apiState || 'not asked yet'),
       'user turns in DOM: ' + turns.length + ', last three: ' + (lastThree.join('/') || '-') + ' chars',
-      'model on page: ' + (pageModel() || 'not found') + '; reply ' + ((ctx.reply || '').length) + ' chars'
+      'model on page: ' + (pageModel() || 'not found') + '; reply ' + ((ctx.reply || '').length) + ' chars',
+      'page API paths seen (' + apiPaths.length + '):' + (apiPaths.length ? '\n  ' + apiPaths.slice(-14).map(shortPath).join('\n  ') : ' none — probe not running?')
     ];
   }
   function refreshDiag(ctx) {

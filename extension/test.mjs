@@ -1626,5 +1626,22 @@ const TURNS = [
   t('and is refreshed when the API answers', (c.match(/refreshDiag\(ctx\);/g) || []).length >= 3);
 }
 
+/* ---- 0.9.78 — the page-world probe, a field diagnostic ------------------ */
+{
+  const mf = JSON.parse(readFileSync('./manifest.json', 'utf8'));
+  const probe = mf.content_scripts.find(cs => cs.js.includes('probe.js'));
+  t('the probe runs in the page world at document_start, on claude.ai only', !!probe && probe.world === 'MAIN' && probe.run_at === 'document_start' && probe.matches.join() === 'https://claude.ai/*');
+  t('the content script still runs in the isolated world', mf.content_scripts.some(cs => cs.js.includes('content.js') && !cs.world));
+  const p = readFileSync('./probe.js', 'utf8');
+  t('the probe records same-origin /api/ paths only', /p\.origin !== location\.origin \|\| !p\.pathname\.startsWith\('\/api\/'\)\) return;/.test(p));
+  t('and hands over the pathname alone, as a string', /detail: p\.pathname/.test(p) && !/init|body|headers|response/.test(p.replace(/\/\*[\s\S]*?\*\//, '')));
+  t('and passes every call through untouched', /return origFetch\.apply\(this, arguments\)/.test(p) && /return origOpen\.apply\(this, arguments\)/.test(p));
+  const c = readFileSync('./content.js', 'utf8');
+  t('the content script keeps the paths as bounded strings', /typeof p === 'string' && p\.length < 300 && apiPaths\.length < 40/.test(c));
+  t('a Cowork session is named as such in the diag', /COWORK_RE = \/\\\/cowork\\\//.test(c) && /'cowork session '/.test(c));
+  t('the diag card lists the paths, ids shortened', /page API paths seen/.test(c) && /map\(shortPath\)/.test(c));
+  t('the build ships the probe', /'content\.js', 'probe\.js'/.test(readFileSync('../build.mjs', 'utf8')));
+}
+
 console.log(fails.length ? '\nFAILED: ' + fails.join(', ') : '\nall extension checks passed');
 process.exit(fails.length ? 1 : 0);

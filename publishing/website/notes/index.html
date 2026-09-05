@@ -63,6 +63,8 @@
 
 <h2 id="versions">By version, newest first</h2>
 <dl>
+  <dt><code>0.9.78</code></dt>
+  <dd>The card said where it was: a Cowork session, not a chat. Cowork keeps three to five blocks on the page and talks to an API this product does not know and will not guess. A small script in the page's own world now records the paths of the API calls the page itself makes, paths only, never a body or a header, and the diagnostic card lists them. A field diagnostic, to be removed once the endpoint is known.</dd>
   <dt><code>0.9.77</code></dt>
   <dd>The first diagnostic card from the field: a long chat on a phone held three blocks and one user turn in its DOM. So the moves and the brief were being mined from a single message, on the page where the whole session mattered most. When the page's API answers, the user's own messages now come from it, whole and in order, under the same clamps as before; the DOM read stays the fallback. The card also stopped saying "not asked" while the API was still answering: it tells pending, no conversation id, failed and ok apart, and updates itself when the answer lands.</dd>
   <dt><code>0.9.76</code></dt>
@@ -108,13 +110,13 @@
 </ul>
 
 <h2 id="status">Status</h2>
-<p>Version 0.9.77 is the number in the extension's manifest and in the worker's <code>BUILD</code> constant; the worker's <code>/v1/health</code> reports it with the model and the limit, so a deploy can be told from a no-op. The shipped model on both paths is <code>claude-sonnet-5</code>. The open questions of the field test are how often a press earns nothing, and how much of a long thread a brief actually replaces.</p>
+<p>Version 0.9.78 is the number in the extension's manifest and in the worker's <code>BUILD</code> constant; the worker's <code>/v1/health</code> reports it with the model and the limit, so a deploy can be told from a no-op. The shipped model on both paths is <code>claude-sonnet-5</code>. The open questions of the field test are how often a press earns nothing, and how much of a long thread a brief actually replaces.</p>
 </main>
 
 <footer class="site">
   <p>CONTEXA is an independent project. It is not affiliated with, endorsed by, or sponsored by Anthropic.</p>
   <p><a href="https://chromewebstore.google.com/detail/phhamigkjeeabbjncpmhkppkjccfglhb">Chrome Web Store</a> · <a href="https://github.com/33kain/contexa">Source on GitHub</a> · <a href="https://github.com/33kain/contexa/blob/main/LICENSE">MIT licence</a> · <a href="https://github.com/33kain/contexa/blob/main/publishing/PRIVACY.md">Privacy policy</a> · <a href="https://github.com/33kain/contexa/blob/main/CHANGELOG.md">Changelog</a></p>
-  <p class="muted">Version 0.9.77. This site is static files served from one origin: no fonts, scripts, images or analytics are loaded from anywhere else.</p>
+  <p class="muted">Version 0.9.78. This site is static files served from one origin: no fonts, scripts, images or analytics are loaded from anywhere else.</p>
 </footer>
 </body>
 </html>
