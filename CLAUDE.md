@@ -6,10 +6,11 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 CONTEXA is a Chrome extension (Manifest V3) for claude.ai. When Claude finishes a reply, it offers a single trigger; clicking it reads the user's own messages from the whole session and offers up to four **independent** next moves, each already a complete, send-ready prompt. Clicking one composes it into the message box. Nothing is sent anywhere until the user clicks, and clicking a move costs no further model call.
 
-Two artifacts ship from this repo:
+Three artifacts ship from this repo:
 
 - `extension/` — the Chrome extension. The version number's single home is `extension/manifest.json`.
 - `worker/` — a Cloudflare Worker that proxies to Anthropic for users without their own API key (enforces daily quotas, holds the real API key as a secret). It carries the same number in the `BUILD` constant in `worker/src/index.js`, which `/v1/health` reports so a deploy can be told from a no-op.
+- `tokenbrake/` — an npm package of two Claude Code hooks (`guard.js`) plus an installer CLI (`cli.js`), unrelated to the extension and worker: it trims oversized shell output and caps unbounded `Read`s before they reach the context window. Its own `HANDOFF.md` is the state of that work and of the wider "brakes" plan it belongs to. Versioned independently in its own `package.json`; not part of the build guard.
 
 They deploy on separate paths on purpose (a worker fix shouldn't force a Chrome Web Store resubmission), but they ship **one product per generation**: `build.mjs` fails if `BUILD` and the manifest version disagree, and they **share a byte-identical system prompt** — see Architecture below. (`CHANGELOG.md`'s header still says the two numbers are "free to diverge"; the build guard is the current rule.)
 
@@ -20,9 +21,10 @@ A third, unrelated deploy exists: `publishing/website/` is a static product site
 No dependencies to install anywhere in this repo (no `node_modules`, no bundler) — everything runs on plain Node.
 
 ```bash
-npm test                 # both test suites (extension + worker)
+npm test                 # all three test suites (extension + worker + tokenbrake)
 npm run test:extension   # extension/test.mjs only
 npm run test:worker      # worker/test.mjs only
+npm run test:tokenbrake  # tokenbrake/test.mjs only
 npm run build            # node build.mjs — see below
 ```
 
@@ -30,7 +32,7 @@ Each `test.mjs` is a single flat script (no test framework, no per-test filterin
 
 `npm run build` (`build.mjs`) takes `extension/` (the canonical source) and produces `build-ready/` (git-ignored) — a shippable copy with the real backend URL and version baked in, plus a `.zip` for the Chrome Web Store. It also **fails the build** (not just a lint warning) on several invariant violations that have each caused a real regression before — see Architecture. Run it after touching anything the checks below depend on.
 
-The Cloudflare Worker has no build step; deployment is `npx wrangler deploy` from `worker/` (needs Cloudflare credentials — see `worker/README.md`). CI (`.github/workflows/ci.yml`) runs all three `npm` scripts above on every push to `main` and every PR.
+The Cloudflare Worker has no build step; deployment is `npx wrangler deploy` from `worker/` (needs Cloudflare credentials — see `worker/README.md`). CI (`.github/workflows/ci.yml`) runs the three test suites and the build on every push to `main` and every PR.
 
 ## Architecture
 
@@ -83,6 +85,7 @@ Everything the model returns (labels, texts, evidence) renders through `document
 ```
 extension/            the product (Chrome extension, MV3)
 worker/               the hosted backend (Cloudflare Worker)
+tokenbrake/           Claude Code hooks npm package (shell-output trim, Read cap, ledger) — own package.json and HANDOFF.md
 build.mjs             extension/ -> build-ready/ + store zip, plus the invariant checks above
 publishing/           Chrome Web Store listing copy, privacy policy, screenshots, submission notes
 publishing/website/   the static product site (deployed to Cloudflare Pages by deploy-pages.yml)
