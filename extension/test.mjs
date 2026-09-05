@@ -1603,7 +1603,7 @@ const TURNS = [
   t('a failed API read is one console line and the rendered estimate stands', /page API unavailable/.test(ref) && /return; \}/.test(ref));
   t('the label is redrawn only when the API says the thread is bigger', /if \(api\.tokens > \(ctx\.thread \|\| 0\)\)[\s\S]{0,200}refreshWeight\(anchor, ctx\)/.test(ref));
   t('the redraw touches only the trigger card', /data-cx-mode'\) !== 'ai'\) return;/.test(c));
-  t('the trigger card kicks off the refinement', /armDiag\(wrap\.querySelector\('\.label'\), wrap, ctx\);\s*refineThread\(anchor, ctx\);/.test(c));
+  t('the trigger card kicks off the refinement', /lastCtx = ctx;[\s\S]{0,400}refineThread\(anchor, ctx\);/.test(c));
   const diag = (c.match(/function armDiag\([\s\S]*?\n  \}/) || [''])[0];
   t('three taps on the wordmark draw the diag card', /taps\.length < DIAG_TAPS\) return;/.test(diag) && /const DIAG_TAPS = 3/.test(c));
   t('the diag card names the version and the thread source', /'CONTEXA v' \+ v/.test(c) && /r\.source \|\| 'dom'/.test(c));
@@ -1692,6 +1692,14 @@ const TURNS = [
   t('the parameter probe asks three questions and reads only status and count', /limit=500/.test(pp) && /from_sequence_num=999999999/.test(pp) && /firstArray\(j\)\.length/.test(pp) && !/eventText|JSON\.stringify/.test(pp));
   t('the diag names the goal event and the turn summary by shape only', /'active_goal payload: '/.test(c) && /'post_turn_summary: '/.test(c) && /string\(' \+ pts\.length/.test(c));
   t('and the walk reports what it saw', /'event types over the walk: '/.test(c));
+}
+
+/* ---- 0.9.84 — the diag on every card ------------------------------------ */
+{
+  const c = readFileSync('./content.js', 'utf8');
+  t('every card arms the diag on its whole surface, from shell', /host\.before\(holder\);\s*armDiag\(wrap, wrap, null\);/.test(c));
+  t('a tap on a button or chip does not count', /e\.target\.closest\('button'\)\) return;/.test(c));
+  t('and no renderer arms it a second time', !/armDiag\(wrap\.querySelector/.test(c));
 }
 
 console.log(fails.length ? '\nFAILED: ' + fails.join(', ') : '\nall extension checks passed');

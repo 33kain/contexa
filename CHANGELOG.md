@@ -9,6 +9,15 @@ backend's live version separately so a deploy can be told from a no-op.
 
 ---
 
+## 0.9.84 — Extension (worker build number only)
+
+The three-tap diagnostic card now opens from any card, not only the ones
+with a wordmark: the honest zero and the error card carried none, and after a
+click those are the cards most likely to be up. A tap on a button or a chip
+does not count toward the three.
+
+---
+
 ## 0.9.83 — Extension (worker build number only)
 
 *Eighth card, and the line: `≈ 124k tokens re-read per send · Start fresh`,

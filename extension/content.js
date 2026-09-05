@@ -827,6 +827,12 @@
      why it did not, the user turns and the last three lengths, the model the
      page reports, and the reply's size. Nothing here is a control. */
   const DIAG_TAPS = 3, DIAG_WINDOW_MS = 2000;
+  /* 0.9.84 — the card the field taps on is whichever card is up, and the
+     quiet ones (an error, an honest zero) carry no wordmark. So every card
+     arms the diag on its whole surface, and a tap that lands on a button or
+     a chip does not count — those have jobs of their own. The context is the
+     last trigger's, which is the one the walk wrote into. */
+  let lastCtx = null;
   function diagLines(ctx) {
     let v = '?'; try { v = chrome.runtime.getManifest().version; } catch {}
     const r = lastThreadRead || {};
@@ -851,7 +857,10 @@
   }
   function armDiag(label, wrap, ctx) {
     let taps = [];
-    label.addEventListener('click', () => {
+    label.addEventListener('click', (e) => {
+      if (e && e.target && e.target.closest && e.target.closest('button')) return;
+      ctx = ctx || lastCtx;
+      if (!ctx) return;
       const now = Date.now();
       taps = taps.filter(t => now - t < DIAG_WINDOW_MS); taps.push(now);
       if (taps.length < DIAG_TAPS) return;
@@ -1385,6 +1394,7 @@
     const holder = document.createElement('div');
     holder.setAttribute('data-contexa', 'steps');
     holder.setAttribute('data-cx-mode', mode);
+    /* Every card — see armDiag. Done here, once, rather than in each renderer. */
     /* round 2 — modest lift. claude.ai draws sticky/gradient chrome around
        the composer, and a sibling overlay that catches pointer events would
        eat :hover on the mascot while looking like nothing (field: gesture
@@ -1413,6 +1423,7 @@
     }
     root.appendChild(wrap);
     host.before(holder);
+    armDiag(wrap, wrap, null);
     /* 0.9.44 — the render path had no voice. `[CONTEXA] grounding` proved a card
        had been EARNED, and nothing said whether one was ever SEEN. Two states
        that look identical from the console are exactly what this project keeps
@@ -1502,13 +1513,13 @@
 </svg>`;
 
   function renderTrigger(anchor, ctx) {
+    lastCtx = ctx;
     const wrap = shell(anchor, 'ai');
     if (!wrap) return;
     wrap.innerHTML = `<div class="label"><b>✦</b> CONTEXA</div>` +
       `<div class="chips"></div>`;
     weightLine(wrap.querySelector('.label'), anchor, ctx);
     wrap.querySelector('.label').title = threadNote();
-    armDiag(wrap.querySelector('.label'), wrap, ctx);
     refineThread(anchor, ctx);
     const slot = document.createElement('span');
     slot.className = 'ctxa-mas-slot';
@@ -1588,7 +1599,6 @@
        menu arrived. */
     weightLine(wrap.querySelector('.label'), anchor, ctx);
     wrap.querySelector('.label').title = threadNote();
-    armDiag(wrap.querySelector('.label'), wrap, ctx);
     const row = wrap.querySelector('.chips');
     for (const m of moves) appendIdeaChip(row, m);
   }
