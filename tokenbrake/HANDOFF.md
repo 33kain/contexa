@@ -319,6 +319,26 @@ every time. The second-session condition on any marketing number is met. The hon
 hundred tokens instead of re-reading the whole thread on every send" — tokens re-read, not money: prompt caching
 prices a cached re-read at a tenth, and how claude.ai's usage limits count cached tokens is not public.
 
+**Twenty-second card (0.9.94): the limit, measured.** Five messages in the 689k-token Cowork session (Opus 5), then
+Start fresh and the same five in the new conversation it opened — a chat in the same project, on Opus 5 as well, so the
+two arms share a model — the usage page read before and after each arm:
+
+| | before | +5 in the 689k session | +5 in the fresh session |
+|---|---|---|---|
+| five-hour window | 36% | 45% (+9) | 48% (+3) |
+| weekly, all models | 20% | 22% (+2) | 22% (0) |
+| weekly, Fable | 39% | 39% (0) | 40% (+1) |
+
+Three times cheaper per message on the five-hour window; the weekly limit moved 2 points on the heavy side and none on
+the fresh one. Not the 200× of the raw token ratio, for three expected reasons: cached re-reads are counted at a
+discount (first evidence that the subscription limit discounts them, and still counts them); a fresh Cowork session
+carries tens of thousands of tokens of system prompt and tool definitions per turn before the brief (the fresh arm was
+a project chat with commands available, lighter than a Cowork task, so a Cowork-to-Cowork run would sit between the
+two); and message 4 on the heavy side used three tools, three extra re-reads. Caveats: one short reply of mine, on Fable,
+in the window — that is the whole Fable +1, and it is not on the Opus arms — and 1% resolution. A tighter run is ten
+messages, "in one sentence, no tools", and Cowork on both sides. The number that holds as written: *five messages in a 689k-token session used 9% of the
+five-hour limit; the same five after Start fresh used 3%.*
+
 ## Launch vehicle
 
 A "Does September 14 hit you?" calculator: plan tier in, current weekly usage in, projected shortfall out.
@@ -326,6 +346,6 @@ Publish before the 14th, funnel to the CONTEXA update and the npm package.
 
 ## Open question worth measuring
 
-My estimate is that a third or more of consumption in long chat threads is re-sent history — that's a guess,
-not a measurement. The A/B instrumentation in brake 2 turns it into a real figure. Don't put a number in
-marketing copy until that lands.
+My estimate was that a third or more of consumption in long chat threads is re-sent history — a guess. The
+twenty-second card above is the first measurement: on a 689k-token session, two thirds of the per-message cost on the
+five-hour limit went away with Start fresh. The number is usable in copy as written there, with its caveats.
