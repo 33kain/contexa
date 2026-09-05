@@ -9,6 +9,20 @@ backend's live version separately so a deploy can be told from a no-op.
 
 ---
 
+## 0.9.92 — Extension (worker build number only)
+
+*Seventeenth card: project details add only `prompt_template,
+organization_role`, `/v1/code/projects` is 404, resource timing holds five
+entries, both page links sit in plain divs.* Three more sources behind the
+others, each asked only while nothing has answered: the org's
+`chat_conversations` searched for the session's `cse_` id (a project uuid
+taken only from a field named for it), each project's `…/conversations`
+(the first project holding the session wins), and `/v1/code/sessions` for
+a uuid-shaped project field on this session's entry. The diag names each,
+and samples the resource entries so five can be explained.
+
+---
+
 ## 0.9.91 — Extension (worker build number only)
 
 *Sixteenth card: `projects API: n=4 … match by record id: none`,
