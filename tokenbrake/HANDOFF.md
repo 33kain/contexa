@@ -16,7 +16,7 @@ Brakes don't raise anyone's cap. They cut the share of the cap that goes to wast
 
 | # | Name | Surface | Status |
 |---|------|---------|--------|
-| 1 | Bash-output guard hooks | npm package (`tokenbrake`) | **built, live-verified on Linux** (Claude Code 2.1.261) |
+| 1 | Bash-output guard hooks | npm package (`tokenbrake`) | **published 0.1.0**, live-verified on Linux (Claude Code 2.1.261) |
 | 2 | Fork thread with summary | CONTEXA | **built in 0.9.73**, not field-tested |
 | 3 | Send-cost preview + long-thread warning | CONTEXA | **built in 0.9.73** (cost line only; no peak-window indicator, no usage-page read) |
 | 4 | What's eating your tokens | `tokenbrake report` | **built**, run on one real 64-request session |
@@ -117,7 +117,9 @@ from the model's reply.
 
 ### Then
 
-- Publish `0.1.0`: the `Publish tokenbrake` workflow (`.github/workflows/publish-tokenbrake.yml`, Run workflow from
+- **Published: `tokenbrake@0.1.0` on 2026-09-05**, by `md_contexa`, from a Claude session with a one-off granular token
+  (revoked after). `npx tokenbrake@0.1.0 init && npx tokenbrake status` from the registry into a clean config dir
+  passed both spawn tests. For the next version: the `Publish tokenbrake` workflow (`.github/workflows/publish-tokenbrake.yml`, Run workflow from
   the Actions tab) — needs the repository secret `NPM_TOKEN`, an npm granular access token with read/write on
   packages; it runs the tests, refuses a version already on the registry, publishes with provenance (the repo
   is public) and reads the version back. Keep it MIT and dependency-free — that's the whole pitch against the
