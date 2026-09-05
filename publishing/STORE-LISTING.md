@@ -101,6 +101,17 @@ by you or by Claude — and that is checked before anything reaches your screen.
 Nothing earned, nothing offered. On a one-question chat that is the usual
 result, and the correct one.
 
+START FRESH WHEN THE THREAD GETS HEAVY
+
+Every message you send makes Claude read the whole conversation again. When a
+thread has grown large, the CONTEXA card says how large — the number of tokens
+re-read on every send — and offers Start fresh. Press it and CONTEXA writes a
+brief of a few hundred words from your side of the conversation: the goal,
+what is settled, what is open. It opens a new conversation (on Cowork, a new
+session in the same project) with the brief already in the message box. You
+read it, change it, and send it — the new thread starts at a few hundred
+tokens instead of tens or hundreds of thousands.
+
 WHAT IT WILL NOT DO
 
 It will not rewrite what you typed. There is nothing to type into. It will not
@@ -131,6 +142,11 @@ PRIVACY, PLAINLY
   about never leaves your browser.
 • When you do press it, CONTEXA sends your own messages from that conversation
   and the reply you just received. Claude's earlier replies are never sent.
+  Start fresh sends the same two things and gets a brief back; the brief stays
+  in your browser until the new conversation opens.
+• To read your side of a long conversation whole, CONTEXA asks claude.ai's own
+  API from your browser, with your existing login. That reading stays on your
+  device.
 • There are hard limits on how much that can be: at most 40 of your messages,
   12,000 characters in total, and 6,000 characters of the reply. The backend
   enforces these itself.

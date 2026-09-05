@@ -140,6 +140,13 @@ forwards them to Anthropic's API, returns the result, and stores none of it.
 Leave unchecked: personally identifiable information, health, financial,
 location, web history, user activity.
 
+**0.9.94 adds nothing to declare.** Start fresh sends the same two categories
+(the user's own messages and the reply) on a second button; the reading now
+goes through claude.ai's own API from the user's browser instead of the visible
+page, and on a Cowork session reads the session record and events — all still
+"Website content", all still on the device until a press. The policy says so
+as of 5 September 2026.
+
 **Why "Website content" stays declared even though nothing auto-sends.** Reading
 is still eager, but only part of it: at reply completion the content script reads
 **the reply, and only the reply**, so it knows what the button refers to. The

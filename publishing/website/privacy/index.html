@@ -43,9 +43,10 @@
 
 <main id="main">
 <h1>What leaves your browser, and when</h1>
-<p class="stamp">The short form. The full policy is <a href="https://github.com/33kain/contexa/blob/main/publishing/PRIVACY.md">publishing/PRIVACY.md</a> on GitHub, last updated 31 August 2026; where the two differ, it governs.</p>
+<p class="stamp">The short form. The full policy is <a href="https://github.com/33kain/contexa/blob/main/publishing/PRIVACY.md">publishing/PRIVACY.md</a> on GitHub, last updated 5 September 2026; where the two differ, it governs.</p>
 
 <p><strong class="warn">Changed on 31 August 2026.</strong> Earlier versions sent only your latest message and the reply. Since then, your side of the whole conversation goes, bounded as below, and still only when you press.</p>
+<p><strong class="warn">Changed on 5 September 2026.</strong> The reading now goes through claude.ai's own API rather than the visible page, so a long conversation is read whole; Cowork sessions are supported; and Start fresh was added. What is sent, and when, did not change.</p>
 
 <p>CONTEXA runs only on claude.ai and touches no other site. Nothing leaves your browser until you press the trigger, and the text that leaves is never stored.</p>
 
@@ -55,14 +56,16 @@
   <caption>What is read, sent and spent at each moment</caption>
   <thead><tr><th scope="col">Moment</th><th scope="col">Read</th><th scope="col">Sent</th><th scope="col">Spent</th></tr></thead>
   <tbody>
-    <tr><th scope="row">A reply finishes</th><td>That reply, copied from the page, so the trigger knows what it would be about</td><td>Nothing</td><td>Nothing</td></tr>
+    <tr><th scope="row">A reply finishes</th><td>That reply, copied from the page, so the trigger knows what it would be about; and the size of the conversation, read through claude.ai's own API from your browser (on a Cowork session, the session record with its token count and project, and its recent events)</td><td>Nothing</td><td>Nothing</td></tr>
     <tr><th scope="row">You never press</th><td>Nothing more</td><td>Nothing</td><td>Nothing</td></tr>
     <tr><th scope="row">You press the trigger</th><td>Your own messages in that conversation</td><td>Your own messages (at most 40, 2,000 characters each, 12,000 in total) and that reply (at most 6,000 characters)</td><td>One of the day's 20</td></tr>
     <tr><th scope="row">You click a move</th><td>Nothing</td><td>Nothing</td><td>Nothing</td></tr>
+    <tr><th scope="row">You press Start fresh</th><td>The same: your own messages in that conversation</td><td>The same two things, under the same limits; a brief comes back instead of moves</td><td>One of the day's 20</td></tr>
+    <tr><th scope="row">You open the new conversation with the brief</th><td>Nothing</td><td>Nothing; the brief waits in your browser for at most two minutes, then goes into the new message box</td><td>Nothing</td></tr>
   </tbody>
 </table>
 </div>
-<p>Claude's earlier replies are never sent. Your other conversations, your account details and other pages are never read. The limits are applied by the extension before it sends and again by the backend before anything is forwarded; the second one binds.</p>
+<p>Claude's earlier replies are never sent. Your other conversations and other pages are never read; on a Cowork session the names of your projects are read once, to name the project on the Start fresh button, and stay on your device. The limits are applied by the extension before it sends and again by the backend before anything is forwarded; the second one binds.</p>
 
 <h2 id="where">Where it goes</h2>
 <p>By default, to the CONTEXA backend, a Cloudflare Worker, which applies the limits, forwards the text to Anthropic's API to write the messages, returns them, and discards the text. It does not write your conversation to any database, log or file. With your own API key, the text goes from your browser to <code>api.anthropic.com</code> directly, and the backend receives nothing.</p>
@@ -75,6 +78,7 @@
   <tbody>
     <tr><th scope="row">Your messages and the reply</th><td>Not stored. Held in memory for the duration of the request, then discarded. Not used to train any model.</td></tr>
     <tr><th scope="row">The suggested messages</th><td>Not stored on the backend. Cached briefly in your own browser so pressing twice under the same reply does not repeat the request.</td></tr>
+    <tr><th scope="row">The Start fresh brief</th><td>Not stored on the backend. Held in the extension's session storage for at most two minutes, until the new message box takes it, then removed.</td></tr>
     <tr><th scope="row">Anonymous device token</th><td>On your device until you clear the extension's storage or uninstall.</td></tr>
     <tr><th scope="row">Daily counters (token and hashed IP)</th><td>Deleted after 48 hours.</td></tr>
     <tr><th scope="row">Your API key and settings</th><td>On your device only, until you remove them.</td></tr>
@@ -95,7 +99,7 @@
 
 <h2 id="permissions">What the extension asks the browser for</h2>
 <ul>
-  <li>Access to <code>claude.ai</code>, to read the page and draw the card. It runs on no other site.</li>
+  <li>Access to <code>claude.ai</code>, to read the page and draw the card, and to ask claude.ai's own API for the conversation from your browser. One cookie value, the id of the organisation you are working in, is read to address that API and never sent anywhere else. It runs on no other site.</li>
   <li>Access to <code>api.anthropic.com</code>, used only when you supply your own key.</li>
   <li>Access to the CONTEXA backend, the default path.</li>
   <li>Local storage, for the settings kept on your device: on or off, your API key if you add one, the backend URL and a model name (both advanced settings), and the device token.</li>
