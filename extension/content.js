@@ -627,7 +627,8 @@
       try {
         const r = await fetch(base + '/events' + q, { credentials: 'same-origin', headers: Object.assign({ accept: 'application/json' }, codeHeaders()) });
         let n = '?';
-        if (r.ok) { try { const j = await r.json(); n = 'n=' + firstArray(j).length + (j.next_cursor ? ' more' : ' end'); } catch { n = 'not json'; } }
+        if (r.ok) { try { const j = await r.json(); const a = firstArray(j); const sq = a.map(ev => ev && ev.sequence_num).filter(Number.isFinite);
+          n = 'n=' + a.length + (j.next_cursor ? ' more' : ' end') + (sq.length ? ' seq ' + Math.min(...sq) + '…' + Math.max(...sq) : '') + (j.resume_cursor != null ? ' resume=' + String(j.resume_cursor).slice(0, 12) : ''); } catch { n = 'not json'; } }
         out.push('events' + q + ': ' + r.status + ' ' + n);
       } catch (e) { out.push('events' + q + ': ' + String(e && e.message || e).slice(0, 30)); }
     }
@@ -683,6 +684,7 @@
       }
       ctx.coworkShape.push('user turns parsed (first page): ' + turns.length);
       ctx.coworkCursor = events.next_cursor || null;
+      ctx.coworkResume = events.resume_cursor != null ? events.resume_cursor : null;
     }
     ctx.api = { cowork: true, tokens: Number.isFinite(used) ? used : 0, chars: null, messages: evCount, human: turns.length, assistant: null, turns, exact: Number.isFinite(used) };
     ctx.apiState = Number.isFinite(used) ? 'ok (cowork, exact)' : 'ok (cowork record, no token count)';
@@ -765,33 +767,74 @@
     console.log('[CONTEXA] session — from the DOM:', dom.length, 'turn(s)');
     return dom;
   }
-  const COWORK_MAX_PAGES = 40;
+  /* 0.9.85 — the session's user turns, head and tail, on a click. The ninth
+     card's walk read 41 pages from the start and found the EARLIEST 26 turns
+     of a 23,000-event session — the goal, and none of the present. The
+     stream takes limit=500, and its cursor is a sequence number (the page
+     itself reads its tail with ?limit=500&cursor=22857), and every answer
+     carries resume_cursor, the stream's head. So: one page of 500 from the
+     start for the goal, then the last TAIL_EVENTS from resume_cursor back,
+     which is where the work is now. fitTurns then does what it always did —
+     pins the first, drops from the middle. If resume_cursor is not a number,
+     the forward walk stands, bounded as before. */
+  const COWORK_PAGE = 500, COWORK_TAIL_EVENTS = 3000, COWORK_MAX_PAGES = 12;
   async function coworkTurns(ctx) {
     if (ctx.api.walked) return;
     const cw = location.pathname.match(COWORK_RE);
     if (!cw) return;
     const base = '/v1/code/sessions/' + cw[1] + '/events';
-    let cursor = ctx.coworkCursor, pages = 0;
-    const turns = ctx.api.turns.slice();
     const types = {};
-    while (cursor && pages < COWORK_MAX_PAGES) {
-      const page = await apiJson(base + '?cursor=' + encodeURIComponent(cursor), codeHeaders());
+    const collect = (page, into, seen) => {
       const arr = firstArray(page);
-      for (const ev of arr) { const t = ev && (ev.event_type || ev.type) || '?'; types[t] = (types[t] || 0) + 1; }
       for (const ev of arr) {
+        const t = ev && (ev.event_type || ev.type) || '?'; types[t] = (types[t] || 0) + 1;
         if (!isUserEvent(ev)) continue;
+        const id = ev.event_id || ev.sequence_num;
+        if (id != null && seen.has(id)) continue;
+        if (id != null) seen.add(id);
         const text = clampTurn(eventText(ev).trim());
-        if (text) turns.push({ i: turns.length + 1, text });
+        if (text) into.push({ id, seq: ev.sequence_num, text });
       }
-      cursor = page.next_cursor || null; pages++;
+      return arr;
+    };
+    const seen = new Set();
+    const head = [], tail = [];
+    let pages = 0, note = '';
+    const first = await apiJson(base + '?limit=' + COWORK_PAGE, codeHeaders()); pages++;
+    collect(first, head, seen);
+    const resume = Number(ctx.coworkResume != null ? ctx.coworkResume : first.resume_cursor);
+    if (Number.isFinite(resume) && resume > COWORK_PAGE) {
+      let cursor = Math.max(1, resume - COWORK_TAIL_EVENTS);
+      note = 'tail from ' + cursor + ' of ' + resume;
+      while (cursor && pages < COWORK_MAX_PAGES) {
+        const page = await apiJson(base + '?limit=' + COWORK_PAGE + '&cursor=' + encodeURIComponent(cursor), codeHeaders()); pages++;
+        const arr = collect(page, tail, seen);
+        if (!arr.length || !page.next_cursor) break;
+        cursor = page.next_cursor;
+      }
+    } else {
+      /* No usable head-of-stream: walk forward from page one, as 0.9.82 did. */
+      note = 'forward walk';
+      let cursor = first.next_cursor;
+      while (cursor && pages < COWORK_MAX_PAGES) {
+        const page = await apiJson(base + '?limit=' + COWORK_PAGE + '&cursor=' + encodeURIComponent(cursor), codeHeaders()); pages++;
+        const arr = collect(page, tail, seen);
+        if (!arr.length) break;
+        cursor = page.next_cursor || null;
+      }
     }
+    /* The goal end and the present end; the middle is what fitTurns may drop. */
+    const all = head.slice(0, 4).concat(tail).sort((x, y) => (x.seq || 0) - (y.seq || 0));
+    const turns = all.map((t, k) => ({ i: k + 1, text: t.text }));
     ctx.api.turns = turns; ctx.api.human = turns.length; ctx.api.walked = true;
+    console.log('[CONTEXA] cowork — ' + note + ': ' + head.length + ' head turn(s), ' + tail.length + ' tail turn(s), ' + pages + ' page(s)');
     if (ctx.coworkShape) {
-      ctx.coworkShape.push('user turns after ' + (pages + 1) + ' page(s): ' + turns.length);
+      ctx.coworkShape.push('user turns: ' + head.length + ' in the first ' + COWORK_PAGE + ', ' + tail.length + ' in the ' + note + ' (' + pages + ' pages)');
       ctx.coworkShape.push('event types over the walk: ' + Object.entries(types).sort((x, y) => y[1] - x[1]).slice(0, 10).map(([k, v]) => k + '×' + v).join(', '));
     }
     refreshDiag(ctx);
   }
+
   /* Runs after the trigger card is drawn with the rendered estimate. If the
      page's API answers and says the thread is bigger, the label row is redrawn
      with the better number — the line appears a beat late rather than never. */
@@ -1003,6 +1046,7 @@
      loads THERE collects it (see collectBrief) and puts it in that composer.
      Nothing is sent: the user reads it in the new tab and presses send. */
   const NEW_CHAT_URL = 'https://claude.ai/new';
+  const NEW_COWORK_URL = 'https://claude.ai/cowork';
   function renderBrief(anchor, ctx, brief, briefTokens) {
     const wrap = shell(anchor, 'brief');
     if (!wrap) return;
@@ -1026,8 +1070,13 @@
       if (chip.disabled) return;
       chip.disabled = true;
       if (onCowork) {
-        try { await navigator.clipboard.writeText(brief); chip.textContent = 'Copied — start a new Cowork session and paste it'; }
-        catch (e) { chip.disabled = false; return renderQuiet(anchor, 'error', 'clipboard: ' + (e && e.message)); }
+        /* 0.9.85 — both: the clipboard is the floor that cannot fail, and the
+           new Cowork screen is tried on top of it — the brief is parked and
+           the script loading THERE lands it if it finds a composer. */
+        try { await navigator.clipboard.writeText(brief); } catch { /* the landing may still work */ }
+        try { await chrome.runtime.sendMessage({ type: 'stageBrief', brief }); } catch (e) { if (isStaleError(e) || !contextAlive()) return goStale(anchor); }
+        window.open(NEW_COWORK_URL, '_blank', 'noopener');
+        chip.textContent = 'Copied — opening a new Cowork session';
         return;
       }
       let ok = false;
@@ -1053,7 +1102,8 @@
      even a /new with something typed in it loses nothing. */
   let pendingBrief = '';
   async function collectBrief() {
-    if (location.pathname !== '/new') return;
+    /* /new for a chat; /cowork (the new-session screen) for a Cowork brief. */
+    if (!/^\/(new|cowork)\/?$/.test(location.pathname)) return;
     try {
       const r = await chrome.runtime.sendMessage({ type: 'takeBrief' });
       if (r && typeof r.brief === 'string' && r.brief) { pendingBrief = r.brief; tick(); }

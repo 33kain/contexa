@@ -1552,7 +1552,7 @@ const TURNS = [
     const card = (c.match(/function renderBrief\([\s\S]*?\n  \}/) || [''])[0];
     t('the brief is the chip\'s title, set as a property', /chip\.title = brief;/.test(card));
     t('the click stages the brief, then opens a fresh chat', /type: 'stageBrief', brief/.test(card) && /window\.open\(NEW_CHAT_URL, '_blank', 'noopener'\)/.test(card) && /NEW_CHAT_URL = 'https:\/\/claude\.ai\/new'/.test(c));
-    t('the landing is restricted to /new', /location\.pathname !== '\/new'\) return;/.test(c));
+    t('the landing is restricted to /new and the Cowork new-session screen', /\^\\\/\(new\|cowork\)\\\/\?\$\/\.test\(location\.pathname\)\) return;/.test(c));
     t('and goes through insertPrompt, which never overwrites a draft', /function landBrief\(\)[\s\S]{0,300}insertPrompt\(text\)/.test(c));
     t('the fork control stays on the mined row', /function renderMoves\(anchor, moves, ctx\)[\s\S]{0,600}weightLine\(/.test(c));
   }
@@ -1681,7 +1681,7 @@ const TURNS = [
   t('a user event is named by its type or its payload role, never a tool event', /function isUserEvent\(ev\)[\s\S]{0,400}tool_result\|tool_use/.test(c) && /\/user\/i\.test\(t\) \|\| role === 'user'/.test(c));
   t('event text is read from the payload', /const p = ev && ev\.payload && typeof ev\.payload === 'object' \? ev\.payload : ev;/.test(c));
   t('the token count is found anywhere in the first levels of the record', /function findUsage\(o\)/.test(c) && /v\.context_usage\.used_tokens != null/.test(c));
-  t('the Cowork walk is on demand and bounded', /const COWORK_MAX_PAGES = 40;/.test(c) && /while \(cursor && pages < COWORK_MAX_PAGES\)/.test(c));
+  t('the Cowork walk is on demand and bounded', /COWORK_MAX_PAGES = 12;/.test(c) && /pages < COWORK_MAX_PAGES/.test(c));
   t('the diag names the event types and a user payload\'s shape', /'event types: '/.test(c) && /'user event payload: '/.test(c));
 }
 
@@ -1689,7 +1689,7 @@ const TURNS = [
 {
   const c = readFileSync('./content.js', 'utf8');
   const pp = (c.match(/async function probeEventParams\(base, ctx\)[\s\S]*?\n  \}/) || [''])[0];
-  t('the parameter probe asks three questions and reads only status and count', /limit=500/.test(pp) && /from_sequence_num=999999999/.test(pp) && /firstArray\(j\)\.length/.test(pp) && !/eventText|JSON\.stringify/.test(pp));
+  t('the parameter probe asks three questions and reads only status and count', /limit=500/.test(pp) && /from_sequence_num=999999999/.test(pp) && /firstArray\(j\)/.test(pp) && !/eventText|JSON\.stringify/.test(pp));
   t('the diag names the goal event and the turn summary by shape only', /'active_goal payload: '/.test(c) && /'post_turn_summary: '/.test(c) && /string\(' \+ pts\.length/.test(c));
   t('and the walk reports what it saw', /'event types over the walk: '/.test(c));
 }
@@ -1700,6 +1700,18 @@ const TURNS = [
   t('every card arms the diag on its whole surface, from shell', /host\.before\(holder\);\s*armDiag\(wrap, wrap, null\);/.test(c));
   t('a tap on a button or chip does not count', /e\.target\.closest\('button'\)\) return;/.test(c));
   t('and no renderer arms it a second time', !/armDiag\(wrap\.querySelector/.test(c));
+}
+
+/* ---- 0.9.85 — head and tail of a Cowork session, and its fresh start ---- */
+{
+  const c = readFileSync('./content.js', 'utf8');
+  const w = (c.match(/async function coworkTurns\(ctx\)[\s\S]*?\n  \}/) || [''])[0];
+  t('the walk reads one page of 500 from the start, for the goal', /base \+ '\?limit=' \+ COWORK_PAGE, codeHeaders\(\)/.test(w));
+  t('then the tail from resume_cursor back, where the work is', /resume - COWORK_TAIL_EVENTS/.test(w) && /'&cursor=' \+ encodeURIComponent\(cursor\)/.test(w));
+  t('falls back to the forward walk without a numeric head', /note = 'forward walk';/.test(w));
+  t('dedupes by event id and orders by sequence', /seen\.has\(id\)/.test(w) && /\.sort\(\(x, y\) => \(x\.seq \|\| 0\) - \(y\.seq \|\| 0\)\)/.test(w));
+  t('and keeps the goal end small so fitTurns keeps the present', /head\.slice\(0, 4\)\.concat\(tail\)/.test(w));
+  t('on Cowork the fork copies, stages and opens the new-session screen', /navigator\.clipboard\.writeText\(brief\)/.test(c) && /window\.open\(NEW_COWORK_URL, '_blank', 'noopener'\)/.test(c) && /NEW_COWORK_URL = 'https:\/\/claude\.ai\/cowork'/.test(c));
 }
 
 console.log(fails.length ? '\nFAILED: ' + fails.join(', ') : '\nall extension checks passed');

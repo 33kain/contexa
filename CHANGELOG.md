@@ -9,6 +9,30 @@ backend's live version separately so a deploy can be told from a no-op.
 
 ---
 
+## 0.9.85 — Extension (worker build number only)
+
+*Ninth and tenth cards.* The stream takes `limit=500`; its cursor is a
+sequence number (the page reads its own tail with `?limit=500&cursor=22857`);
+every answer carries `resume_cursor`. And a click on the mascot on the live
+Cowork session returned real moves — from the EARLIEST 26 user turns of a
+23,000-event session, because the walk went forward from page one.
+
+### Head and tail
+
+`coworkTurns` now reads one page of 500 from the start, for the goal, then
+the last 3,000 events back from `resume_cursor`, where the work is; four
+head turns and every tail turn, ordered by sequence, deduplicated by event
+id, and handed to `fitTurns` as before. Without a numeric head of stream the
+forward walk stands, bounded at twelve pages.
+
+### Start fresh on Cowork
+
+The chip copies the brief (the floor that cannot fail), parks it, and opens
+Cowork's new-session screen; the content script loading there lands it if it
+finds a composer. `collectBrief` accepts `/cowork` as well as `/new`.
+
+---
+
 ## 0.9.84 — Extension (worker build number only)
 
 The three-tap diagnostic card now opens from any card, not only the ones
