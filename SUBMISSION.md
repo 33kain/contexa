@@ -191,7 +191,7 @@ checkable in the source, which is why it is safe to say plainly.
 
 ## The name, and the one policy call worth remembering
 
-Shipped name: **`CONTEXA for Claude - Every token earned`**.
+Shipped name: **`CONTEXA for Claude - Save tokens`** (0.9.95; `CONTEXA for Claude - Every token earned` until 0.9.94).
 
 An earlier version of this file argued "Claude" must be absent from the name.
 **That was over-cautious.** The impersonation policy is about false endorsement —

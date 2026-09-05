@@ -9,6 +9,20 @@ backend's live version separately so a deploy can be told from a no-op.
 
 ---
 
+## 0.9.95 — Extension (worker build number only)
+
+The motto: *save tokens*. *Every token earned* stays as the test behind it
+(`docs/token-savings-thesis.md`). The manifest's `name` becomes
+`CONTEXA for Claude - Save tokens` and its `description` leads with the saving
+and names Start fresh; both are store fields, which is why this is a package
+version and not a listing edit. `publishing/STORE-LISTING.md` is rewritten
+around it: the detailed description opens with the measured 9% against 3%,
+then Start fresh, then the moves. The site's tagline, title and og:title
+follow. Not touched: the promo tiles in `store-assets/`, which still carry the
+old wording and are rebuilt by `scripts/promo/`.
+
+---
+
 ## 0.9.94 — Extension (worker build number only)
 
 *Nineteenth card: the record carries no project uuid, no conversation
