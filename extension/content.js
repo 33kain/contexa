@@ -889,6 +889,7 @@
         : 'page API: ' + (ctx.apiState || 'not asked yet'),
       'user turns in DOM: ' + turns.length + ', last three: ' + (lastThree.join('/') || '-') + ' chars',
       'model on page: ' + (pageModel() || 'not found') + '; reply ' + ((ctx.reply || '').length) + ' chars',
+      ...(ctx.lastError ? ['last error (' + ctx.lastError.call + '): ' + ctx.lastError.code + (ctx.lastError.diag ? ' ' + JSON.stringify(ctx.lastError.diag) : '') + (ctx.lastError.detail ? ' ' + String(ctx.lastError.detail).slice(0, 120) : '')] : []),
       ...(ctx.coworkShape ? ['cowork session API:\n  ' + ctx.coworkShape.join('\n  ')] : []),
       'page API paths seen (' + apiPaths.length + '):' + (apiPaths.length ? '\n  ' + [...apiPaths.filter(p => p.startsWith('req ')), ...apiPaths.filter(p => !p.startsWith('req '))].slice(0, 18).map(shortPath).join('\n  ') : ' none — probe not running?')
     ];
@@ -1014,6 +1015,7 @@
 
     if (!resp || resp.error || typeof resp.brief !== 'string') {
       const err = resp && resp.error;
+      ctx.lastError = { call: 'fork', code: thrown ? 'extension: ' + thrown : err || 'empty response', diag: resp && resp.diag, detail: resp && resp.detail };
       if (isStaleError(thrown) || !contextAlive()) return goStale(anchor);
       if (err === 'quota') return renderQuiet(anchor, 'quota', '', resp);
       if (err === 'proxy_not_configured') return renderQuiet(anchor, 'unconfigured');
@@ -1244,6 +1246,7 @@
 
     if (!resp || resp.error || !Array.isArray(resp.moves)) {
       const err = resp && resp.error;
+      ctx.lastError = { call: 'moves', code: thrown ? 'extension: ' + thrown : err || 'empty response', diag: resp && resp.diag, detail: resp && resp.detail };
       if (isStaleError(thrown) || !contextAlive()) return goStale(anchor);
       if (err === 'quota') return renderQuiet(anchor, 'quota', '', resp);
       if (err === 'proxy_not_configured') return renderQuiet(anchor, 'unconfigured');

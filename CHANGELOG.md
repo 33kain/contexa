@@ -9,6 +9,36 @@ backend's live version separately so a deploy can be told from a no-op.
 
 ---
 
+## 0.9.86 — Extension + Worker
+
+*Eleventh card: the tail read works (137 user turns in the last 3,000 events
+of 23,435), the moves came from the present, and the first live fork on the
+123k-token session came back "Couldn't write suggestions for this reply" —
+an error the card could not tell apart from two others.*
+
+### The brief out of a broken answer
+
+The two likely causes are a brief cut at the output ceiling (the JSON never
+closes) and raw line breaks inside the string (JSON that never parses). Both
+leave the brief's text in the reply after `"brief":"`, so `rawBrief` — in
+the injected block, byte-identical on both paths — takes it, unescapes it,
+and lets `cleanBrief` cut it at a clean line. The result is flagged
+`partial`, like a salvaged row of moves: the model's own words, shorter,
+never invented. Nothing after `"brief":` is still the error it was. The
+fork's ceiling moves from 1,200 to 2,000 output tokens on both paths.
+
+### The card
+
+The diagnostic card now carries the last error with its diag — stop reason,
+tokens out against the ceiling, whether JSON started — so the next field
+report of a failed call names its cause.
+
+### What ships
+
+Both. The worker, for the ceiling and the salvage on the hosted path.
+
+---
+
 ## 0.9.85 — Extension (worker build number only)
 
 *Ninth and tenth cards.* The stream takes `limit=500`; its cursor is a

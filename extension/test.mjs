@@ -1469,7 +1469,7 @@ const TURNS = [
     t('own key: the fork reads the same session sections as mining',
       !!body && /^SESSION SO FAR:\n\[1\] make me a website/.test(body.messages[0].content)
         && /\n\nCLAUDE'S LATEST REPLY:\n/.test(body.messages[0].content));
-    t('own key: the fork ceiling is 1,200 output tokens', !!body && body.max_tokens === 1200, String(body && body.max_tokens));
+    t('own key: the fork ceiling is 2,000 output tokens', !!body && body.max_tokens === 2000, String(body && body.max_tokens));
     t('own key: the brief comes back as one string', r.brief === BRIEF, JSON.stringify(r).slice(0, 100));
     const n = h.requests.length;
     const again = await h.send({ type: 'fork', reply: 'r'.repeat(80), turns: TURNS });
@@ -1712,6 +1712,29 @@ const TURNS = [
   t('dedupes by event id and orders by sequence', /seen\.has\(id\)/.test(w) && /\.sort\(\(x, y\) => \(x\.seq \|\| 0\) - \(y\.seq \|\| 0\)\)/.test(w));
   t('and keeps the goal end small so fitTurns keeps the present', /head\.slice\(0, 4\)\.concat\(tail\)/.test(w));
   t('on Cowork the fork copies, stages and opens the new-session screen', /navigator\.clipboard\.writeText\(brief\)/.test(c) && /window\.open\(NEW_COWORK_URL, '_blank', 'noopener'\)/.test(c) && /NEW_COWORK_URL = 'https:\/\/claude\.ai\/cowork'/.test(c));
+}
+
+/* ---- 0.9.86 — the brief out of a broken answer ------------------------- */
+{
+  const BRIEF = 'Goal: a website for my bakery.\nSettled:\n- opening hours on the front page\nExists now:\n- the landing page HTML <paste here>\nNext: write the menu page.';
+  const h = load({ storage: { model: '', apiKey: 'sk-x' } }); await settle();
+  const rawBrief = h.sandbox.rawBrief;
+  t('rawBrief is exposed by the injected block', typeof rawBrief === 'function');
+  if (typeof rawBrief === 'function') {
+    t('rawBrief takes the text after "brief":" out of a cut answer, unescaped, minus the fragment line', rawBrief('{"brief":"Goal: x.\\nSettled:\\n- y\\n- z') === 'Goal: x.\nSettled:\n- y');
+    t('a cut answer with one line keeps that line rather than nothing', rawBrief('{"brief":"Goal: x and more') === 'Goal: x and more');
+    t('rawBrief strips a closing quote and brace when they made it', rawBrief('{"brief":"Goal: x.\\nNext: y."}') === 'Goal: x.\nNext: y.');
+    t('rawBrief is empty when there is no brief field', rawBrief('Let me think about it') === '' && rawBrief('') === '');
+    t('rawBrief unescapes quotes and backslashes', rawBrief('{"brief":"He said \\"go\\" \\\\ now') === 'He said "go" \\ now');
+  }
+  // own key: a truncated answer becomes a partial brief, not an error
+  h.sandbox.fetch = async () => ({ ok: true, status: 200, async text() { return ''; },
+    async json() { return { stop_reason: 'max_tokens', usage: { input_tokens: 400, output_tokens: 2000 },
+      content: [{ type: 'text', text: '{"brief":"' + BRIEF.replace(/\n/g, '\\n') + '\\nAnd one more line that got cu' }] }; } });
+  const r = await h.send({ type: 'fork', reply: 'r'.repeat(80), turns: TURNS });
+  t('own key: a cut brief is salvaged, cut at a clean line, and flagged partial', r.partial === true && r.brief === BRIEF, JSON.stringify(r).slice(0, 160));
+  const c = readFileSync('./content.js', 'utf8');
+  t('the diag card carries the last error with its diag', /ctx\.lastError = \{ call: 'fork'/.test(c) && /ctx\.lastError = \{ call: 'moves'/.test(c) && /'last error \(' \+ ctx\.lastError\.call/.test(c));
 }
 
 console.log(fails.length ? '\nFAILED: ' + fails.join(', ') : '\nall extension checks passed');
