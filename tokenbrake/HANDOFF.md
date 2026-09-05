@@ -17,8 +17,8 @@ Brakes don't raise anyone's cap. They cut the share of the cap that goes to wast
 | # | Name | Surface | Status |
 |---|------|---------|--------|
 | 1 | Bash-output guard hooks | npm package (`tokenbrake`) | **published 0.1.0**, live-verified on Linux (Claude Code 2.1.261) |
-| 2 | Fork thread with summary | CONTEXA | **built in 0.9.73**, not field-tested |
-| 3 | Send-cost preview + long-thread warning | CONTEXA | **built in 0.9.73** (cost line only; no peak-window indicator, no usage-page read) |
+| 2 | Fork thread with summary | CONTEXA | **built 0.9.73, field-verified on Cowork 0.9.87** (444 vs 123,813 tokens) |
+| 3 | Send-cost preview + long-thread warning | CONTEXA | **built 0.9.73, field-verified on Cowork 0.9.82** (exact count from the session record) |
 | 4 | What's eating your tokens | `tokenbrake report` | **built**, run on one real 64-request session |
 | 5 | Batch + model-routing nudge | CONTEXA | **built in 0.9.74**, not field-tested |
 
@@ -229,9 +229,81 @@ sent while claude.ai's model selector (`[data-testid="model-selector-dropdown"]`
 2.5× Sonnet's usage per token", the API list-price ratio, source named in the code). Retrospective by design:
 said when the reply lands, the one moment the pattern is complete and the composer is empty; nothing watches
 the composer. "ŠRAF classification" does not exist in this repository; the fragment definition is the
-one in `content.js`. The selector name is the one part not verified against live claude.ai — the mock uses
-it; if the live page names its selector differently, the model line simply never renders, and the first
-live session should check for the `[CONTEXA] nudge — model opus` console line on an Opus chat.
+one in `content.js`. **Field, 2026-09-05, Quetta on Android, 0.9.74 sideloaded:** the model line rendered on a live Opus 5 chat, so
+the selector is verified. The cost line did not render on a long chat — the virtualised DOM held a fraction of
+the thread — and 0.9.75 scales the read by page height and exposes the measured number in the wordmark's
+tooltip. Also reported: "on most chats CONTEXA does not open"; 0.9.75 arms the settle fallback at attach so a
+finished, flagless, static page draws its card. Whether that was the cause is the next thing to check. **Second session: 0.9.75 changed nothing.** 0.9.76 reads
+the thread size from claude.ai's own conversation API (same origin, read-only, fails quietly to the DOM
+estimate) and adds a three-tap diagnostic card on the wordmark, because the phone has no console and no
+tooltip. The next report must carry that card's numbers. **It did:** 3 blocks, 1 user turn, scale ×3.81 → 6.3k tokens on a
+long chat, API "not asked" (the card could not tell pending from never). 0.9.77 reads the user's turns from the API
+when it answers (so moves and brief stop being mined from one turn) and makes the card's API states honest. **Third card:** the page was a Cowork session (`/cowork/cse_…`), not a
+chat — Cowork's API is unknown. 0.9.78 adds a main-world probe that lists the page's own `/api/` paths in the diag
+card. **Fourth/fifth cards:** on a chat the API read works on the phone (8,111 chars, 6 user messages vs 3 in the DOM);
+on Cowork the base is `/api/organizations/<org>/cowork/sessions/<cse_id>/…` and the content did not appear among
+same-origin fetches — 0.9.79 widens the probe (ws, sse, other hosts) and reports the status and key names of four
+GETs under that base. **Sixth card:** the Cowork page calls `/v1/code/sessions/<cse_id>` and `…/events` (same origin) — the Claude Code
+Remote API, proxied. The session record (checked from this side via get_session) carries
+`external_metadata.context_usage.used_tokens`: **123,813** on the field session, exact, against a DOM estimate of
+6,324; lifetime 245M cache-read tokens, $1,432. 0.9.80 reads the record for the count and the events for the
+user's turns (shape parsed defensively; keys reported in the diag). On Cowork the fork copies the brief instead of
+opening /new. Open: the events shape (one card will confirm), and opening a new Cowork session with the brief.
+Was: read the shape, implement the Cowork session read, decide what "Start fresh" means on Cowork (a new
+Cowork session, not `/new`). Note for brake 1: Cowork remote sessions are Claude Code sessions in Anthropic's
+cloud; hooks there would have to come from the repo's own `.claude/settings.json` (`tokenbrake init --project`). If the API read works it is also the fix for the
+head-truncated capture (`captureTurns` could read the whole session from it) — a deliberate later step.
+
+**Eighth card (0.9.82): the cost line rendered on the live Cowork session — `≈ 124k tokens re-read per send`, exact,
+from `/v1/code/sessions/<id>` → `response_shape.external_metadata.context_usage.used_tokens` (needs the page's own
+headers: anthropic-version 2023-06-01, anthropic-beta ccr-byoc-2025-07-29, anthropic-client-feature ccr,
+anthropic-client-platform web_claude_ai, x-organization-uuid from the lastActiveOrg cookie).** Events:
+`/v1/code/sessions/<id>/events` → `{data,next_cursor,resume_cursor}`, 50 per page, `data[].{event_type,payload,
+sequence_num,…}`; the first page is session setup (control_request/response, env_manager_log, system,
+autocompact_state, active_goal) and the field session has >23,000 events, so the brief cannot walk from the start.
+0.9.83 probes `limit` and `from_sequence_num` on /events and reports the shape of `active_goal` and the record's
+`post_turn_summary`, the two cheap sources a Cowork brief can be built from. Next: read from the end, build the
+Cowork brief, and decide what Start fresh opens on Cowork (a new Cowork session in the same project).
+
+**Ninth–eleventh cards (0.9.85–0.9.86):** the stream takes `limit=500`, its cursor is a sequence number and every answer
+carries `resume_cursor` (the head, 23,435 on the field session); reading 500 from the start plus the last 3,000 back
+from the head found 137 user turns in the tail (12 pages), and the moves came from the present. The first live fork
+failed with the generic parse-failure card; 0.9.86 salvages a cut or JSON-broken brief from the raw text on both
+paths (`rawBrief`, injected block), raises the fork ceiling to 2,000, and the diag card carries the last error with
+its diag. Start fresh on Cowork copies the brief, parks it and opens `claude.ai/cowork`; whether the brief lands in
+the new session's composer is not yet verified.
+
+**Twelfth card (0.9.86): the brief. `Brief ready: ≈ 444 tokens instead of ≈ 124k per send` on the live 123,813-token
+Cowork session — the thesis's first measured number (99.6% less per send). `claude.ai/cowork` redirects to a product
+page; the new-session screen's URL is unknown, so 0.9.87 lands a parked brief on any claude.ai page that is not an
+existing conversation, has a composer and holds no messages (take is consuming, so only then). Open question: the
+new Cowork session's URL, to open it from the chip.**
+
+**Thirteenth card (0.9.87): the brief landed by itself on `claude.ai/cowork/project/<chat_project_id>` — the project page
+is the new-session screen. 0.9.88 opens it from the chip (the id is in the session record), retires `probe.js`, and is
+the store candidate — except that `chat_project_id` is a `claude_proj_…` id and the project page wants the project uuid
+(fourteenth card: "Couldn't load this project"); 0.9.89 read the project link off the session page instead — and the
+fifteenth card opened the wrong project: the page's first `/cowork/project/` link is the sidebar's first project. 0.9.90
+asks `/api/organizations/<org>/projects` for the entry carrying the `claude_proj_…` id and takes its `uuid`; else
+`/v1/code/projects/<id>` (code headers) and records its shape; else the chip copies and opens nothing. Sixteenth card: the
+list's keys are `uuid,name,description,is_private,creator,is_starred,is_starter_project,is_harmony_project,type,subtype,settings,
+archiver,archived_at,created_at`, none holding the id; `/v1/code/projects/<id>` is 404. 0.9.91 adds the project details,
+`/v1/code/projects` as a list, and the page's own resource timing (`/api/organizations/<org>/projects/<uuid>` fetched by the
+session page to show its project's name), the last used only when exactly one uuid was fetched. Seventeenth card: details add
+only `prompt_template,organization_role`, `/v1/code/projects` 404, five resource entries, both links in plain divs. 0.9.92 searches
+the org's `chat_conversations` and each project's `…/conversations` for the `cse_` id, and `/v1/code/sessions?limit=50`. Eighteenth card: conversations carry
+`project_uuid,session_id,workspace_session_id` (none holding the cse id in 76 + 14 entries); the sessions list carries
+`relations,tags,title,participants,status` — the record's diag summary cut at twelve keys, so 0.9.93 searches the record itself
+first and shows all its keys. Nineteenth card: the record has no project uuid either — and needs none. **`chat_project_id` is the
+uuid in another spelling: `claude_proj_01` + base58 (Bitcoin alphabet, 22 chars, `1`-padded) of the uuid's 16 bytes.**
+`claude_proj_011CeAvYWZiPwTSnbTDUTRkX` → `01a016c6-92cb-713e-982d-db1fbc14c7fc`, verified against the page reached by hand and
+by round trip. 0.9.94 decodes (`projectUuidOf`), asks the org's project list once only to name the project on the chip, and
+drops every lookup of 0.9.89–0.9.93. **Twentieth card (0.9.94): the chip opened `/cowork/project/01a016c6-…` — the CONTEXA
+project the session lives in — and the brief landed in its composer by itself. The Cowork path is closed end to end and
+field-verified: exact count → cost line → brief (444 vs 123,813 tokens) → new session in the same project.** The Cowork
+path is closed end to end except that last hop: exact count → cost line → brief (444 vs 123,813 tokens)
+→ new session in the same project (the brief lands by itself once the right project page opens). Field-open: the chat
+path's Start fresh on the phone, and a second session's numbers.**
 
 ## Launch vehicle
 

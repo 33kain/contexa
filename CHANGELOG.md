@@ -9,6 +9,475 @@ backend's live version separately so a deploy can be told from a no-op.
 
 ---
 
+## 0.9.94 — Extension (worker build number only)
+
+*Nineteenth card: the record carries no project uuid, no conversation
+carries a session id, no session on the list carries relations.* None of
+them needs to: `chat_project_id` is the uuid, spelled `claude_proj_01` +
+base58 (Bitcoin alphabet, 22 characters, `1`-padded) of its sixteen bytes.
+`claude_proj_011CeAvYWZiPwTSnbTDUTRkX` decodes to
+`01a016c6-92cb-713e-982d-db1fbc14c7fc`, the page the field reached by hand,
+and encodes back. `projectUuidOf` does that; `coworkProjectLookup` is now
+the decode plus one request to the org's project list, only to name the
+project on the chip ("Open a new Cowork session in <name> with it") and
+confirm — a miss is a note on the diag card, not a block. The page-link
+scan, project details, conversations, code lists and resource timing of
+0.9.89–0.9.93 are removed.
+
+*Twentieth card: the chip opened the CONTEXA project page and the brief
+landed in its composer. Verified in the field.*
+
+---
+
+## 0.9.93 — Extension (worker build number only)
+
+*Eighteenth card: conversations carry `project_uuid`, `session_id` and
+`workspace_session_id` but none holds this session; the code API's session
+list carries `relations`, `tags` and `title` — keys the record's twelve-key
+summary never showed.* The session record is now the first source,
+searched (`projUuidIn`, three levels, a path naming a project) before any
+list is asked, and the diag says all of its keys, its `relations` and
+`tags`. The conversations line says how many entries hold a session id and
+what one looks like; the sessions line shows one entry's `relations`.
+
+---
+
+## 0.9.92 — Extension (worker build number only)
+
+*Seventeenth card: project details add only `prompt_template,
+organization_role`, `/v1/code/projects` is 404, resource timing holds five
+entries, both page links sit in plain divs.* Three more sources behind the
+others, each asked only while nothing has answered: the org's
+`chat_conversations` searched for the session's `cse_` id (a project uuid
+taken only from a field named for it), each project's `…/conversations`
+(the first project holding the session wins), and `/v1/code/sessions` for
+a uuid-shaped project field on this session's entry. The diag names each,
+and samples the resource entries so five can be explained.
+
+---
+
+## 0.9.91 — Extension (worker build number only)
+
+*Sixteenth card: `projects API: n=4 … match by record id: none`,
+`code project record: http_404`, and the page links two projects.* The
+org's project list does not carry the `claude_proj_…` id and the code API
+has no single project record. `coworkProjectLookup` gains three sources
+behind the list: each listed project's detail (searched for the id, extra
+keys recorded), `/v1/code/projects` as a list, and `pageProjectFetches` —
+the session page shows its project's name, so it fetched
+`/api/organizations/<org>/projects/<uuid>`, and that request is in the
+page's resource timing; it is a source only when exactly one project uuid
+was fetched. The diag names every step, any page request carrying
+`claude_proj`, and each page project link with its ancestor path.
+
+---
+
+## 0.9.90 — Extension (worker build number only)
+
+*Fifteenth card: the chip opened the Squiggle project.* The first
+`/cowork/project/` link on a session page is the sidebar's first project,
+not the session's own, so the page is not a source. `coworkProjectLookup`
+(run inside `coworkRead`) asks `/api/organizations/<org>/projects` for the
+entry that carries the record's `claude_proj_…` id anywhere and takes its
+uuid; failing that it reads `/v1/code/projects/<id>` with the page's headers
+and records the shape and any uuid-shaped field. With no answer the chip
+copies the brief and opens nothing — a wrong project is worse than a copy.
+The diag card carries the address that would open, each lookup step, and
+every project link the page holds (informational only).
+
+---
+
+## 0.9.89 — Extension (worker build number only)
+
+*Fourteenth card: "Couldn't load this project" at
+`/cowork/project/claude_proj_011CeA…`.* The record's `chat_project_id` is a
+`claude_proj_…` id; the project page's address is the project's uuid, which
+the record does not carry. The session page links to its own project in the
+breadcrumb, with the exact address, so `coworkProjectUrl` reads that link at
+click time; the record's id is used only when no link exists and it already
+looks like a uuid; otherwise the chip copies. The diag card says which it
+found.
+
+---
+
+## 0.9.88 — Extension (worker build number only)
+
+*Thirteenth card: the brief landed by itself in the composer of
+`claude.ai/cowork/project/<id>`, the project page where a new Cowork
+session starts. The id is `chat_project_id` in the session record the
+extension already reads. The Cowork exit is one click, end to end.*
+
+### The exit on Cowork
+
+The fork chip on a Cowork session copies the brief, parks it, and opens the
+session's project page; the content script loading there lands it. When the
+record carries no project id, the chip copies and says the brief will drop
+into the next new session. `EXISTING_RE` names an existing conversation
+precisely — a chat, a Cowork session, a Code session — so a project page is
+never mistaken for one.
+
+### The probe, retired
+
+`probe.js` did its job: every endpoint and header this product needed on
+Cowork is now known and written down in `tokenbrake/HANDOFF.md`. A script
+that wraps the page's own `fetch` has no place in a store build, so it is
+gone from the manifest and the tree; the three-tap diagnostic card stays,
+without the paths section.
+
+### What ships
+
+The extension, as the store candidate that 0.9.74 was going to be, with the
+field's twelve rounds behind it. The worker's `BUILD` moves with the
+manifest; behaviour unchanged from 0.9.86.
+
+---
+
+## 0.9.87 — Extension (worker build number only)
+
+*Twelfth card, and the number the whole plan was for:*
+
+```
+Brief ready: ≈ 444 tokens instead of ≈ 124k per send.
+```
+
+The first brief off a live 123,813-token Cowork session. The next message in
+a fresh session reads 444 tokens where this one reads 123,813 — 99.6% less
+per send, measured, not estimated. The thesis's open question has its first
+answer.
+
+### The landing without an address
+
+`claude.ai/cowork` redirects to a marketing page, and the screen a Cowork
+session starts from has no known address. So the landing stopped needing
+one: any claude.ai page that is not an existing conversation, has a composer
+and holds no messages yet is where a parked brief may land, and the take —
+which consumes — happens only once those three hold, so a page that is not
+the one leaves the brief parked for the next, within the TTL. On Cowork the
+fork copies and parks and opens nothing; the user starts the new session
+their own way and the brief drops in.
+
+---
+
+## 0.9.86 — Extension + Worker
+
+*Eleventh card: the tail read works (137 user turns in the last 3,000 events
+of 23,435), the moves came from the present, and the first live fork on the
+123k-token session came back "Couldn't write suggestions for this reply" —
+an error the card could not tell apart from two others.*
+
+### The brief out of a broken answer
+
+The two likely causes are a brief cut at the output ceiling (the JSON never
+closes) and raw line breaks inside the string (JSON that never parses). Both
+leave the brief's text in the reply after `"brief":"`, so `rawBrief` — in
+the injected block, byte-identical on both paths — takes it, unescapes it,
+and lets `cleanBrief` cut it at a clean line. The result is flagged
+`partial`, like a salvaged row of moves: the model's own words, shorter,
+never invented. Nothing after `"brief":` is still the error it was. The
+fork's ceiling moves from 1,200 to 2,000 output tokens on both paths.
+
+### The card
+
+The diagnostic card now carries the last error with its diag — stop reason,
+tokens out against the ceiling, whether JSON started — so the next field
+report of a failed call names its cause.
+
+### What ships
+
+Both. The worker, for the ceiling and the salvage on the hosted path.
+
+---
+
+## 0.9.85 — Extension (worker build number only)
+
+*Ninth and tenth cards.* The stream takes `limit=500`; its cursor is a
+sequence number (the page reads its own tail with `?limit=500&cursor=22857`);
+every answer carries `resume_cursor`. And a click on the mascot on the live
+Cowork session returned real moves — from the EARLIEST 26 user turns of a
+23,000-event session, because the walk went forward from page one.
+
+### Head and tail
+
+`coworkTurns` now reads one page of 500 from the start, for the goal, then
+the last 3,000 events back from `resume_cursor`, where the work is; four
+head turns and every tail turn, ordered by sequence, deduplicated by event
+id, and handed to `fitTurns` as before. Without a numeric head of stream the
+forward walk stands, bounded at twelve pages.
+
+### Start fresh on Cowork
+
+The chip copies the brief (the floor that cannot fail), parks it, and opens
+Cowork's new-session screen; the content script loading there lands it if it
+finds a composer. `collectBrief` accepts `/cowork` as well as `/new`.
+
+---
+
+## 0.9.84 — Extension (worker build number only)
+
+The three-tap diagnostic card now opens from any card, not only the ones
+with a wordmark: the honest zero and the error card carried none, and after a
+click those are the cards most likely to be up. A tap on a button or a chip
+does not count toward the three.
+
+---
+
+## 0.9.83 — Extension (worker build number only)
+
+*Eighth card, and the line: `≈ 124k tokens re-read per send · Start fresh`,
+on a live Cowork session, from `context_usage.used_tokens: 123813` of
+1,000,000. Exact, not estimated. The rendered read on the same page said
+6,647 characters in three blocks.*
+
+The brief is what is left. The first page of events is the session's birth
+(control requests, environment logs, two `active_goal`s) and the session has
+over 23,000 events, so a walk of fifty a page from the start is not the way
+to the user's turns. This build asks the stream three questions whose answers
+are a status and a count — is `limit` honoured, is `from_sequence_num`
+accepted, both — and reports the shape of the two cheap sources a Cowork
+brief could be built from: the `active_goal` event's payload and the
+record's `post_turn_summary`. The walk, when a click runs it, now reports the
+event types it saw.
+
+---
+
+## 0.9.82 — Extension (worker build number only)
+
+*Seventh card: both reads answer 200 with `anthropic-version`.* The record
+came back as one key, `response_shape`, with no count; the events came back
+as `data[]` of `{ event_type, payload, … }`, fifty a page with
+`next_cursor` — and the parser was looking for `type: 'user'`, so it found
+none. The session reads now send the full set of headers the page sends
+(read off the probe: an API version, a beta name, two client identifiers and
+the organisation id), the token count is found anywhere in the record's first
+levels, a user turn is an event whose type or payload role names the user,
+and the pages are walked on a click — never at render — following
+`next_cursor`, forty at most. The card says which event types the page holds
+and what a user payload looks like, in case this is still wrong.
+
+---
+
+## 0.9.81 — Extension (worker build number only)
+
+*Sixth card: `page API: failed (cowork record): http_400`.* The page reads the
+same URL and gets its answer; the extension's read, with the same cookies, gets
+a 400 — the shape of a missing request header on this API. The probe now
+records, for `/v1/code/sessions/` calls only, the method, the query string,
+the header names, the values of `anthropic-*` headers (API version strings,
+never secrets), and the status the page received. The extension's own reads
+send `anthropic-version` meanwhile, the likeliest missing piece.
+
+---
+
+## 0.9.80 — Extension (worker build number only)
+
+*The fifth card from the field, and the number the whole plan was for.*
+
+The card listed the page's own calls on a Cowork page: `/v1/code/sessions/
+<id>` and `/v1/code/sessions/<id>/events`, same origin. A Cowork session is a
+Claude Code session in Anthropic's cloud, and its record carries
+`context_usage.used_tokens` — the context the next message will re-read,
+exact. The session this was found on read **123,813 tokens** where the DOM
+estimate read 6,324 and the scaled one 8,320. Its lifetime figures: 245M
+tokens read from cache, $1,432. That is what "every send re-reads the whole
+thread" costs on a long Cowork session, measured.
+
+### The Cowork read
+
+`coworkRead` fetches the record and takes the exact count; it fetches the
+events and takes the user's own messages (entries whose type or role is
+"user" with text content; tool results are never a turn), parsed defensively
+because their shape has only been seen from one card. Both key sets go to the
+diagnostic card. The exact count outranks any estimate and redraws the label
+row; the moves and the brief are mined from the session's real turns.
+
+### The fork, on Cowork
+
+A fresh chat at `/new` is not the exit from a Cowork session: the work lives
+in a session with its folders and tools, and a new one starts from Cowork's
+own screen, which this script does not drive. On a Cowork page the chip reads
+"Copy the brief for a new session", copies it, and says so. One paste — the
+smallest honest step until a new session can be opened with the brief in it.
+
+### What ships
+
+The extension, as a field build. The worker's `BUILD` moves with the
+manifest; not redeployed.
+
+---
+
+## 0.9.79 — Extension (worker build number only)
+
+*The third and fourth cards from the field, one from a chat and one from
+Cowork.*
+
+The chat card said `page API: 8111 chars in 11 messages, 6 yours` against
+three user turns in the DOM: the API read works on the phone, and the session
+the moves are mined from is now the whole one. The Cowork card listed the
+page's own calls and the session's base — `/cowork/sessions/<id>/mcp-servers`
+— and no call that carries the content, so the content arrives by a transport
+the probe did not wrap, or from another origin.
+
+### The probe, widened
+
+`probe.js` now records fetch, XHR, WebSocket and EventSource, on any host,
+as "transport host/path" — paths only, still; assets and the page's own
+analytics are skipped.
+
+### The Cowork shape
+
+On a Cowork page, four GETs under the session's base (the base itself,
+`/events`, `/messages`, `/transcript`) report their status and, on a JSON
+200, the top-level key names — names, never values — into the card. One round
+of this replaces guessing.
+
+### What ships
+
+The extension, as a field build. The worker's `BUILD` moves with the
+manifest; not redeployed.
+
+---
+
+## 0.9.78 — Extension (worker build number only)
+
+*The second card from the field.*
+
+```
+page API: no conversation id in /cowork/cse_013wFjkSS8bv1KkAUfnc6VqW
+```
+
+A Cowork session, not a chat. Cowork keeps three to five blocks on the page
+(the 0.9.55 measurement, met again) and fetches its session from an API this
+product does not know. Guessing an endpoint would produce a "failed: http_404"
+card and nothing learned.
+
+### The probe
+
+`probe.js` runs in the page's own world (`"world": "MAIN"`, `document_start`,
+claude.ai only) and wraps `fetch` and `XMLHttpRequest.open` to record the
+PATH of each same-origin `/api/` call the page makes — never a body, a header
+or a response — handing each new path to the content script as a string. The
+diagnostic card lists the last fourteen, ids shortened. A Cowork session is
+named as such in the card. A field diagnostic: to be removed, or kept as the
+selector-drift aid, once the endpoint is known and implemented.
+
+### What ships
+
+The extension. The worker's `BUILD` moves with the manifest; not redeployed.
+Not for the store in this form.
+
+---
+
+## 0.9.77 — Extension (worker build number only)
+
+*The first diagnostic card from the field, and what it said.*
+
+```
+thread ≈ 6324 tokens (dom); rendered: 6647 chars in 3 blocks, scale ×3.81
+page API: not asked
+user turns in DOM: 1
+```
+
+Three blocks and one user turn, on a long chat. The DOM read is not
+approximately wrong on that page; it is reading a different, much smaller
+conversation. And "not asked" was the card's own fault: it could not tell a
+pending API read from one never made.
+
+### The session from the page's API
+
+`apiThread` now keeps the user's own messages, whole and in order, clamped by
+`clampTurn` like the DOM read; `sessionTurns` hands `askNow` and `askFork`
+those turns through `fitTurns` when the API answered with more than the DOM
+holds, and the DOM read otherwise. What is billed does not change — the same
+clamps, the same ceiling — only how much of the session it is drawn from. On
+that phone it was one turn; the prompt was written for the whole session.
+
+### The card
+
+`apiState` tells pending, no conversation id (with the path it saw), failed
+(with the error) and ok apart, and the card redraws itself when the answer
+lands, so a tap taken during a slow read no longer reports a lie.
+
+### What ships
+
+The extension. The worker's `BUILD` moves with the manifest; not redeployed.
+
+---
+
+## 0.9.76 — Extension (worker build number only)
+
+*The second field session, same phone, same hour: 0.9.75 changed nothing.*
+
+### The thread, from the page's own API
+
+The rendered read is blind on that page in a way the 0.9.75 scaling cannot
+fix: a transcript that loads its tail and keeps no spacer measures as short by
+any DOM arithmetic. The page itself knows the whole thread — claude.ai fetches
+its conversation as JSON from its own API, same origin, and the content script
+runs on that origin. `apiThread` asks the same API (`/api/organizations/<org>/
+chat_conversations/<id>`), read-only, with the page's own cookies, and counts
+characters; the org comes from the `lastActiveOrg` cookie, else from
+`/api/organizations`. Nothing leaves the page and the JSON is dropped. It runs
+after the trigger card is drawn (`refineThread`); if it says the thread is
+bigger, the label row is redrawn with the better number, so the line appears a
+beat late rather than never. A private API, held to the private DOM's rule:
+any failure is one console line and the rendered estimate stands.
+
+### The diagnostic card
+
+A phone has no console and, it turns out, no tooltip on a long press. Three
+taps on the CONTEXA wordmark within two seconds now draw an inert card: the
+version, what the thread read measured and from where, what the page's API
+said or why it did not, the user turns and the last three lengths, the model
+the page reports, the reply's size. Text only, no control. It is how the next
+field report carries numbers instead of "nothing shows".
+
+### What ships
+
+The extension. The worker's `BUILD` moves with the manifest; not redeployed.
+
+---
+
+## 0.9.75 — Extension (worker build number only)
+
+*The first field session of 0.9.74, on a phone, in about an hour.*
+
+### What the field verified
+
+The model nudge rendered on real claude.ai — "Sent on Opus, about 2.5×
+Sonnet's usage per token" — on a chat whose composer bar read Opus 5. So
+`MODEL_SEL`, the one host selector that had only ever been matched against
+the mock, matches the live page.
+
+### What the field found
+
+**The cost line never rendered on a plainly long chat.** The reason is the
+known limit `captureTurns` already lives with: a virtualised transcript holds
+only its rendered rows in the DOM, so `threadTokens` summed a fraction of the
+thread and stayed under the threshold on exactly the pages the brake is for.
+The read is now scaled: the rendered blocks span some height, the scroller is
+some height, and on a virtualised page the second is much larger than the
+first. The ratio, capped at `VIRTUAL_MAX_SCALE`, scales the character count; a
+page that is not virtualised has the two within padding of each other and
+scales by 1. Still an estimate, still ≈; what changed is which direction it is
+wrong in. Every read logs what it measured, and the CONTEXA wordmark's tooltip
+(a long press on a phone) now says the number and the threshold, so "why no
+Start fresh here" has an answer where there is no console.
+
+**"On most chats it does not open."** A page that loaded already finished,
+whose last reply carries no `data-is-streaming` flag, never mutates — and the
+settle timer that stands in for the flag was armed only BY a mutation. Such a
+page drew nothing, forever, with nothing in the console. The fallback is now
+armed once at attach as well: the same 1.2 seconds of quiet, the same
+fail-closed scan. Whether this is the whole of the field report is not known;
+it is the one cause the code could produce on its own.
+
+### What ships
+
+The extension. The worker's `BUILD` moves with the manifest; its behaviour is
+unchanged and it was not redeployed for this number.
+
+---
+
 ## 0.9.74 — Extension (worker build number only)
 
 *Brake 5 of the token-savings plan: the two nudges. One quiet line on the card,

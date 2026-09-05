@@ -19,7 +19,7 @@
    which build is live. Deliberately independent of the extension's manifest
    version — they ship on separate paths and a worker fix should not force
    everyone to reinstall the extension. */
-const BUILD = '0.9.74';   // matches the extension generation this serves; every bump here has paid for itself by telling one deploy from another — 0.9.52 could not tell a pre-fork deploy from a post-fork one, 0.9.54 a pre-voice from a post-voice, 0.9.56 a pre-precedence-fix from a post-precedence-fix, and 0.9.58 is the first that must distinguish a worker that speaks moves from one that still speaks questions
+const BUILD = '0.9.94';   // matches the extension generation this serves; every bump here has paid for itself by telling one deploy from another — 0.9.52 could not tell a pre-fork deploy from a post-fork one, 0.9.54 a pre-voice from a post-voice, 0.9.56 a pre-precedence-fix from a post-precedence-fix, and 0.9.58 is the first that must distinguish a worker that speaks moves from one that still speaks questions
 
 const ANTHROPIC_URL = 'https://api.anthropic.com/v1/messages';
 /* Sonnet 5 rather than Haiku, on measured evidence: in a controlled three-model
@@ -647,6 +647,25 @@ function cleanBrief(v) {
   const sp = cut.lastIndexOf(' ');
   return (sp > 0 ? cut.slice(0, sp) : cut).trimEnd();
 }
+/* 0.9.86 — the brief out of a broken answer. The first live fork on a
+   123k-token session came back as an error a user cannot act on; the two
+   likely causes are a brief cut at the output ceiling (the JSON never
+   closes) and raw line breaks inside the string (JSON that never parses).
+   Both leave the brief's text sitting in the reply after "brief":" — so take
+   it, unescape it, and let cleanBrief cut it at a clean boundary. The same
+   class of salvage the moves have had since extractJson learned to close a
+   truncated array: the model's own words, shorter, never invented. */
+function rawBrief(text) {
+  const m = String(text || '').match(/"brief"\s*:\s*"([\s\S]*)$/);
+  if (!m) return '';
+  const closed = /"\s*\}\s*$/.test(m[1]);
+  let t = m[1].replace(/"\s*\}\s*$/, '');
+  t = t.replace(/\\n/g, '\n').replace(/\\t/g, '\t').replace(/\\"/g, '"').replace(/\\\\/g, '\\');
+  /* Never closed means cut mid-line: the last line is a fragment and goes,
+     when there is a whole line before it to keep. */
+  if (!closed && t.includes('\n')) t = t.slice(0, t.lastIndexOf('\n'));
+  return cleanBrief(t);
+}
 /* end of the injected helper block — build.mjs reads to here for byte-identity */
 
 /* ------------------------------------------------------------------ worker */
@@ -805,7 +824,7 @@ function sessionContent(turns, reply) {
    the prompt and 1,800 by cleanBrief, which is well under 600 tokens; 1,200
    leaves room for the JSON wrapper and a model that overshoots, and is half
    the mining ceiling because there is no row of four to write. */
-const FORK_MAX_TOKENS = 1200;
+const FORK_MAX_TOKENS = 2000;
 
 export default {
   async fetch(request, env) {
@@ -950,12 +969,19 @@ async function fork(request, env) {
   const text = (data.content || []).map(b => b.text || '').join('');
   console.log('[CONTEXA] usage', JSON.stringify(usageOf(data)));
 
-  let parsed;
+  let parsed, salvaged = false;
   try { parsed = extractJson(text); } catch {
     const diag = diagnose(data, text, FORK_MAX_TOKENS);
-    console.log('[CONTEXA] fork parse failure', JSON.stringify(diag),
-      'text[0,300]=', JSON.stringify(text.slice(0, 300)));
-    return json({ error: data.stop_reason === 'max_tokens' ? 'truncated' : 'bad_json', diag }, 502, request, env);
+    const raw = rawBrief(text);
+    if (raw) {
+      /* Cut at the ceiling or broken as JSON, but the brief is there. */
+      console.log('[CONTEXA] fork salvage', JSON.stringify(diag), 'kept=' + raw.length);
+      parsed = { brief: raw }; salvaged = true;
+    } else {
+      console.log('[CONTEXA] fork parse failure', JSON.stringify(diag),
+        'text[0,300]=', JSON.stringify(text.slice(0, 300)));
+      return json({ error: data.stop_reason === 'max_tokens' ? 'truncated' : 'bad_json', diag }, 502, request, env);
+    }
   }
   const brief = cleanBrief(parsed.brief);
   /* Numbers only, no conversation content: what went in, what came out. The
@@ -963,5 +989,5 @@ async function fork(request, env) {
      which is the larger and truer "before". */
   console.log('[CONTEXA] fork — sent ' + content.length + ' chars, brief ' + brief.length + ' chars'
     + (brief ? '' : ' (nothing to carry over)'));
-  return json({ brief, quota: { used: quota.used, limit: DEVICE_DAILY_LIMIT } }, 200, request, env);
+  return json(Object.assign({ brief, quota: { used: quota.used, limit: DEVICE_DAILY_LIMIT } }, salvaged ? { partial: true } : {}), 200, request, env);
 }

@@ -7,7 +7,7 @@
    a stored default silently overrode every later shipped default, and nothing in
    the codebase could have told us. */
 
-import { readFileSync } from 'node:fs';
+import { readFileSync, existsSync } from 'node:fs';
 import vm from 'node:vm';
 
 const SRC = readFileSync('./background.js', 'utf8');
@@ -1469,7 +1469,7 @@ const TURNS = [
     t('own key: the fork reads the same session sections as mining',
       !!body && /^SESSION SO FAR:\n\[1\] make me a website/.test(body.messages[0].content)
         && /\n\nCLAUDE'S LATEST REPLY:\n/.test(body.messages[0].content));
-    t('own key: the fork ceiling is 1,200 output tokens', !!body && body.max_tokens === 1200, String(body && body.max_tokens));
+    t('own key: the fork ceiling is 2,000 output tokens', !!body && body.max_tokens === 2000, String(body && body.max_tokens));
     t('own key: the brief comes back as one string', r.brief === BRIEF, JSON.stringify(r).slice(0, 100));
     const n = h.requests.length;
     const again = await h.send({ type: 'fork', reply: 'r'.repeat(80), turns: TURNS });
@@ -1545,14 +1545,14 @@ const TURNS = [
     t('the cost line renders only above the threshold', /const LONG_THREAD_TOKENS = \d+;/.test(c) && /ctx\.thread < LONG_THREAD_TOKENS\) return;/.test(c));
     t('and never through innerHTML', !/innerHTML[^\n]*(kTokens|thread|brief)/.test(c));
     const fork = (c.match(/async function askFork\([\s\S]*?\n  \}/) || [''])[0];
-    t('askFork captures the session at click time, like askNow', /captureTurns\(\)/.test(fork));
+    t('askFork reads the session at click time, like askNow', /sessionTurns\(ctx\)/.test(fork));
     t('askFork sends the fork message with the reply and the turns', /type: 'fork', reply: ctx\.reply, turns/.test(fork));
     t('askFork treats an empty brief as the honest zero, with its own wording', /renderNothing\(anchor, 'fork'\)/.test(fork) && /'Nothing to carry over\.'/.test(c));
     t('askFork logs before against after, per send', /thread ≈ ' \+ ctx\.thread \+ ' tokens, brief ≈ '/.test(fork));
     const card = (c.match(/function renderBrief\([\s\S]*?\n  \}/) || [''])[0];
     t('the brief is the chip\'s title, set as a property', /chip\.title = brief;/.test(card));
     t('the click stages the brief, then opens a fresh chat', /type: 'stageBrief', brief/.test(card) && /window\.open\(NEW_CHAT_URL, '_blank', 'noopener'\)/.test(card) && /NEW_CHAT_URL = 'https:\/\/claude\.ai\/new'/.test(c));
-    t('the landing is restricted to /new', /location\.pathname !== '\/new'\) return;/.test(c));
+    t('the landing refuses an existing conversation and needs an empty page with a composer', /EXISTING_RE\.test\(location\.pathname\)\) return;/.test(c) && /!surelyNew && \(document\.querySelector\(USER_MSG_SEL\) \|\| document\.querySelector\(RESPONSE_SEL\)\)\) \{ wantBrief = false; return; \}/.test(c) && /surelyNew = \/\^\\\/new\\\/\?\$\/\.test\(location\.pathname\)/.test(c));
     t('and goes through insertPrompt, which never overwrites a draft', /function landBrief\(\)[\s\S]{0,300}insertPrompt\(text\)/.test(c));
     t('the fork control stays on the mined row', /function renderMoves\(anchor, moves, ctx\)[\s\S]{0,600}weightLine\(/.test(c));
   }
@@ -1575,6 +1575,178 @@ const TURNS = [
   t('every nudge logs its cause for the field test', /console\.log\('\[CONTEXA\] nudge —', why\);/.test(c));
   t('the ratio names its source', /OPUS_OVER_SONNET = '2\.5×'/.test(c) && /\$5\/\$25 against Sonnet 5 \$2\/\$10/.test(c));
   t('both cards go through weightLine, and none still call costLine directly', (c.match(/weightLine\(wrap\.querySelector\('\.label'\), anchor, ctx\)/g) || []).length === 2 && (c.match(/costLine\(/g) || []).length === 2);
+}
+
+/* ---- 0.9.75 — the thread read on a virtualised page, and the static page ---- */
+{
+  const c = readFileSync('./content.js', 'utf8');
+  const fn = (c.match(/function threadTokens\(\)[\s\S]*?\n  \}/) || [''])[0];
+  t('the thread read scales by scroller height over rendered height', /scale = Math\.min\(VIRTUAL_MAX_SCALE, total \/ rendered\)/.test(fn));
+  t('and only when the page is clearly taller than what is rendered', /rendered > 200 && total > rendered \* 1\.2/.test(fn));
+  t('the scale is capped', /const VIRTUAL_MAX_SCALE = \d+;/.test(c));
+  t('every read is logged with what was measured', /console\.log\('\[CONTEXA\] thread ≈', tokens/.test(fn));
+  t('the wordmark carries the number as its tooltip on both cards and on the refresh', (c.match(/\.title = threadNote\(\);/g) || []).length === 3);
+  t('the tooltip names the threshold so "why not here" has an answer', /Start fresh appears from ' \+ kTokens\(LONG_THREAD_TOKENS\)/.test(c));
+  const wr = (c.match(/function watchReplies\(\)[\s\S]*?\n  \}/) || [''])[0];
+  t('the settle fallback is armed at attach, not only by a mutation', /scan\(\);\s*\/\*[\s\S]*?\*\/\s*clearTimeout\(settleTimer\);\s*settleTimer = setTimeout\(\(\) => \{ settled = true; scan\(\); \}, 1200\);\s*\}$/.test(wr));
+}
+
+/* ---- 0.9.76 — the thread from the page's API, and the diag card --------- */
+{
+  const c = readFileSync('./content.js', 'utf8');
+  const api = (c.match(/async function apiThread\(ctx\)[\s\S]*?\n  \}/) || [''])[0];
+  t('the API read is same-origin, read-only, with the page\'s own cookies', /credentials: 'same-origin'/.test(c) && !/method: 'POST'/.test(api));
+  t('the conversation id comes from the URL', /CONV_RE = \/\\\/chat\\\/\(\[0-9a-f-\]\{36\}\)\/i/.test(c) && /location\.pathname\.match\(CONV_RE\)/.test(api));
+  t('the org comes from the cookie first, then the org list', api.indexOf('lastActiveOrg') < api.indexOf('/api/organizations\''));
+  t('it counts characters and drops the JSON', /chars \+= t\.length/.test(api) && !/sendMessage/.test(api));
+  const ref = (c.match(/async function refineThread\([\s\S]*?\n  \}/) || [''])[0];
+  t('a failed API read is one console line and the rendered estimate stands', /page API unavailable/.test(ref) && /return; \}/.test(ref));
+  t('the label is redrawn only when the API says the thread is bigger', /if \(api\.tokens > \(ctx\.thread \|\| 0\)\)[\s\S]{0,200}refreshWeight\(anchor, ctx\)/.test(ref));
+  t('the redraw touches only the trigger card', /data-cx-mode'\) !== 'ai'\) return;/.test(c));
+  t('the trigger card kicks off the refinement', /lastCtx = ctx;[\s\S]{0,400}refineThread\(anchor, ctx\);/.test(c));
+  const diag = (c.match(/function armDiag\([\s\S]*?\n  \}/) || [''])[0];
+  t('three taps on the wordmark draw the diag card', /taps\.length < DIAG_TAPS\) return;/.test(diag) && /const DIAG_TAPS = 3/.test(c));
+  t('the diag card names the version and the thread source', /'CONTEXA v' \+ v/.test(c) && /r\.source \|\| 'dom'/.test(c));
+  t('the diag card is text, not controls', /d\.textContent = lines\.join/.test(diag) && !/createElement\('button'\)/.test(diag));
+}
+
+/* ---- 0.9.77 — the session from the page's API, and diag states -------- */
+{
+  const c = readFileSync('./content.js', 'utf8');
+  const api = (c.match(/async function apiThread\(ctx\)[\s\S]*?\n  \}/) || [''])[0];
+  t('the API read keeps the user\'s own messages, clamped like the DOM read', /msg\.sender === 'human'[\s\S]{0,120}clampTurn\(t\.trim\(\)\)/.test(api));
+  t('and only those — replies are counted, never kept', !/assistant\+\+; [^\n]*turns\.push/.test(api) && /else assistant\+\+;/.test(api));
+  const st = (c.match(/async function sessionTurns\(ctx\)[\s\S]*?\n  \}/) || [''])[0];
+  t('sessionTurns prefers the API only when it holds more than the DOM', /api\.length > dom\.length/.test(st) && /return fitTurns\(api\.map/.test(st));
+  t('sessionTurns is awaited at both call sites', (c.match(/const turns = await sessionTurns\(ctx\);/g) || []).length === 2);
+  t('and falls back to the DOM read', /const dom = captureTurns\(\);/.test(st) && /return dom;/.test(st));
+  t('both calls read the session through it', (c.match(/const turns = await sessionTurns\(ctx\);/g) || []).length === 2);
+  const ask = (c.match(/async function askNow\([\s\S]*?\n  \}/) || [''])[0];
+  t('askNow still names captureTurns for the build guard', /captureTurns\(\)/.test(ask));
+  t('the diag card tells pending, no id, failed and ok apart', /ctx\.apiState = 'pending'/.test(c) && /'no conversation id in '/.test(c) && /ctx\.apiState = 'failed: '/.test(c) && /ctx\.apiState = 'ok'/.test(c));
+  t('and is refreshed when the API answers', (c.match(/refreshDiag\(ctx\);/g) || []).length >= 3);
+}
+
+/* ---- 0.9.80 — the Cowork session, from /v1/code/sessions ---------------- */
+{
+  const c = readFileSync('./content.js', 'utf8');
+  const cr = (c.match(/async function coworkRead\(anchor, ctx\)[\s\S]*?\n  \}/) || [''])[0];
+  t('coworkRead runs only on a Cowork page and reads the session record the page itself fetches',
+    /location\.pathname\.match\(COWORK_RE\);\s*if \(!cw\) return;/.test(cr) && /'\/v1\/code\/sessions\/' \+ cw\[1\]/.test(cr));
+  t('the exact context count comes from context_usage.used_tokens', /context_usage/.test(cr) && /Number\(usage\.used_tokens\)/.test(cr));
+  t('an exact count outranks the rendered estimate and redraws the row', /if \(Number\.isFinite\(used\) && used > \(ctx\.thread \|\| 0\)\)[\s\S]{0,300}refreshWeight\(anchor, ctx\)/.test(cr));
+  t('the user turns come from the events, user entries with text only', /if \(!isUserEvent\(ev\)\) continue;/.test(cr) && /clampTurn\(eventText\(ev\)\.trim\(\)\)/.test(cr));
+  t('tool results are never a turn', /\/tool_result\|tool_use\|attachment\|meta\/i\.test\(t\)\) return false;/.test(c));
+  t('a failed record read is one line and the estimate stands', /failed \(cowork record\)/.test(cr) && /console\.log\('\[CONTEXA\] cowork — session record unavailable/.test(cr));
+  t('the diag carries the record and events key names, never text', /shapeOf\(record, 2\)/.test(cr) && /Object\.keys\(first\)/.test(cr) && !/JSON\.stringify\(record/.test(cr));
+  t('refineThread hands a Cowork page to coworkRead', /if \(COWORK_RE\.test\(location\.pathname\)\) return coworkRead\(anchor, ctx\);/.test(c));
+  const card = (c.match(/function renderBrief\([\s\S]*?\n  \}/) || [''])[0];
+  t('on Cowork the fork chip copies the brief instead of opening /new', /onCowork \? 'Copy the brief for a new session'/.test(card) && /navigator\.clipboard\.writeText\(brief\)/.test(card));
+  t('and still opens a new chat everywhere else', /window\.open\(NEW_CHAT_URL, '_blank', 'noopener'\)/.test(card));
+}
+
+/* ---- 0.9.82 — the Cowork event stream's real shape ----------------------- */
+{
+  const c = readFileSync('./content.js', 'utf8');
+  t('a user event is named by its type or its payload role, never a tool event', /function isUserEvent\(ev\)[\s\S]{0,400}tool_result\|tool_use/.test(c) && /\/user\/i\.test\(t\) \|\| role === 'user'/.test(c));
+  t('event text is read from the payload', /const p = ev && ev\.payload && typeof ev\.payload === 'object' \? ev\.payload : ev;/.test(c));
+  t('the token count is found anywhere in the first levels of the record', /function findUsage\(o\)/.test(c) && /v\.context_usage\.used_tokens != null/.test(c));
+  t('the Cowork walk is on demand and bounded', /COWORK_MAX_PAGES = 12;/.test(c) && /pages < COWORK_MAX_PAGES/.test(c));
+  t('the diag names the event types and a user payload\'s shape', /'event types: '/.test(c) && /'user event payload: '/.test(c));
+}
+
+/* ---- 0.9.83 — reading a Cowork session from its end --------------------- */
+{
+  const c = readFileSync('./content.js', 'utf8');
+  t('the diag names the goal event and the turn summary by shape only', /'active_goal payload: '/.test(c) && /'post_turn_summary: '/.test(c) && /string\(' \+ pts\.length/.test(c));
+  t('and the walk reports what it saw', /'event types over the walk: '/.test(c));
+}
+
+/* ---- 0.9.84 — the diag on every card ------------------------------------ */
+{
+  const c = readFileSync('./content.js', 'utf8');
+  t('every card arms the diag on its whole surface, from shell', /host\.before\(holder\);\s*armDiag\(wrap, wrap, null\);/.test(c));
+  t('a tap on a button or chip does not count', /e\.target\.closest\('button'\)\) return;/.test(c));
+  t('and no renderer arms it a second time', !/armDiag\(wrap\.querySelector/.test(c));
+}
+
+/* ---- 0.9.85 — head and tail of a Cowork session, and its fresh start ---- */
+{
+  const c = readFileSync('./content.js', 'utf8');
+  const w = (c.match(/async function coworkTurns\(ctx\)[\s\S]*?\n  \}/) || [''])[0];
+  t('the walk reads one page of 500 from the start, for the goal', /base \+ '\?limit=' \+ COWORK_PAGE, codeHeaders\(\)/.test(w));
+  t('then the tail from resume_cursor back, where the work is', /resume - COWORK_TAIL_EVENTS/.test(w) && /'&cursor=' \+ encodeURIComponent\(cursor\)/.test(w));
+  t('falls back to the forward walk without a numeric head', /note = 'forward walk';/.test(w));
+  t('dedupes by event id and orders by sequence', /seen\.has\(id\)/.test(w) && /\.sort\(\(x, y\) => \(x\.seq \|\| 0\) - \(y\.seq \|\| 0\)\)/.test(w));
+  t('and keeps the goal end small so fitTurns keeps the present', /head\.slice\(0, 4\)\.concat\(tail\)/.test(w));
+  t('on Cowork the fork copies, stages and opens the project page (0.9.88)', /navigator\.clipboard\.writeText\(brief\)/.test(c) && /window\.open\(projectUrl, '_blank', 'noopener'\)/.test(c));
+}
+
+/* ---- 0.9.86 — the brief out of a broken answer ------------------------- */
+{
+  const BRIEF = 'Goal: a website for my bakery.\nSettled:\n- opening hours on the front page\nExists now:\n- the landing page HTML <paste here>\nNext: write the menu page.';
+  const h = load({ storage: { model: '', apiKey: 'sk-x' } }); await settle();
+  const rawBrief = h.sandbox.rawBrief;
+  t('rawBrief is exposed by the injected block', typeof rawBrief === 'function');
+  if (typeof rawBrief === 'function') {
+    t('rawBrief takes the text after "brief":" out of a cut answer, unescaped, minus the fragment line', rawBrief('{"brief":"Goal: x.\\nSettled:\\n- y\\n- z') === 'Goal: x.\nSettled:\n- y');
+    t('a cut answer with one line keeps that line rather than nothing', rawBrief('{"brief":"Goal: x and more') === 'Goal: x and more');
+    t('rawBrief strips a closing quote and brace when they made it', rawBrief('{"brief":"Goal: x.\\nNext: y."}') === 'Goal: x.\nNext: y.');
+    t('rawBrief is empty when there is no brief field', rawBrief('Let me think about it') === '' && rawBrief('') === '');
+    t('rawBrief unescapes quotes and backslashes', rawBrief('{"brief":"He said \\"go\\" \\\\ now') === 'He said "go" \\ now');
+  }
+  // own key: a truncated answer becomes a partial brief, not an error
+  h.sandbox.fetch = async () => ({ ok: true, status: 200, async text() { return ''; },
+    async json() { return { stop_reason: 'max_tokens', usage: { input_tokens: 400, output_tokens: 2000 },
+      content: [{ type: 'text', text: '{"brief":"' + BRIEF.replace(/\n/g, '\\n') + '\\nAnd one more line that got cu' }] }; } });
+  const r = await h.send({ type: 'fork', reply: 'r'.repeat(80), turns: TURNS });
+  t('own key: a cut brief is salvaged, cut at a clean line, and flagged partial', r.partial === true && r.brief === BRIEF, JSON.stringify(r).slice(0, 160));
+  const c = readFileSync('./content.js', 'utf8');
+  t('the diag card carries the last error with its diag', /ctx\.lastError = \{ call: 'fork'/.test(c) && /ctx\.lastError = \{ call: 'moves'/.test(c) && /'last error \(' \+ ctx\.lastError\.call/.test(c));
+}
+
+/* ---- 0.9.87 — the landing without an address ---------------------------- */
+{
+  const c = readFileSync('./content.js', 'utf8');
+  t('the take is consuming, so it waits for a composer on an empty page', /if \(!wantBrief \|\| askedBrief \|\| !composer\) return;/.test(c) && /askedBrief = true;/.test(c));
+  t('tick asks once the composer is found', /if \(composer && wantBrief && !askedBrief\) takeBriefIfLanding\(\);/.test(c));
+  t('an existing conversation is never a landing', /EXISTING_RE = \/\^\\\/\(chat\\\/\[0-9a-f-\]\{36\}\|cowork\\\/cse_\[A-Za-z0-9\]\+\|code\\\/session_\[A-Za-z0-9\]\+\)\//.test(c));
+}
+
+/* ---- 0.9.88 — the Cowork exit, closed; the probe, retired ---------------- */
+{
+  const c = readFileSync('./content.js', 'utf8');
+  const mf = JSON.parse(readFileSync('./manifest.json', 'utf8'));
+  t('no main-world script ships any more', !mf.content_scripts.some(cs => cs.world) && !existsSync('./probe.js'));
+  t('nothing listens for the probe', !/contexa-api-path|apiPaths|probeEventParams/.test(c));
+  t('the project id is read from the session record', /ctx\.coworkProject = /.test(c) && /chat_project_id/.test(c));
+  t('on Cowork the chip opens the project page, where a new session starts', /COWORK_PROJECT_URL = 'https:\/\/claude\.ai\/cowork\/project\/'/.test(c) && /window\.open\(projectUrl, '_blank', 'noopener'\)/.test(c));
+  t('and copies only when the project is unknown', /'Copied — start a new Cowork session; the brief drops in'/.test(c));
+  t('a project page is not an existing conversation', /EXISTING_RE = \/\^\\\/\(chat\\\/\[0-9a-f-\]\{36\}\|cowork\\\/cse_/.test(c));
+}
+
+/* ---- 0.9.89 – 0.9.94 — the project page's address ----------------------- */
+{
+  const c = readFileSync('./content.js', 'utf8');
+  const src = (c.match(/const B58 = '[^']+';\n  function projectUuidOf\(codeId\) \{[\s\S]*?\n  \}/) || [''])[0];
+  t('projectUuidOf is one alphabet and one function', src.length > 0);
+  const projectUuidOf = new Function(src + '\nreturn projectUuidOf;')();
+  t('the record id of the live session decodes to the page the field reached by hand', projectUuidOf('claude_proj_011CeAvYWZiPwTSnbTDUTRkX') === '01a016c6-92cb-713e-982d-db1fbc14c7fc');
+  const B58 = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
+  const enc = u => { let n = BigInt('0x' + u.replace(/-/g, '')), s = ''; while (n > 0n) { s = B58[Number(n % 58n)] + s; n /= 58n; } return 'claude_proj_01' + s.padStart(22, '1'); };
+  t('and the decode is the inverse of the encode on the other two projects the field saw', ['01a03657-5a22-7716-a4a3-5d418439ee92', '01a02b63-0000-7000-8000-000000000000'].every(u => projectUuidOf(enc(u)) === u));
+  t('a uuid of all zero bytes survives the padding', projectUuidOf(enc('00000000-0000-0000-0000-000000000000')) === '00000000-0000-0000-0000-000000000000');
+  t('a wrong prefix, a wrong length, a character outside the alphabet, or an overflow is null, not a guess',
+    [null, undefined, '', 'claude_proj_011CeAvYWZiPwTSnbTDUTRk', 'claude_proj_011CeAvYWZiPwTSnbTDUTRkXX', 'claude_proj_021CeAvYWZiPwTSnbTDUTRkX', 'claude_proj_010CeAvYWZiPwTSnbTDUTRkX', 'claude_proj_01lCeAvYWZiPwTSnbTDUTRkX', 'msg_011CeAvYWZiPwTSnbTDUTRkX', 'claude_proj_01zzzzzzzzzzzzzzzzzzzzzz'].every(x => projectUuidOf(x) === null));
+  const l = (c.match(/async function coworkProjectLookup\(ctx\)[\s\S]*?\n  \}/) || [''])[0];
+  t('the lookup decodes the record id, takes a uuid-shaped id as is, and asks the API for nothing else', /const uuid = UUID_RE\.test\(id\) \? id\.toLowerCase\(\) : projectUuidOf\(id\);/.test(l) && (l.match(/apiJson\(/g) || []).length === 1 && /\/projects'\)\)/.test(l));
+  t('an id that does not decode leaves the chip copying, with the reason on the card', /does not decode as one'\]; return; \}/.test(l) && /ctx\.coworkProjectUrl = null;/.test(l));
+  t('the org\'s list only names the project and confirms; a miss or a failure is a note, not a block', /ctx\.coworkProjectUrl = COWORK_PROJECT_URL \+ uuid;\n    let note;/.test(l) && /not among the org/.test(l) && /project list unavailable/.test(l));
+  t('the chip names the project when the list did', /'Open a new Cowork session' \+ \(ctx\.coworkProjectName \? ' in ' \+ ctx\.coworkProjectName : ''\) \+ ' with it'/.test(c));
+  t('the lookup runs inside the session read, before any chip', /await coworkProjectLookup\(ctx\);\n    const used = usage/.test(c));
+  t('the chip resolves the address at click time', /const projectUrl = onCowork \? coworkProjectUrl\(ctx\) : null;/.test(c));
+  t('the page\'s links, the details, the conversations and the resource timing are gone', !/pageProjectLinks|pageProjectFetches|projUuidIn|chat_conversations'\)|\/conversations'|\/v1\/code\/projects|\/v1\/code\/sessions\?|getEntriesByType/.test(c));
+  t('the diag says what would open and what the decode found', /'project page to open: '/.test(c) && /\.\.\.\(ctx\.coworkLookup \|\| \[\]\)\] : \[\]\)/.test(c));
 }
 
 console.log(fails.length ? '\nFAILED: ' + fails.join(', ') : '\nall extension checks passed');

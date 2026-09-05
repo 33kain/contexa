@@ -432,12 +432,49 @@
      stops paying it: the fork. */
   const CHARS_PER_TOKEN = 4;
   const LONG_THREAD_TOKENS = 12000;
+  /* 0.9.75 — the field found the flaw on day one: a plainly long chat on a
+     phone drew the model nudge and never the cost line, because the DOM held
+     only the rendered tail of the thread (the known virtualisation limit,
+     which fitTurns already lives with) and the sum below read a fraction of
+     the page. So the read is now scaled: the rendered blocks span some height,
+     the scroller is some height, and on a virtualised page the second is
+     much larger than the first. The ratio, capped, scales the character
+     count. A page that is not virtualised has the two within padding of each
+     other and scales by 1. It is still an estimate and still says ≈; what
+     changed is which direction it is wrong in. The read is kept on
+     `lastThreadRead` so the label's tooltip and the console can say what was
+     actually measured, which is the number the field test could not report. */
+  const VIRTUAL_MAX_SCALE = 20;
+  let lastThreadRead = null;
   function threadTokens() {
     let chars = 0;
+    const blocks = [];
     for (const sel of [USER_MSG_SEL, RESPONSE_SEL]) {
-      for (const el of document.querySelectorAll(sel)) chars += (el.textContent || '').length;
+      for (const el of document.querySelectorAll(sel)) { chars += (el.textContent || '').length; blocks.push(el); }
     }
-    return Math.round(chars / CHARS_PER_TOKEN);
+    let scale = 1, rendered = 0, total = 0;
+    if (blocks.length) {
+      let top = Infinity, bottom = -Infinity;
+      for (const b of blocks) { const r = b.getBoundingClientRect(); if (r.height) { top = Math.min(top, r.top); bottom = Math.max(bottom, r.bottom); } }
+      rendered = bottom > top ? bottom - top : 0;
+      const sc = findScroller(blocks[blocks.length - 1]);
+      total = sc ? sc.scrollHeight : 0;
+      if (rendered > 200 && total > rendered * 1.2) scale = Math.min(VIRTUAL_MAX_SCALE, total / rendered);
+    }
+    const tokens = Math.round(chars * scale / CHARS_PER_TOKEN);
+    lastThreadRead = { tokens, chars, blocks: blocks.length, scale, rendered: Math.round(rendered), total: Math.round(total), source: 'dom' };
+    console.log('[CONTEXA] thread ≈', tokens, 'tokens —', chars, 'chars in', blocks.length, 'rendered blocks'
+      + (scale > 1 ? ', scaled ×' + scale.toFixed(1) + ' (rendered ' + Math.round(rendered) + 'px of ' + Math.round(total) + 'px)' : ''));
+    return tokens;
+  }
+  /* What the tooltip on the wordmark says — a long press on a phone, a hover on
+     a desktop. The field test runs where there is no console, and "why no
+     Start fresh here" is unanswerable without this number. */
+  function threadNote() {
+    const r = lastThreadRead;
+    if (!r) return '';
+    return '≈ ' + kTokens(r.tokens) + ' tokens on the page (' + r.chars.toLocaleString() + ' chars in ' + r.blocks + ' blocks'
+      + (r.scale > 1 ? ', scaled ×' + r.scale.toFixed(1) + ' for the part not rendered' : '') + '). Start fresh appears from ' + kTokens(LONG_THREAD_TOKENS) + '.';
   }
   const kTokens = n => (n >= 1000 ? Math.round(n / 1000) + 'k' : String(n));
 
@@ -471,6 +508,392 @@
     });
     cost.append(words, btn);
     label.appendChild(cost);
+  }
+
+  /* ---------------- 0.9.76 — the thread from the page's own API ---------- */
+  /* The second field session said the cost line still never came, on threads
+     whose every reply was huge. So the rendered read is blind on that page in
+     a way the scaling cannot fix — a transcript that loads its tail and no
+     spacer measures as short by any DOM arithmetic. The page itself knows
+     the whole thread: claude.ai fetches its conversation as JSON from its
+     own API, same origin, and this script runs on that origin. So it asks
+     the same API, read-only, with the page's own cookies, and counts. Nothing
+     leaves the page; the number is computed here and the JSON is dropped.
+
+     This is a dependency on a private API, exactly as the DOM selectors are a
+     dependency on a private DOM, and it is held to the same rule: any failure
+     — a moved endpoint, a changed shape, a 403 — is one console line and the
+     rendered estimate stands. The org comes from the lastActiveOrg cookie
+     when present, else from /api/organizations, trying each until one owns
+     the conversation. Cached per conversation for the page's life. */
+  const CONV_RE = /\/chat\/([0-9a-f-]{36})/i;
+  /* 0.9.78 — a Cowork session is a different page with a different API; see
+     coworkRead below and the endpoints recorded in tokenbrake/HANDOFF.md. */
+  const COWORK_RE = /\/cowork\/([A-Za-z0-9_-]{8,})/;
+  const apiCache = new Map();
+  /* 0.9.80 — the Cowork session, from the page's own session API.
+     The fourth card named it: the page fetches /v1/code/sessions/<id> and
+     /v1/code/sessions/<id>/events, same origin. A Cowork session is a Claude
+     Code session in Anthropic's cloud, and its record carries the one number
+     the cost line exists to show — context_usage.used_tokens, the context the
+     next message will re-read — exact, not chars/4. The session this was found
+     on read 123,813 tokens where the DOM estimate read 6,324.
+
+     The events are the session's transcript; the user's own messages are
+     taken from them for the moves and the brief, parsed defensively (an
+     array under `events` or at the top; entries whose type or role is
+     "user" and whose content is text). The record's and the events' key names
+     go to the diagnostic card so a shape that differs from this can be read
+     off a screenshot. Same rule as everywhere: any failure is one console
+     line and the rendered estimate stands. */
+  function firstArray(j) {
+    if (Array.isArray(j)) return j;
+    if (j && typeof j === 'object') for (const k of ['events', 'data', 'items', 'results']) if (Array.isArray(j[k])) return j[k];
+    return [];
+  }
+  function eventText(ev) {
+    const p = ev && ev.payload && typeof ev.payload === 'object' ? ev.payload : ev;
+    const m = p && (p.message || p);
+    const c = m && (m.content != null ? m.content : m.text);
+    if (typeof c === 'string') return c;
+    if (Array.isArray(c)) return c.map(b => (b && b.type === 'text' && typeof b.text === 'string') ? b.text : '').join('\n');
+    return '';
+  }
+  /* 0.9.81 — anthropic-version on the session reads, because a 400 on the
+     record with the page's own cookies is what a missing API-version header
+     looks like on this API. The probe's "req … [hdr: …] → status" lines say
+     what the page really sends; this is the likeliest piece. */
+  /* 0.9.82 — the headers the page itself sends on these calls, read off the
+     probe's "req … [hdr: …]" line: an API version, a beta name and two client
+     identifiers, none of them secrets, plus the organisation from the
+     lastActiveOrg cookie. With only anthropic-version the record answered 200
+     with a single "response_shape" key and no data; this is the full set. */
+  const CODE_HEADERS_BASE = {
+    'anthropic-version': '2023-06-01',
+    'anthropic-beta': 'ccr-byoc-2025-07-29',
+    'anthropic-client-feature': 'ccr',
+    'anthropic-client-platform': 'web_claude_ai'
+  };
+  function codeHeaders() {
+    const org = (document.cookie.match(/(?:^|;\s*)lastActiveOrg=([0-9a-f-]{36})/i) || [])[1];
+    return org ? Object.assign({ 'x-organization-uuid': org }, CODE_HEADERS_BASE) : Object.assign({}, CODE_HEADERS_BASE);
+  }
+  function shapeOf(v, depth) {
+    if (!v || typeof v !== 'object') return typeof v;
+    if (Array.isArray(v)) return 'array[' + v.length + ']' + (depth > 0 && v[0] && typeof v[0] === 'object' ? ' of ' + shapeOf(v[0], depth - 1) : '');
+    const keys = Object.keys(v).slice(0, 12);
+    return '{' + keys.map(k => (depth > 0 && v[k] && typeof v[k] === 'object') ? k + ':' + shapeOf(v[k], depth - 1) : k).join(',') + '}';
+  }
+  function findUsage(o) {
+    const seen = [];
+    const walk = (v, d) => {
+      if (!v || typeof v !== 'object' || d > 3 || seen.includes(v)) return null;
+      seen.push(v);
+      if (v.context_usage && typeof v.context_usage === 'object' && v.context_usage.used_tokens != null) return v.context_usage;
+      for (const k of Object.keys(v)) { const r = walk(v[k], d + 1); if (r) return r; }
+      return null;
+    };
+    return walk(o, 0);
+  }
+  /* A user turn among the session's events: the type names the user, or the
+     payload's role does; tool results and tool uses are not turns. */
+  function isUserEvent(ev) {
+    if (!ev || typeof ev !== 'object') return false;
+    const t = String(ev.event_type || ev.type || '');
+    const p = ev.payload && typeof ev.payload === 'object' ? ev.payload : ev;
+    const role = p.role || (p.message && p.message.role) || '';
+    if (/tool_result|tool_use|attachment|meta/i.test(t)) return false;
+    return /user/i.test(t) || role === 'user';
+  }
+  async function coworkRead(anchor, ctx) {
+    const cw = location.pathname.match(COWORK_RE);
+    if (!cw) return;
+    const base = '/v1/code/sessions/' + cw[1];
+    ctx.apiState = 'pending (cowork)';
+    refreshDiag(ctx);
+    let record = null, events = null;
+    try { record = await apiJson(base, codeHeaders()); } catch (e) { ctx.apiState = 'failed (cowork record): ' + (e && e.message); refreshDiag(ctx); console.log('[CONTEXA] cowork — session record unavailable (' + ctx.apiState + ')'); return; }
+    /* The count may sit one level down (the page's own client wraps things);
+       find context_usage anywhere in the first two levels, and say what the
+       levels hold so the next card can correct this if it is still wrong. */
+    const usage = findUsage(record);
+    /* 0.9.88 — the project the session belongs to. Its page,
+       /cowork/project/<id>, is the new-session screen: a composer and no
+       messages, which is exactly where the landing lets a parked brief in
+       (the thirteenth card: it did, by itself). So the fork chip can open it. */
+    ctx.coworkProject = (function find(o, d) { if (!o || typeof o !== 'object' || d > 3) return null; if (typeof o.chat_project_id === 'string' && o.chat_project_id) return o.chat_project_id; for (const k of Object.keys(o)) { const r = find(o[k], d + 1); if (r) return r; } return null; })(record, 0);
+    await coworkProjectLookup(ctx);
+    const used = usage && Number(usage.used_tokens);
+    ctx.coworkShape = ['record: ' + shapeOf(record, 2)
+      + (usage ? ' context_usage=' + JSON.stringify({ used_tokens: usage.used_tokens, max_tokens: usage.max_tokens }) : ' (no context_usage found)')];
+    try { events = await apiJson(base + '/events', codeHeaders()); } catch (e) { ctx.coworkShape.push('events: ' + (e && e.message)); }
+    let turns = [], evCount = 0;
+    if (events) {
+      const arr = firstArray(events);
+      evCount = arr.length;
+      const first = arr[0];
+      ctx.coworkShape.push('events: ' + (Array.isArray(events) ? 'array' : '{' + Object.keys(events).slice(0, 10).join(',') + '}') + ' n=' + arr.length
+        + (first && typeof first === 'object' ? ' first={' + Object.keys(first).slice(0, 12).join(',') + '}' : ''));
+      /* The event stream's shape, from the sixth card: data[] of
+         { event_type, payload, … }, fifty a page with next_cursor. Say which
+         event types the page holds and what a user-looking payload carries. */
+      const types = {};
+      for (const ev of arr) { const t = ev && (ev.event_type || ev.type) || '?'; types[t] = (types[t] || 0) + 1; }
+      ctx.coworkShape.push('event types: ' + Object.entries(types).sort((x, y) => y[1] - x[1]).slice(0, 8).map(([k, v]) => k + '×' + v).join(', ')
+        + (events.next_cursor ? '; more pages' : '; last page'));
+      const sample = arr.find(ev => isUserEvent(ev));
+      if (sample) ctx.coworkShape.push('user event payload: ' + shapeOf(sample.payload, 2));
+      /* 0.9.83 — the two cheap sources a Cowork brief could be built from,
+         and the event stream's coordinates, so the next round can read from
+         the END of a 23,000-event session instead of walking from its start. */
+      const goal = arr.find(ev => ev && /active_goal/i.test(String(ev.event_type || '')));
+      if (goal) ctx.coworkShape.push('active_goal payload: ' + shapeOf(goal.payload, 2));
+      const pts = (function find(o, d) { if (!o || typeof o !== 'object' || d > 3) return null; if (o.post_turn_summary != null) return o.post_turn_summary; for (const k of Object.keys(o)) { const r = find(o[k], d + 1); if (r) return r; } return null; })(record, 0);
+      if (pts != null) ctx.coworkShape.push('post_turn_summary: ' + (typeof pts === 'string' ? 'string(' + pts.length + ')' : shapeOf(pts, 2)));
+      const seqs = arr.map(ev => ev && ev.sequence_num).filter(n => Number.isFinite(n));
+      if (seqs.length) ctx.coworkShape.push('sequence_num on page 1: ' + Math.min(...seqs) + '…' + Math.max(...seqs));
+      for (const ev of arr) {
+        if (!isUserEvent(ev)) continue;
+        const text = clampTurn(eventText(ev).trim());
+        if (text) turns.push({ i: turns.length + 1, text });
+      }
+      ctx.coworkShape.push('user turns parsed (first page): ' + turns.length);
+      ctx.coworkCursor = events.next_cursor || null;
+      ctx.coworkResume = events.resume_cursor != null ? events.resume_cursor : null;
+    }
+    ctx.api = { cowork: true, tokens: Number.isFinite(used) ? used : 0, chars: null, messages: evCount, human: turns.length, assistant: null, turns, exact: Number.isFinite(used) };
+    ctx.apiState = Number.isFinite(used) ? 'ok (cowork, exact)' : 'ok (cowork record, no token count)';
+    console.log('[CONTEXA] cowork — context ' + (Number.isFinite(used) ? used + ' tokens (exact)' : 'unknown') + ', ' + evCount + ' events, ' + turns.length + ' user turn(s)');
+    if (Number.isFinite(used) && used > (ctx.thread || 0)) {
+      ctx.thread = used;
+      if (lastThreadRead) Object.assign(lastThreadRead, { tokens: used, source: 'cowork api, exact' });
+      refreshWeight(anchor, ctx);
+    }
+    refreshDiag(ctx);
+  }
+
+  async function apiJson(url, extra) {
+    const r = await fetch(url, { credentials: 'same-origin', headers: Object.assign({ accept: 'application/json' }, extra || {}) });
+    if (!r.ok) throw new Error('http_' + r.status);
+    return r.json();
+  }
+  async function apiThread(ctx) {
+    const m = location.pathname.match(CONV_RE);
+    if (!m) {
+      const cw = location.pathname.match(COWORK_RE);
+      if (ctx) ctx.apiState = cw ? 'cowork session ' + cw[1].slice(0, 12) + '…'
+        : 'no conversation id in ' + location.pathname.slice(0, 40);
+      return null;
+    }
+    if (ctx) ctx.apiState = 'pending';
+    const conv = m[1];
+    const cookieOrg = (document.cookie.match(/(?:^|;\s*)lastActiveOrg=([0-9a-f-]{36})/i) || [])[1];
+    let orgs = cookieOrg ? [cookieOrg] : [];
+    if (!orgs.length) {
+      const list = await apiJson('/api/organizations');
+      orgs = (Array.isArray(list) ? list : []).map(o => o && o.uuid).filter(Boolean);
+    }
+    let data = null, lastErr = null;
+    for (const org of orgs) {
+      try {
+        data = await apiJson('/api/organizations/' + org + '/chat_conversations/' + conv + '?tree=True&rendering_mode=messages&render_all_tools=true');
+        break;
+      } catch (e) { lastErr = e; }
+    }
+    if (!data) throw lastErr || new Error('no_org');
+    const msgs = Array.isArray(data.chat_messages) ? data.chat_messages : [];
+    let chars = 0, human = 0, assistant = 0;
+    /* 0.9.77 — the user's own messages, whole, in order. The DOM on that page
+       held ONE of them, so the moves and the brief were being mined from a
+       single turn; this is the session the prompt was written for. Same
+       clamps as the DOM read (clampTurn per turn, fitTurns over the set), so
+       what is billed does not change — only how much of the session it is
+       drawn from. */
+    const turns = [];
+    for (const msg of msgs) {
+      if (!msg) continue;
+      let t = typeof msg.text === 'string' ? msg.text : '';
+      if (!t && Array.isArray(msg.content)) t = msg.content.map(p => (p && typeof p.text === 'string') ? p.text : '').join('\n');
+      chars += t.length;
+      if (msg.sender === 'human') { human++; const text = clampTurn(t.trim()); if (text) turns.push({ i: turns.length + 1, text }); }
+      else assistant++;
+    }
+    const out = { tokens: Math.round(chars / CHARS_PER_TOKEN), chars, messages: msgs.length, human, assistant, turns };
+    apiCache.set(conv + ':' + msgs.length, out);
+    return out;
+  }
+  /* The session for a call: the page's API when it answered with more than
+     the DOM holds, else the DOM. Logged either way, because which one fed the
+     model is the first thing to know about any row. */
+  async function sessionTurns(ctx) {
+    const dom = captureTurns();
+    if (ctx && ctx.api && ctx.api.cowork) {
+      /* On demand, not at render: a long Cowork session is many pages of
+         fifty events, and only a click needs the whole set. Follows
+         next_cursor; a page that fails ends the walk and what was read
+         stands. */
+      try { await coworkTurns(ctx); } catch (e) { console.log('[CONTEXA] cowork — event walk stopped: ' + (e && e.message)); }
+    }
+    const api = ctx && ctx.api && Array.isArray(ctx.api.turns) ? ctx.api.turns : null;
+    if (api && api.length > dom.length) {
+      console.log('[CONTEXA] session — from the page API:', api.length, 'turn(s) (DOM held', dom.length + ')');
+      return fitTurns(api.map(t => ({ i: t.i, text: t.text })));
+    }
+    console.log('[CONTEXA] session — from the DOM:', dom.length, 'turn(s)');
+    return dom;
+  }
+  /* 0.9.85 — the session's user turns, head and tail, on a click. The ninth
+     card's walk read 41 pages from the start and found the EARLIEST 26 turns
+     of a 23,000-event session — the goal, and none of the present. The
+     stream takes limit=500, and its cursor is a sequence number (the page
+     itself reads its tail with ?limit=500&cursor=22857), and every answer
+     carries resume_cursor, the stream's head. So: one page of 500 from the
+     start for the goal, then the last TAIL_EVENTS from resume_cursor back,
+     which is where the work is now. fitTurns then does what it always did —
+     pins the first, drops from the middle. If resume_cursor is not a number,
+     the forward walk stands, bounded as before. */
+  const COWORK_PAGE = 500, COWORK_TAIL_EVENTS = 3000, COWORK_MAX_PAGES = 12;
+  async function coworkTurns(ctx) {
+    if (ctx.api.walked) return;
+    const cw = location.pathname.match(COWORK_RE);
+    if (!cw) return;
+    const base = '/v1/code/sessions/' + cw[1] + '/events';
+    const types = {};
+    const collect = (page, into, seen) => {
+      const arr = firstArray(page);
+      for (const ev of arr) {
+        const t = ev && (ev.event_type || ev.type) || '?'; types[t] = (types[t] || 0) + 1;
+        if (!isUserEvent(ev)) continue;
+        const id = ev.event_id || ev.sequence_num;
+        if (id != null && seen.has(id)) continue;
+        if (id != null) seen.add(id);
+        const text = clampTurn(eventText(ev).trim());
+        if (text) into.push({ id, seq: ev.sequence_num, text });
+      }
+      return arr;
+    };
+    const seen = new Set();
+    const head = [], tail = [];
+    let pages = 0, note = '';
+    const first = await apiJson(base + '?limit=' + COWORK_PAGE, codeHeaders()); pages++;
+    collect(first, head, seen);
+    const resume = Number(ctx.coworkResume != null ? ctx.coworkResume : first.resume_cursor);
+    if (Number.isFinite(resume) && resume > COWORK_PAGE) {
+      let cursor = Math.max(1, resume - COWORK_TAIL_EVENTS);
+      note = 'tail from ' + cursor + ' of ' + resume;
+      while (cursor && pages < COWORK_MAX_PAGES) {
+        const page = await apiJson(base + '?limit=' + COWORK_PAGE + '&cursor=' + encodeURIComponent(cursor), codeHeaders()); pages++;
+        const arr = collect(page, tail, seen);
+        if (!arr.length || !page.next_cursor) break;
+        cursor = page.next_cursor;
+      }
+    } else {
+      /* No usable head-of-stream: walk forward from page one, as 0.9.82 did. */
+      note = 'forward walk';
+      let cursor = first.next_cursor;
+      while (cursor && pages < COWORK_MAX_PAGES) {
+        const page = await apiJson(base + '?limit=' + COWORK_PAGE + '&cursor=' + encodeURIComponent(cursor), codeHeaders()); pages++;
+        const arr = collect(page, tail, seen);
+        if (!arr.length) break;
+        cursor = page.next_cursor || null;
+      }
+    }
+    /* The goal end and the present end; the middle is what fitTurns may drop. */
+    const all = head.slice(0, 4).concat(tail).sort((x, y) => (x.seq || 0) - (y.seq || 0));
+    const turns = all.map((t, k) => ({ i: k + 1, text: t.text }));
+    ctx.api.turns = turns; ctx.api.human = turns.length; ctx.api.walked = true;
+    console.log('[CONTEXA] cowork — ' + note + ': ' + head.length + ' head turn(s), ' + tail.length + ' tail turn(s), ' + pages + ' page(s)');
+    if (ctx.coworkShape) {
+      ctx.coworkShape.push('user turns: ' + head.length + ' in the first ' + COWORK_PAGE + ', ' + tail.length + ' in the ' + note + ' (' + pages + ' pages)');
+      ctx.coworkShape.push('event types over the walk: ' + Object.entries(types).sort((x, y) => y[1] - x[1]).slice(0, 10).map(([k, v]) => k + '×' + v).join(', '));
+    }
+    refreshDiag(ctx);
+  }
+
+  /* Runs after the trigger card is drawn with the rendered estimate. If the
+     page's API answers and says the thread is bigger, the label row is redrawn
+     with the better number — the line appears a beat late rather than never. */
+  async function refineThread(anchor, ctx) {
+    if (COWORK_RE.test(location.pathname)) return coworkRead(anchor, ctx);
+    let api = null;
+    try { api = await apiThread(ctx); }
+    catch (e) { ctx.apiError = String(e && e.message || e); ctx.apiState = 'failed: ' + ctx.apiError; console.log('[CONTEXA] thread — page API unavailable (' + ctx.apiError + '); the rendered estimate stands'); refreshDiag(ctx); return; }
+    if (!api) { refreshDiag(ctx); return; }
+    ctx.api = api;
+    ctx.apiState = 'ok';
+    refreshDiag(ctx);
+    console.log('[CONTEXA] thread — page API: ≈', api.tokens, 'tokens in', api.messages, 'messages (' + api.human + ' yours); rendered estimate was ≈', ctx.thread);
+    if (api.tokens > (ctx.thread || 0)) {
+      ctx.thread = api.tokens;
+      if (lastThreadRead) Object.assign(lastThreadRead, { tokens: api.tokens, source: 'api' });
+      refreshWeight(anchor, ctx);
+    }
+  }
+  function refreshWeight(anchor, ctx) {
+    const holder = document.querySelector('[data-contexa]');
+    const label = holder && holder.shadowRoot && holder.shadowRoot.querySelector('.label');
+    if (!label || !anchor.isConnected || holder.getAttribute('data-cx-mode') !== 'ai') return;
+    for (const old of label.querySelectorAll('.ctxa-cost')) old.remove();
+    weightLine(label, anchor, ctx);
+    label.title = threadNote();
+  }
+
+  /* The diagnostic card. Three taps on the CONTEXA wordmark within two
+     seconds — on a phone there is no console and no tooltip, and "why is there
+     no line here" was unanswerable from a screenshot. Inert text: the version,
+     what the thread read measured and from where, what the page's API said or
+     why it did not, the user turns and the last three lengths, the model the
+     page reports, and the reply's size. Nothing here is a control. */
+  const DIAG_TAPS = 3, DIAG_WINDOW_MS = 2000;
+  /* 0.9.84 — the card the field taps on is whichever card is up, and the
+     quiet ones (an error, an honest zero) carry no wordmark. So every card
+     arms the diag on its whole surface, and a tap that lands on a button or
+     a chip does not count — those have jobs of their own. The context is the
+     last trigger's, which is the one the walk wrote into. */
+  let lastCtx = null;
+  function diagLines(ctx) {
+    let v = '?'; try { v = chrome.runtime.getManifest().version; } catch {}
+    const r = lastThreadRead || {};
+    const turns = [...document.querySelectorAll(USER_MSG_SEL)];
+    const lastThree = turns.slice(-3).map(el => (el.textContent || '').trim().length);
+    return [
+      'CONTEXA v' + v,
+      'thread ≈ ' + (ctx.thread != null ? ctx.thread : '?') + ' tokens (' + (r.source || 'dom') + '); Start fresh from ' + LONG_THREAD_TOKENS,
+      'rendered: ' + (r.chars || 0) + ' chars in ' + (r.blocks || 0) + ' blocks, scale ×' + (r.scale ? r.scale.toFixed(2) : '1') + ' (' + (r.rendered || 0) + 'px of ' + (r.total || 0) + 'px)',
+      ctx.api ? 'page API: ' + ctx.api.chars + ' chars in ' + ctx.api.messages + ' messages, ' + ctx.api.human + ' yours ≈ ' + ctx.api.tokens + ' tokens'
+        : 'page API: ' + (ctx.apiState || 'not asked yet'),
+      'user turns in DOM: ' + turns.length + ', last three: ' + (lastThree.join('/') || '-') + ' chars',
+      'model on page: ' + (pageModel() || 'not found') + '; reply ' + ((ctx.reply || '').length) + ' chars',
+      ...(COWORK_RE.test(location.pathname) ? ['project page to open: ' + (coworkProjectUrl(ctx) || 'none (the chip copies)') + '; record project id: ' + (ctx.coworkProject || 'none'),
+        ...(ctx.coworkLookup || [])] : []),
+      ...(ctx.lastError ? ['last error (' + ctx.lastError.call + '): ' + ctx.lastError.code + (ctx.lastError.diag ? ' ' + JSON.stringify(ctx.lastError.diag) : '') + (ctx.lastError.detail ? ' ' + String(ctx.lastError.detail).slice(0, 120) : '')] : []),
+      ...(ctx.coworkShape ? ['cowork session API:\n  ' + ctx.coworkShape.join('\n  ')] : []),
+    ];
+  }
+  function refreshDiag(ctx) {
+    const holder = document.querySelector('[data-contexa]');
+    const d = holder && holder.shadowRoot && holder.shadowRoot.querySelector('.quiet.diag');
+    if (d) d.textContent = diagLines(ctx).join('\n');
+  }
+  function armDiag(label, wrap, ctx) {
+    let taps = [];
+    label.addEventListener('click', (e) => {
+      if (e && e.target && e.target.closest && e.target.closest('button')) return;
+      ctx = ctx || lastCtx;
+      if (!ctx) return;
+      const now = Date.now();
+      taps = taps.filter(t => now - t < DIAG_WINDOW_MS); taps.push(now);
+      if (taps.length < DIAG_TAPS) return;
+      taps = [];
+      const old = wrap.querySelector('.quiet.diag'); if (old) { old.remove(); return; }
+      const lines = diagLines(ctx);
+      const d = document.createElement('div');
+      d.className = 'quiet diag';
+      d.style.cssText = 'display:block;white-space:pre-wrap;margin-top:6px;font-size:10.5px';
+      d.textContent = lines.join('\n');
+      wrap.appendChild(d);
+      console.log('[CONTEXA] diag\n' + lines.join('\n'));
+    });
   }
 
   /* ---------------- 0.9.74 — the nudges (brake 5) ------------------------ */
@@ -559,7 +982,7 @@
 
     let resp = null, thrown = null;
     try {
-      const turns = captureTurns();
+      const turns = await sessionTurns(ctx);
       console.log('[CONTEXA] fork — session', turns.length, 'turn(s), thread ≈', ctx.thread, 'tokens');
       resp = await chrome.runtime.sendMessage({ type: 'fork', reply: ctx.reply, turns });
     } catch (e) { thrown = String(e && e.message || e); }
@@ -568,6 +991,7 @@
 
     if (!resp || resp.error || typeof resp.brief !== 'string') {
       const err = resp && resp.error;
+      ctx.lastError = { call: 'fork', code: thrown ? 'extension: ' + thrown : err || 'empty response', diag: resp && resp.diag, detail: resp && resp.detail };
       if (isStaleError(thrown) || !contextAlive()) return goStale(anchor);
       if (err === 'quota') return renderQuiet(anchor, 'quota', '', resp);
       if (err === 'proxy_not_configured') return renderQuiet(anchor, 'unconfigured');
@@ -600,6 +1024,56 @@
      loads THERE collects it (see collectBrief) and puts it in that composer.
      Nothing is sent: the user reads it in the new tab and presses send. */
   const NEW_CHAT_URL = 'https://claude.ai/new';
+  /* claude.ai/cowork redirects to a product page (eleventh card). Until the
+     new-session screen's address is known, the Cowork fork opens nothing and
+     the landing (collectBrief) catches the brief wherever that screen is. */
+  const COWORK_PROJECT_URL = 'https://claude.ai/cowork/project/';
+  /* 0.9.94 — the nineteenth card closed five rounds of looking for the
+     project's uuid somewhere on the API (0.9.89–0.9.93: the page's links,
+     the org's project list and each project's detail, the code API's project
+     and session lists, the org's and each project's conversations, the
+     page's resource timing, the session record itself). None carries it,
+     because none needs to: the record's chat_project_id IS the uuid.
+     claude_proj_01 + base58 (the Bitcoin alphabet, 22 characters, '1'
+     padded) of the uuid's sixteen bytes — claude_proj_011CeAvYWZiPwTSnbTDUTRkX
+     decodes to 01a016c6-92cb-713e-982d-db1fbc14c7fc, the page the field
+     reached by hand, and encodes back. No request; the org's project list
+     is asked once only to name the project on the chip and confirm the
+     decode, and a miss there is said, not fatal. */
+  const B58 = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
+  function projectUuidOf(codeId) {
+    const m = /^claude_proj_01([1-9A-HJ-NP-Za-km-z]{22})$/.exec(String(codeId || ''));
+    if (!m) return null;
+    let n = 0n;
+    for (const ch of m[1]) n = n * 58n + BigInt(B58.indexOf(ch));
+    if (n >= (1n << 128n)) return null;
+    const h = n.toString(16).padStart(32, '0');
+    return h.replace(/^(.{8})(.{4})(.{4})(.{4})(.{12})$/, '$1-$2-$3-$4-$5');
+  }
+  const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  function coworkProjectUrl(ctx) {
+    return (ctx && ctx.coworkProjectUrl) || null;
+  }
+  function orgUuid() {
+    return (document.cookie.match(/(?:^|;\s*)lastActiveOrg=([0-9a-f-]{36})/i) || [])[1] || '';
+  }
+  async function coworkProjectLookup(ctx) {
+    const id = ctx.coworkProject;
+    ctx.coworkProjectUrl = null;
+    ctx.coworkProjectName = '';
+    if (!id) { ctx.coworkLookup = ['project: no chat_project_id in the record']; return; }
+    const uuid = UUID_RE.test(id) ? id.toLowerCase() : projectUuidOf(id);
+    if (!uuid) { ctx.coworkLookup = ['project: ' + id.slice(0, 40) + ' is not a uuid and does not decode as one']; return; }
+    ctx.coworkProjectUrl = COWORK_PROJECT_URL + uuid;
+    let note;
+    try {
+      const list = firstArray(await apiJson('/api/organizations/' + orgUuid() + '/projects'));
+      const hit = list.find(p => p && typeof p.uuid === 'string' && p.uuid.toLowerCase() === uuid);
+      if (hit && typeof hit.name === 'string') ctx.coworkProjectName = hit.name.trim().slice(0, 60);
+      note = hit ? ' = "' + (ctx.coworkProjectName || '?') + '"' : ' (not among the org\'s ' + list.length + ' listed projects)';
+    } catch (e) { note = ' (project list unavailable: ' + (e && e.message) + ')'; }
+    ctx.coworkLookup = ['project: ' + uuid + note + ', decoded from the record id'];
+  }
   function renderBrief(anchor, ctx, brief, briefTokens) {
     const wrap = shell(anchor, 'brief');
     if (!wrap) return;
@@ -611,11 +1085,28 @@
       + kTokens(ctx.thread) + ' per send.';
     const chip = document.createElement('button');
     chip.className = 'chip move';
-    chip.textContent = 'Open a new chat with it';
+    /* 0.9.80 — on a Cowork page a fresh chat at /new is not the exit: the
+       work lives in a Cowork session with its folders and tools, and a new
+       one is started from Cowork's own screen, which this script does not
+       drive. So the chip copies the brief and says so — one paste, which is
+       the smallest honest step until a new session can be opened with it. */
+    const onCowork = COWORK_RE.test(location.pathname);
+    const projectUrl = onCowork ? coworkProjectUrl(ctx) : null;
+    chip.textContent = projectUrl ? 'Open a new Cowork session' + (ctx.coworkProjectName ? ' in ' + ctx.coworkProjectName : '') + ' with it' : onCowork ? 'Copy the brief for a new session' : 'Open a new chat with it';
     chip.title = brief;
     chip.addEventListener('click', async () => {
       if (chip.disabled) return;
       chip.disabled = true;
+      if (onCowork) {
+        /* 0.9.85 — both: the clipboard is the floor that cannot fail, and the
+           new Cowork screen is tried on top of it — the brief is parked and
+           the script loading THERE lands it if it finds a composer. */
+        try { await navigator.clipboard.writeText(brief); } catch { /* the landing may still work */ }
+        try { await chrome.runtime.sendMessage({ type: 'stageBrief', brief }); } catch (e) { if (isStaleError(e) || !contextAlive()) return goStale(anchor); }
+        if (projectUrl) { window.open(projectUrl, '_blank', 'noopener'); chip.textContent = 'Opened a new Cowork session'; }
+        else chip.textContent = 'Copied — start a new Cowork session; the brief drops in';
+        return;
+      }
       let ok = false;
       try {
         const r = await chrome.runtime.sendMessage({ type: 'stageBrief', brief });
@@ -637,12 +1128,31 @@
      user already had open, and consumed on read (takeBrief) so it lands in
      exactly one composer. insertPrompt appends below any existing draft, so
      even a /new with something typed in it loses nothing. */
-  let pendingBrief = '';
-  async function collectBrief() {
-    if (location.pathname !== '/new') return;
+  /* 0.9.87 — the landing no longer needs to know the new-session screen's
+     URL. claude.ai/cowork turned out to redirect to a marketing page, and the
+     screen a Cowork session starts from is not known; so any claude.ai page
+     that is NOT an existing conversation, has a composer and holds no
+     messages yet is a place a parked brief may land. The take is consuming,
+     so it happens only once those three hold — a page that is not the one
+     leaves the brief parked for the next, within the two-minute TTL. */
+  let pendingBrief = '', wantBrief = false, askedBrief = false, surelyNew = false;
+  /* An existing conversation: a chat, a Cowork session, a Code session. A
+     project page (/cowork/project/<id>) is not one — it is where a new
+     session starts, and where the field's first brief landed. */
+  const EXISTING_RE = /^\/(chat\/[0-9a-f-]{36}|cowork\/cse_[A-Za-z0-9]+|code\/session_[A-Za-z0-9]+)/;
+  function collectBrief() {
+    if (EXISTING_RE.test(location.pathname)) return;
+    surelyNew = /^\/new\/?$/.test(location.pathname);   // a chat's /new is always empty
+    wantBrief = true;
+    tick();
+  }
+  async function takeBriefIfLanding() {
+    if (!wantBrief || askedBrief || !composer) return;
+    if (!surelyNew && (document.querySelector(USER_MSG_SEL) || document.querySelector(RESPONSE_SEL))) { wantBrief = false; return; }
+    askedBrief = true;
     try {
       const r = await chrome.runtime.sendMessage({ type: 'takeBrief' });
-      if (r && typeof r.brief === 'string' && r.brief) { pendingBrief = r.brief; tick(); }
+      if (r && typeof r.brief === 'string' && r.brief) { pendingBrief = r.brief; landBrief(); }
     } catch { /* orphaned script or no worker: nothing to land */ }
   }
   function landBrief() {
@@ -701,6 +1211,15 @@
       attributes: true, attributeFilter: ['data-is-streaming']
     });
     scan();
+    /* 0.9.75 — a page that loaded already finished, with no streaming flag on
+       its last reply, never mutates; the settle timer that stands in for the
+       flag was only ever armed BY a mutation, so such a page drew nothing,
+       forever, with nothing in the console. The field reported "on most
+       chats it does not open". Arm the fallback once at attach as well: the
+       same 1.2s of quiet, the same fail-closed scan, just not waiting for a
+       change that a static page will never make. */
+    clearTimeout(settleTimer);
+    settleTimer = setTimeout(() => { settled = true; scan(); }, 1200);
   }
 
   async function onReplyComplete(replyEl) {
@@ -744,7 +1263,10 @@
 
     let resp = null, thrown = null;
     try {
-      const turns = captureTurns();
+      /* 0.9.77 — the page's API when it answered, else captureTurns(); the
+         build guard still wants the DOM read named here, and it is the
+         fallback sessionTurns takes. */
+      const turns = await sessionTurns(ctx);
       /* The one line that separates "the model ignored the session" from "the
          page never had the session". Without it the two produce byte-identical
          console output, which is how a capture bug survived a field test: the
@@ -768,6 +1290,7 @@
 
     if (!resp || resp.error || !Array.isArray(resp.moves)) {
       const err = resp && resp.error;
+      ctx.lastError = { call: 'moves', code: thrown ? 'extension: ' + thrown : err || 'empty response', diag: resp && resp.diag, detail: resp && resp.detail };
       if (isStaleError(thrown) || !contextAlive()) return goStale(anchor);
       if (err === 'quota') return renderQuiet(anchor, 'quota', '', resp);
       if (err === 'proxy_not_configured') return renderQuiet(anchor, 'unconfigured');
@@ -968,6 +1491,7 @@
     const holder = document.createElement('div');
     holder.setAttribute('data-contexa', 'steps');
     holder.setAttribute('data-cx-mode', mode);
+    /* Every card — see armDiag. Done here, once, rather than in each renderer. */
     /* round 2 — modest lift. claude.ai draws sticky/gradient chrome around
        the composer, and a sibling overlay that catches pointer events would
        eat :hover on the mascot while looking like nothing (field: gesture
@@ -996,6 +1520,7 @@
     }
     root.appendChild(wrap);
     host.before(holder);
+    armDiag(wrap, wrap, null);
     /* 0.9.44 — the render path had no voice. `[CONTEXA] grounding` proved a card
        had been EARNED, and nothing said whether one was ever SEEN. Two states
        that look identical from the console are exactly what this project keeps
@@ -1085,11 +1610,14 @@
 </svg>`;
 
   function renderTrigger(anchor, ctx) {
+    lastCtx = ctx;
     const wrap = shell(anchor, 'ai');
     if (!wrap) return;
     wrap.innerHTML = `<div class="label"><b>✦</b> CONTEXA</div>` +
       `<div class="chips"></div>`;
     weightLine(wrap.querySelector('.label'), anchor, ctx);
+    wrap.querySelector('.label').title = threadNote();
+    refineThread(anchor, ctx);
     const slot = document.createElement('span');
     slot.className = 'ctxa-mas-slot';
     wrap.querySelector('.chips').appendChild(slot);
@@ -1167,6 +1695,7 @@
        or not it earned moves, and the exit should not vanish because the
        menu arrived. */
     weightLine(wrap.querySelector('.label'), anchor, ctx);
+    wrap.querySelector('.label').title = threadNote();
     const row = wrap.querySelector('.chips');
     for (const m of moves) appendIdeaChip(row, m);
   }
@@ -1433,6 +1962,7 @@
     const el = findComposer();
     if (el && el !== composer) { composer = el; watchReplies(); }
     if (composer && !composer.isConnected) composer = null;
+    if (composer && wantBrief && !askedBrief) takeBriefIfLanding();
     if (composer && pendingBrief) landBrief();
   }
 
