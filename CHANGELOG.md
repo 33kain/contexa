@@ -9,6 +9,63 @@ backend's live version separately so a deploy can be told from a no-op.
 
 ---
 
+## 0.9.71 — Extension + Website
+
+*A motto, and the name changes to carry it. Nothing the extension or the
+worker does is different.*
+
+### Every token earned
+
+The design notes had a rule they never stated. Zero as an outcome, the lazy
+call, the pinned first turn, the collapsed code block, one ask per move, the
+`Assume:` lines, the byte-identical cached prefix: each was chosen because the
+alternative produced a turn the user did not need, and on claude.ai every turn
+re-reads the whole conversation, so the number of turns is the cost. A token is
+*earned* when its message could not have been shorter, could not have been
+skipped, and will not need a follow-up to fix. That is now the motto, and
+`docs/token-savings-thesis.md` is the argument: which rule saves what, where
+each lives in the code, the per-row arithmetic from the worker's constants, and
+the gaps.
+
+Two of those gaps are worth repeating here because they are the next work:
+
+- **The own-key path does not cache the system prompt.** `callClaude` in
+  `background.js` sends `system` as a plain string; only the worker wraps it
+  with `cache_control`. Own-key users pay full input price for the ~2.4k-token
+  prefix on every press. The product is identical, so `build.mjs` does not
+  catch it.
+- **`diagnose` does not log cache reads.** It reports `input_tokens` and
+  `output_tokens` only, so whether caching is working is visible nowhere but
+  the bill.
+
+### The name
+
+`CONTEXA - Claude prompts, without the writing` was exactly 45 characters, on
+the store's limit. It becomes **`CONTEXA for Claude - Every token earned`**,
+39 characters. "Claude" stays, per the publishing checklist: it is the single
+most obvious search term, and "for Claude" is the third-party form. The
+description's non-affiliation line is unchanged. The store listing, the
+submission notes and the brand prompt's hard-constraint list record the new
+name; the promo tiles' tag line is the motto, re-rendered from
+`scripts/promo/tiles.html`.
+
+### The site
+
+The tagline on all four pages, the page titles, the Open Graph title and image
+alt, and the re-rendered social preview all carry the motto. The old line
+survives in this changelog, the archived design brief, and one comment in the
+screenshot harness, which describe history.
+
+### What ships
+
+The extension, because its name changed and that is a store resubmission. The
+site, because its copy changed. The worker's `BUILD` moves to 0.9.71 with the
+manifest because the build guard requires the two to agree; there is no worker
+change to deploy, and a `/v1/health` still reporting 0.9.70 is not a stale
+deploy.
+
+---
+
 ## 0.9.70 — Extension
 
 *The mascot's face was not too small. It was being inverted — and 0.9.69 made

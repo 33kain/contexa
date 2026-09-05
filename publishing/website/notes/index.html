@@ -63,6 +63,8 @@
 
 <h2 id="versions">By version, newest first</h2>
 <dl>
+  <dt><code>0.9.71</code></dt>
+  <dd>The motto. Every rule in this list refuses to spend a token that was not earned: the empty card, the lazy call, the pinned first turn, the one-verb prompt. Written down as <em>Every token earned</em>, with the argument in <code>docs/token-savings-thesis.md</code>, and carried into the extension's name, the store listing, the promo tiles and this site's tagline, which had said "Claude prompts, without the writing" since the site existed. No change to what the extension or the worker does; the worker's build number moves with the manifest because the build guard requires it.</dd>
   <dt><code>0.9.70</code></dt>
   <dd>On phones, a browser's force-dark mode was inverting the mascot's face. It inverts flat fills darker than one brightness threshold, and gradient fills (SVG paint servers) only when brighter than a higher one, which dark ink never reaches. A scan of all 16,777,216 sRGB colours found no flat colour that holds 4.5:1 against the white of the eye in all four render modes (no force-dark, and the cielab, hsl and rgb inversions); the best possible was 3.13:1. So the escape was the role, not the colour: the pupils, mouth and whisper now paint through single-colour gradients, and every pixel of ink is byte-identical across all four modes. The test suite asserts the rule in both directions.</dd>
   <dt><code>0.9.69</code></dt>
@@ -94,13 +96,13 @@
 </ul>
 
 <h2 id="status">Status</h2>
-<p>Version 0.9.70 is the number in the extension's manifest and in the worker's <code>BUILD</code> constant; the worker's <code>/v1/health</code> reports it with the model and the limit, so a deploy can be told from a no-op. The shipped model on both paths is <code>claude-sonnet-5</code>. The open question of the field test is how often a press earns nothing.</p>
+<p>Version 0.9.71 is the number in the extension's manifest and in the worker's <code>BUILD</code> constant; the worker's <code>/v1/health</code> reports it with the model and the limit, so a deploy can be told from a no-op. The shipped model on both paths is <code>claude-sonnet-5</code>. The open question of the field test is how often a press earns nothing.</p>
 </main>
 
 <footer class="site">
   <p>CONTEXA is an independent project. It is not affiliated with, endorsed by, or sponsored by Anthropic.</p>
   <p><a href="https://chromewebstore.google.com/detail/phhamigkjeeabbjncpmhkppkjccfglhb">Chrome Web Store</a> · <a href="https://github.com/33kain/contexa">Source on GitHub</a> · <a href="https://github.com/33kain/contexa/blob/main/LICENSE">MIT licence</a> · <a href="https://github.com/33kain/contexa/blob/main/publishing/PRIVACY.md">Privacy policy</a> · <a href="https://github.com/33kain/contexa/blob/main/CHANGELOG.md">Changelog</a></p>
-  <p class="muted">Version 0.9.70. This site is static files served from one origin: no fonts, scripts, images or analytics are loaded from anywhere else.</p>
+  <p class="muted">Version 0.9.71. This site is static files served from one origin: no fonts, scripts, images or analytics are loaded from anywhere else.</p>
 </footer>
 </body>
 </html>
