@@ -1633,12 +1633,13 @@ const TURNS = [
   t('the probe runs in the page world at document_start, on claude.ai only', !!probe && probe.world === 'MAIN' && probe.run_at === 'document_start' && probe.matches.join() === 'https://claude.ai/*');
   t('the content script still runs in the isolated world', mf.content_scripts.some(cs => cs.js.includes('content.js') && !cs.world));
   const p = readFileSync('./probe.js', 'utf8');
-  t('the probe records transport, host and path — and nothing else', /const key = kind \+ ' ' \+ \(p\.origin === location\.origin \? '' : p\.host\) \+ p\.pathname;/.test(p) && !/body|headers|response/.test(p.replace(/\/\*[\s\S]*?\*\//, '')));
+  t('the probe records transport, host and path for every call', /const key = kind \+ ' ' \+ \(p\.origin === location\.origin \? '' : p\.host\) \+ p\.pathname;/.test(p));
+  t('and never reads a body or a response', !/\.body|\.text\(\)|\.json\(\)|clone\(\)/.test(p.replace(/\/\*[\s\S]*?\*\//g, '')));
   t('and skips assets and analytics', /woff2\?/.test(p) && /event_logging/.test(p));
   t('and covers WebSocket and EventSource as well as fetch and XHR', /report\('ws', url\)/.test(p) && /report\('sse', url\)/.test(p) && /report\('fetch', input\)/.test(p) && /report\('xhr', url\)/.test(p));
-  t('and passes every call through untouched', /return origFetch\.apply\(this, arguments\)/.test(p) && /return origOpen\.apply\(this, arguments\)/.test(p));
+  t('and passes every call through untouched', /const p = origFetch\.apply\(this, arguments\);[\s\S]{0,400}return p;/.test(p) && /return origOpen\.apply\(this, arguments\)/.test(p));
   const c = readFileSync('./content.js', 'utf8');
-  t('the content script keeps the paths as bounded strings', /typeof p === 'string' && p\.length < 300 && apiPaths\.length < 40/.test(c));
+  t('the content script keeps the paths as bounded strings', /typeof p === 'string' && p\.length < \d+ && apiPaths\.length < \d+/.test(c));
   t('a Cowork session is named as such in the diag', /COWORK_RE = \/\\\/cowork\\\//.test(c) && /'cowork session '/.test(c));
   t('the diag card lists the paths, ids shortened', /page API paths seen/.test(c) && /map\(shortPath\)/.test(c));
   t('the build ships the probe', /'content\.js', 'probe\.js'/.test(readFileSync('../build.mjs', 'utf8')));
@@ -1660,6 +1661,17 @@ const TURNS = [
   const card = (c.match(/function renderBrief\([\s\S]*?\n  \}/) || [''])[0];
   t('on Cowork the fork chip copies the brief instead of opening /new', /onCowork \? 'Copy the brief for a new session'/.test(card) && /navigator\.clipboard\.writeText\(brief\)/.test(card));
   t('and still opens a new chat everywhere else', /window\.open\(NEW_CHAT_URL, '_blank', 'noopener'\)/.test(card));
+}
+
+/* ---- 0.9.81 — the request shape of the page's own session calls ------- */
+{
+  const p = readFileSync('./probe.js', 'utf8');
+  const d = (p.match(/const describe = \(input, init\) => \{[\s\S]*?\n  \};/) || [''])[0];
+  t('the shape probe is scoped to /v1/code/sessions/', /v1\\\/code\\\/sessions\\\//.test(d));
+  t('it records header names and anthropic-* values only', /names\.push\(k\)/.test(d) && /\^anthropic-/.test(d) && !/body/.test(d));
+  t('and the status the page got', /' → ' \+ r\.status/.test(p));
+  const c = readFileSync('./content.js', 'utf8');
+  t('our own session reads send anthropic-version', /CODE_HEADERS = \{ 'anthropic-version': '2023-06-01' \}/.test(c) && /apiJson\([^)]*, CODE_HEADERS\)/.test(c));
 }
 
 console.log(fails.length ? '\nFAILED: ' + fails.join(', ') : '\nall extension checks passed');

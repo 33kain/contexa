@@ -29,9 +29,40 @@
       document.dispatchEvent(new CustomEvent('contexa-api-path', { detail: key }));
     } catch { /* not a URL; not ours */ }
   };
+  /* 0.9.81 — for the one family of calls that matters (/v1/code/sessions/),
+     also the request's shape: method, query string, header NAMES, the values
+     of anthropic-* headers only (API version strings, not secrets), and the
+     status the page got back. Never a body, never any other header value. */
+  const describe = (input, init) => {
+    try {
+      const req = (input && typeof input === 'object' && input.url) ? input : null;
+      const url = new URL(String(req ? req.url : input), location.href);
+      if (!/\/v1\/code\/sessions\//.test(url.pathname)) return null;
+      const method = (init && init.method) || (req && req.method) || 'GET';
+      const names = [], anth = [];
+      const scan = (h) => {
+        if (!h) return;
+        const each = (k, v) => { k = String(k).toLowerCase(); names.push(k); if (/^anthropic-/.test(k)) anth.push(k + '=' + String(v).slice(0, 80)); };
+        if (typeof h.forEach === 'function') h.forEach((v, k) => each(k, v));
+        else if (Array.isArray(h)) h.forEach(([k, v]) => each(k, v));
+        else if (typeof h === 'object') Object.keys(h).forEach(k => each(k, h[k]));
+      };
+      scan(req && req.headers); scan(init && init.headers);
+      return { path: url.pathname + url.search.slice(0, 120), line: method + ' ' + url.pathname + url.search.slice(0, 120)
+        + ' [hdr: ' + (names.join(',') || 'none') + (anth.length ? '; ' + anth.join('; ') : '') + ']' };
+    } catch { return null; }
+  };
   const origFetch = window.fetch;
   if (typeof origFetch === 'function') {
-    window.fetch = function (input) { report('fetch', input); return origFetch.apply(this, arguments); };
+    window.fetch = function (input, init) {
+      report('fetch', input);
+      const d = describe(input, init);
+      const p = origFetch.apply(this, arguments);
+      if (d) {
+        p.then(r => { const k = 'req ' + d.line + ' → ' + r.status; if (!seen.has(k)) { seen.add(k); document.dispatchEvent(new CustomEvent('contexa-api-path', { detail: k })); } }, () => {});
+      }
+      return p;
+    };
   }
   const origOpen = XMLHttpRequest.prototype.open;
   XMLHttpRequest.prototype.open = function (method, url) { report('xhr', url); return origOpen.apply(this, arguments); };

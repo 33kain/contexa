@@ -537,7 +537,7 @@
   const apiPaths = [];
   document.addEventListener('contexa-api-path', e => {
     const p = e && e.detail;
-    if (typeof p === 'string' && p.length < 300 && apiPaths.length < 40 && !apiPaths.includes(p)) apiPaths.push(p);
+    if (typeof p === 'string' && p.length < 600 && apiPaths.length < 60 && !apiPaths.includes(p)) apiPaths.push(p);
   });
   const shortPath = p => p.replace(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f-]{23}/gi, '<uuid>').replace(/\/([a-z]+_[A-Za-z0-9]{6})[A-Za-z0-9]{6,}/g, '/$1…');
 
@@ -571,6 +571,11 @@
     }
     return typeof (m && m.text) === 'string' ? m.text : '';
   }
+  /* 0.9.81 — anthropic-version on the session reads, because a 400 on the
+     record with the page's own cookies is what a missing API-version header
+     looks like on this API. The probe's "req … [hdr: …] → status" lines say
+     what the page really sends; this is the likeliest piece. */
+  const CODE_HEADERS = { 'anthropic-version': '2023-06-01' };
   async function coworkRead(anchor, ctx) {
     const cw = location.pathname.match(COWORK_RE);
     if (!cw) return;
@@ -578,13 +583,13 @@
     ctx.apiState = 'pending (cowork)';
     refreshDiag(ctx);
     let record = null, events = null;
-    try { record = await apiJson(base); } catch (e) { ctx.apiState = 'failed (cowork record): ' + (e && e.message); refreshDiag(ctx); console.log('[CONTEXA] cowork — session record unavailable (' + ctx.apiState + ')'); return; }
+    try { record = await apiJson(base, CODE_HEADERS); } catch (e) { ctx.apiState = 'failed (cowork record): ' + (e && e.message); refreshDiag(ctx); console.log('[CONTEXA] cowork — session record unavailable (' + ctx.apiState + ')'); return; }
     const r = record && (record.ccr || record.session || record);
     const usage = r && (r.external_metadata && r.external_metadata.context_usage || r.context_usage) || null;
     const used = usage && Number(usage.used_tokens);
     ctx.coworkShape = ['record: {' + Object.keys(record || {}).slice(0, 12).join(',') + '}'
       + (usage ? ' context_usage=' + JSON.stringify({ used_tokens: usage.used_tokens, max_tokens: usage.max_tokens }) : ' (no context_usage found)')];
-    try { events = await apiJson(base + '/events'); } catch (e) { ctx.coworkShape.push('events: ' + (e && e.message)); }
+    try { events = await apiJson(base + '/events', CODE_HEADERS); } catch (e) { ctx.coworkShape.push('events: ' + (e && e.message)); }
     let turns = [], evCount = 0;
     if (events) {
       const arr = firstArray(events);
@@ -612,8 +617,8 @@
     refreshDiag(ctx);
   }
 
-  async function apiJson(url) {
-    const r = await fetch(url, { credentials: 'same-origin', headers: { accept: 'application/json' } });
+  async function apiJson(url, extra) {
+    const r = await fetch(url, { credentials: 'same-origin', headers: Object.assign({ accept: 'application/json' }, extra || {}) });
     if (!r.ok) throw new Error('http_' + r.status);
     return r.json();
   }
@@ -724,7 +729,7 @@
       'user turns in DOM: ' + turns.length + ', last three: ' + (lastThree.join('/') || '-') + ' chars',
       'model on page: ' + (pageModel() || 'not found') + '; reply ' + ((ctx.reply || '').length) + ' chars',
       ...(ctx.coworkShape ? ['cowork session API:\n  ' + ctx.coworkShape.join('\n  ')] : []),
-      'page API paths seen (' + apiPaths.length + '):' + (apiPaths.length ? '\n  ' + apiPaths.slice(-16).map(shortPath).join('\n  ') : ' none — probe not running?')
+      'page API paths seen (' + apiPaths.length + '):' + (apiPaths.length ? '\n  ' + [...apiPaths.filter(p => p.startsWith('req ')), ...apiPaths.filter(p => !p.startsWith('req '))].slice(0, 18).map(shortPath).join('\n  ') : ' none — probe not running?')
     ];
   }
   function refreshDiag(ctx) {

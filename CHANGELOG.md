@@ -9,6 +9,18 @@ backend's live version separately so a deploy can be told from a no-op.
 
 ---
 
+## 0.9.81 — Extension (worker build number only)
+
+*Sixth card: `page API: failed (cowork record): http_400`.* The page reads the
+same URL and gets its answer; the extension's read, with the same cookies, gets
+a 400 — the shape of a missing request header on this API. The probe now
+records, for `/v1/code/sessions/` calls only, the method, the query string,
+the header names, the values of `anthropic-*` headers (API version strings,
+never secrets), and the status the page received. The extension's own reads
+send `anthropic-version` meanwhile, the likeliest missing piece.
+
+---
+
 ## 0.9.80 — Extension (worker build number only)
 
 *The fifth card from the field, and the number the whole plan was for.*
