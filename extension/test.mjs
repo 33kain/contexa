@@ -1725,36 +1725,28 @@ const TURNS = [
   t('a project page is not an existing conversation', /EXISTING_RE = \/\^\\\/\(chat\\\/\[0-9a-f-\]\{36\}\|cowork\\\/cse_/.test(c));
 }
 
-/* ---- 0.9.89 – 0.9.93 — the project page's address ------------------------- */
+/* ---- 0.9.89 – 0.9.94 — the project page's address ----------------------- */
 {
   const c = readFileSync('./content.js', 'utf8');
-  const f = (c.match(/function coworkProjectUrl\(ctx\)[\s\S]*?\n  \}/) || [''])[0];
-  t('the chip opens the address the lookup resolved, else a uuid-shaped record id, else nothing', /ctx\.coworkProjectUrl\) return ctx\.coworkProjectUrl;/.test(f) && /: null;/.test(f));
-  t('the page\'s links are not a source any more (the first one was the wrong project)', !/a\[href\]/.test(f) && !/querySelectorAll/.test(f));
+  const src = (c.match(/const B58 = '[^']+';\n  function projectUuidOf\(codeId\) \{[\s\S]*?\n  \}/) || [''])[0];
+  t('projectUuidOf is one alphabet and one function', src.length > 0);
+  const projectUuidOf = new Function(src + '\nreturn projectUuidOf;')();
+  t('the record id of the live session decodes to the page the field reached by hand', projectUuidOf('claude_proj_011CeAvYWZiPwTSnbTDUTRkX') === '01a016c6-92cb-713e-982d-db1fbc14c7fc');
+  const B58 = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
+  const enc = u => { let n = BigInt('0x' + u.replace(/-/g, '')), s = ''; while (n > 0n) { s = B58[Number(n % 58n)] + s; n /= 58n; } return 'claude_proj_01' + s.padStart(22, '1'); };
+  t('and the decode is the inverse of the encode on the other two projects the field saw', ['01a03657-5a22-7716-a4a3-5d418439ee92', '01a02b63-0000-7000-8000-000000000000'].every(u => projectUuidOf(enc(u)) === u));
+  t('a uuid of all zero bytes survives the padding', projectUuidOf(enc('00000000-0000-0000-0000-000000000000')) === '00000000-0000-0000-0000-000000000000');
+  t('a wrong prefix, a wrong length, a character outside the alphabet, or an overflow is null, not a guess',
+    [null, undefined, '', 'claude_proj_011CeAvYWZiPwTSnbTDUTRk', 'claude_proj_011CeAvYWZiPwTSnbTDUTRkXX', 'claude_proj_021CeAvYWZiPwTSnbTDUTRkX', 'claude_proj_010CeAvYWZiPwTSnbTDUTRkX', 'claude_proj_01lCeAvYWZiPwTSnbTDUTRkX', 'msg_011CeAvYWZiPwTSnbTDUTRkX', 'claude_proj_01zzzzzzzzzzzzzzzzzzzzzz'].every(x => projectUuidOf(x) === null));
   const l = (c.match(/async function coworkProjectLookup\(ctx\)[\s\S]*?\n  \}/) || [''])[0];
-  t('the lookup asks the org\'s project list and matches the entry carrying the record id', /\/api\/organizations\/' \+ org \+ '\/projects'/.test(l) && /JSON\.stringify\(p\)\.includes\(id\)/.test(l));
-  t('a match is used only through a uuid-shaped field', /const uuidOf = o => o && \[o\.uuid, o\.id\]\.find\(v => typeof v === 'string' && UUID_RE\.test\(v\)\);/.test(l) && /const uuid = uuidOf\(hit\);/.test(l));
-  t('each listed project\'s detail is searched the same way, at most twelve, failures counted', /listed\.slice\(0, 12\)/.test(l) && /\/projects\/' \+ u\)/.test(l) && /catch \{ failed\+\+; \}/.test(l));
-  t('the code API\'s project list is asked with the page\'s headers only when nothing else answered', /if \(!ctx\.coworkProjectUrl\) \{[\s\S]*?\/v1\/code\/projects', codeHeaders\(\)/.test(l));
-  t('a uuid from that list is taken only from a field named for the project or a uuid', /\/project\/i\.test\(f\.split\('='\)\[0\]\)\) \|\| found\.find\(f => \/uuid\/i/.test(l));
-  const pf = (c.match(/function pageProjectFetches\(org\)[\s\S]*?\n  \}/) || [''])[0];
-  t('the page\'s own project fetch is read from resource timing, org-checked, by exact path', /getEntriesByType\('resource'\)/.test(pf) && /api\\\/organizations\\\/\(\[0-9a-f-\]\{36\}\)\\\/projects\\\/\(\[0-9a-f-\]\{36\}\)\(\?=\[\/\?#\]\|\$\)/.test(pf) && /m\[1\]\.toLowerCase\(\) === org\.toLowerCase\(\)/.test(pf));
-  t('and it is a source only when exactly one project uuid was fetched, after every exact match', /if \(!ctx\.coworkProjectUrl && pf\.uuids\.length === 1\) ctx\.coworkProjectUrl = COWORK_PROJECT_URL \+ pf\.uuids\[0\]\[0\];/.test(l));
-  t('a resource timing that cannot be read is an empty answer, not a throw', /catch \{ return \{ uuids: \[\], other, sample, n: 0 \}; \}/.test(pf));
-  t('0.9.93: the record itself is searched first, for a uuid under a path naming a project, and all its keys are said', /const r = projUuidIn\(recBody\);/.test(l) && /'record keys: ' \+ Object\.keys\(recBody\)\.join\(','\)/.test(l) && /if \(r\.pick\) ctx\.coworkProjectUrl = COWORK_PROJECT_URL \+ r\.pick;/.test(l));
-  t('the record is kept on the context for it, and the list is asked only after it', /ctx\.coworkRecord = record;\n    await coworkProjectLookup\(ctx\);/.test(c) && /if \(!ctx\.coworkProjectUrl\) try \{\n      const list = await apiJson\('\/api\/organizations\/' \+ org \+ '\/projects'\);/.test(l));
-  const pu = (c.match(/function projUuidIn\(o\)[\s\S]*?\n  \}/) || [''])[0];
-  t('the uuid walk is three levels deep and picks only a path naming a project', /d > 3\) return;/.test(pu) && /found\.find\(\(\[k\]\) => \/project\/i\.test\(k\)\)/.test(pu));
-  t('0.9.92: the org\'s conversations are searched for the session\'s cse_ id, a project uuid taken only from a field named for it', /\/chat_conversations'\)/.test(l) && /JSON\.stringify\(c\)\.includes\(cse\)/.test(l) && /projUuidIn\(hit\)/.test(l));
-  t('then each project\'s conversations, stopping at the first project holding the session', /\/projects\/' \+ u \+ '\/conversations'\)/.test(l) && /if \(!u \|\| match\) continue;/.test(l));
-  t('then the code API\'s session list, with the page\'s headers', /\/v1\/code\/sessions\?limit=50', codeHeaders\(\)/.test(l));
-  t('each of the three is asked only while nothing has answered and only on a session page', (l.match(/if \(!ctx\.coworkProjectUrl && cse/g) || []).length === 3);
-  t('every step of the lookup is caught and leaves a diag line', (l.match(/catch \(e\) \{ lines\.push\(/g) || []).length === 4 && (l.match(/lines\.push\(/g) || []).length >= 9 && /ctx\.coworkLookup = lines;/.test(l));
+  t('the lookup decodes the record id, takes a uuid-shaped id as is, and asks the API for nothing else', /const uuid = UUID_RE\.test\(id\) \? id\.toLowerCase\(\) : projectUuidOf\(id\);/.test(l) && (l.match(/apiJson\(/g) || []).length === 1 && /\/projects'\)\)/.test(l));
+  t('an id that does not decode leaves the chip copying, with the reason on the card', /does not decode as one'\]; return; \}/.test(l) && /ctx\.coworkProjectUrl = null;/.test(l));
+  t('the org\'s list only names the project and confirms; a miss or a failure is a note, not a block', /ctx\.coworkProjectUrl = COWORK_PROJECT_URL \+ uuid;\n    let note;/.test(l) && /not among the org/.test(l) && /project list unavailable/.test(l));
+  t('the chip names the project when the list did', /'Open a new Cowork session' \+ \(ctx\.coworkProjectName \? ' in ' \+ ctx\.coworkProjectName : ''\) \+ ' with it'/.test(c));
   t('the lookup runs inside the session read, before any chip', /await coworkProjectLookup\(ctx\);\n    const used = usage/.test(c));
   t('the chip resolves the address at click time', /const projectUrl = onCowork \? coworkProjectUrl\(ctx\) : null;/.test(c));
-  t('the diag says what would open, what the lookup found, and what the page links (diag only)', /'project page to open: '/.test(c) && /\.\.\.\(ctx\.coworkLookup \|\| \[\]\)/.test(c) && /'project links on page: ' \+ \(pageProjectLinks\(\)/.test(c));
-  const pl = (c.match(/function pageProjectLinks\(\)[\s\S]*?\n  \}/) || [''])[0];
-  t('the page-link list is same-origin, exact path shape, distinct, and capped', /u\.origin !== location\.origin/.test(pl) && /cowork\\\/project\\\/\[A-Za-z0-9_-\]\{8,\}/.test(pl) && /new Map\(\)/.test(pl) && /\.slice\(0, 6\)/.test(pl));
+  t('the page\'s links, the details, the conversations and the resource timing are gone', !/pageProjectLinks|pageProjectFetches|projUuidIn|chat_conversations'\)|\/conversations'|\/v1\/code\/projects|\/v1\/code\/sessions\?|getEntriesByType/.test(c));
+  t('the diag says what would open and what the decode found', /'project page to open: '/.test(c) && /\.\.\.\(ctx\.coworkLookup \|\| \[\]\)\] : \[\]\)/.test(c));
 }
 
 console.log(fails.length ? '\nFAILED: ' + fails.join(', ') : '\nall extension checks passed');

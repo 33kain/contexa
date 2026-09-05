@@ -9,6 +9,23 @@ backend's live version separately so a deploy can be told from a no-op.
 
 ---
 
+## 0.9.94 — Extension (worker build number only)
+
+*Nineteenth card: the record carries no project uuid, no conversation
+carries a session id, no session on the list carries relations.* None of
+them needs to: `chat_project_id` is the uuid, spelled `claude_proj_01` +
+base58 (Bitcoin alphabet, 22 characters, `1`-padded) of its sixteen bytes.
+`claude_proj_011CeAvYWZiPwTSnbTDUTRkX` decodes to
+`01a016c6-92cb-713e-982d-db1fbc14c7fc`, the page the field reached by hand,
+and encodes back. `projectUuidOf` does that; `coworkProjectLookup` is now
+the decode plus one request to the org's project list, only to name the
+project on the chip ("Open a new Cowork session in <name> with it") and
+confirm — a miss is a note on the diag card, not a block. The page-link
+scan, project details, conversations, code lists and resource timing of
+0.9.89–0.9.93 are removed.
+
+---
+
 ## 0.9.93 — Extension (worker build number only)
 
 *Eighteenth card: conversations carry `project_uuid`, `session_id` and
