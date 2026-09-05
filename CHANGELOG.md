@@ -9,6 +9,22 @@ backend's live version separately so a deploy can be told from a no-op.
 
 ---
 
+## 0.9.91 — Extension (worker build number only)
+
+*Sixteenth card: `projects API: n=4 … match by record id: none`,
+`code project record: http_404`, and the page links two projects.* The
+org's project list does not carry the `claude_proj_…` id and the code API
+has no single project record. `coworkProjectLookup` gains three sources
+behind the list: each listed project's detail (searched for the id, extra
+keys recorded), `/v1/code/projects` as a list, and `pageProjectFetches` —
+the session page shows its project's name, so it fetched
+`/api/organizations/<org>/projects/<uuid>`, and that request is in the
+page's resource timing; it is a source only when exactly one project uuid
+was fetched. The diag names every step, any page request carrying
+`claude_proj`, and each page project link with its ancestor path.
+
+---
+
 ## 0.9.90 — Extension (worker build number only)
 
 *Fifteenth card: the chip opened the Squiggle project.* The first

@@ -1725,7 +1725,7 @@ const TURNS = [
   t('a project page is not an existing conversation', /EXISTING_RE = \/\^\\\/\(chat\\\/\[0-9a-f-\]\{36\}\|cowork\\\/cse_/.test(c));
 }
 
-/* ---- 0.9.89 / 0.9.90 — the project page's address ------------------------- */
+/* ---- 0.9.89 / 0.9.90 / 0.9.91 — the project page's address ------------------------- */
 {
   const c = readFileSync('./content.js', 'utf8');
   const f = (c.match(/function coworkProjectUrl\(ctx\)[\s\S]*?\n  \}/) || [''])[0];
@@ -1733,10 +1733,15 @@ const TURNS = [
   t('the page\'s links are not a source any more (the first one was the wrong project)', !/a\[href\]/.test(f) && !/querySelectorAll/.test(f));
   const l = (c.match(/async function coworkProjectLookup\(ctx\)[\s\S]*?\n  \}/) || [''])[0];
   t('the lookup asks the org\'s project list and matches the entry carrying the record id', /\/api\/organizations\/' \+ org \+ '\/projects'/.test(l) && /JSON\.stringify\(p\)\.includes\(id\)/.test(l));
-  t('a match is used only through a uuid-shaped field', /\[hit\.uuid, hit\.id\]\.find\(v => typeof v === 'string' && UUID_RE\.test\(v\)\)/.test(l));
-  t('the code API\'s project record is asked only when the list gave nothing, with the page\'s headers', /if \(!ctx\.coworkProjectUrl\) \{[\s\S]*?\/v1\/code\/projects\/' \+ encodeURIComponent\(id\), codeHeaders\(\)/.test(l));
-  t('a uuid from that record is taken only from a field named for the project or a uuid', /\/project\/i\.test\(f\.split\('='\)\[0\]\)\) \|\| found\.find\(f => \/uuid\/i/.test(l));
-  t('every step of the lookup is caught and leaves a diag line', (l.match(/catch \(e\) \{ lines\.push\(/g) || []).length === 2 && /ctx\.coworkLookup = lines;/.test(l));
+  t('a match is used only through a uuid-shaped field', /const uuidOf = o => o && \[o\.uuid, o\.id\]\.find\(v => typeof v === 'string' && UUID_RE\.test\(v\)\);/.test(l) && /const uuid = uuidOf\(hit\);/.test(l));
+  t('each listed project\'s detail is searched the same way, at most twelve, failures counted', /listed\.slice\(0, 12\)/.test(l) && /\/projects\/' \+ u\)/.test(l) && /catch \{ failed\+\+; \}/.test(l));
+  t('the code API\'s project list is asked with the page\'s headers only when nothing else answered', /if \(!ctx\.coworkProjectUrl\) \{[\s\S]*?\/v1\/code\/projects', codeHeaders\(\)/.test(l));
+  t('a uuid from that list is taken only from a field named for the project or a uuid', /\/project\/i\.test\(f\.split\('='\)\[0\]\)\) \|\| found\.find\(f => \/uuid\/i/.test(l));
+  const pf = (c.match(/function pageProjectFetches\(org\)[\s\S]*?\n  \}/) || [''])[0];
+  t('the page\'s own project fetch is read from resource timing, org-checked, by exact path', /getEntriesByType\('resource'\)/.test(pf) && /api\\\/organizations\\\/\(\[0-9a-f-\]\{36\}\)\\\/projects\\\/\(\[0-9a-f-\]\{36\}\)\(\?=\[\/\?#\]\|\$\)/.test(pf) && /m\[1\]\.toLowerCase\(\) === org\.toLowerCase\(\)/.test(pf));
+  t('and it is a source only when exactly one project uuid was fetched, after every exact match', /if \(!ctx\.coworkProjectUrl && pf\.uuids\.length === 1\) ctx\.coworkProjectUrl = COWORK_PROJECT_URL \+ pf\.uuids\[0\]\[0\];/.test(l));
+  t('a resource timing that cannot be read is an empty answer, not a throw', /catch \{ return \{ uuids: \[\], other, n: 0 \}; \}/.test(pf));
+  t('every step of the lookup is caught and leaves a diag line', (l.match(/catch \(e\) \{ lines\.push\(/g) || []).length === 2 && (l.match(/lines\.push\(/g) || []).length >= 5 && /ctx\.coworkLookup = lines;/.test(l));
   t('the lookup runs inside the session read, before any chip', /await coworkProjectLookup\(ctx\);\n    const used = usage/.test(c));
   t('the chip resolves the address at click time', /const projectUrl = onCowork \? coworkProjectUrl\(ctx\) : null;/.test(c));
   t('the diag says what would open, what the lookup found, and what the page links (diag only)', /'project page to open: '/.test(c) && /\.\.\.\(ctx\.coworkLookup \|\| \[\]\)/.test(c) && /'project links on page: ' \+ \(pageProjectLinks\(\)/.test(c));
