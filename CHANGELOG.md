@@ -9,6 +9,32 @@ backend's live version separately so a deploy can be told from a no-op.
 
 ---
 
+## 0.9.87 — Extension (worker build number only)
+
+*Twelfth card, and the number the whole plan was for:*
+
+```
+Brief ready: ≈ 444 tokens instead of ≈ 124k per send.
+```
+
+The first brief off a live 123,813-token Cowork session. The next message in
+a fresh session reads 444 tokens where this one reads 123,813 — 99.6% less
+per send, measured, not estimated. The thesis's open question has its first
+answer.
+
+### The landing without an address
+
+`claude.ai/cowork` redirects to a marketing page, and the screen a Cowork
+session starts from has no known address. So the landing stopped needing
+one: any claude.ai page that is not an existing conversation, has a composer
+and holds no messages yet is where a parked brief may land, and the take —
+which consumes — happens only once those three hold, so a page that is not
+the one leaves the brief parked for the next, within the TTL. On Cowork the
+fork copies and parks and opens nothing; the user starts the new session
+their own way and the brief drops in.
+
+---
+
 ## 0.9.86 — Extension + Worker
 
 *Eleventh card: the tail read works (137 user turns in the last 3,000 events

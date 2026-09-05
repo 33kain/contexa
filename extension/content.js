@@ -1048,7 +1048,10 @@
      loads THERE collects it (see collectBrief) and puts it in that composer.
      Nothing is sent: the user reads it in the new tab and presses send. */
   const NEW_CHAT_URL = 'https://claude.ai/new';
-  const NEW_COWORK_URL = 'https://claude.ai/cowork';
+  /* claude.ai/cowork redirects to a product page (eleventh card). Until the
+     new-session screen's address is known, the Cowork fork opens nothing and
+     the landing (collectBrief) catches the brief wherever that screen is. */
+  const NEW_COWORK_URL = null;
   function renderBrief(anchor, ctx, brief, briefTokens) {
     const wrap = shell(anchor, 'brief');
     if (!wrap) return;
@@ -1077,8 +1080,8 @@
            the script loading THERE lands it if it finds a composer. */
         try { await navigator.clipboard.writeText(brief); } catch { /* the landing may still work */ }
         try { await chrome.runtime.sendMessage({ type: 'stageBrief', brief }); } catch (e) { if (isStaleError(e) || !contextAlive()) return goStale(anchor); }
-        window.open(NEW_COWORK_URL, '_blank', 'noopener');
-        chip.textContent = 'Copied — opening a new Cowork session';
+        if (NEW_COWORK_URL) window.open(NEW_COWORK_URL, '_blank', 'noopener');
+        chip.textContent = 'Copied — start a new Cowork session; the brief will land in its message box';
         return;
       }
       let ok = false;
@@ -1102,13 +1105,28 @@
      user already had open, and consumed on read (takeBrief) so it lands in
      exactly one composer. insertPrompt appends below any existing draft, so
      even a /new with something typed in it loses nothing. */
-  let pendingBrief = '';
-  async function collectBrief() {
-    /* /new for a chat; /cowork (the new-session screen) for a Cowork brief. */
-    if (!/^\/(new|cowork)\/?$/.test(location.pathname)) return;
+  /* 0.9.87 — the landing no longer needs to know the new-session screen's
+     URL. claude.ai/cowork turned out to redirect to a marketing page, and the
+     screen a Cowork session starts from is not known; so any claude.ai page
+     that is NOT an existing conversation, has a composer and holds no
+     messages yet is a place a parked brief may land. The take is consuming,
+     so it happens only once those three hold — a page that is not the one
+     leaves the brief parked for the next, within the two-minute TTL. */
+  let pendingBrief = '', wantBrief = false, askedBrief = false, surelyNew = false;
+  const EXISTING_RE = /^\/(chat|cowork|project|code)\/[A-Za-z0-9_-]{8,}/;
+  function collectBrief() {
+    if (EXISTING_RE.test(location.pathname)) return;
+    surelyNew = /^\/new\/?$/.test(location.pathname);   // a chat's /new is always empty
+    wantBrief = true;
+    tick();
+  }
+  async function takeBriefIfLanding() {
+    if (!wantBrief || askedBrief || !composer) return;
+    if (!surelyNew && (document.querySelector(USER_MSG_SEL) || document.querySelector(RESPONSE_SEL))) { wantBrief = false; return; }
+    askedBrief = true;
     try {
       const r = await chrome.runtime.sendMessage({ type: 'takeBrief' });
-      if (r && typeof r.brief === 'string' && r.brief) { pendingBrief = r.brief; tick(); }
+      if (r && typeof r.brief === 'string' && r.brief) { pendingBrief = r.brief; landBrief(); }
     } catch { /* orphaned script or no worker: nothing to land */ }
   }
   function landBrief() {
@@ -1918,6 +1936,7 @@
     const el = findComposer();
     if (el && el !== composer) { composer = el; watchReplies(); }
     if (composer && !composer.isConnected) composer = null;
+    if (composer && wantBrief && !askedBrief) takeBriefIfLanding();
     if (composer && pendingBrief) landBrief();
   }
 

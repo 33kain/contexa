@@ -1552,7 +1552,7 @@ const TURNS = [
     const card = (c.match(/function renderBrief\([\s\S]*?\n  \}/) || [''])[0];
     t('the brief is the chip\'s title, set as a property', /chip\.title = brief;/.test(card));
     t('the click stages the brief, then opens a fresh chat', /type: 'stageBrief', brief/.test(card) && /window\.open\(NEW_CHAT_URL, '_blank', 'noopener'\)/.test(card) && /NEW_CHAT_URL = 'https:\/\/claude\.ai\/new'/.test(c));
-    t('the landing is restricted to /new and the Cowork new-session screen', /\^\\\/\(new\|cowork\)\\\/\?\$\/\.test\(location\.pathname\)\) return;/.test(c));
+    t('the landing refuses an existing conversation and needs an empty page with a composer', /EXISTING_RE\.test\(location\.pathname\)\) return;/.test(c) && /!surelyNew && \(document\.querySelector\(USER_MSG_SEL\) \|\| document\.querySelector\(RESPONSE_SEL\)\)\) \{ wantBrief = false; return; \}/.test(c) && /surelyNew = \/\^\\\/new\\\/\?\$\/\.test\(location\.pathname\)/.test(c));
     t('and goes through insertPrompt, which never overwrites a draft', /function landBrief\(\)[\s\S]{0,300}insertPrompt\(text\)/.test(c));
     t('the fork control stays on the mined row', /function renderMoves\(anchor, moves, ctx\)[\s\S]{0,600}weightLine\(/.test(c));
   }
@@ -1711,7 +1711,7 @@ const TURNS = [
   t('falls back to the forward walk without a numeric head', /note = 'forward walk';/.test(w));
   t('dedupes by event id and orders by sequence', /seen\.has\(id\)/.test(w) && /\.sort\(\(x, y\) => \(x\.seq \|\| 0\) - \(y\.seq \|\| 0\)\)/.test(w));
   t('and keeps the goal end small so fitTurns keeps the present', /head\.slice\(0, 4\)\.concat\(tail\)/.test(w));
-  t('on Cowork the fork copies, stages and opens the new-session screen', /navigator\.clipboard\.writeText\(brief\)/.test(c) && /window\.open\(NEW_COWORK_URL, '_blank', 'noopener'\)/.test(c) && /NEW_COWORK_URL = 'https:\/\/claude\.ai\/cowork'/.test(c));
+  t('on Cowork the fork copies and stages, and opens nothing until the screen is known', /navigator\.clipboard\.writeText\(brief\)/.test(c) && /if \(NEW_COWORK_URL\) window\.open/.test(c) && /NEW_COWORK_URL = null;/.test(c));
 }
 
 /* ---- 0.9.86 — the brief out of a broken answer ------------------------- */
@@ -1735,6 +1735,14 @@ const TURNS = [
   t('own key: a cut brief is salvaged, cut at a clean line, and flagged partial', r.partial === true && r.brief === BRIEF, JSON.stringify(r).slice(0, 160));
   const c = readFileSync('./content.js', 'utf8');
   t('the diag card carries the last error with its diag', /ctx\.lastError = \{ call: 'fork'/.test(c) && /ctx\.lastError = \{ call: 'moves'/.test(c) && /'last error \(' \+ ctx\.lastError\.call/.test(c));
+}
+
+/* ---- 0.9.87 — the landing without an address ---------------------------- */
+{
+  const c = readFileSync('./content.js', 'utf8');
+  t('the take is consuming, so it waits for a composer on an empty page', /if \(!wantBrief \|\| askedBrief \|\| !composer\) return;/.test(c) && /askedBrief = true;/.test(c));
+  t('tick asks once the composer is found', /if \(composer && wantBrief && !askedBrief\) takeBriefIfLanding\(\);/.test(c));
+  t('an existing conversation is never a landing', /EXISTING_RE = \/\^\\\/\(chat\|cowork\|project\|code\)\\\/\[A-Za-z0-9_-\]\{8,\}\//.test(c));
 }
 
 console.log(fails.length ? '\nFAILED: ' + fails.join(', ') : '\nall extension checks passed');
