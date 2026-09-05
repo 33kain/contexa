@@ -117,8 +117,11 @@ from the model's reply.
 
 ### Then
 
-- Publish `0.1.0` (`cd tokenbrake && npm publish`; needs npm login — not done from a Claude session). Keep it
-  MIT and dependency-free — that's the whole pitch against the Rust/Python alternatives.
+- Publish `0.1.0`: the `Publish tokenbrake` workflow (`.github/workflows/publish-tokenbrake.yml`, Run workflow from
+  the Actions tab) — needs the repository secret `NPM_TOKEN`, an npm granular access token with read/write on
+  packages; it runs the tests, refuses a version already on the registry, publishes with provenance (the repo
+  is public) and reads the version back. Keep it MIT and dependency-free — that's the whole pitch against the
+  Rust/Python alternatives.
 - Consider narrowing the PostToolUse matcher to `Bash|PowerShell|Read` as a documented option: it's one
   `node` spawn (~50–100 ms) per tool call otherwise, and the full ledger is what pays for that cost.
 - Config file `~/.claude/tokenbrake.json` (or under `CLAUDE_CONFIG_DIR`) overrides `DEFAULTS` in `guard.js`.
