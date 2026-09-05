@@ -1585,10 +1585,29 @@ const TURNS = [
   t('and only when the page is clearly taller than what is rendered', /rendered > 200 && total > rendered \* 1\.2/.test(fn));
   t('the scale is capped', /const VIRTUAL_MAX_SCALE = \d+;/.test(c));
   t('every read is logged with what was measured', /console\.log\('\[CONTEXA\] thread ≈', tokens/.test(fn));
-  t('the wordmark carries the number as its tooltip on both cards', (c.match(/\.title = threadNote\(\);/g) || []).length === 2);
+  t('the wordmark carries the number as its tooltip on both cards and on the refresh', (c.match(/\.title = threadNote\(\);/g) || []).length === 3);
   t('the tooltip names the threshold so "why not here" has an answer', /Start fresh appears from ' \+ kTokens\(LONG_THREAD_TOKENS\)/.test(c));
   const wr = (c.match(/function watchReplies\(\)[\s\S]*?\n  \}/) || [''])[0];
   t('the settle fallback is armed at attach, not only by a mutation', /scan\(\);\s*\/\*[\s\S]*?\*\/\s*clearTimeout\(settleTimer\);\s*settleTimer = setTimeout\(\(\) => \{ settled = true; scan\(\); \}, 1200\);\s*\}$/.test(wr));
+}
+
+/* ---- 0.9.76 — the thread from the page's API, and the diag card --------- */
+{
+  const c = readFileSync('./content.js', 'utf8');
+  const api = (c.match(/async function apiThread\(\)[\s\S]*?\n  \}/) || [''])[0];
+  t('the API read is same-origin, read-only, with the page\'s own cookies', /credentials: 'same-origin'/.test(c) && !/method: 'POST'/.test(api));
+  t('the conversation id comes from the URL', /CONV_RE = \/\\\/chat\\\/\(\[0-9a-f-\]\{36\}\)\/i/.test(c) && /location\.pathname\.match\(CONV_RE\)/.test(api));
+  t('the org comes from the cookie first, then the org list', api.indexOf('lastActiveOrg') < api.indexOf('/api/organizations\''));
+  t('it counts characters and drops the JSON', /chars \+= t\.length/.test(api) && !/sendMessage/.test(api));
+  const ref = (c.match(/async function refineThread\([\s\S]*?\n  \}/) || [''])[0];
+  t('a failed API read is one console line and the rendered estimate stands', /page API unavailable/.test(ref) && /return; \}/.test(ref));
+  t('the label is redrawn only when the API says the thread is bigger', /if \(api\.tokens > \(ctx\.thread \|\| 0\)\)[\s\S]{0,200}refreshWeight\(anchor, ctx\)/.test(ref));
+  t('the redraw touches only the trigger card', /data-cx-mode'\) !== 'ai'\) return;/.test(c));
+  t('the trigger card kicks off the refinement', /armDiag\(wrap\.querySelector\('\.label'\), wrap, ctx\);\s*refineThread\(anchor, ctx\);/.test(c));
+  const diag = (c.match(/function armDiag\([\s\S]*?\n  \}/) || [''])[0];
+  t('three taps on the wordmark draw the diag card', /taps\.length < DIAG_TAPS\) return;/.test(diag) && /const DIAG_TAPS = 3/.test(c));
+  t('the diag card names the version and the thread source', /'CONTEXA v' \+ v/.test(diag) && /r\.source \|\| 'dom'/.test(diag));
+  t('the diag card is text, not controls', /d\.textContent = lines\.join/.test(diag) && !/createElement\('button'\)/.test(diag));
 }
 
 console.log(fails.length ? '\nFAILED: ' + fails.join(', ') : '\nall extension checks passed');

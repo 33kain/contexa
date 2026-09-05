@@ -9,6 +9,40 @@ backend's live version separately so a deploy can be told from a no-op.
 
 ---
 
+## 0.9.76 — Extension (worker build number only)
+
+*The second field session, same phone, same hour: 0.9.75 changed nothing.*
+
+### The thread, from the page's own API
+
+The rendered read is blind on that page in a way the 0.9.75 scaling cannot
+fix: a transcript that loads its tail and keeps no spacer measures as short by
+any DOM arithmetic. The page itself knows the whole thread — claude.ai fetches
+its conversation as JSON from its own API, same origin, and the content script
+runs on that origin. `apiThread` asks the same API (`/api/organizations/<org>/
+chat_conversations/<id>`), read-only, with the page's own cookies, and counts
+characters; the org comes from the `lastActiveOrg` cookie, else from
+`/api/organizations`. Nothing leaves the page and the JSON is dropped. It runs
+after the trigger card is drawn (`refineThread`); if it says the thread is
+bigger, the label row is redrawn with the better number, so the line appears a
+beat late rather than never. A private API, held to the private DOM's rule:
+any failure is one console line and the rendered estimate stands.
+
+### The diagnostic card
+
+A phone has no console and, it turns out, no tooltip on a long press. Three
+taps on the CONTEXA wordmark within two seconds now draw an inert card: the
+version, what the thread read measured and from where, what the page's API
+said or why it did not, the user turns and the last three lengths, the model
+the page reports, the reply's size. Text only, no control. It is how the next
+field report carries numbers instead of "nothing shows".
+
+### What ships
+
+The extension. The worker's `BUILD` moves with the manifest; not redeployed.
+
+---
+
 ## 0.9.75 — Extension (worker build number only)
 
 *The first field session of 0.9.74, on a phone, in about an hour.*

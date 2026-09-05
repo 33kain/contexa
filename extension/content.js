@@ -462,7 +462,7 @@
       if (rendered > 200 && total > rendered * 1.2) scale = Math.min(VIRTUAL_MAX_SCALE, total / rendered);
     }
     const tokens = Math.round(chars * scale / CHARS_PER_TOKEN);
-    lastThreadRead = { tokens, chars, blocks: blocks.length, scale, rendered: Math.round(rendered), total: Math.round(total) };
+    lastThreadRead = { tokens, chars, blocks: blocks.length, scale, rendered: Math.round(rendered), total: Math.round(total), source: 'dom' };
     console.log('[CONTEXA] thread ≈', tokens, 'tokens —', chars, 'chars in', blocks.length, 'rendered blocks'
       + (scale > 1 ? ', scaled ×' + scale.toFixed(1) + ' (rendered ' + Math.round(rendered) + 'px of ' + Math.round(total) + 'px)' : ''));
     return tokens;
@@ -508,6 +508,121 @@
     });
     cost.append(words, btn);
     label.appendChild(cost);
+  }
+
+  /* ---------------- 0.9.76 — the thread from the page's own API ---------- */
+  /* The second field session said the cost line still never came, on threads
+     whose every reply was huge. So the rendered read is blind on that page in
+     a way the scaling cannot fix — a transcript that loads its tail and no
+     spacer measures as short by any DOM arithmetic. The page itself knows
+     the whole thread: claude.ai fetches its conversation as JSON from its
+     own API, same origin, and this script runs on that origin. So it asks
+     the same API, read-only, with the page's own cookies, and counts. Nothing
+     leaves the page; the number is computed here and the JSON is dropped.
+
+     This is a dependency on a private API, exactly as the DOM selectors are a
+     dependency on a private DOM, and it is held to the same rule: any failure
+     — a moved endpoint, a changed shape, a 403 — is one console line and the
+     rendered estimate stands. The org comes from the lastActiveOrg cookie
+     when present, else from /api/organizations, trying each until one owns
+     the conversation. Cached per conversation for the page's life. */
+  const CONV_RE = /\/chat\/([0-9a-f-]{36})/i;
+  const apiCache = new Map();
+  async function apiJson(url) {
+    const r = await fetch(url, { credentials: 'same-origin', headers: { accept: 'application/json' } });
+    if (!r.ok) throw new Error('http_' + r.status);
+    return r.json();
+  }
+  async function apiThread() {
+    const m = location.pathname.match(CONV_RE);
+    if (!m) return null;
+    const conv = m[1];
+    const cookieOrg = (document.cookie.match(/(?:^|;\s*)lastActiveOrg=([0-9a-f-]{36})/i) || [])[1];
+    let orgs = cookieOrg ? [cookieOrg] : [];
+    if (!orgs.length) {
+      const list = await apiJson('/api/organizations');
+      orgs = (Array.isArray(list) ? list : []).map(o => o && o.uuid).filter(Boolean);
+    }
+    let data = null, lastErr = null;
+    for (const org of orgs) {
+      try {
+        data = await apiJson('/api/organizations/' + org + '/chat_conversations/' + conv + '?tree=True&rendering_mode=messages&render_all_tools=true');
+        break;
+      } catch (e) { lastErr = e; }
+    }
+    if (!data) throw lastErr || new Error('no_org');
+    const msgs = Array.isArray(data.chat_messages) ? data.chat_messages : [];
+    let chars = 0, human = 0, assistant = 0;
+    for (const msg of msgs) {
+      if (!msg) continue;
+      let t = typeof msg.text === 'string' ? msg.text : '';
+      if (!t && Array.isArray(msg.content)) t = msg.content.map(p => (p && typeof p.text === 'string') ? p.text : '').join('\n');
+      chars += t.length;
+      if (msg.sender === 'human') human++; else assistant++;
+    }
+    const out = { tokens: Math.round(chars / CHARS_PER_TOKEN), chars, messages: msgs.length, human, assistant };
+    apiCache.set(conv + ':' + msgs.length, out);
+    return out;
+  }
+  /* Runs after the trigger card is drawn with the rendered estimate. If the
+     page's API answers and says the thread is bigger, the label row is redrawn
+     with the better number — the line appears a beat late rather than never. */
+  async function refineThread(anchor, ctx) {
+    let api = null;
+    try { api = await apiThread(); }
+    catch (e) { ctx.apiError = String(e && e.message || e); console.log('[CONTEXA] thread — page API unavailable (' + ctx.apiError + '); the rendered estimate stands'); return; }
+    if (!api) return;
+    ctx.api = api;
+    console.log('[CONTEXA] thread — page API: ≈', api.tokens, 'tokens in', api.messages, 'messages (' + api.human + ' yours); rendered estimate was ≈', ctx.thread);
+    if (api.tokens > (ctx.thread || 0)) {
+      ctx.thread = api.tokens;
+      if (lastThreadRead) Object.assign(lastThreadRead, { tokens: api.tokens, source: 'api' });
+      refreshWeight(anchor, ctx);
+    }
+  }
+  function refreshWeight(anchor, ctx) {
+    const holder = document.querySelector('[data-contexa]');
+    const label = holder && holder.shadowRoot && holder.shadowRoot.querySelector('.label');
+    if (!label || !anchor.isConnected || holder.getAttribute('data-cx-mode') !== 'ai') return;
+    for (const old of label.querySelectorAll('.ctxa-cost')) old.remove();
+    weightLine(label, anchor, ctx);
+    label.title = threadNote();
+  }
+
+  /* The diagnostic card. Three taps on the CONTEXA wordmark within two
+     seconds — on a phone there is no console and no tooltip, and "why is there
+     no line here" was unanswerable from a screenshot. Inert text: the version,
+     what the thread read measured and from where, what the page's API said or
+     why it did not, the user turns and the last three lengths, the model the
+     page reports, and the reply's size. Nothing here is a control. */
+  const DIAG_TAPS = 3, DIAG_WINDOW_MS = 2000;
+  function armDiag(label, wrap, ctx) {
+    let taps = [];
+    label.addEventListener('click', () => {
+      const now = Date.now();
+      taps = taps.filter(t => now - t < DIAG_WINDOW_MS); taps.push(now);
+      if (taps.length < DIAG_TAPS) return;
+      taps = [];
+      const old = wrap.querySelector('.quiet.diag'); if (old) { old.remove(); return; }
+      let v = '?'; try { v = chrome.runtime.getManifest().version; } catch {}
+      const r = lastThreadRead || {};
+      const turns = [...document.querySelectorAll(USER_MSG_SEL)];
+      const lastThree = turns.slice(-3).map(el => (el.textContent || '').trim().length);
+      const lines = [
+        'CONTEXA v' + v,
+        'thread ≈ ' + (ctx.thread != null ? ctx.thread : '?') + ' tokens (' + (r.source || 'dom') + '); Start fresh from ' + LONG_THREAD_TOKENS,
+        'rendered: ' + (r.chars || 0) + ' chars in ' + (r.blocks || 0) + ' blocks, scale ×' + (r.scale ? r.scale.toFixed(2) : '1') + ' (' + (r.rendered || 0) + 'px of ' + (r.total || 0) + 'px)',
+        ctx.api ? 'page API: ' + ctx.api.chars + ' chars in ' + ctx.api.messages + ' messages, ' + ctx.api.human + ' yours' : 'page API: ' + (ctx.apiError || 'not asked'),
+        'user turns in DOM: ' + turns.length + ', last three: ' + (lastThree.join('/') || '-') + ' chars',
+        'model on page: ' + (pageModel() || 'not found') + '; reply ' + ((ctx.reply || '').length) + ' chars'
+      ];
+      const d = document.createElement('div');
+      d.className = 'quiet diag';
+      d.style.cssText = 'display:block;white-space:pre-wrap;margin-top:6px;font-size:10.5px';
+      d.textContent = lines.join('\n');
+      wrap.appendChild(d);
+      console.log('[CONTEXA] diag\n' + lines.join('\n'));
+    });
   }
 
   /* ---------------- 0.9.74 — the nudges (brake 5) ------------------------ */
@@ -1137,6 +1252,8 @@
       `<div class="chips"></div>`;
     weightLine(wrap.querySelector('.label'), anchor, ctx);
     wrap.querySelector('.label').title = threadNote();
+    armDiag(wrap.querySelector('.label'), wrap, ctx);
+    refineThread(anchor, ctx);
     const slot = document.createElement('span');
     slot.className = 'ctxa-mas-slot';
     wrap.querySelector('.chips').appendChild(slot);
@@ -1215,6 +1332,7 @@
        menu arrived. */
     weightLine(wrap.querySelector('.label'), anchor, ctx);
     wrap.querySelector('.label').title = threadNote();
+    armDiag(wrap.querySelector('.label'), wrap, ctx);
     const row = wrap.querySelector('.chips');
     for (const m of moves) appendIdeaChip(row, m);
   }
