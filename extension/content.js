@@ -562,20 +562,59 @@
     return [];
   }
   function eventText(ev) {
-    const m = ev && (ev.message || ev);
-    const c = m && m.content;
+    const p = ev && ev.payload && typeof ev.payload === 'object' ? ev.payload : ev;
+    const m = p && (p.message || p);
+    const c = m && (m.content != null ? m.content : m.text);
     if (typeof c === 'string') return c;
-    if (Array.isArray(c)) {
-      if (c.some(b => b && b.type === 'tool_result')) return '';
-      return c.map(b => (b && b.type === 'text' && typeof b.text === 'string') ? b.text : '').join('\n');
-    }
-    return typeof (m && m.text) === 'string' ? m.text : '';
+    if (Array.isArray(c)) return c.map(b => (b && b.type === 'text' && typeof b.text === 'string') ? b.text : '').join('\n');
+    return '';
   }
   /* 0.9.81 — anthropic-version on the session reads, because a 400 on the
      record with the page's own cookies is what a missing API-version header
      looks like on this API. The probe's "req … [hdr: …] → status" lines say
      what the page really sends; this is the likeliest piece. */
-  const CODE_HEADERS = { 'anthropic-version': '2023-06-01' };
+  /* 0.9.82 — the headers the page itself sends on these calls, read off the
+     probe's "req … [hdr: …]" line: an API version, a beta name and two client
+     identifiers, none of them secrets, plus the organisation from the
+     lastActiveOrg cookie. With only anthropic-version the record answered 200
+     with a single "response_shape" key and no data; this is the full set. */
+  const CODE_HEADERS_BASE = {
+    'anthropic-version': '2023-06-01',
+    'anthropic-beta': 'ccr-byoc-2025-07-29',
+    'anthropic-client-feature': 'ccr',
+    'anthropic-client-platform': 'web_claude_ai'
+  };
+  function codeHeaders() {
+    const org = (document.cookie.match(/(?:^|;\s*)lastActiveOrg=([0-9a-f-]{36})/i) || [])[1];
+    return org ? Object.assign({ 'x-organization-uuid': org }, CODE_HEADERS_BASE) : Object.assign({}, CODE_HEADERS_BASE);
+  }
+  function shapeOf(v, depth) {
+    if (!v || typeof v !== 'object') return typeof v;
+    if (Array.isArray(v)) return 'array[' + v.length + ']' + (depth > 0 && v[0] && typeof v[0] === 'object' ? ' of ' + shapeOf(v[0], depth - 1) : '');
+    const keys = Object.keys(v).slice(0, 12);
+    return '{' + keys.map(k => (depth > 0 && v[k] && typeof v[k] === 'object') ? k + ':' + shapeOf(v[k], depth - 1) : k).join(',') + '}';
+  }
+  function findUsage(o) {
+    const seen = [];
+    const walk = (v, d) => {
+      if (!v || typeof v !== 'object' || d > 3 || seen.includes(v)) return null;
+      seen.push(v);
+      if (v.context_usage && typeof v.context_usage === 'object' && v.context_usage.used_tokens != null) return v.context_usage;
+      for (const k of Object.keys(v)) { const r = walk(v[k], d + 1); if (r) return r; }
+      return null;
+    };
+    return walk(o, 0);
+  }
+  /* A user turn among the session's events: the type names the user, or the
+     payload's role does; tool results and tool uses are not turns. */
+  function isUserEvent(ev) {
+    if (!ev || typeof ev !== 'object') return false;
+    const t = String(ev.event_type || ev.type || '');
+    const p = ev.payload && typeof ev.payload === 'object' ? ev.payload : ev;
+    const role = p.role || (p.message && p.message.role) || '';
+    if (/tool_result|tool_use|attachment|meta/i.test(t)) return false;
+    return /user/i.test(t) || role === 'user';
+  }
   async function coworkRead(anchor, ctx) {
     const cw = location.pathname.match(COWORK_RE);
     if (!cw) return;
@@ -583,13 +622,15 @@
     ctx.apiState = 'pending (cowork)';
     refreshDiag(ctx);
     let record = null, events = null;
-    try { record = await apiJson(base, CODE_HEADERS); } catch (e) { ctx.apiState = 'failed (cowork record): ' + (e && e.message); refreshDiag(ctx); console.log('[CONTEXA] cowork — session record unavailable (' + ctx.apiState + ')'); return; }
-    const r = record && (record.ccr || record.session || record);
-    const usage = r && (r.external_metadata && r.external_metadata.context_usage || r.context_usage) || null;
+    try { record = await apiJson(base, codeHeaders()); } catch (e) { ctx.apiState = 'failed (cowork record): ' + (e && e.message); refreshDiag(ctx); console.log('[CONTEXA] cowork — session record unavailable (' + ctx.apiState + ')'); return; }
+    /* The count may sit one level down (the page's own client wraps things);
+       find context_usage anywhere in the first two levels, and say what the
+       levels hold so the next card can correct this if it is still wrong. */
+    const usage = findUsage(record);
     const used = usage && Number(usage.used_tokens);
-    ctx.coworkShape = ['record: {' + Object.keys(record || {}).slice(0, 12).join(',') + '}'
+    ctx.coworkShape = ['record: ' + shapeOf(record, 2)
       + (usage ? ' context_usage=' + JSON.stringify({ used_tokens: usage.used_tokens, max_tokens: usage.max_tokens }) : ' (no context_usage found)')];
-    try { events = await apiJson(base + '/events', CODE_HEADERS); } catch (e) { ctx.coworkShape.push('events: ' + (e && e.message)); }
+    try { events = await apiJson(base + '/events', codeHeaders()); } catch (e) { ctx.coworkShape.push('events: ' + (e && e.message)); }
     let turns = [], evCount = 0;
     if (events) {
       const arr = firstArray(events);
@@ -597,16 +638,24 @@
       const first = arr[0];
       ctx.coworkShape.push('events: ' + (Array.isArray(events) ? 'array' : '{' + Object.keys(events).slice(0, 10).join(',') + '}') + ' n=' + arr.length
         + (first && typeof first === 'object' ? ' first={' + Object.keys(first).slice(0, 12).join(',') + '}' : ''));
+      /* The event stream's shape, from the sixth card: data[] of
+         { event_type, payload, … }, fifty a page with next_cursor. Say which
+         event types the page holds and what a user-looking payload carries. */
+      const types = {};
+      for (const ev of arr) { const t = ev && (ev.event_type || ev.type) || '?'; types[t] = (types[t] || 0) + 1; }
+      ctx.coworkShape.push('event types: ' + Object.entries(types).sort((x, y) => y[1] - x[1]).slice(0, 8).map(([k, v]) => k + '×' + v).join(', ')
+        + (events.next_cursor ? '; more pages' : '; last page'));
+      const sample = arr.find(ev => isUserEvent(ev));
+      if (sample) ctx.coworkShape.push('user event payload: ' + shapeOf(sample.payload, 2));
       for (const ev of arr) {
-        if (!ev || typeof ev !== 'object' || ev.isMeta || ev.isSidechain) continue;
-        const role = ev.type || ev.role || (ev.message && ev.message.role);
-        if (role !== 'user') continue;
+        if (!isUserEvent(ev)) continue;
         const text = clampTurn(eventText(ev).trim());
         if (text) turns.push({ i: turns.length + 1, text });
       }
-      ctx.coworkShape.push('user turns parsed: ' + turns.length);
+      ctx.coworkShape.push('user turns parsed (first page): ' + turns.length);
+      ctx.coworkCursor = events.next_cursor || null;
     }
-    ctx.api = { tokens: Number.isFinite(used) ? used : 0, chars: null, messages: evCount, human: turns.length, assistant: null, turns, exact: Number.isFinite(used) };
+    ctx.api = { cowork: true, tokens: Number.isFinite(used) ? used : 0, chars: null, messages: evCount, human: turns.length, assistant: null, turns, exact: Number.isFinite(used) };
     ctx.apiState = Number.isFinite(used) ? 'ok (cowork, exact)' : 'ok (cowork record, no token count)';
     console.log('[CONTEXA] cowork — context ' + (Number.isFinite(used) ? used + ' tokens (exact)' : 'unknown') + ', ' + evCount + ' events, ' + turns.length + ' user turn(s)');
     if (Number.isFinite(used) && used > (ctx.thread || 0)) {
@@ -670,8 +719,15 @@
   /* The session for a call: the page's API when it answered with more than
      the DOM holds, else the DOM. Logged either way, because which one fed the
      model is the first thing to know about any row. */
-  function sessionTurns(ctx) {
+  async function sessionTurns(ctx) {
     const dom = captureTurns();
+    if (ctx && ctx.api && ctx.api.cowork) {
+      /* On demand, not at render: a long Cowork session is many pages of
+         fifty events, and only a click needs the whole set. Follows
+         next_cursor; a page that fails ends the walk and what was read
+         stands. */
+      try { await coworkTurns(ctx); } catch (e) { console.log('[CONTEXA] cowork — event walk stopped: ' + (e && e.message)); }
+    }
     const api = ctx && ctx.api && Array.isArray(ctx.api.turns) ? ctx.api.turns : null;
     if (api && api.length > dom.length) {
       console.log('[CONTEXA] session — from the page API:', api.length, 'turn(s) (DOM held', dom.length + ')');
@@ -679,6 +735,28 @@
     }
     console.log('[CONTEXA] session — from the DOM:', dom.length, 'turn(s)');
     return dom;
+  }
+  const COWORK_MAX_PAGES = 40;
+  async function coworkTurns(ctx) {
+    if (ctx.api.walked) return;
+    const cw = location.pathname.match(COWORK_RE);
+    if (!cw) return;
+    const base = '/v1/code/sessions/' + cw[1] + '/events';
+    let cursor = ctx.coworkCursor, pages = 0;
+    const turns = ctx.api.turns.slice();
+    while (cursor && pages < COWORK_MAX_PAGES) {
+      const page = await apiJson(base + '?cursor=' + encodeURIComponent(cursor), codeHeaders());
+      const arr = firstArray(page);
+      for (const ev of arr) {
+        if (!isUserEvent(ev)) continue;
+        const text = clampTurn(eventText(ev).trim());
+        if (text) turns.push({ i: turns.length + 1, text });
+      }
+      cursor = page.next_cursor || null; pages++;
+    }
+    ctx.api.turns = turns; ctx.api.human = turns.length; ctx.api.walked = true;
+    if (ctx.coworkShape) ctx.coworkShape.push('user turns after ' + (pages + 1) + ' page(s): ' + turns.length);
+    refreshDiag(ctx);
   }
   /* Runs after the trigger card is drawn with the rendered estimate. If the
      page's API answers and says the thread is bigger, the label row is redrawn
@@ -841,7 +919,7 @@
 
     let resp = null, thrown = null;
     try {
-      const turns = sessionTurns(ctx);
+      const turns = await sessionTurns(ctx);
       console.log('[CONTEXA] fork — session', turns.length, 'turn(s), thread ≈', ctx.thread, 'tokens');
       resp = await chrome.runtime.sendMessage({ type: 'fork', reply: ctx.reply, turns });
     } catch (e) { thrown = String(e && e.message || e); }
@@ -1049,7 +1127,7 @@
       /* 0.9.77 — the page's API when it answered, else captureTurns(); the
          build guard still wants the DOM read named here, and it is the
          fallback sessionTurns takes. */
-      const turns = sessionTurns(ctx);
+      const turns = await sessionTurns(ctx);
       /* The one line that separates "the model ignored the session" from "the
          page never had the session". Without it the two produce byte-identical
          console output, which is how a capture bug survived a field test: the

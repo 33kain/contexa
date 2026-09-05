@@ -1616,10 +1616,11 @@ const TURNS = [
   const api = (c.match(/async function apiThread\(ctx\)[\s\S]*?\n  \}/) || [''])[0];
   t('the API read keeps the user\'s own messages, clamped like the DOM read', /msg\.sender === 'human'[\s\S]{0,120}clampTurn\(t\.trim\(\)\)/.test(api));
   t('and only those — replies are counted, never kept', !/assistant\+\+; [^\n]*turns\.push/.test(api) && /else assistant\+\+;/.test(api));
-  const st = (c.match(/function sessionTurns\(ctx\)[\s\S]*?\n  \}/) || [''])[0];
+  const st = (c.match(/async function sessionTurns\(ctx\)[\s\S]*?\n  \}/) || [''])[0];
   t('sessionTurns prefers the API only when it holds more than the DOM', /api\.length > dom\.length/.test(st) && /return fitTurns\(api\.map/.test(st));
+  t('sessionTurns is awaited at both call sites', (c.match(/const turns = await sessionTurns\(ctx\);/g) || []).length === 2);
   t('and falls back to the DOM read', /const dom = captureTurns\(\);/.test(st) && /return dom;/.test(st));
-  t('both calls read the session through it', (c.match(/const turns = sessionTurns\(ctx\);/g) || []).length === 2);
+  t('both calls read the session through it', (c.match(/const turns = await sessionTurns\(ctx\);/g) || []).length === 2);
   const ask = (c.match(/async function askNow\([\s\S]*?\n  \}/) || [''])[0];
   t('askNow still names captureTurns for the build guard', /captureTurns\(\)/.test(ask));
   t('the diag card tells pending, no id, failed and ok apart', /ctx\.apiState = 'pending'/.test(c) && /'no conversation id in '/.test(c) && /ctx\.apiState = 'failed: '/.test(c) && /ctx\.apiState = 'ok'/.test(c));
@@ -1653,10 +1654,10 @@ const TURNS = [
     /location\.pathname\.match\(COWORK_RE\);\s*if \(!cw\) return;/.test(cr) && /'\/v1\/code\/sessions\/' \+ cw\[1\]/.test(cr));
   t('the exact context count comes from context_usage.used_tokens', /context_usage/.test(cr) && /Number\(usage\.used_tokens\)/.test(cr));
   t('an exact count outranks the rendered estimate and redraws the row', /if \(Number\.isFinite\(used\) && used > \(ctx\.thread \|\| 0\)\)[\s\S]{0,300}refreshWeight\(anchor, ctx\)/.test(cr));
-  t('the user turns come from the events, user entries with text only', /role !== 'user'\) continue;/.test(cr) && /clampTurn\(eventText\(ev\)\.trim\(\)\)/.test(cr));
-  t('tool results are never a turn', /c\.some\(b => b && b\.type === 'tool_result'\)\) return '';/.test(c));
+  t('the user turns come from the events, user entries with text only', /if \(!isUserEvent\(ev\)\) continue;/.test(cr) && /clampTurn\(eventText\(ev\)\.trim\(\)\)/.test(cr));
+  t('tool results are never a turn', /\/tool_result\|tool_use\|attachment\|meta\/i\.test\(t\)\) return false;/.test(c));
   t('a failed record read is one line and the estimate stands', /failed \(cowork record\)/.test(cr) && /console\.log\('\[CONTEXA\] cowork — session record unavailable/.test(cr));
-  t('the diag carries the record and events key names, never text', /Object\.keys\(record \|\| \{\}\)/.test(cr) && /Object\.keys\(first\)/.test(cr) && !/JSON\.stringify\(record/.test(cr));
+  t('the diag carries the record and events key names, never text', /shapeOf\(record, 2\)/.test(cr) && /Object\.keys\(first\)/.test(cr) && !/JSON\.stringify\(record/.test(cr));
   t('refineThread hands a Cowork page to coworkRead', /if \(COWORK_RE\.test\(location\.pathname\)\) return coworkRead\(anchor, ctx\);/.test(c));
   const card = (c.match(/function renderBrief\([\s\S]*?\n  \}/) || [''])[0];
   t('on Cowork the fork chip copies the brief instead of opening /new', /onCowork \? 'Copy the brief for a new session'/.test(card) && /navigator\.clipboard\.writeText\(brief\)/.test(card));
@@ -1671,7 +1672,17 @@ const TURNS = [
   t('it records header names and anthropic-* values only', /names\.push\(k\)/.test(d) && /\^anthropic-/.test(d) && !/body/.test(d));
   t('and the status the page got', /' → ' \+ r\.status/.test(p));
   const c = readFileSync('./content.js', 'utf8');
-  t('our own session reads send anthropic-version', /CODE_HEADERS = \{ 'anthropic-version': '2023-06-01' \}/.test(c) && /apiJson\([^)]*, CODE_HEADERS\)/.test(c));
+  t('our own session reads send the page\'s own headers', /'anthropic-version': '2023-06-01'/.test(c) && /'anthropic-beta': 'ccr-byoc-2025-07-29'/.test(c) && /apiJson\([^)]*, codeHeaders\(\)\)/.test(c));
+}
+
+/* ---- 0.9.82 — the Cowork event stream's real shape ----------------------- */
+{
+  const c = readFileSync('./content.js', 'utf8');
+  t('a user event is named by its type or its payload role, never a tool event', /function isUserEvent\(ev\)[\s\S]{0,400}tool_result\|tool_use/.test(c) && /\/user\/i\.test\(t\) \|\| role === 'user'/.test(c));
+  t('event text is read from the payload', /const p = ev && ev\.payload && typeof ev\.payload === 'object' \? ev\.payload : ev;/.test(c));
+  t('the token count is found anywhere in the first levels of the record', /function findUsage\(o\)/.test(c) && /v\.context_usage\.used_tokens != null/.test(c));
+  t('the Cowork walk is on demand and bounded', /const COWORK_MAX_PAGES = 40;/.test(c) && /while \(cursor && pages < COWORK_MAX_PAGES\)/.test(c));
+  t('the diag names the event types and a user payload\'s shape', /'event types: '/.test(c) && /'user event payload: '/.test(c));
 }
 
 console.log(fails.length ? '\nFAILED: ' + fails.join(', ') : '\nall extension checks passed');

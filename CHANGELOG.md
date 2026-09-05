@@ -9,6 +9,22 @@ backend's live version separately so a deploy can be told from a no-op.
 
 ---
 
+## 0.9.82 — Extension (worker build number only)
+
+*Seventh card: both reads answer 200 with `anthropic-version`.* The record
+came back as one key, `response_shape`, with no count; the events came back
+as `data[]` of `{ event_type, payload, … }`, fifty a page with
+`next_cursor` — and the parser was looking for `type: 'user'`, so it found
+none. The session reads now send the full set of headers the page sends
+(read off the probe: an API version, a beta name, two client identifiers and
+the organisation id), the token count is found anywhere in the record's first
+levels, a user turn is an event whose type or payload role names the user,
+and the pages are walked on a click — never at render — following
+`next_cursor`, forty at most. The card says which event types the page holds
+and what a user payload looks like, in case this is still wrong.
+
+---
+
 ## 0.9.81 — Extension (worker build number only)
 
 *Sixth card: `page API: failed (cowork record): http_400`.* The page reads the
