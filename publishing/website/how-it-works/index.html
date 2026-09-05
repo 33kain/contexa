@@ -46,8 +46,8 @@
 <p class="stamp">Describes version 0.9.94. Names in monospace are identifiers in the code. The numbers are read from <code>worker/src/index.js</code> and, where the table says so, <code>extension/content.js</code>; the code stays the source when the two disagree.</p>
 
 <p>There are two moments, and only the second costs anything.</p>
-<p>The first is the reply finishing. The content script watches claude.ai's <code>data-is-streaming</code> attribute; when it flips to false (a 1.2 s settle timer is the fallback), the script copies the reply out of the page and stops. It draws one trigger above the message box. It makes no request and no model call. A reply you never ask about never leaves the page.</p>
-<p>The second is you pressing that trigger. Only now does it read your own messages off the page and send them with the reply to the backend, or, with your own key, straight to Anthropic. The model returns candidate moves, two gates check each one, and what survives is a row of at most four. If nothing survives, there is no row.</p>
+<p>The first is the reply finishing. The content script watches claude.ai's <code>data-is-streaming</code> attribute; when it flips to false (a 1.2 s settle timer is the fallback), the script copies the reply out of the page and stops. It draws one trigger above the message box, and, to size the thread, asks claude.ai's own API from your browser how large the conversation is (<code>refineThread</code>; on a Cowork session, <code>coworkRead</code> takes the exact token count from the session record). That reading stays on your device. It makes no request to the backend and no model call. A reply you never ask about never leaves the page.</p>
+<p>The second is you pressing that trigger. Only now does it read your own messages, through the same API, and send them with the reply to the backend, or, with your own key, straight to Anthropic. The model returns candidate moves, two gates check each one, and what survives is a row of at most four. If nothing survives, there is no row.</p>
 
 <h2 id="pipeline">The pipeline</h2>
 <pre>claude.ai reply finishes
@@ -71,7 +71,7 @@ you click the trigger
                    └─ you click one; its whole prompt lands in the box</pre>
 
 <h2 id="what-is-read">What is read, and how much</h2>
-<p>The capture is every <code>[data-testid="user-message"]</code> on the page, read at the moment you press. Claude's earlier replies are not read; only the reply you pressed under is. The session is then trimmed to fit, by a policy with a wrong answer that still looks right. The first captured message is pinned: it is the closest thing to a stated goal, and a conversation read without its opening has lost the point of itself. When the budget is exceeded, the oldest <em>middle</em> messages go first, whole messages only, down to a floor of two. A window that kept the last <em>n</em> messages would have tested perfectly and silently decapitated every long session.</p>
+<p>The capture is your own messages in the conversation, read at the moment you press through claude.ai's conversation API (<code>apiThread</code>), because the page keeps only the rows near where you are and unloads the rest. On a Cowork session, which is a Claude Code Remote session, <code>coworkTurns</code> reads the first page of the event stream, where the goal is, and the last three thousand events, where the present is. If the API does not answer, every <code>[data-testid="user-message"]</code> still on the page is the fallback. Claude's earlier replies are not read; only the reply you pressed under is. The session is then trimmed to fit, by a policy with a wrong answer that still looks right. The first captured message is pinned: it is the closest thing to a stated goal, and a conversation read without its opening has lost the point of itself. When the budget is exceeded, the oldest <em>middle</em> messages go first, whole messages only, down to a floor of two. A window that kept the last <em>n</em> messages would have tested perfectly and silently decapitated every long session.</p>
 <div class="scroll">
 <table>
   <caption>Limits, and where each one binds</caption>
@@ -115,9 +115,27 @@ own key   extension → api.anthropic.com
 <h2 id="box">What lands in the box</h2>
 <p>Clicking a move puts its whole prompt in the message box in one step, as a single block of text. If you already have a draft there, the prompt goes below it; nothing you typed is replaced. Nothing is sent; you edit and send it yourself. Picking costs nothing, because the messages arrived already written. Everything the model returns (labels, texts, evidence) is rendered as text, never as markup, because it is generated text drawn into a third-party page. The row for a reply is kept in the extension's session storage (<code>chrome.storage.session</code>: gone when the browser closes, sixty entries, oldest out, errors never kept), so pressing twice under the same reply does not spend twice.</p>
 
+<h2 id="start-fresh">Start fresh: the exit from a thread</h2>
+<p>The moves are ways into the thread you are in. Start fresh is the way out, and it is drawn only when there is a thread worth leaving. <code>threadTokens</code> sizes the conversation (the API count when it answers, the page at four characters per token when it does not); past <code>LONG_THREAD_TOKENS</code>, 12,000, the card's label row carries the number re-read on every send and the control. Pressing it reads the session exactly as a press for moves does and asks for a brief instead: <code>FORK_SYSTEM</code>, byte-identical on both paths like the moves prompt, returns the goal, what is settled, what is open, in a few hundred tokens, capped at <code>FORK_MAX_TOKENS</code>, 2,000. A brief cut at the ceiling is salvaged at a clean line and marked partial, never padded. It spends one of the day's twenty.</p>
+<p>The brief renders as one chip. Clicking it parks the brief with the service worker (<code>stageBrief</code>, session storage, two-minute life, consumed on read) and opens the new conversation: <code>claude.ai/new</code> for a chat, or on Cowork the session's project page, whose address is the session record's <code>chat_project_id</code> decoded (it is the project's uuid in base58). The content script loading there finds a message box with no messages and puts the brief in it, unsent. No URL carries the text.</p>
+<p>Why this is the control that earns a place, in numbers from one working day of one session on the API:</p>
+<div class="scroll">
+<table>
+  <caption>One working day in one session: what the model read against what it wrote</caption>
+  <thead><tr><th scope="col">Tokens</th><th scope="col">Count</th></tr></thead>
+  <tbody>
+    <tr><th scope="row">Re-read from cache, every turn</th><td>96,300,000</td></tr>
+    <tr><th scope="row">Written by the model</th><td>470,000</td></tr>
+    <tr><th scope="row">Ratio</th><td>200 to 1</td></tr>
+  </tbody>
+</table>
+</div>
+<p>Cached re-reads are billed at a tenth of the input price and still made up 58% of that day's cost. The subscription limit discounts them too, and still counts them: five messages in a 689k-token session spent 9% of the five-hour limit, the same five after Start fresh 3%. The measurement and its caveats are on <a href="/#tokens">the overview</a> and in the handoff.</p>
+
 <h2 id="known-limits">Known limits</h2>
 <ul>
-  <li>On a very long conversation claude.ai keeps only the rows near where you are in the page and unloads the rest, so the capture sees the tail, not the whole conversation. The numbering the model sees starts at the earliest message still on the page, not at the first message of the conversation, and the prompt says so: the earliest message it is given "is not guaranteed to be the conversation's true first", and it is told to "treat it as the oldest thing you can see rather than as the beginning". The extension logs to the browser console how many messages it read and their positions, so a short contiguous run on a long conversation can be recognised as a truncated read.</li>
+  <li>The conversation is read through claude.ai's own API, which is not a published interface: if it changes, the read falls back to the page, which keeps only the rows near where you are, and the capture then sees the tail, not the whole conversation. The prompt is written for that case: the earliest message it is given "is not guaranteed to be the conversation's true first", and it is told to "treat it as the oldest thing you can see rather than as the beginning". The diagnostic card (three taps on any card) says which source answered and how much it read.</li>
+  <li>The brief is a summary. What it does not carry is gone from the new thread, and on a thread where every detail still matters the right move is to stay.</li>
   <li>The selectors for claude.ai's own elements are pinned constants. If claude.ai changes its structure, the extension goes quiet rather than breaking the page.</li>
   <li>The action gate's verb list is an allowlist, so a good move with a verb it does not know is dropped. The list is extended as drops are read; the reading is on <a href="/notes/">Notes</a>.</li>
   <li>Zero moves is a real outcome. How often a press earns nothing in real use is what the field test is measuring.</li>
