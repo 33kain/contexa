@@ -185,7 +185,9 @@ Full policy: [`publishing/PRIVACY.md`](publishing/PRIVACY.md)
 
 ## Design notes
 
-Things learned the hard way, kept deliberately:
+Things learned the hard way, kept deliberately. The rule they all serve is
+*every token earned*, argued in full in
+[`docs/token-savings-thesis.md`](docs/token-savings-thesis.md):
 
 - **Zero is a product outcome.** Nothing earned, nothing said. There is no floor,
   no fallback suggestion and no minimum count — and no ceiling either. Every

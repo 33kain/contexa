@@ -92,6 +92,7 @@ scripts/promo/        renders the store promo tiles into store-assets/ from an H
 scripts/website/      renders the site's social preview and touch icon into publishing/website/ from an HTML source
 scripts/archive/      one-off scripts from closed investigations — not part of the workflow
 docs/history-mining-audit.md   the pre-pivot audit, annotated with what was overruled afterwards
+docs/token-savings-thesis.md   the token-savings thesis ("every token earned"): which rules save tokens, where each lives, and the gaps
 docs/archive/         shipped planning docs and specs, kept for provenance only
 ```
 
