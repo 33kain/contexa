@@ -863,6 +863,7 @@
         : 'page API: ' + (ctx.apiState || 'not asked yet'),
       'user turns in DOM: ' + turns.length + ', last three: ' + (lastThree.join('/') || '-') + ' chars',
       'model on page: ' + (pageModel() || 'not found') + '; reply ' + ((ctx.reply || '').length) + ' chars',
+      ...(COWORK_RE.test(location.pathname) ? ['project link on page: ' + (coworkProjectUrl(ctx) || 'none') + '; record project id: ' + (ctx.coworkProject || 'none')] : []),
       ...(ctx.lastError ? ['last error (' + ctx.lastError.call + '): ' + ctx.lastError.code + (ctx.lastError.diag ? ' ' + JSON.stringify(ctx.lastError.diag) : '') + (ctx.lastError.detail ? ' ' + String(ctx.lastError.detail).slice(0, 120) : '')] : []),
       ...(ctx.coworkShape ? ['cowork session API:\n  ' + ctx.coworkShape.join('\n  ')] : []),
     ];
@@ -1025,6 +1026,21 @@
      new-session screen's address is known, the Cowork fork opens nothing and
      the landing (collectBrief) catches the brief wherever that screen is. */
   const COWORK_PROJECT_URL = 'https://claude.ai/cowork/project/';
+  /* 0.9.89 — the fourteenth card: the record's chat_project_id is a
+     claude_proj_… id, and the project page's address is a different id, the
+     project's uuid, which the record does not carry. The session page itself
+     links to its project (the breadcrumb), with the exact address the user
+     is taken to — so that link is the source, read at click time. The record's
+     id is used only when no link exists and it already looks like the page's
+     kind of id; otherwise the chip copies, which cannot fail. */
+  function coworkProjectUrl(ctx) {
+    for (const a of document.querySelectorAll('a[href]')) {
+      let u; try { u = new URL(a.getAttribute('href'), location.href); } catch { continue; }
+      if (u.origin === location.origin && /^\/cowork\/project\/[A-Za-z0-9_-]{8,}\/?$/.test(u.pathname)) return u.origin + u.pathname;
+    }
+    const id = ctx && ctx.coworkProject;
+    return id && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f-]{23}$/i.test(id) ? COWORK_PROJECT_URL + id : null;
+  }
   function renderBrief(anchor, ctx, brief, briefTokens) {
     const wrap = shell(anchor, 'brief');
     if (!wrap) return;
@@ -1042,7 +1058,7 @@
        drive. So the chip copies the brief and says so — one paste, which is
        the smallest honest step until a new session can be opened with it. */
     const onCowork = COWORK_RE.test(location.pathname);
-    const projectUrl = onCowork && ctx.coworkProject ? COWORK_PROJECT_URL + encodeURIComponent(ctx.coworkProject) : null;
+    const projectUrl = onCowork ? coworkProjectUrl(ctx) : null;
     chip.textContent = projectUrl ? 'Open a new Cowork session with it' : onCowork ? 'Copy the brief for a new session' : 'Open a new chat with it';
     chip.title = brief;
     chip.addEventListener('click', async () => {

@@ -9,6 +9,19 @@ backend's live version separately so a deploy can be told from a no-op.
 
 ---
 
+## 0.9.89 — Extension (worker build number only)
+
+*Fourteenth card: "Couldn't load this project" at
+`/cowork/project/claude_proj_011CeA…`.* The record's `chat_project_id` is a
+`claude_proj_…` id; the project page's address is the project's uuid, which
+the record does not carry. The session page links to its own project in the
+breadcrumb, with the exact address, so `coworkProjectUrl` reads that link at
+click time; the record's id is used only when no link exists and it already
+looks like a uuid; otherwise the chip copies. The diag card says which it
+found.
+
+---
+
 ## 0.9.88 — Extension (worker build number only)
 
 *Thirteenth card: the brief landed by itself in the composer of

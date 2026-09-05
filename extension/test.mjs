@@ -1725,5 +1725,15 @@ const TURNS = [
   t('a project page is not an existing conversation', /EXISTING_RE = \/\^\\\/\(chat\\\/\[0-9a-f-\]\{36\}\|cowork\\\/cse_/.test(c));
 }
 
+/* ---- 0.9.89 — the project page's address comes from the page ------------ */
+{
+  const c = readFileSync('./content.js', 'utf8');
+  const f = (c.match(/function coworkProjectUrl\(ctx\)[\s\S]*?\n  \}/) || [''])[0];
+  t('the project link is read off the session page, same origin, exact path shape', /a\[href\]/.test(f) && /u\.origin === location\.origin/.test(f) && /cowork\\\/project\\\/\[A-Za-z0-9_-\]\{8,\}/.test(f));
+  t('the record\'s id is a fallback only when it looks like the page\'s kind of id', /\^\[0-9a-f\]\{8\}-\[0-9a-f\]\{4\}-\[0-9a-f-\]\{23\}\$/.test(f) && /: null;/.test(f));
+  t('the chip resolves the address at click time', /const projectUrl = onCowork \? coworkProjectUrl\(ctx\) : null;/.test(c));
+  t('and the diag says what it found', /'project link on page: '/.test(c));
+}
+
 console.log(fails.length ? '\nFAILED: ' + fails.join(', ') : '\nall extension checks passed');
 process.exit(fails.length ? 1 : 0);
