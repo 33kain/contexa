@@ -120,6 +120,29 @@ const fnsWrk = grabFns(wrkForPrompts);
 if (!fnsExt || !fnsWrk) fails.push('could not locate the v2 helpers in one of the two copies');
 else if (fnsExt !== fnsWrk) fails.push('DRIFT: cleanTurns/cleanMoves/groundMoves differ between extension and worker');
 
+/* The cost-parity helpers. cachedSystem is why an own-key press and a hosted
+   press cost the same; usageOf is how anyone can tell. Until 0.9.72 the
+   extension had neither, and no product test could see it — the row is the same
+   whether the prefix was cached or billed in full — so the check is byte-identity
+   on the source, like the pipeline above, plus proof that each copy is actually
+   on the wire: a cachedSystem that exists but is not passed is the 0.9.71 gap
+   wearing a fix's name. */
+{
+  const grabFn = (s, name) => {
+    const m = s.match(new RegExp('function ' + name + '\\([\\s\\S]*?\\n\\}\\n'));
+    return m ? m[0] : null;
+  };
+  for (const name of ['cachedSystem', 'usageOf']) {
+    const e = grabFn(outBg, name), w = grabFn(wrkForPrompts, name);
+    if (!e || !w) fails.push(`could not locate ${name} in one of the two copies`);
+    else if (e !== w) fails.push(`DRIFT: ${name} differs between extension and worker`);
+  }
+  if (!/system: cachedSystem\(system\)/.test(outBg))
+    fails.push('callClaude no longer sends the system prompt as a cached block - own-key users pay full price for the prefix');
+  if (!/system: cachedSystem\(MOVES_SYSTEM\)/.test(wrkForPrompts))
+    fails.push('the worker no longer sends the system prompt as a cached block');
+}
+
 /* The three-generation guards went with the negotiation they protected:
    LEGACY_STEPS_SYSTEM must-be-worker-only, and the extension must-send-its-
    version. Both were about serving old clients from one endpoint. There is one
@@ -193,6 +216,7 @@ if (fails.length) {
 
 console.log(`built ${OUT}/ — v${VERSION}, model ${modelExt}, backend ${BACKEND}`);
 console.log('  prompt identical across extension and worker ✓');
+console.log('  cachedSystem/usageOf identical and on the wire on both paths ✓');
 
 
 /* --- zip, with manifest.json at the ARCHIVE ROOT --------------------------- */
