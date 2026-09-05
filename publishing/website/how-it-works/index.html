@@ -22,7 +22,7 @@
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
 <meta property="og:image:type" content="image/png">
-<meta property="og:image:alt" content="The CONTEXA mascot, a teal rounded shape with two wide eyes, beside the words: Claude prompts, without the writing">
+<meta property="og:image:alt" content="The CONTEXA mascot, a teal rounded shape with two wide eyes, beside the words: Every token earned">
 <meta name="twitter:card" content="summary_large_image">
 </head>
 <body>
@@ -34,7 +34,7 @@
   </svg>
   <div>
     <a class="name" href="/">CONTEXA</a>
-    <p class="tagline">Claude prompts, without the writing</p>
+    <p class="tagline">Every token earned</p>
   </div>
 </header>
 <nav class="site" aria-label="Site">
@@ -43,7 +43,7 @@
 
 <main id="main">
 <h1>How it works</h1>
-<p class="stamp">Describes version 0.9.70. Names in monospace are identifiers in the code. The numbers are read from <code>worker/src/index.js</code> and, where the table says so, <code>extension/content.js</code>; the code stays the source when the two disagree.</p>
+<p class="stamp">Describes version 0.9.71. Names in monospace are identifiers in the code. The numbers are read from <code>worker/src/index.js</code> and, where the table says so, <code>extension/content.js</code>; the code stays the source when the two disagree.</p>
 
 <p>There are two moments, and only the second costs anything.</p>
 <p>The first is the reply finishing. The content script watches claude.ai's <code>data-is-streaming</code> attribute; when it flips to false (a 1.2 s settle timer is the fallback), the script copies the reply out of the page and stops. It draws one trigger above the message box. It makes no request and no model call. A reply you never ask about never leaves the page.</p>
@@ -130,7 +130,7 @@ own key   extension → api.anthropic.com
 <footer class="site">
   <p>CONTEXA is an independent project. It is not affiliated with, endorsed by, or sponsored by Anthropic.</p>
   <p><a href="https://chromewebstore.google.com/detail/phhamigkjeeabbjncpmhkppkjccfglhb">Chrome Web Store</a> · <a href="https://github.com/33kain/contexa">Source on GitHub</a> · <a href="https://github.com/33kain/contexa/blob/main/LICENSE">MIT licence</a> · <a href="https://github.com/33kain/contexa/blob/main/publishing/PRIVACY.md">Privacy policy</a> · <a href="https://github.com/33kain/contexa/blob/main/CHANGELOG.md">Changelog</a></p>
-  <p class="muted">Version 0.9.70. This site is static files served from one origin: no fonts, scripts, images or analytics are loaded from anywhere else.</p>
+  <p class="muted">Version 0.9.71. This site is static files served from one origin: no fonts, scripts, images or analytics are loaded from anywhere else.</p>
 </footer>
 </body>
 </html>

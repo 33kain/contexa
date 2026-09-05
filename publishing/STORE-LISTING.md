@@ -21,11 +21,14 @@ history, which is all it was ever being kept for.
 ## Name — 45 char limit
 
 ```
-CONTEXA - Claude prompts, without the writing
+CONTEXA for Claude - Every token earned
 ```
 
-*45 characters — exactly on the limit, so any addition overflows.* Unchanged,
-and byte-identical to `name` in `extension/manifest.json`.
+*39 characters, six under the limit.* Byte-identical to `name` in
+`extension/manifest.json`. The line after the brand is the motto
+(`docs/token-savings-thesis.md`); "Claude" stays in the name because it is the
+single most obvious search term, and "for Claude" is the third-party form —
+the product is not first-party and the description says so.
 
 Do not put Anthropic's wordmark or logo on any store asset, and do not let the
 name read as first-party. The reasoning is in `SUBMISSION.md` § "The name, and
