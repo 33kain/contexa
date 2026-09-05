@@ -93,9 +93,14 @@ function handlePost(input, cfg) {
     text = isShell ? [resp.stdout, resp.stderr].filter(Boolean).join('\n') : JSON.stringify(resp);
   }
 
+  /* `id` and `transcript` (0.1.0, for brake 4): the tool_use_id is how a ledger row joins the transcript's
+     tool_result exactly, and transcript_path is where that transcript is — Claude Code hands both over on
+     stdin, so the report never has to guess a path or match on a command string. */
   const rec = {
     ev: 'post', session: input.session_id, tool, chars: text.length,
-    what: isShell ? short(ti.command, 120) : (ti.file_path || ti.pattern || ti.url || ti.description || undefined)
+    what: isShell ? short(ti.command, 120) : (ti.file_path || ti.pattern || ti.url || ti.description || undefined),
+    id: input.tool_use_id || undefined,
+    transcript: input.transcript_path || undefined
   };
 
   if (!isShell || text.length <= cfg.maxChars) {

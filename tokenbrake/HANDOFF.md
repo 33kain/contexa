@@ -19,14 +19,15 @@ Brakes don't raise anyone's cap. They cut the share of the cap that goes to wast
 | 1 | Bash-output guard hooks | npm package (`tokenbrake`) | **built, live-verified on Linux** (Claude Code 2.1.261) |
 | 2 | Fork thread with summary | CONTEXA | **built in 0.9.73**, not field-tested |
 | 3 | Send-cost preview + long-thread warning | CONTEXA | **built in 0.9.73** (cost line only; no peak-window indicator, no usage-page read) |
-| 4 | What's eating your tokens | JSONL monitor | spec'd only |
+| 4 | What's eating your tokens | `tokenbrake report` | **built**, run on one real 64-request session |
 | 5 | Batch + model-routing nudge | CONTEXA | spec'd only |
 
 Shared plumbing across all five: one Worker backend, one token-estimation module
 (`chars/4` is accurate enough for warnings), one settings/telemetry schema.
 
 Ship order: 1 → (2 + 3 as one CONTEXA release) → 4 → 5. Brakes 2 + 3 shipped as CONTEXA 0.9.73 on 2026-09-05
-(worker deployed; extension awaits the Chrome Web Store). Next: brake 4.
+(worker deployed; extension awaits the Chrome Web Store). Brake 4 built the same day as `tokenbrake report`.
+Next: brake 5, and publishing tokenbrake.
 
 ---
 
@@ -127,12 +128,14 @@ from the model's reply.
 `~/.claude/tokenbrake/ledger.jsonl`, one JSON object per line:
 
 ```
-{ t, ev, session, tool, chars, what }              // ev: "post"
-{ t, ev, session, tool, chars, kept, what, saved } // ev: "post", trimmed
-{ t, ev, session, tool, what, bytes, lines }       // ev: "read-cap"
+{ t, ev, session, tool, chars, what, id, transcript }              // ev: "post"
+{ t, ev, session, tool, chars, kept, what, saved, id, transcript } // ev: "post", trimmed
+{ t, ev, session, tool, what, bytes, lines }                       // ev: "read-cap"
 ```
 
-Brake 4 is a reader over this file plus the Claude Code transcript JSONL — not a new collector.
+`id` is the tool_use_id and `transcript` the transcript_path, both from the hook's stdin (added for brake 4;
+rows from before that lack them and the report falls back to matching on tool + what). Brake 4 is a reader
+over this file plus the Claude Code transcript JSONL — not a new collector.
 
 ---
 
@@ -197,9 +200,22 @@ fragile, and outside what the extension does today), and the peak-window indicat
 this spec pointed at does not exist in the CONTEXA repository. Both stay open and are recorded as such in the
 0.9.73 changelog.
 
-**4. What's eating your tokens (JSONL monitor).** Rank tool results by context consumed within a session:
-the `cat` of a 4,000-line file, the test run that dumped 30k tokens. Per-session breakdown, not a burn rate.
-This is the gap reviewers name and nobody fills. Reads the tokenbrake ledger + transcript JSONL.
+**4. What's eating your tokens — built, as `tokenbrake report` (`transcript.js`).** Reads the Claude Code
+session transcript (`<config>/projects/<cwd>/<session>.jsonl`) plus the ledger. The number it ranks by is
+**carried context**: a result's size × the later requests that re-read it (until a compaction), because a
+result is not paid for once. Transcript facts, checked on Claude Code 2.1.261 and not to be re-derived: one
+API request spans several `assistant` entries sharing a `requestId` (dedupe by it, usage is identical across
+them); tool results are `user` entries whose `message.content` holds `tool_result` blocks with the exact text
+the model saw; `tool_use_id` joins them to the `tool_use` block in an `assistant` entry, which carries the tool
+name and input; `isSidechain` marks subagent lines (skip); compaction lands as a user message with
+`isCompactSummary: true` (older files: a `summary` line). The API's usage on every request is the whole
+context (input + cache read + cache write), so the sum over requests is what the session processed and the
+last request's figure is what the context holds now. First real run, this repo's own build session: 64
+requests, 100 tool results, 15.4M tokens processed (96% from cache), ≈ 457k in context, and the three
+heaviest results were unbounded reads of persisted tool output at 13–15k tokens each, carried 25 times —
+exactly the class brake 1's Read cap exists for. The ledger gained `id` (tool_use_id) and `transcript`
+(transcript_path) so the join is exact rather than by command string. Not built: anything live or
+cross-session; it is a per-session report on purpose.
 
 **5. Batch + model nudge (CONTEXA).** Three short follow-ups in a row → offer to merge into one turn.
 Simple fragment (ŠRAF classification already knows) → suggest Sonnet before sending.

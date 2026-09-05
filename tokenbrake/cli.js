@@ -7,6 +7,8 @@ const path = require('path');
 const os = require('os');
 const { spawnSync } = require('child_process');
 
+const transcript = require('./transcript.js');
+
 const CFG_DIR = process.env.CLAUDE_CONFIG_DIR || path.join(os.homedir(), '.claude');
 const TB_DIR = path.join(CFG_DIR, 'tokenbrake');
 const LEDGER = path.join(TB_DIR, 'ledger.jsonl');
@@ -135,7 +137,54 @@ function loadLedger() {
 const tok = (c) => Math.round(c / 4); // rough: ~4 chars per token for code/logs
 const fmt = (n) => n.toLocaleString();
 
+/* Brake 4 — what's eating your tokens. Transcript-first: the Claude Code session transcript holds every
+   tool result exactly as the model saw it and the API's usage per request, so the ranking comes from there;
+   the ledger says which of those results the guard trimmed. Falls back to the ledger-only report when no
+   transcript can be found (an older Claude Code, a different config dir), and --ledger asks for that
+   directly. --all lists sessions; --session=<prefix> or --transcript=<path> picks one; --top=N widens
+   the ranking. */
 function report() {
+  if (flag('--ledger')) return ledgerReport();
+  const opt = (name) => { const a = args.find(x => x.startsWith(name + '=')); return a ? a.slice(name.length + 1) : null; };
+  const top = Number(opt('--top') || 10) || 10;
+  const ledger = loadLedger();
+  let file = opt('--transcript');
+  const found = transcript.findTranscripts(CFG_DIR);
+  if (!file) {
+    const want = opt('--session');
+    if (flag('--all')) {
+      if (!found.length) { console.log('No transcripts found under ' + path.join(CFG_DIR, 'projects') + '. Try --transcript=<path>, or --ledger for the trimming record alone.'); return; }
+      console.log('Sessions, newest first (' + found.length + '):');
+      for (const f of found.slice(0, 30)) {
+        try { console.log(transcript.renderSummaryLine(transcript.parseTranscript(f.file))); } catch (e) { console.log('  ' + f.session.slice(0, 8) + '…  unreadable: ' + e.message); }
+      }
+      console.log('\nOpen one with: tokenbrake report --session=<prefix>');
+      return;
+    }
+    if (want) {
+      const hit = found.find(f => f.session.startsWith(want));
+      if (!hit) { console.log('No transcript whose session id starts with ' + want + '. tokenbrake report --all lists them.'); return; }
+      file = hit.file;
+    } else {
+      /* The last session the ledger saw, if its transcript is known; else the newest transcript on disk. */
+      const lastRow = [...ledger].reverse().find(r => r && r.transcript && fs.existsSync(r.transcript));
+      file = lastRow ? lastRow.transcript : (found[0] && found[0].file);
+    }
+  }
+  if (!file) {
+    if (!ledger.length) { console.log('No transcript and no ledger yet. Run a Claude Code session with tokenbrake installed, then try again.'); return; }
+    console.log('No transcript found under ' + path.join(CFG_DIR, 'projects') + ' — showing the ledger alone.\n');
+    return ledgerReport();
+  }
+  let parsed;
+  try { parsed = transcript.parseTranscript(file); } catch (e) { console.log('Could not read ' + file + ': ' + e.message); return; }
+  console.log(transcript.renderReport(parsed, ledger, { top }));
+  console.log('\n' + (found.length > 1 ? found.length + ' sessions on disk; --all lists them. ' : '') + 'Sizes are chars/4 estimates; the usage line is what the API reported.');
+}
+
+/* The 0.1.0-era ledger-only report, kept for machines where no transcript is readable: what the guard
+   itself saw and trimmed, by tool and by size. */
+function ledgerReport() {
   let recs = loadLedger();
   if (!recs.length) { console.log('No ledger yet. Run a Claude Code session with tokenbrake installed, then try again.'); return; }
   const sessions = [...new Set(recs.map(r => r.session).filter(Boolean))];
@@ -192,7 +241,12 @@ function help() {
                                       or plain 'node' for --project so the file stays shareable)
   npx tokenbrake uninstall [--project]
   npx tokenbrake status               shows what is installed and spawns each hook once, as Claude Code would
-  npx tokenbrake report [--all]       what ate your tokens last session
+  npx tokenbrake report               what ate your tokens last session: every tool result ranked by
+                                      the context it was carried through (size × later requests), from
+                                      the Claude Code transcript, with what tokenbrake trimmed
+      --all                           one line per session on disk, newest first
+      --session=<prefix>              a particular session;  --transcript=<path> a particular file
+      --top=N                         widen the ranking (default 10);  --ledger  the guard's own record only
   npx tokenbrake clean [--days=7]     delete saved full outputs older than N days`);
 }
 

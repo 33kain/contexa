@@ -41,10 +41,24 @@ already specify a range are untouched. Images, PDFs and notebooks are skipped.
 **Ledger** (every tool result). Size of each result is appended to `~/.claude/tokenbrake/ledger.jsonl`. Nothing
 leaves your machine.
 
+## What ate your tokens
+
 ```
-npx tokenbrake report          # last session: totals, by-tool share, top 10 heaviest results
-npx tokenbrake report --all
+npx tokenbrake report                     # last session
+npx tokenbrake report --all               # one line per session on disk
+npx tokenbrake report --session=<prefix>  # a particular one; --transcript=<path> for a file
+npx tokenbrake report --top=25            # widen the ranking
 ```
+
+A tool result is not paid for once. It is re-sent as context on every later request until the session
+compacts, so a 30k-token test dump at request 3 of 60 is read 57 times. `report` reads the Claude Code
+session transcript (every tool result exactly as the model saw it, and the API's usage per request) and
+ranks results by **size × the requests they were carried through** — which is the number that says which
+single `cat`, `Read` or test run to have trimmed, capped or never run. It also shows what the session
+processed in total, how much of that came from cache, what the context holds right now, and which of the
+results tokenbrake trimmed and what that kept out. Sizes are chars/4 estimates; the usage line is what the
+API reported. `--ledger` shows the guard's own record alone, which is also the fallback when no transcript
+can be found.
 
 ## Configure
 

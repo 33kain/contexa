@@ -164,8 +164,105 @@ const noisy = Array.from({ length: 400 }, (_, i) => {
 
 {
   console.log('\n-- report');
-  const r = cli(['report', '--all']);
-  t('report exits 0 and shows the trimmed session', r.status === 0 && /Trimmed by tokenbrake: [1-9]/.test(r.stdout) && /cat noisy\.txt/.test(r.stdout));
+  /* --ledger since brake 4: plain `report` is the transcript ranking now, and this config dir has no
+     transcript, only the guard's own rows. */
+  const r = cli(['report', '--ledger', '--all']);
+  t('report --ledger exits 0 and shows the trimmed session', r.status === 0 && /Trimmed by tokenbrake: [1-9]/.test(r.stdout) && /cat noisy\.txt/.test(r.stdout));
+}
+
+{
+  console.log('\n-- brake 4: the transcript report');
+  /* A synthetic transcript in the shape Claude Code 2.1.261 writes (see HANDOFF.md, "Transcript facts"):
+     four requests, each split over two assistant entries sharing a requestId; three tool results of known
+     size; a compaction before the last request; one sidechain line and one unreadable line to be skipped. */
+  const tr = await import('./transcript.js');
+  const T = tr.default || tr;
+  const line = (o) => JSON.stringify(o);
+  const usage = (n) => ({ input_tokens: 10 * n, cache_read_input_tokens: 1000 * n, cache_creation_input_tokens: 100 * n, output_tokens: 50 });
+  const asst = (rid, n, content) => [line({ type: 'assistant', requestId: rid, uuid: rid + '-a', sessionId: 'sess-abc', cwd: '/w', message: { model: 'm', usage: usage(n), content: content.slice(0, 1) } }),
+                                     line({ type: 'assistant', requestId: rid, uuid: rid + '-b', sessionId: 'sess-abc', cwd: '/w', message: { model: 'm', usage: usage(n), content: content.slice(1) } })];
+  const result = (id, text) => line({ type: 'user', uuid: id + '-r', sessionId: 'sess-abc', message: { role: 'user', content: [{ type: 'tool_result', tool_use_id: id, content: text }] }, toolUseResult: {} });
+  const lines = [
+    ...asst('req1', 1, [{ type: 'text', text: 'hi' }, { type: 'tool_use', id: 'tu1', name: 'Bash', input: { command: 'S=/tmp/x FOO=bar cd /w && npm test' } }]),
+    result('tu1', 'x'.repeat(4000)),                                                   // 1,000 tokens, after req 0
+    'this line is not json {',
+    line({ type: 'user', isSidechain: true, message: { content: [{ type: 'tool_result', tool_use_id: 'nope', content: 'y'.repeat(40000) }] } }),
+    ...asst('req2', 2, [{ type: 'text', text: 'ok' }, { type: 'tool_use', id: 'tu2', name: 'Read', input: { file_path: '/w/big.txt' } }]),
+    result('tu2', [{ type: 'text', text: 'z'.repeat(6000) }, { type: 'image', source: {} }]),   // 1,500 tokens, after req 1
+    ...asst('req3', 3, [{ type: 'text', text: 'and' }, { type: 'tool_use', id: 'tu3', name: 'Grep', input: { pattern: 'needle' } }]),
+    line({ type: 'user', isCompactSummary: true, message: { content: 'summary of everything so far' } }),
+    result('tu3', 'n'.repeat(400)),                                                    // 100 tokens, after req 2 (post-compaction)
+    ...asst('req4', 4, [{ type: 'text', text: 'done' }, { type: 'text', text: '.' }])
+  ];
+  const cfg = mkdtempSync(join(tmpdir(), 'tokenbrake-b4-'));
+  mkdirSync(join(cfg, 'projects', '-w'), { recursive: true });
+  const file = join(cfg, 'projects', '-w', 'sess-abc.jsonl');
+  writeFileSync(file, lines.join('\n') + '\n');
+
+  const p = T.carry(T.parseTranscript(file));
+  t('requests are deduped by requestId', p.requests.length === 4, String(p.requests.length));
+  t('sidechain and unreadable lines are skipped', p.results.length === 3, String(p.results.length));
+  t('the tool name and input come from the tool_use block', p.results[0].name === 'Bash' && p.results[1].name === 'Read' && p.results[2].name === 'Grep');
+  t('env assignments and the cd are stripped from the label', p.results[0].what === 'npm test', p.results[0].what);
+  t('a string result is measured at chars/4', p.results[0].tokens === 1000);
+  t('an array result counts its text blocks only', p.results[1].tokens === 1500);
+  t('compaction is recorded at the request it precedes', p.compactions.length === 1 && p.compactions[0] === 3);
+  t('a result after request 1 of 4 is carried through requests 2 and 3', p.results[0].carriedTurns === 2 && p.results[0].carried === 2000);
+  t('a result after request 2 stops being carried at the compaction', p.results[1].carriedTurns === 1 && p.results[1].carried === 1500);
+  t('a result after the compaction is carried by what follows it', p.results[2].carriedTurns === 1 && p.results[2].carried === 100);
+  const u = T.usageTotals(p);
+  t('usage is summed once per request, not once per entry', u.processed === (10 + 1000 + 100) * (1 + 2 + 3 + 4) && u.requestsWithUsage === 4, String(u.processed));
+  t('context now is the last request\'s whole context', u.contextNow === (10 + 1000 + 100) * 4);
+  t('cache reads are separated', u.cacheRead === 1000 * 10);
+
+  const ledger = [{ t: 1, ev: 'post', session: 'sess-abc', tool: 'Bash', chars: 4000, kept: 1200, what: 'S=/tmp/x FOO=bar cd /w && npm test', id: 'tu1', transcript: file },
+                  { t: 2, ev: 'post', session: 'other', tool: 'Bash', chars: 9000, kept: 1000, what: 'x', id: 'zzz' }];
+  const out = T.renderReport(p, ledger, { top: 5 });
+  t('the report names the session and the counts', /Session sess-abc/.test(out) && /4 requests, 3 tool results, 1 compaction/.test(out));
+  t('it reports processed context and the cache share', /Context processed: 11k tokens across 4 requests \(90% read from cache\)/.test(out), out.split('\n')[2]);
+  t('it reports what the context holds now', /Context now: ≈ 4k tokens/.test(out));
+  const rank = out.split('\n').filter(l => /^\s+\d/.test(l) && /(Bash|Read|Grep)/.test(l));
+  t('the ranking is by carried, not by size', /Bash/.test(rank[0]) && /Read/.test(rank[1]) && /Grep/.test(rank[2]), rank.join(' | '));
+  t('a trimmed result is marked from the ledger, joined by tool_use_id', /npm test.*\[trimmed from 1k\]/.test(rank[0]), rank[0]);
+  t('the other session\'s ledger row is not counted', /tokenbrake trimmed 1 of them/.test(out));
+  t('the savings line carries the trim through the turns it would have been re-read', /≈ 700 tokens kept out, ≈ 2k token-reads not carried/.test(out), out.split('\n').find(l => /kept out/.test(l)));
+  t('the advice names the heaviest untrimmed result the guard could act on', /One result to have brakes on: Read "\/w\/big.txt"/.test(out) && /offset\/limit/.test(out));
+  t('by-tool shares sum from carried', /Bash\s+1 calls\s+1k entered\s+2k carried\s+56%/.test(out), out.split('\n').find(l => /^  Bash/.test(l)));
+
+  const found = T.findTranscripts(cfg);
+  t('findTranscripts sees the session under projects/', found.length === 1 && found[0].session === 'sess-abc');
+  t('the one-line summary carries request count, processed and carried', /sess-abc…\s+4 req\s+11k processed\s+4k carried/.test(T.renderSummaryLine(p)), T.renderSummaryLine(p));
+
+  // through the CLI
+  const envB4 = { ...process.env, CLAUDE_CONFIG_DIR: cfg };
+  const run = (a) => spawnSync(process.execPath, [join(process.cwd(), 'cli.js'), 'report', ...a], { encoding: 'utf8', env: envB4 });
+  let r = run([]);
+  t('cli: report with no ledger picks the newest transcript', r.status === 0 && /Session sess-abc/.test(r.stdout), r.stdout.slice(0, 80));
+  r = run(['--all']);
+  t('cli: --all lists sessions', /Sessions, newest first \(1\)/.test(r.stdout) && /sess-abc…/.test(r.stdout));
+  r = run(['--session=sess-a']);
+  t('cli: --session picks by prefix', /Session sess-abc/.test(r.stdout));
+  r = run(['--session=nope']);
+  t('cli: an unknown session says so', /No transcript whose session id starts with nope/.test(r.stdout));
+  r = run(['--transcript=' + file, '--top=2']);
+  t('cli: --transcript and --top', /top 2:/.test(r.stdout) && !/Grep/.test(r.stdout.split('What ate it')[1].split('By tool')[0]));
+  mkdirSync(join(cfg, 'tokenbrake'), { recursive: true });
+  writeFileSync(join(cfg, 'tokenbrake', 'ledger.jsonl'), ledger.map(x => JSON.stringify(x)).join('\n') + '\n');
+  r = run([]);
+  t('cli: with a ledger, the last row\'s transcript path wins', /Session sess-abc/.test(r.stdout) && /\[trimmed from 1k\]/.test(r.stdout));
+  r = run(['--ledger']);
+  t('cli: --ledger is the guard\'s own record alone', /Trimmed by tokenbrake/.test(r.stdout) && !/carried/.test(r.stdout));
+  rmSync(join(cfg, 'projects'), { recursive: true, force: true });
+  r = run([]);
+  t('cli: no transcript falls back to the ledger with a note', /showing the ledger alone/.test(r.stdout) && /Trimmed by tokenbrake/.test(r.stdout));
+  rmSync(cfg, { recursive: true, force: true });
+  r = spawnSync(process.execPath, [join(process.cwd(), 'cli.js'), 'report'], { encoding: 'utf8', env: { ...process.env, CLAUDE_CONFIG_DIR: join(tmpdir(), 'tokenbrake-none-' + Date.now()) } });
+  t('cli: nothing at all says what to do', /No transcript and no ledger yet/.test(r.stdout));
+
+  // the guard now records the join keys
+  const g = spawnSync(process.execPath, ['./guard.js', 'post'], { input: JSON.stringify({ session_id: 's', tool_use_id: 'toolu_1', transcript_path: '/t/s.jsonl', tool_name: 'Bash', tool_input: { command: 'ls' }, tool_response: { stdout: 'a', stderr: '' } }), encoding: 'utf8', env: { ...process.env, CLAUDE_CONFIG_DIR: CFG } });
+  const last = readFileSync(join(CFG, 'tokenbrake', 'ledger.jsonl'), 'utf8').trim().split('\n').pop();
+  t('the ledger row carries the tool_use_id and the transcript path', g.status === 0 && /"id":"toolu_1"/.test(last) && /"transcript":"\/t\/s.jsonl"/.test(last), last.slice(0, 160));
 }
 
 rmSync(CFG, { recursive: true, force: true });
