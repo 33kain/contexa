@@ -63,6 +63,8 @@
 
 <h2 id="versions">By version, newest first</h2>
 <dl>
+  <dt><code>0.9.88</code></dt>
+  <dd>On a Cowork session, Start fresh now opens the session's project page and the brief lands in its composer by itself, which is what the field saw happen. The probe that found Cowork's endpoints is retired; the diagnostic card stays.</dd>
   <dt><code>0.9.87</code></dt>
   <dd>The first brief off a live Cowork session: 444 tokens instead of 124k per send, measured. And the landing stopped needing the new session's address: a parked brief lands on any claude.ai page that is not an existing conversation, has a message box and holds no messages yet.</dd>
   <dt><code>0.9.86</code></dt>
@@ -126,13 +128,13 @@
 </ul>
 
 <h2 id="status">Status</h2>
-<p>Version 0.9.87 is the number in the extension's manifest and in the worker's <code>BUILD</code> constant; the worker's <code>/v1/health</code> reports it with the model and the limit, so a deploy can be told from a no-op. The shipped model on both paths is <code>claude-sonnet-5</code>. The open questions of the field test are how often a press earns nothing, and how much of a long thread a brief actually replaces.</p>
+<p>Version 0.9.88 is the number in the extension's manifest and in the worker's <code>BUILD</code> constant; the worker's <code>/v1/health</code> reports it with the model and the limit, so a deploy can be told from a no-op. The shipped model on both paths is <code>claude-sonnet-5</code>. The open questions of the field test are how often a press earns nothing, and how much of a long thread a brief actually replaces.</p>
 </main>
 
 <footer class="site">
   <p>CONTEXA is an independent project. It is not affiliated with, endorsed by, or sponsored by Anthropic.</p>
   <p><a href="https://chromewebstore.google.com/detail/phhamigkjeeabbjncpmhkppkjccfglhb">Chrome Web Store</a> · <a href="https://github.com/33kain/contexa">Source on GitHub</a> · <a href="https://github.com/33kain/contexa/blob/main/LICENSE">MIT licence</a> · <a href="https://github.com/33kain/contexa/blob/main/publishing/PRIVACY.md">Privacy policy</a> · <a href="https://github.com/33kain/contexa/blob/main/CHANGELOG.md">Changelog</a></p>
-  <p class="muted">Version 0.9.87. This site is static files served from one origin: no fonts, scripts, images or analytics are loaded from anywhere else.</p>
+  <p class="muted">Version 0.9.88. This site is static files served from one origin: no fonts, scripts, images or analytics are loaded from anywhere else.</p>
 </footer>
 </body>
 </html>

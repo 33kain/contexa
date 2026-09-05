@@ -527,20 +527,10 @@
      when present, else from /api/organizations, trying each until one owns
      the conversation. Cached per conversation for the page's life. */
   const CONV_RE = /\/chat\/([0-9a-f-]{36})/i;
-  /* 0.9.78 — a Cowork session is a different page with a different API. Named
-     so the diagnostic can say so instead of "no conversation id"; the endpoint
-     itself is what the probe below is for. */
+  /* 0.9.78 — a Cowork session is a different page with a different API; see
+     coworkRead below and the endpoints recorded in tokenbrake/HANDOFF.md. */
   const COWORK_RE = /\/cowork\/([A-Za-z0-9_-]{8,})/;
   const apiCache = new Map();
-  /* The page's own API paths, from probe.js (main world) — strings only, kept
-     for the diagnostic card and nothing else. */
-  const apiPaths = [];
-  document.addEventListener('contexa-api-path', e => {
-    const p = e && e.detail;
-    if (typeof p === 'string' && p.length < 600 && apiPaths.length < 60 && !apiPaths.includes(p)) apiPaths.push(p);
-  });
-  const shortPath = p => p.replace(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f-]{23}/gi, '<uuid>').replace(/\/([a-z]+_[A-Za-z0-9]{6})[A-Za-z0-9]{6,}/g, '/$1…');
-
   /* 0.9.80 — the Cowork session, from the page's own session API.
      The fourth card named it: the page fetches /v1/code/sessions/<id> and
      /v1/code/sessions/<id>/events, same origin. A Cowork session is a Claude
@@ -615,26 +605,6 @@
     if (/tool_result|tool_use|attachment|meta/i.test(t)) return false;
     return /user/i.test(t) || role === 'user';
   }
-  /* 0.9.83 — does /events take a page size, and a starting sequence number?
-     Two GETs whose answers are a status and a count, nothing else: a limit of
-     500 (if honoured, one call reads ten pages), and from_sequence_num at a
-     number far beyond the end (a 200 with an empty page proves the parameter
-     is read; a 400 says it is not). The stream endpoint takes
-     from_sequence_num — the page's own call showed it — so the odds are good. */
-  async function probeEventParams(base, ctx) {
-    const out = [];
-    for (const q of ['?limit=500', '?from_sequence_num=999999999', '?from_sequence_num=1&limit=500']) {
-      try {
-        const r = await fetch(base + '/events' + q, { credentials: 'same-origin', headers: Object.assign({ accept: 'application/json' }, codeHeaders()) });
-        let n = '?';
-        if (r.ok) { try { const j = await r.json(); const a = firstArray(j); const sq = a.map(ev => ev && ev.sequence_num).filter(Number.isFinite);
-          n = 'n=' + a.length + (j.next_cursor ? ' more' : ' end') + (sq.length ? ' seq ' + Math.min(...sq) + '…' + Math.max(...sq) : '') + (j.resume_cursor != null ? ' resume=' + String(j.resume_cursor).slice(0, 12) : ''); } catch { n = 'not json'; } }
-        out.push('events' + q + ': ' + r.status + ' ' + n);
-      } catch (e) { out.push('events' + q + ': ' + String(e && e.message || e).slice(0, 30)); }
-    }
-    if (ctx.coworkShape) ctx.coworkShape.push(...out);
-    refreshDiag(ctx);
-  }
   async function coworkRead(anchor, ctx) {
     const cw = location.pathname.match(COWORK_RE);
     if (!cw) return;
@@ -647,6 +617,11 @@
        find context_usage anywhere in the first two levels, and say what the
        levels hold so the next card can correct this if it is still wrong. */
     const usage = findUsage(record);
+    /* 0.9.88 — the project the session belongs to. Its page,
+       /cowork/project/<id>, is the new-session screen: a composer and no
+       messages, which is exactly where the landing lets a parked brief in
+       (the thirteenth card: it did, by itself). So the fork chip can open it. */
+    ctx.coworkProject = (function find(o, d) { if (!o || typeof o !== 'object' || d > 3) return null; if (typeof o.chat_project_id === 'string' && o.chat_project_id) return o.chat_project_id; for (const k of Object.keys(o)) { const r = find(o[k], d + 1); if (r) return r; } return null; })(record, 0);
     const used = usage && Number(usage.used_tokens);
     ctx.coworkShape = ['record: ' + shapeOf(record, 2)
       + (usage ? ' context_usage=' + JSON.stringify({ used_tokens: usage.used_tokens, max_tokens: usage.max_tokens }) : ' (no context_usage found)')];
@@ -676,7 +651,6 @@
       if (pts != null) ctx.coworkShape.push('post_turn_summary: ' + (typeof pts === 'string' ? 'string(' + pts.length + ')' : shapeOf(pts, 2)));
       const seqs = arr.map(ev => ev && ev.sequence_num).filter(n => Number.isFinite(n));
       if (seqs.length) ctx.coworkShape.push('sequence_num on page 1: ' + Math.min(...seqs) + '…' + Math.max(...seqs));
-      probeEventParams(base, ctx);
       for (const ev of arr) {
         if (!isUserEvent(ev)) continue;
         const text = clampTurn(eventText(ev).trim());
@@ -706,7 +680,7 @@
     const m = location.pathname.match(CONV_RE);
     if (!m) {
       const cw = location.pathname.match(COWORK_RE);
-      if (ctx) ctx.apiState = cw ? 'cowork session ' + cw[1].slice(0, 12) + '… — endpoint not known yet; see paths below'
+      if (ctx) ctx.apiState = cw ? 'cowork session ' + cw[1].slice(0, 12) + '…'
         : 'no conversation id in ' + location.pathname.slice(0, 40);
       return null;
     }
@@ -891,7 +865,6 @@
       'model on page: ' + (pageModel() || 'not found') + '; reply ' + ((ctx.reply || '').length) + ' chars',
       ...(ctx.lastError ? ['last error (' + ctx.lastError.call + '): ' + ctx.lastError.code + (ctx.lastError.diag ? ' ' + JSON.stringify(ctx.lastError.diag) : '') + (ctx.lastError.detail ? ' ' + String(ctx.lastError.detail).slice(0, 120) : '')] : []),
       ...(ctx.coworkShape ? ['cowork session API:\n  ' + ctx.coworkShape.join('\n  ')] : []),
-      'page API paths seen (' + apiPaths.length + '):' + (apiPaths.length ? '\n  ' + [...apiPaths.filter(p => p.startsWith('req ')), ...apiPaths.filter(p => !p.startsWith('req '))].slice(0, 18).map(shortPath).join('\n  ') : ' none — probe not running?')
     ];
   }
   function refreshDiag(ctx) {
@@ -1051,7 +1024,7 @@
   /* claude.ai/cowork redirects to a product page (eleventh card). Until the
      new-session screen's address is known, the Cowork fork opens nothing and
      the landing (collectBrief) catches the brief wherever that screen is. */
-  const NEW_COWORK_URL = null;
+  const COWORK_PROJECT_URL = 'https://claude.ai/cowork/project/';
   function renderBrief(anchor, ctx, brief, briefTokens) {
     const wrap = shell(anchor, 'brief');
     if (!wrap) return;
@@ -1069,7 +1042,8 @@
        drive. So the chip copies the brief and says so — one paste, which is
        the smallest honest step until a new session can be opened with it. */
     const onCowork = COWORK_RE.test(location.pathname);
-    chip.textContent = onCowork ? 'Copy the brief for a new session' : 'Open a new chat with it';
+    const projectUrl = onCowork && ctx.coworkProject ? COWORK_PROJECT_URL + encodeURIComponent(ctx.coworkProject) : null;
+    chip.textContent = projectUrl ? 'Open a new Cowork session with it' : onCowork ? 'Copy the brief for a new session' : 'Open a new chat with it';
     chip.title = brief;
     chip.addEventListener('click', async () => {
       if (chip.disabled) return;
@@ -1080,8 +1054,8 @@
            the script loading THERE lands it if it finds a composer. */
         try { await navigator.clipboard.writeText(brief); } catch { /* the landing may still work */ }
         try { await chrome.runtime.sendMessage({ type: 'stageBrief', brief }); } catch (e) { if (isStaleError(e) || !contextAlive()) return goStale(anchor); }
-        if (NEW_COWORK_URL) window.open(NEW_COWORK_URL, '_blank', 'noopener');
-        chip.textContent = 'Copied — start a new Cowork session; the brief will land in its message box';
+        if (projectUrl) { window.open(projectUrl, '_blank', 'noopener'); chip.textContent = 'Opened a new Cowork session'; }
+        else chip.textContent = 'Copied — start a new Cowork session; the brief drops in';
         return;
       }
       let ok = false;
@@ -1113,7 +1087,10 @@
      so it happens only once those three hold — a page that is not the one
      leaves the brief parked for the next, within the two-minute TTL. */
   let pendingBrief = '', wantBrief = false, askedBrief = false, surelyNew = false;
-  const EXISTING_RE = /^\/(chat|cowork|project|code)\/[A-Za-z0-9_-]{8,}/;
+  /* An existing conversation: a chat, a Cowork session, a Code session. A
+     project page (/cowork/project/<id>) is not one — it is where a new
+     session starts, and where the field's first brief landed. */
+  const EXISTING_RE = /^\/(chat\/[0-9a-f-]{36}|cowork\/cse_[A-Za-z0-9]+|code\/session_[A-Za-z0-9]+)/;
   function collectBrief() {
     if (EXISTING_RE.test(location.pathname)) return;
     surelyNew = /^\/new\/?$/.test(location.pathname);   // a chat's /new is always empty

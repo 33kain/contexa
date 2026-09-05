@@ -56,7 +56,7 @@ if (!mf.host_permissions.includes(HOST)) mf.host_permissions.push(HOST);
 writeFileSync(join(OUT, 'manifest.json'), JSON.stringify(mf, null, 2) + '\n');
 
 /* --- everything else copies verbatim -------------------------------------- */
-for (const f of ['content.js', 'probe.js', 'options.html', 'options.js', 'README.md']) {
+for (const f of ['content.js', 'options.html', 'options.js', 'README.md']) {
   copyFileSync(join(SRC, f), join(OUT, f));
 }
 for (const f of readdirSync(join(SRC, 'icons'))) {
@@ -303,7 +303,7 @@ function zipEntries(entries) {
 }
 
 const zipName = `contexa-v${VERSION}.zip`;
-const shipFiles = ['manifest.json', 'background.js', 'content.js', 'probe.js', 'options.html', 'options.js', 'README.md'];
+const shipFiles = ['manifest.json', 'background.js', 'content.js', 'options.html', 'options.js', 'README.md'];
 const iconFiles = readdirSync(join(OUT, 'icons')).sort().map(f => 'icons/' + f);
 const entries = [...shipFiles, ...iconFiles].map(name => ({
   name, data: readFileSync(join(OUT, ...name.split('/')))

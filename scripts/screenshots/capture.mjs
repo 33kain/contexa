@@ -459,15 +459,12 @@ async function main() {
          what matters), three clicks land on the wordmark, and the card must
          name the version and list that path. This is the only place the
          main-world -> isolated-world hand-off is exercised in a browser. */
-      await page.evaluate(() => fetch('/api/organizations/probe-check/whatever').catch(() => {}));
-      await page.waitForTimeout(300);
       const LABEL = '[data-contexa] .label';
       for (let i = 0; i < 3; i++) { await page.click(LABEL); await page.waitForTimeout(80); }
       await page.waitForSelector('[data-contexa] .quiet.diag', { timeout: 5000 });
       const diag = await page.evaluate(() => document.querySelector('[data-contexa]').shadowRoot.querySelector('.quiet.diag').textContent);
       console.log('  diag card:\n    ' + diag.split('\n').join('\n    '));
       if (!/^CONTEXA v\d+\.\d+\.\d+/.test(diag)) throw new Error('diag card does not open with the version');
-      if (!/\/api\/organizations\/probe-check\/whatever/.test(diag)) throw new Error('the probe did not report the page\'s API path');
       if (!/page API: no conversation id in \//.test(diag)) throw new Error('the diag did not name the API state');
       await shoot(page, 'nudge-3-diag.png', 'the three-tap diagnostic card');
 

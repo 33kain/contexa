@@ -9,6 +9,38 @@ backend's live version separately so a deploy can be told from a no-op.
 
 ---
 
+## 0.9.88 — Extension (worker build number only)
+
+*Thirteenth card: the brief landed by itself in the composer of
+`claude.ai/cowork/project/<id>`, the project page where a new Cowork
+session starts. The id is `chat_project_id` in the session record the
+extension already reads. The Cowork exit is one click, end to end.*
+
+### The exit on Cowork
+
+The fork chip on a Cowork session copies the brief, parks it, and opens the
+session's project page; the content script loading there lands it. When the
+record carries no project id, the chip copies and says the brief will drop
+into the next new session. `EXISTING_RE` names an existing conversation
+precisely — a chat, a Cowork session, a Code session — so a project page is
+never mistaken for one.
+
+### The probe, retired
+
+`probe.js` did its job: every endpoint and header this product needed on
+Cowork is now known and written down in `tokenbrake/HANDOFF.md`. A script
+that wraps the page's own `fetch` has no place in a store build, so it is
+gone from the manifest and the tree; the three-tap diagnostic card stays,
+without the paths section.
+
+### What ships
+
+The extension, as the store candidate that 0.9.74 was going to be, with the
+field's twelve rounds behind it. The worker's `BUILD` moves with the
+manifest; behaviour unchanged from 0.9.86.
+
+---
+
 ## 0.9.87 — Extension (worker build number only)
 
 *Twelfth card, and the number the whole plan was for:*

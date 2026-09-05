@@ -7,7 +7,7 @@
    a stored default silently overrode every later shipped default, and nothing in
    the codebase could have told us. */
 
-import { readFileSync } from 'node:fs';
+import { readFileSync, existsSync } from 'node:fs';
 import vm from 'node:vm';
 
 const SRC = readFileSync('./background.js', 'utf8');
@@ -1627,25 +1627,6 @@ const TURNS = [
   t('and is refreshed when the API answers', (c.match(/refreshDiag\(ctx\);/g) || []).length >= 3);
 }
 
-/* ---- 0.9.78 — the page-world probe, a field diagnostic ------------------ */
-{
-  const mf = JSON.parse(readFileSync('./manifest.json', 'utf8'));
-  const probe = mf.content_scripts.find(cs => cs.js.includes('probe.js'));
-  t('the probe runs in the page world at document_start, on claude.ai only', !!probe && probe.world === 'MAIN' && probe.run_at === 'document_start' && probe.matches.join() === 'https://claude.ai/*');
-  t('the content script still runs in the isolated world', mf.content_scripts.some(cs => cs.js.includes('content.js') && !cs.world));
-  const p = readFileSync('./probe.js', 'utf8');
-  t('the probe records transport, host and path for every call', /const key = kind \+ ' ' \+ \(p\.origin === location\.origin \? '' : p\.host\) \+ p\.pathname;/.test(p));
-  t('and never reads a body or a response', !/\.body|\.text\(\)|\.json\(\)|clone\(\)/.test(p.replace(/\/\*[\s\S]*?\*\//g, '')));
-  t('and skips assets and analytics', /woff2\?/.test(p) && /event_logging/.test(p));
-  t('and covers WebSocket and EventSource as well as fetch and XHR', /report\('ws', url\)/.test(p) && /report\('sse', url\)/.test(p) && /report\('fetch', input\)/.test(p) && /report\('xhr', url\)/.test(p));
-  t('and passes every call through untouched', /const p = origFetch\.apply\(this, arguments\);[\s\S]{0,400}return p;/.test(p) && /return origOpen\.apply\(this, arguments\)/.test(p));
-  const c = readFileSync('./content.js', 'utf8');
-  t('the content script keeps the paths as bounded strings', /typeof p === 'string' && p\.length < \d+ && apiPaths\.length < \d+/.test(c));
-  t('a Cowork session is named as such in the diag', /COWORK_RE = \/\\\/cowork\\\//.test(c) && /'cowork session '/.test(c));
-  t('the diag card lists the paths, ids shortened', /page API paths seen/.test(c) && /map\(shortPath\)/.test(c));
-  t('the build ships the probe', /'content\.js', 'probe\.js'/.test(readFileSync('../build.mjs', 'utf8')));
-}
-
 /* ---- 0.9.80 — the Cowork session, from /v1/code/sessions ---------------- */
 {
   const c = readFileSync('./content.js', 'utf8');
@@ -1664,17 +1645,6 @@ const TURNS = [
   t('and still opens a new chat everywhere else', /window\.open\(NEW_CHAT_URL, '_blank', 'noopener'\)/.test(card));
 }
 
-/* ---- 0.9.81 — the request shape of the page's own session calls ------- */
-{
-  const p = readFileSync('./probe.js', 'utf8');
-  const d = (p.match(/const describe = \(input, init\) => \{[\s\S]*?\n  \};/) || [''])[0];
-  t('the shape probe is scoped to /v1/code/sessions/', /v1\\\/code\\\/sessions\\\//.test(d));
-  t('it records header names and anthropic-* values only', /names\.push\(k\)/.test(d) && /\^anthropic-/.test(d) && !/body/.test(d));
-  t('and the status the page got', /' → ' \+ r\.status/.test(p));
-  const c = readFileSync('./content.js', 'utf8');
-  t('our own session reads send the page\'s own headers', /'anthropic-version': '2023-06-01'/.test(c) && /'anthropic-beta': 'ccr-byoc-2025-07-29'/.test(c) && /apiJson\([^)]*, codeHeaders\(\)\)/.test(c));
-}
-
 /* ---- 0.9.82 — the Cowork event stream's real shape ----------------------- */
 {
   const c = readFileSync('./content.js', 'utf8');
@@ -1688,8 +1658,6 @@ const TURNS = [
 /* ---- 0.9.83 — reading a Cowork session from its end --------------------- */
 {
   const c = readFileSync('./content.js', 'utf8');
-  const pp = (c.match(/async function probeEventParams\(base, ctx\)[\s\S]*?\n  \}/) || [''])[0];
-  t('the parameter probe asks three questions and reads only status and count', /limit=500/.test(pp) && /from_sequence_num=999999999/.test(pp) && /firstArray\(j\)/.test(pp) && !/eventText|JSON\.stringify/.test(pp));
   t('the diag names the goal event and the turn summary by shape only', /'active_goal payload: '/.test(c) && /'post_turn_summary: '/.test(c) && /string\(' \+ pts\.length/.test(c));
   t('and the walk reports what it saw', /'event types over the walk: '/.test(c));
 }
@@ -1711,7 +1679,7 @@ const TURNS = [
   t('falls back to the forward walk without a numeric head', /note = 'forward walk';/.test(w));
   t('dedupes by event id and orders by sequence', /seen\.has\(id\)/.test(w) && /\.sort\(\(x, y\) => \(x\.seq \|\| 0\) - \(y\.seq \|\| 0\)\)/.test(w));
   t('and keeps the goal end small so fitTurns keeps the present', /head\.slice\(0, 4\)\.concat\(tail\)/.test(w));
-  t('on Cowork the fork copies and stages, and opens nothing until the screen is known', /navigator\.clipboard\.writeText\(brief\)/.test(c) && /if \(NEW_COWORK_URL\) window\.open/.test(c) && /NEW_COWORK_URL = null;/.test(c));
+  t('on Cowork the fork copies, stages and opens the project page (0.9.88)', /navigator\.clipboard\.writeText\(brief\)/.test(c) && /window\.open\(projectUrl, '_blank', 'noopener'\)/.test(c));
 }
 
 /* ---- 0.9.86 — the brief out of a broken answer ------------------------- */
@@ -1742,7 +1710,19 @@ const TURNS = [
   const c = readFileSync('./content.js', 'utf8');
   t('the take is consuming, so it waits for a composer on an empty page', /if \(!wantBrief \|\| askedBrief \|\| !composer\) return;/.test(c) && /askedBrief = true;/.test(c));
   t('tick asks once the composer is found', /if \(composer && wantBrief && !askedBrief\) takeBriefIfLanding\(\);/.test(c));
-  t('an existing conversation is never a landing', /EXISTING_RE = \/\^\\\/\(chat\|cowork\|project\|code\)\\\/\[A-Za-z0-9_-\]\{8,\}\//.test(c));
+  t('an existing conversation is never a landing', /EXISTING_RE = \/\^\\\/\(chat\\\/\[0-9a-f-\]\{36\}\|cowork\\\/cse_\[A-Za-z0-9\]\+\|code\\\/session_\[A-Za-z0-9\]\+\)\//.test(c));
+}
+
+/* ---- 0.9.88 — the Cowork exit, closed; the probe, retired ---------------- */
+{
+  const c = readFileSync('./content.js', 'utf8');
+  const mf = JSON.parse(readFileSync('./manifest.json', 'utf8'));
+  t('no main-world script ships any more', !mf.content_scripts.some(cs => cs.world) && !existsSync('./probe.js'));
+  t('nothing listens for the probe', !/contexa-api-path|apiPaths|probeEventParams/.test(c));
+  t('the project id is read from the session record', /ctx\.coworkProject = /.test(c) && /chat_project_id/.test(c));
+  t('on Cowork the chip opens the project page, where a new session starts', /COWORK_PROJECT_URL = 'https:\/\/claude\.ai\/cowork\/project\/'/.test(c) && /window\.open\(projectUrl, '_blank', 'noopener'\)/.test(c));
+  t('and copies only when the project is unknown', /'Copied — start a new Cowork session; the brief drops in'/.test(c));
+  t('a project page is not an existing conversation', /EXISTING_RE = \/\^\\\/\(chat\\\/\[0-9a-f-\]\{36\}\|cowork\\\/cse_/.test(c));
 }
 
 console.log(fails.length ? '\nFAILED: ' + fails.join(', ') : '\nall extension checks passed');
