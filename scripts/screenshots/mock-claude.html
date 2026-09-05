@@ -260,6 +260,59 @@
        a long conversation. A capture bug hid in that gap through a whole field
        test. Turns are prepended ABOVE the existing pair, so the newest two
        stay newest and the numbering under test runs 1..N oldest-first. */
+    /* 0.9.73 — a LONG thread, for the CX_FORK verification pass only. Same
+       structure as padTurns; each turn carries a paragraph rather than a
+       line, so that the page crosses the cost line's threshold (content.js
+       reads the whole page at chars/4) without a thousand rows. Real prose,
+       because textContent is what is measured and the shot should show a
+       thread a person could have had. */
+    padLong(n, chars) {
+      const base = 'Earlier in the planning I asked about the trains from the airport, whether the '
+        + 'castle is manageable for someone who tires on stairs, which of the tram lines is the '
+        + 'one everyone photographs and whether it is worth queueing for, and how far ahead the '
+        + 'Sintra tickets sell out in late May. ';
+      let para = '';
+      while (para.length < chars) para += base;
+      const col = document.getElementById('col');
+      const first = col.firstElementChild;
+      for (let k = n; k >= 1; k--) {
+        const row = document.createElement('div');
+        row.className = 'group/message-row';
+        const u = document.createElement('div'); u.className = 'user-row';
+        const m = document.createElement('div'); m.setAttribute('data-testid', 'user-message');
+        m.textContent = 'Question ' + k + ': ' + para;
+        u.appendChild(m); row.appendChild(u);
+        col.insertBefore(row, first);
+      }
+      return document.body.textContent.length;
+    },
+    /* 0.9.74 — for the CX_NUDGE pass. Short user turns appended just before
+       the live reply, so they are the LAST three the page holds; and a stand-in
+       for claude.ai's model selector, by the testid content.js pins. */
+    appendShort(texts) {
+      const col = document.getElementById('col');
+      const last = col.lastElementChild;
+      for (const text of texts) {
+        const row = document.createElement('div');
+        row.className = 'group/message-row';
+        const u = document.createElement('div'); u.className = 'user-row';
+        const m = document.createElement('div'); m.setAttribute('data-testid', 'user-message');
+        m.textContent = text;
+        u.appendChild(m); row.appendChild(u);
+        col.insertBefore(row, last);
+      }
+      return document.querySelectorAll('[data-testid="user-message"]').length;
+    },
+    setModel(name) {
+      let b = document.querySelector('[data-testid="model-selector-dropdown"]');
+      if (!b) {
+        b = document.createElement('button');
+        b.setAttribute('data-testid', 'model-selector-dropdown');
+        b.style.cssText = 'position:absolute;left:24px;bottom:22px;font:12px ui-sans-serif,sans-serif;color:#a6a49b;background:none;border:1px solid #4a4a46;border-radius:8px;padding:3px 8px';
+        document.querySelector('.app').appendChild(b);
+      }
+      b.textContent = 'Claude ' + name;
+    },
     padTurns(n) {
       const col = document.getElementById('col');
       const first = col.firstElementChild;

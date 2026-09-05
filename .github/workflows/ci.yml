@@ -1,6 +1,6 @@
 name: CI
 
-# Runs the extension and worker test suites and the build on every push to
+# Runs the extension, worker and tokenbrake test suites and the build on every push to
 # main and every pull request. The build step also enforces that the system
 # prompt is byte-identical across extension/background.js and worker/src/index.js
 # (build.mjs fails on drift), so a prompt change that lands in only one copy
@@ -33,6 +33,9 @@ jobs:
 
       - name: Worker tests
         run: npm run test:worker
+
+      - name: tokenbrake tests
+        run: npm run test:tokenbrake
 
       - name: Build (verifies prompt byte-identity)
         run: npm run build

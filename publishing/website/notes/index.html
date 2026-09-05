@@ -63,6 +63,10 @@
 
 <h2 id="versions">By version, newest first</h2>
 <dl>
+  <dt><code>0.9.74</code></dt>
+  <dd>Two nudges, one line, no button. Three short messages in a row on a thread heavy enough for it to matter, and the card says that each of them re-read the whole thread and that one message asking for the whole thing reads it once. A short question sent on Opus, and the card says Opus spends about 2.5× Sonnet's usage per token (the API list price; claude.ai's own weighting is not published) and that a question this short is what Sonnet is for. The page's model is read from claude.ai's own selector; no selector, no line. The long-thread cost line outranks both, because it has an action. The extension cannot switch the model or merge messages for you; it can only say, at the one moment the pattern is complete and the composer is empty.</dd>
+  <dt><code>0.9.73</code></dt>
+  <dd>The exit from a long thread. Every message sent on claude.ai re-reads the whole thread, so on a long one the cost of the next send is the size of everything on the page. Above about 12,000 estimated tokens the card now says that number next to the mascot, with one control beside it: <em>Start fresh</em>. It spends one call on a brief of the thread, written by the same rules as a move (nothing the session did not say, the user's own words for facts, a paste slot for anything the new chat will not have), shows the brief as the hover text of one chip, and that chip opens a new chat with the brief already in its message box. Nothing is sent; the user reads it and presses send. A thread with nothing to carry over gets an empty brief and says so. The console logs tokens before against tokens after on every fork, which is the measurement the thesis's open question was waiting on. The worker grew a second endpoint for it, sharing every gate and the same daily twenty. The second control since the pencil chip went, and it earns its place by being the way out of a thread rather than a second way into it.</dd>
   <dt><code>0.9.72</code></dt>
   <dd>The first gap the thesis named is closed. The worker had sent the system prompt as a cacheable block since 2026-08-27; the extension, on your own key, sent the same prompt as a plain string, so a press paid full input price for the ~2,400-token prefix while the row looked identical. Both paths now send the same block from the same code, with the same fallback to an uncached request if the API ever refuses it, and the build fails if the two copies drift. Nothing a user sees changes; what an own-key press costs does. Both paths also log what the API reports about the cache on every call, and the diagnostics carry the same two numbers, so a cache that has silently stopped working is visible in a console instead of only on an invoice.</dd>
   <dt><code>0.9.71</code></dt>
@@ -98,13 +102,13 @@
 </ul>
 
 <h2 id="status">Status</h2>
-<p>Version 0.9.72 is the number in the extension's manifest and in the worker's <code>BUILD</code> constant; the worker's <code>/v1/health</code> reports it with the model and the limit, so a deploy can be told from a no-op. The shipped model on both paths is <code>claude-sonnet-5</code>. The open question of the field test is how often a press earns nothing.</p>
+<p>Version 0.9.74 is the number in the extension's manifest and in the worker's <code>BUILD</code> constant; the worker's <code>/v1/health</code> reports it with the model and the limit, so a deploy can be told from a no-op. The shipped model on both paths is <code>claude-sonnet-5</code>. The open questions of the field test are how often a press earns nothing, and how much of a long thread a brief actually replaces.</p>
 </main>
 
 <footer class="site">
   <p>CONTEXA is an independent project. It is not affiliated with, endorsed by, or sponsored by Anthropic.</p>
   <p><a href="https://chromewebstore.google.com/detail/phhamigkjeeabbjncpmhkppkjccfglhb">Chrome Web Store</a> · <a href="https://github.com/33kain/contexa">Source on GitHub</a> · <a href="https://github.com/33kain/contexa/blob/main/LICENSE">MIT licence</a> · <a href="https://github.com/33kain/contexa/blob/main/publishing/PRIVACY.md">Privacy policy</a> · <a href="https://github.com/33kain/contexa/blob/main/CHANGELOG.md">Changelog</a></p>
-  <p class="muted">Version 0.9.72. This site is static files served from one origin: no fonts, scripts, images or analytics are loaded from anywhere else.</p>
+  <p class="muted">Version 0.9.74. This site is static files served from one origin: no fonts, scripts, images or analytics are loaded from anywhere else.</p>
 </footer>
 </body>
 </html>

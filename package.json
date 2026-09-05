@@ -3,9 +3,10 @@
   "private": true,
   "description": "CONTEXA — Chrome extension for claude.ai (extension/) and its Cloudflare Worker backend (worker/).",
   "scripts": {
-    "test": "npm run test:extension && npm run test:worker",
+    "test": "npm run test:extension && npm run test:worker && npm run test:tokenbrake",
     "test:extension": "cd extension && node test.mjs",
     "test:worker": "cd worker && node test.mjs",
+    "test:tokenbrake": "cd tokenbrake && node test.mjs",
     "build": "node build.mjs"
   }
 }

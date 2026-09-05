@@ -154,6 +154,18 @@ become four turns by design; the user picks the one job that advances the
 earliest goal they can see. A row that could be "run in order" would be a
 four-turn plan disguised as a choice, and the prompt rules it out explicitly.
 
+### 3.7 The exit from a long thread (0.9.73)
+
+Section 2's multiplier — every turn re-reads the whole thread — has one
+remedy the other six mechanisms cannot reach: leaving the thread. Above
+`LONG_THREAD_TOKENS` (12,000 estimated, chars/4 over the page) the card says
+what the next send re-reads and offers **Start fresh**, which spends one call
+on a brief (`FORK_SYSTEM`, byte-identical on both paths) and opens a new chat
+with it in the composer. The brief is capped at 1,800 characters, so a send in
+the new chat re-reads under 500 tokens where the old one re-read 12,000 or
+more. Every fork logs the two numbers — thread against brief — which is the
+measurement section 5's open question has been waiting for.
+
 ---
 
 ## 4. The arithmetic

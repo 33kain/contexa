@@ -87,7 +87,9 @@ const grab = (s, name) => {
   const m = s.match(new RegExp(name + ' = `([\\s\\S]*?)`;'));
   return m && m[1];
 };
-for (const name of ['MOVES_SYSTEM']) {
+/* 0.9.73 added FORK_SYSTEM, the thread brief, under the same rule: two copies,
+   one product, drift invisible to every product test. */
+for (const name of ['MOVES_SYSTEM', 'FORK_SYSTEM']) {
   const pExt = grab(outBg, name);
   const pWrk = grab(wrkForPrompts, name);
   if (!pExt || !pWrk) fails.push(`could not locate ${name} in one of the two copies`);
@@ -139,8 +141,16 @@ else if (fnsExt !== fnsWrk) fails.push('DRIFT: cleanTurns/cleanMoves/groundMoves
   }
   if (!/system: cachedSystem\(system\)/.test(outBg))
     fails.push('callClaude no longer sends the system prompt as a cached block - own-key users pay full price for the prefix');
-  if (!/system: cachedSystem\(MOVES_SYSTEM\)/.test(wrkForPrompts))
+  /* callUpstream is the one place the worker builds a payload since 0.9.73,
+     so the check moved from the call site to the builder — and both prompts
+     must reach it, or one endpoint pays full price while the other caches. */
+  if (!/system: cachedSystem\(system\)/.test(wrkForPrompts))
     fails.push('the worker no longer sends the system prompt as a cached block');
+  if (!/callUpstream\(env, MOVES_SYSTEM,/.test(wrkForPrompts) || !/callUpstream\(env, FORK_SYSTEM,/.test(wrkForPrompts))
+    fails.push('a worker endpoint no longer sends its prompt through callUpstream');
+  /* The own-key fork must use the same prompt constant, not a retyped copy. */
+  if (!/callClaude\(FORK_SYSTEM,/.test(outBg))
+    fails.push('the own-key fork no longer sends FORK_SYSTEM');
 }
 
 /* The three-generation guards went with the negotiation they protected:

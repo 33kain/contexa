@@ -37,6 +37,32 @@ What is *not* real: the page is a mock of the DOM contract, not claude.ai, and
 the model output is canned. Retake against a live session before submitting —
 the checklist says so and should keep saying so.
 
+## Verification passes
+
+Three environment flags turn the rig into a check rather than a camera. Each
+writes under `build-ready/` (git-ignored) and never into the listing set:
+
+- `CX_ZERO=1` — the empty result: photographs the inert "Nothing for now."
+  notice and asserts it cannot be clicked.
+- `CX_TURNS=1` — pads the thread to twenty user turns and asserts the shipped
+  `captureTurns()` reads all of them, `i=1..20`.
+- `CX_NUDGE=1` (0.9.74) — three short turns on a mid-weight thread draw the
+  fragments line; a short question with Opus in the (mock) model selector
+  draws the model line; Sonnet on a plain short thread draws nothing; Opus on
+  a long thread draws the cost line, not the model note. Neither nudge may
+  carry a button.
+- `CX_FORK=1` (0.9.73) — pads the thread past the cost line's threshold,
+  asserts the "≈ Nk tokens re-read per send" line and the **Start fresh**
+  control render, clicks it against a canned `/v1/fork`, asserts the brief
+  card and the before/after log line, clicks the chip, follows the NEW tab to
+  `https://claude.ai/new`, and asserts the brief is in that tab's composer —
+  and that a reload finds nothing waiting. It is the only place the hand-off
+  between two tabs is exercised by a real browser.
+
+```bash
+CX_FORK=1 CX_CHROME=/opt/pw-browsers/chromium xvfb-run -a node scripts/screenshots/capture.mjs
+```
+
 ## The guard
 
 `assertCardGeometry()` runs before every screenshot that contains a card, and

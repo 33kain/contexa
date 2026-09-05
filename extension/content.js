@@ -142,6 +142,25 @@
      control left that can be mid-flight. */
   .chip.busy{border-style:dashed;color:var(--text2);cursor:default;
     animation:cxpulse 1.2s ease-in-out infinite}
+  /* 0.9.73 — the cost line and the fork control (brakes 3 and 2). Rides the
+     label row, pushed to the right, in the label's quiet colour with the
+     label's tracking and casing undone: a number and a small button, not a
+     second headline. The button is the one control this product added since
+     the pencil chip went, and the reason is stated where it renders. */
+  .ctxa-cost{margin-left:auto;display:inline-flex;align-items:center;gap:8px;
+    letter-spacing:0;text-transform:none;font-size:11px;color:var(--text2)}
+  .ctxa-cost button{border:1px solid var(--border2);background:transparent;color:var(--text2);
+    border-radius:999px;padding:2px 9px;font-size:10px;letter-spacing:.06em;
+    text-transform:uppercase;cursor:pointer;font-family:inherit;white-space:nowrap}
+  .ctxa-cost button:hover{color:var(--accent);border-color:var(--accent)}
+  .ctxa-cost button:disabled{cursor:default;border-style:dashed;color:var(--text2);
+    animation:cxpulse 1.2s ease-in-out infinite}
+  .brief{display:flex;flex-wrap:wrap;align-items:center;gap:8px 10px;font-size:11.5px;
+    color:var(--text2);line-height:1.45}
+  /* 0.9.74 — a nudge is the same quiet line with no button, so it may run to two
+     lines on a narrow card; right-aligned so it stays visually attached to the
+     row's edge rather than drifting toward the wordmark. */
+  .ctxa-cost.note{max-width:72%;text-align:right;line-height:1.35}
   /* 0.9.55 §1 — the mascot trigger. Everything under ctxa-mas-*; it shares no
      class with the pencil chip (criterion P's trigger half closes here) and no
      label (the comparison assertion keeps guarding the literals). */
@@ -397,6 +416,243 @@
     return fitTurns(turns);
   }
 
+  /* ---------------- 0.9.73 — the thread's weight (brake 3) ---------------- */
+  /* Every message sent on claude.ai re-reads the whole thread, so the cost of
+     the NEXT send is the size of everything on the page, and the page is the
+     one place that number can be read. chars/4 is accurate enough for a
+     warning (it is not a bill), and textContent is cheap enough to read on
+     every render — this is not the capture walk, which is the larger read
+     and still waits for a click.
+
+     The threshold is a product number, not a measurement: a 15-turn build
+     session runs to roughly this size, and below it the re-read is not worth
+     a line of chrome. Below the threshold nothing renders at all — a cost
+     line on every short chat would be the noise this product exists to
+     refuse. Above it, the line names the number and offers the one move that
+     stops paying it: the fork. */
+  const CHARS_PER_TOKEN = 4;
+  const LONG_THREAD_TOKENS = 12000;
+  function threadTokens() {
+    let chars = 0;
+    for (const sel of [USER_MSG_SEL, RESPONSE_SEL]) {
+      for (const el of document.querySelectorAll(sel)) chars += (el.textContent || '').length;
+    }
+    return Math.round(chars / CHARS_PER_TOKEN);
+  }
+  const kTokens = n => (n >= 1000 ? Math.round(n / 1000) + 'k' : String(n));
+
+  /* The fork control, appended to a card's label row when the thread is long.
+     One control, one job — and this is the second control since the pencil
+     chip went, so the reason it earns a place is written here: it is not a
+     second path into THIS thread's message box (the row of moves stays the
+     only one), it is the exit. It renders only above LONG_THREAD_TOKENS, so
+     on a short chat there is nothing to keep apart from the mascot.
+
+     Built by createElement, never innerHTML: the number is computed, and the
+     rule for this file is that nothing computed or returned goes through
+     innerHTML. */
+  function costLine(label, anchor, ctx) {
+    if (!ctx || !ctx.reply) return;
+    if (ctx.thread == null) ctx.thread = threadTokens();
+    if (ctx.thread < LONG_THREAD_TOKENS) return;
+    const cost = document.createElement('span');
+    cost.className = 'ctxa-cost';
+    const words = document.createElement('span');
+    words.textContent = '≈ ' + kTokens(ctx.thread) + ' tokens re-read per send';
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.textContent = 'Start fresh';
+    btn.title = 'Write a brief of this thread and open a new chat with it';
+    btn.addEventListener('click', () => {
+      if (btn.disabled) return;
+      btn.disabled = true;
+      btn.textContent = 'writing the brief…';
+      askFork(anchor, ctx);
+    });
+    cost.append(words, btn);
+    label.appendChild(cost);
+  }
+
+  /* ---------------- 0.9.74 — the nudges (brake 5) ------------------------ */
+  /* Two patterns that spend usage for nothing, read off the page when the card
+     renders and said in one quiet line. Neither has a button, because the
+     action is the next message the user writes — and the card is where the
+     next message starts. Retrospective on purpose: the reply has just landed,
+     which is the one moment the pattern is complete and the composer is empty,
+     and nothing here overlays or watches the composer.
+
+     FRAGMENTS. Three short messages in a row each re-read the whole thread;
+     one message that asks for the whole thing reads it once. Said only when
+     the thread is heavy enough for the re-read to matter (the floor below),
+     because three "ok"s on a two-turn chat cost nothing worth a line.
+
+     MODEL. A short question sent on Opus. Opus is the tier claude.ai spends
+     fastest, and a question that fits in a line does not use what it is for.
+     The ratio is the API list price, Opus 5 $5/$25 against Sonnet 5 $2/$10 per
+     million tokens (2026-09); claude.ai's own weighting is not published, so
+     the line says "about" and names where the number is from in this comment
+     rather than pretending to a precision it does not have. The page's model
+     is read from claude.ai's selector by a pinned selector, and an absent
+     selector means no line, never a guess. The extension cannot switch the
+     model; it can only say.
+
+     The plan called this "ŠRAF classification"; nothing by that name exists in
+     this repository, so a simple fragment is defined here: short, and free of
+     the characters that mean code. One line at most: the long-thread cost line
+     outranks both (it has an action), fragments outrank the model note. */
+  const SHORT_TURN_CHARS = 120;
+  const FRAGMENT_RUN = 3;
+  const FRAGMENT_MIN_THREAD_TOKENS = 4000;
+  const SIMPLE_TURN_CHARS = 200;
+  const MODEL_SEL = '[data-testid="model-selector-dropdown"]';
+  const OPUS_OVER_SONNET = '2.5×';
+  function lastTurns(n) {
+    return [...document.querySelectorAll(USER_MSG_SEL)].slice(-n).map(el => (el.textContent || '').trim());
+  }
+  function fragmentRun() {
+    const t = lastTurns(FRAGMENT_RUN);
+    return t.length === FRAGMENT_RUN && t.every(x => x.length > 0 && x.length < SHORT_TURN_CHARS);
+  }
+  function pageModel() {
+    const el = document.querySelector(MODEL_SEL);
+    const m = ((el && el.textContent) || '').match(/opus|sonnet|haiku/i);
+    return m ? m[0].toLowerCase() : null;
+  }
+  function simpleLast() {
+    const t = lastTurns(1)[0] || '';
+    return t.length > 0 && t.length < SIMPLE_TURN_CHARS && !/[`{}()<>=;]/.test(t);
+  }
+  function note(label, text, why) {
+    const el = document.createElement('span');
+    el.className = 'ctxa-cost note';
+    const words = document.createElement('span');
+    words.textContent = text;
+    el.appendChild(words);
+    label.appendChild(el);
+    console.log('[CONTEXA] nudge —', why);
+  }
+  /* The one line the label row may carry, chosen in order of what it saves. */
+  function weightLine(label, anchor, ctx) {
+    if (!ctx || !ctx.reply) return;
+    if (ctx.thread == null) ctx.thread = threadTokens();
+    if (ctx.thread >= LONG_THREAD_TOKENS) return costLine(label, anchor, ctx);
+    if (ctx.thread >= FRAGMENT_MIN_THREAD_TOKENS && fragmentRun()) {
+      return note(label, 'Three short messages in a row, each re-reading the thread (≈ '
+        + kTokens(ctx.thread) + ' tokens). One message that asks for the whole thing reads it once.', 'fragments');
+    }
+    if (pageModel() === 'opus' && simpleLast()) {
+      return note(label, 'Sent on Opus, about ' + OPUS_OVER_SONNET
+        + ' Sonnet\'s usage per token. A question this short is what Sonnet is for.', 'model opus');
+    }
+  }
+
+  /* 0.9.73 — brake 2: the fork. Spends one call, like the mascot, and reads
+     the same session at the same moment for the same reason. What comes back
+     is one string, the brief, and what happens next is two clicks apart on
+     purpose: this one writes it, the next opens the new chat, so the brief
+     can be read (it is the chip's title) before it goes anywhere, and the
+     open happens inside a fresh user gesture rather than at the tail of a
+     network wait, where a popup blocker would eat it. */
+  async function askFork(anchor, ctx) {
+    if (!anchor.isConnected) return;
+    if (!contextAlive()) return goStale(anchor);
+
+    let resp = null, thrown = null;
+    try {
+      const turns = captureTurns();
+      console.log('[CONTEXA] fork — session', turns.length, 'turn(s), thread ≈', ctx.thread, 'tokens');
+      resp = await chrome.runtime.sendMessage({ type: 'fork', reply: ctx.reply, turns });
+    } catch (e) { thrown = String(e && e.message || e); }
+
+    if (!anchor.isConnected) return;
+
+    if (!resp || resp.error || typeof resp.brief !== 'string') {
+      const err = resp && resp.error;
+      if (isStaleError(thrown) || !contextAlive()) return goStale(anchor);
+      if (err === 'quota') return renderQuiet(anchor, 'quota', '', resp);
+      if (err === 'proxy_not_configured') return renderQuiet(anchor, 'unconfigured');
+      return renderQuiet(anchor, 'error',
+        thrown ? 'extension: ' + thrown : err || 'empty response', resp);
+    }
+
+    const brief = resp.brief.trim();
+    if (!brief) {
+      /* The honest zero, again: a session with nothing to carry over gets no
+         brief, and the card says so rather than opening a chat seeded with
+         an invented summary. */
+      console.log('[CONTEXA] fork — nothing to carry over');
+      return renderNothing(anchor, 'fork');
+    }
+    const briefTokens = Math.round(brief.length / CHARS_PER_TOKEN);
+    /* THE measurement the plan asked for: tokens before against tokens after,
+       per send, on a real thread. HANDOFF's "a third or more of a long thread
+       is re-sent history" was a guess; this line is what replaces it, one
+       fork at a time. Numbers only. */
+    console.log('[CONTEXA] fork — thread ≈ ' + ctx.thread + ' tokens, brief ≈ ' + briefTokens
+      + ' tokens (' + Math.round(100 - 100 * briefTokens / Math.max(1, ctx.thread)) + '% less per send)');
+    renderBrief(anchor, ctx, brief, briefTokens);
+  }
+
+  /* The brief card. One sentence with the two numbers, one chip. The chip's
+     title is the brief itself, so a hover shows exactly what will land in the
+     new chat — the same promise the move chips make. The click parks the brief
+     with the service worker and opens a fresh chat; the content script that
+     loads THERE collects it (see collectBrief) and puts it in that composer.
+     Nothing is sent: the user reads it in the new tab and presses send. */
+  const NEW_CHAT_URL = 'https://claude.ai/new';
+  function renderBrief(anchor, ctx, brief, briefTokens) {
+    const wrap = shell(anchor, 'brief');
+    if (!wrap) return;
+    wrap.innerHTML = `<div class="label"><b>✦</b> CONTEXA</div>`;
+    const row = document.createElement('div');
+    row.className = 'brief';
+    const said = document.createElement('span');
+    said.textContent = 'Brief ready: ≈ ' + kTokens(briefTokens) + ' tokens instead of ≈ '
+      + kTokens(ctx.thread) + ' per send.';
+    const chip = document.createElement('button');
+    chip.className = 'chip move';
+    chip.textContent = 'Open a new chat with it';
+    chip.title = brief;
+    chip.addEventListener('click', async () => {
+      if (chip.disabled) return;
+      chip.disabled = true;
+      let ok = false;
+      try {
+        const r = await chrome.runtime.sendMessage({ type: 'stageBrief', brief });
+        ok = !!(r && r.ok);
+      } catch (e) {
+        if (isStaleError(e) || !contextAlive()) return goStale(anchor);
+      }
+      if (!ok) { chip.disabled = false; return renderQuiet(anchor, 'error', 'brief could not be staged'); }
+      window.open(NEW_CHAT_URL, '_blank', 'noopener');
+      chip.textContent = 'Opened a new chat';
+    });
+    row.append(said, chip);
+    wrap.appendChild(row);
+  }
+
+  /* The landing. A tab that loads at /new asks the service worker whether a
+     brief is waiting; if one is, it goes into the composer as soon as tick()
+     finds one. Restricted to /new so a brief can never surface in a chat the
+     user already had open, and consumed on read (takeBrief) so it lands in
+     exactly one composer. insertPrompt appends below any existing draft, so
+     even a /new with something typed in it loses nothing. */
+  let pendingBrief = '';
+  async function collectBrief() {
+    if (location.pathname !== '/new') return;
+    try {
+      const r = await chrome.runtime.sendMessage({ type: 'takeBrief' });
+      if (r && typeof r.brief === 'string' && r.brief) { pendingBrief = r.brief; tick(); }
+    } catch { /* orphaned script or no worker: nothing to land */ }
+  }
+  function landBrief() {
+    if (!pendingBrief || !composer) return;
+    const text = pendingBrief;
+    pendingBrief = '';
+    insertPrompt(text);
+    console.log('[CONTEXA] fork — brief landed in a new chat, ≈', Math.round(text.length / CHARS_PER_TOKEN), 'tokens');
+  }
+
   /* ---------------- reply detection --------------------------------------- */
   const processed = new WeakSet();
 
@@ -582,7 +838,7 @@
       return renderNothing(anchor, why);
     }
     console.log('[CONTEXA] moves', moves.map(m => m.label));
-    renderMoves(anchor, moves);
+    renderMoves(anchor, moves, ctx);
   }
 
   /* ---------------- rendering -------------------------------------------- */
@@ -833,6 +1089,7 @@
     if (!wrap) return;
     wrap.innerHTML = `<div class="label"><b>✦</b> CONTEXA</div>` +
       `<div class="chips"></div>`;
+    weightLine(wrap.querySelector('.label'), anchor, ctx);
     const slot = document.createElement('span');
     slot.className = 'ctxa-mas-slot';
     wrap.querySelector('.chips').appendChild(slot);
@@ -901,11 +1158,15 @@
      is the only way anything reaches the message box — and on a session that
      mined nothing, renderNothing below leaves no row at all. That is the
      specced behaviour and the open question the field test is for. */
-  function renderMoves(anchor, moves) {
+  function renderMoves(anchor, moves, ctx) {
     const wrap = shell(anchor, 'ai');
     if (!wrap) return;
     wrap.innerHTML = `<div class="label"><b>✦</b> CONTEXA</div>` +
       `<div class="chips"></div>`;
+    /* The fork stays offered on the mined row: a long thread is long whether
+       or not it earned moves, and the exit should not vanish because the
+       menu arrived. */
+    weightLine(wrap.querySelector('.label'), anchor, ctx);
     const row = wrap.querySelector('.chips');
     for (const m of moves) appendIdeaChip(row, m);
   }
@@ -949,6 +1210,7 @@
        legible in a SCREENSHOT, since that is how this product is actually
        being field-tested and the console is not reachable there. */
     note.textContent = why === 'action' ? 'Nothing worth clicking here.'
+      : why === 'fork' ? 'Nothing to carry over.'
       : 'Nothing for now.';
     wrap.appendChild(note);
     /* Reuses the scroll watcher's own fade rather than a second mechanism:
@@ -1171,6 +1433,7 @@
     const el = findComposer();
     if (el && el !== composer) { composer = el; watchReplies(); }
     if (composer && !composer.isConnected) composer = null;
+    if (composer && pendingBrief) landBrief();
   }
 
   /* The switch has to take effect in tabs that are ALREADY OPEN, in both
@@ -1204,7 +1467,7 @@
 
   chrome.storage.local.get({ enabled: true, apiKey: '', model: 'claude-sonnet-5' }, s => {
     settings = s;
-    if (settings.enabled) startUp();
+    if (settings.enabled) { startUp(); collectBrief(); }
   });
 
   chrome.storage.onChanged.addListener(ch => {

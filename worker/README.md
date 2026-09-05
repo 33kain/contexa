@@ -1,7 +1,10 @@
 # CONTEXA API — deploy guide
 
 A thin Cloudflare Worker that proxies suggestion requests to Anthropic using
-**your** API key, so users of the extension never need one of their own.
+**your** API key, so users of the extension never need one of their own. Two
+POST endpoints share every gate and the same daily quota: `/v1/next-steps`
+(the row of moves) and, since 0.9.73, `/v1/fork` (the brief that seeds a
+fresh chat).
 
 You run these commands — I never see or handle your key.
 

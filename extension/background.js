@@ -102,6 +102,25 @@ Each move has THREE parts:
 - "evidence": the verbatim fragment, from a user message or the reply, that earned it — at most 90 characters.
 Reply with ONLY minified JSON: {"moves":[{"label":"...","text":"...","evidence":"..."}]} — zero to four items. A session that earned nothing returns {"moves":[]}.`;
 
+/* 0.9.73 — the thread brief (brake 2). Written once and injected here and into
+   the worker; build.mjs asserts the two are byte-identical, as it does for
+   MOVES_SYSTEM. What it is for is explained on the worker's copy. */
+const FORK_SYSTEM = `You are CONTEXA, embedded in claude.ai. You see the user's own messages from this whole session, oldest first, and Claude's latest reply. The user is about to leave this thread and continue the same work in a fresh chat, because every message they send here re-reads the entire thread. Your job is to write the BRIEF: the first message of that new chat, so it starts with everything that was settled and nothing that was not.
+The brief is written as the user, in first person, addressed to Claude, ready to send verbatim. No preamble, no meta commentary, no politeness padding. It is sent exactly as you write it — there is no later step that improves it.
+What goes in, in this order, each as a short labelled block on its own lines:
+- "Goal:" one or two sentences on what the user set out to do, in their own words where they gave them. The EARLIEST message you can see is the closest thing to a stated goal; it is not guaranteed to be the conversation's true first, so read it as the oldest thing visible, never as the beginning.
+- "Settled:" the decisions this session already made, as "- " bullets, one fact each — names, numbers, choices, constraints. Only what the session actually settled; a preference the user never stated is not settled.
+- "Exists now:" what has been built or written so far — the file, the page, the plan — named in the session's own words. Claude in the new chat has none of it. Material the user must bring along — code, a document, a spreadsheet, a link — is a "- " bullet ending in <paste here>, at most 3, which they fill in the message box before sending.
+- "Next:" the one thing the user was about to do, when the session makes it clear; otherwise the single line "Pick up from here." Never invent a next step to fill the slot.
+Rules, in order of force:
+- Nothing the session did not say. Never invent numbers, names, file paths, keywords or decisions that appear nowhere in what you were given.
+- Shorter is better. At most 1,500 characters. Leave out anything the new chat can do without: the point of the brief is that it costs a fraction of the thread it replaces.
+- Claude's latest reply is MATERIAL, not the subject. Take from it what now exists and what was decided, never a summary of the reply itself.
+- Never use filler quality words: thorough, careful, carefully, properly, really, robust, comprehensive, high-quality, detailed, best.
+- The session's own language. A session in Serbian gets a brief in Serbian.
+A session with nothing to carry over — one question, answered — earns an empty brief, and that is the honest answer: {"brief":""}.
+Reply with ONLY minified JSON: {"brief":"..."} — line breaks inside the string written as \\n.`;
+
 async function getSettings() {
   return chrome.storage.local.get(DEFAULTS);
 }
@@ -589,6 +608,33 @@ function enforceAction(moves, ground) {
    symptom to watch for is a row whose moves all quote the reply AND read as
    its numbered list — and the answer then is the prompt or a shape-aware
    check, not this blunt count. */
+/* 0.9.73 — the brief, cleaned. One string, and the same two rules the moves
+   live under: nothing renders that the model did not write, and what lands in
+   the message box is cut at a clean boundary, never mid-word. The ceiling is
+   its own number rather than MAX_PAYLOAD_CHARS because a brief is the whole
+   first message of a new thread, not one move in a row of four; 1,800 gives
+   the prompt's 1,500 some overshoot before the cut.
+
+   Line endings normalised and blank runs collapsed, because the brief's
+   structure is its line breaks and a model that doubles them ships a message
+   twice as tall carrying the same words. */
+const MAX_BRIEF_CHARS = 1800;
+function cleanBrief(v) {
+  /* A string or nothing. String(v) on anything else yields "[object Object]"
+     or "1,2,3", and a brief is text that lands in a composer — the first
+     test of this gate produced exactly that and it was the gate's fault. */
+  if (typeof v !== 'string') return '';
+  let t = v.replace(/\r\n?/g, '\n').replace(/[ \t]+\n/g, '\n')
+    .replace(/\n{3,}/g, '\n\n').trim();
+  if (t.length <= MAX_BRIEF_CHARS) return t;
+  const cut = t.slice(0, MAX_BRIEF_CHARS);
+  const nl = cut.lastIndexOf('\n');
+  if (nl > MAX_BRIEF_CHARS * 0.5) return cut.slice(0, nl).trimEnd();
+  const dot = Math.max(cut.lastIndexOf('. '), cut.lastIndexOf('? '), cut.lastIndexOf('! '));
+  if (dot > MAX_BRIEF_CHARS * 0.5) return cut.slice(0, dot + 1).trimEnd();
+  const sp = cut.lastIndexOf(' ');
+  return (sp > 0 ? cut.slice(0, sp) : cut).trimEnd();
+}
 /* end of the injected helper block — build.mjs reads to here for byte-identity */
 
 /* Hosted path: the proxy holds the API key, so the user needs nothing. Returns
@@ -635,6 +681,73 @@ async function callHosted(reply, turns) {
      nothing in the console, which is exactly how 0.9.30 broke. */
   if (!data || !Array.isArray(data.moves)) return { error: 'bad_response' };
   return { data };
+}
+
+/* 0.9.73 — the hosted fork. Same origin, same device token, same two fields,
+   one string back. Kept as its own function rather than a parameter on
+   callHosted because the two responses are different shapes and a shared
+   function would have to know which it was reading. */
+async function callHostedFork(reply, turns) {
+  const { proxyUrl } = await chrome.storage.local.get({ proxyUrl: DEFAULT_PROXY_URL });
+  const base = String(proxyUrl || DEFAULT_PROXY_URL).replace(/\/+$/, '');
+  if (/YOUR-SUBDOMAIN/.test(base)) return { error: 'proxy_not_configured' };
+  const device = await getDeviceToken();
+  let res;
+  try {
+    res = await fetch(base + '/v1/fork', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', 'x-cx-device': device },
+      body: JSON.stringify({ reply, turns })
+    });
+  } catch (e) {
+    return { error: 'network', detail: String(e) };
+  }
+  let data = null;
+  try { data = await res.json(); } catch {}
+  if (res.status === 429) {
+    return { error: 'quota', limit: data?.limit, resetsAt: data?.resetsAt };
+  }
+  if (!res.ok) {
+    if (data?.diag) console.warn('[CONTEXA] backend reported', data.error, data.diag);
+    return { error: data?.error || 'proxy_' + res.status, diag: data?.diag };
+  }
+  /* A body with no string `brief` is a worker answering something this client
+     cannot read — say so rather than render silence (the 0.9.30 lesson). */
+  if (!data || typeof data.brief !== 'string') return { error: 'bad_response' };
+  return { data };
+}
+
+/* 0.9.73 — the brief in transit. The fork opens a NEW claude.ai tab, and the
+   only thing that can put text into that tab's composer is this extension's
+   own content script running there — no URL parameter is relied on, because
+   the one claude.ai used to honour has been reported removed. So the brief
+   is parked here, in storage.session, between the click in the old tab and
+   the content script's first tick in the new one. Session storage because it
+   is a hand-off, not a record: it must survive this worker's teardown (which
+   can happen in the gap) and die with the browser session.
+
+   takeBrief is CONSUMING: one read clears it, so a brief lands in exactly one
+   composer, and a stale one — a tab that never opened, a user who wandered
+   off — is refused after BRIEF_TTL_MS rather than surfacing in some later,
+   unrelated chat. */
+const BRIEF_KEY = 'pendingBrief';
+const BRIEF_TTL_MS = 2 * 60 * 1000;
+async function stageBrief(text) {
+  const brief = cleanBrief(text);
+  if (!brief) return { ok: false };
+  try {
+    await chrome.storage.session.set({ [BRIEF_KEY]: { text: brief, t: Date.now() } });
+    return { ok: true };
+  } catch (e) { return { ok: false, error: 'storage', detail: String(e) }; }
+}
+async function takeBrief() {
+  try {
+    const { [BRIEF_KEY]: p } = await chrome.storage.session.get({ [BRIEF_KEY]: null });
+    if (!p) return { brief: '' };
+    await chrome.storage.session.remove(BRIEF_KEY);
+    if (typeof p.text !== 'string' || !p.text || Date.now() - Number(p.t || 0) > BRIEF_TTL_MS) return { brief: '' };
+    return { brief: p.text };
+  } catch { return { brief: '' }; }
 }
 
 /* Row cache, in chrome.storage.session rather than in this worker's memory.
@@ -741,6 +854,44 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
       // The gate can empty a call that itself succeeded, so errors are not cached.
       if (!out.error) await cachePut(key, out);
       sendResponse(out);
+
+    } else if (msg.type === 'fork') {
+      /* 0.9.73 — brake 2. Same inputs as nextSteps, same cleaning, same cache
+         discipline (a brief the user has already seen is served again, not
+         re-rolled for quota), and the same rule that both paths run the same
+         gate: cleanBrief is in the injected block, so the own-key path cuts
+         the brief exactly where the worker would. */
+      const { apiKey } = await getSettings();
+      const reply = (msg.reply || '').slice(0, 6000);
+      const turns = cleanTurns(msg.turns);
+      if (!turns.length) return sendResponse({ error: 'no_turns' });
+      const key = 'fork|' + turns.map(t => t.i + ':' + t.text.slice(0, 60)).join('|')
+        + '||' + reply.slice(0, 200);
+      const hit = await cacheGet(key);
+      if (hit !== undefined) return sendResponse(hit);
+      const r = apiKey
+        ? await callClaude(FORK_SYSTEM,
+            'SESSION SO FAR:\n' + turnsSection(turns)
+              + '\n\nCLAUDE\'S LATEST REPLY:\n' + reply, 1200)
+        : await callHostedFork(reply, turns);
+      let out;
+      if (r.error) {
+        out = r;
+      } else if (apiKey) {
+        const brief = cleanBrief(r.data && r.data.brief);
+        console.log('[CONTEXA] fork — brief ' + brief.length + ' chars' + (brief ? '' : ' (nothing to carry over)'));
+        out = { brief };
+      } else {
+        out = { brief: cleanBrief(r.data.brief) };
+      }
+      if (!out.error) await cachePut(key, out);
+      sendResponse(out);
+
+    } else if (msg.type === 'stageBrief') {
+      sendResponse(await stageBrief(msg.brief));
+
+    } else if (msg.type === 'takeBrief') {
+      sendResponse(await takeBrief());
 
     } else if (msg.type === 'healthCheck') {
       const { proxyUrl } = await chrome.storage.local.get({ proxyUrl: DEFAULT_PROXY_URL });

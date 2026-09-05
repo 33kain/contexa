@@ -6,10 +6,11 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 CONTEXA is a Chrome extension (Manifest V3) for claude.ai. When Claude finishes a reply, it offers a single trigger; clicking it reads the user's own messages from the whole session and offers up to four **independent** next moves, each already a complete, send-ready prompt. Clicking one composes it into the message box. Nothing is sent anywhere until the user clicks, and clicking a move costs no further model call.
 
-Two artifacts ship from this repo:
+Three artifacts ship from this repo:
 
 - `extension/` — the Chrome extension. The version number's single home is `extension/manifest.json`.
 - `worker/` — a Cloudflare Worker that proxies to Anthropic for users without their own API key (enforces daily quotas, holds the real API key as a secret). It carries the same number in the `BUILD` constant in `worker/src/index.js`, which `/v1/health` reports so a deploy can be told from a no-op.
+- `tokenbrake/` — an npm package of two Claude Code hooks (`guard.js`) plus an installer CLI (`cli.js`) and a session report (`transcript.js`, `tokenbrake report`), unrelated to the extension and worker: it trims oversized shell output and caps unbounded `Read`s before they reach the context window, and ranks a session's tool results by the context they were carried through. Its own `HANDOFF.md` is the state of that work and of the wider "brakes" plan it belongs to. Versioned independently in its own `package.json`; not part of the build guard.
 
 They deploy on separate paths on purpose (a worker fix shouldn't force a Chrome Web Store resubmission), but they ship **one product per generation**: `build.mjs` fails if `BUILD` and the manifest version disagree, and they **share a byte-identical system prompt** — see Architecture below. (`CHANGELOG.md`'s header still says the two numbers are "free to diverge"; the build guard is the current rule.)
 
@@ -20,9 +21,10 @@ A third, unrelated deploy exists: `publishing/website/` is a static product site
 No dependencies to install anywhere in this repo (no `node_modules`, no bundler) — everything runs on plain Node.
 
 ```bash
-npm test                 # both test suites (extension + worker)
+npm test                 # all three test suites (extension + worker + tokenbrake)
 npm run test:extension   # extension/test.mjs only
 npm run test:worker      # worker/test.mjs only
+npm run test:tokenbrake  # tokenbrake/test.mjs only
 npm run build            # node build.mjs — see below
 ```
 
@@ -30,16 +32,16 @@ Each `test.mjs` is a single flat script (no test framework, no per-test filterin
 
 `npm run build` (`build.mjs`) takes `extension/` (the canonical source) and produces `build-ready/` (git-ignored) — a shippable copy with the real backend URL and version baked in, plus a `.zip` for the Chrome Web Store. It also **fails the build** (not just a lint warning) on several invariant violations that have each caused a real regression before — see Architecture. Run it after touching anything the checks below depend on.
 
-The Cloudflare Worker has no build step; deployment is `npx wrangler deploy` from `worker/` (needs Cloudflare credentials — see `worker/README.md`). CI (`.github/workflows/ci.yml`) runs all three `npm` scripts above on every push to `main` and every PR.
+The Cloudflare Worker has no build step; deployment is `npx wrangler deploy` from `worker/` (needs Cloudflare credentials — see `worker/README.md`). CI (`.github/workflows/ci.yml`) runs the three test suites and the build on every push to `main` and every PR.
 
 ## Architecture
 
 ### The shared prompt is the load-bearing contract
 
-`extension/background.js` and `worker/src/index.js` each define their own copy of `MOVES_SYSTEM` — the one system prompt sent to Claude. **These two copies must be byte-identical**, because a user's own-key request (extension calls Anthropic directly) and a hosted request (extension → Worker → Anthropic) must produce the same product. `build.mjs` extracts both by regex and fails the build if they differ, along with several related checks:
+`extension/background.js` and `worker/src/index.js` each define their own copy of `MOVES_SYSTEM` — the system prompt behind the row of moves — and, since 0.9.73, of `FORK_SYSTEM`, the prompt behind the thread brief. **Each pair must be byte-identical**, because a user's own-key request (extension calls Anthropic directly) and a hosted request (extension → Worker → Anthropic) must produce the same product. `build.mjs` extracts both by regex and fails the build if they differ, along with several related checks:
 
-- the request's `SESSION SO FAR:` section labels must match on both sides;
-- the injected helper block — from `function cleanTurns` through `groundMoves`, `tallySources`, `ACTION_OPENERS` and `enforceAction`, up to the `/* end of the injected helper block` sentinel comment — must be byte-identical (do not delete that sentinel; it is the end anchor);
+- the request's `SESSION SO FAR:` section labels must match on both sides, and both worker endpoints must send their prompt through `callUpstream` while the own-key fork sends `FORK_SYSTEM`;
+- the injected helper block — from `function cleanTurns` through `groundMoves`, `tallySources`, `ACTION_OPENERS`, `enforceAction` and `cleanBrief`, up to the `/* end of the injected helper block` sentinel comment — must be byte-identical (do not delete that sentinel; it is the end anchor);
 - the extension must still capture the session (`captureTurns()` inside `askNow`), without which every request is refused;
 - the shipped model name must agree across `background.js`, `worker/src/index.js`, and `worker/wrangler.toml`, and the worker's `BUILD` must equal the manifest version;
 - the cost-parity helpers `cachedSystem` and `usageOf` must be byte-identical in both files, and both call sites must still send the system prompt through `cachedSystem` (the own-key path did not until 0.9.72, and nothing but the bill could tell);
@@ -49,7 +51,7 @@ If you edit the system prompt, edit both files identically and run `npm run buil
 
 ### One shape, and what that replaced
 
-There is one request shape and one response shape. The worker takes `{ reply, turns[] }` and returns `{ moves: [{label, text, evidence}], grounding, quota }`. A request with no turns is refused before either quota is charged.
+There is one request shape, `{ reply, turns[] }`, and two endpoints that read it. `POST /v1/next-steps` returns `{ moves: [{label, text, evidence}], grounding, quota }`; `POST /v1/fork` (0.9.73) returns `{ brief, quota }`, the first message of a fresh chat. Both go through one `admit()` (origin, key, device token, body, turns, reply, IP quota, device quota) and one `callUpstream()`, and a fork spends from the same daily twenty. A request with no turns is refused before either quota is charged.
 
 This was not always so. Until 0.9.58 the worker served three extension generations from one endpoint, negotiated by a `v` field and an `accepts: [...]` capability list, because the Chrome Web Store approves updates on its own schedule and no deploy order avoids a window where old and new clients hit the same worker. That machinery — `LEGACY_STEPS_SYSTEM`, `QUESTIONS_SYSTEM`, `EXPAND_SYSTEM`, `wantsQuestions()`, `wantsChips()`, `/v1/expand` — was deleted in the history-mining pivot, on the explicit basis that there is no installed base to protect.
 
@@ -63,6 +65,10 @@ Two gates run on every row, in order:
 
 1. **Evidence grounding** (`groundMoves`) runs over **the turns and the reply as two separate haystacks**, not one concatenated corpus, and records per move which one earned it (`sources`, tallied as `fromTurns` / `fromReply`). Ideas are mined from the session, so a move earned by the earliest turn is grounded; the turns are checked first so the session's own material is never credited to the reply. Two tiers: no evidence at all is dropped, a near-miss quote renders but is counted and logged.
 2. **Action gate** (`enforceAction`) drops any move whose label does not open with a doable imperative verb from the `ACTION_OPENERS` allowlist (English and Serbian). It fails **closed** — an unknown verb is a drop — so a row of non-English labels can be emptied by the verb list rather than by the model. The content script tells these two causes of an empty row apart (see below).
+
+### The fork and the cost line (0.9.73)
+
+`threadTokens()` in `content.js` estimates the whole page at chars/4; above `LONG_THREAD_TOKENS` the card's label row carries the number and a **Start fresh** control (`costLine`). Clicking it runs `askFork`, which reads the session like `askNow` and asks the background for a `fork`; the brief renders as one chip whose title is the brief (`renderBrief`). That chip's click stages the brief in `chrome.storage.session` (`stageBrief`, two-minute TTL, consumed on read) and opens `https://claude.ai/new`; the content script loading at `/new` collects it (`collectBrief` → `takeBrief`) and inserts it through `insertPrompt`. No URL prefill parameter is used. An empty brief renders the inert "Nothing to carry over." notice through `renderNothing`, which now has exactly two callers, both honest zeros. The fork is the second control since the pencil chip went; the reason it earns a place is that it is the exit from a thread, not a second way into this one, and it renders only when there is a thread worth leaving. `weightLine` (0.9.74) chooses at most one line for the label row: the cost line, else the fragments nudge (three short turns on a thread over `FRAGMENT_MIN_THREAD_TOKENS`), else the model nudge (a short code-free last turn while `MODEL_SEL` reads Opus). Nudges have no button and log `[CONTEXA] nudge — <why>`.
 
 ### Content script flow (`extension/content.js`)
 
@@ -83,6 +89,7 @@ Everything the model returns (labels, texts, evidence) renders through `document
 ```
 extension/            the product (Chrome extension, MV3)
 worker/               the hosted backend (Cloudflare Worker)
+tokenbrake/           Claude Code hooks npm package (shell-output trim, Read cap, ledger) — own package.json and HANDOFF.md
 build.mjs             extension/ -> build-ready/ + store zip, plus the invariant checks above
 publishing/           Chrome Web Store listing copy, privacy policy, screenshots, submission notes
 publishing/website/   the static product site (deployed to Cloudflare Pages by deploy-pages.yml)

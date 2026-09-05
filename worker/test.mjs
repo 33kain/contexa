@@ -897,6 +897,121 @@ t('unknown route 404', r.status === 404, String(r.status));
       readFileSync(rel('./src/index.js'), 'utf8')));
 }
 
+/* ---------------- 0.9.73 — /v1/fork (brake 2) ----------------
+   The thread brief: same gates, same counters, one string back. Everything
+   that protects the bill on /v1/next-steps has to hold here, and the two
+   endpoints share one admit() precisely so that a test on one is a test on
+   the other's gate order too. */
+{
+  const fpost = (body = {}, headers = {}) => {
+    body = Object.assign({ reply: 'r'.repeat(120), turns: TURNS }, body);
+    return new Request('https://x/v1/fork', {
+      method: 'POST',
+      headers: Object.assign({ 'content-type': 'application/json', 'x-cx-device': DEV, origin: 'chrome-extension://abc' }, headers),
+      body: JSON.stringify(body)
+    });
+  };
+  const BRIEF = 'Goal: a website for my bakery.\nSettled:\n- opening hours on the front page\nExists now:\n- the landing page <paste here>\nNext: write the menu page.';
+  let sent = [];
+  const okBrief = (brief) => async (_u, o) => {
+    sent.push(JSON.parse(o.body));
+    return { ok: true, status: 200, async text() { return ''; },
+      async json() { return { stop_reason: 'end_turn', usage: { input_tokens: 400, output_tokens: 100 },
+        content: [{ type: 'text', text: JSON.stringify({ brief }) }] }; } };
+  };
+
+  // gates, before any spend
+  upstream = 0;
+  globalThis.fetch = async () => { upstream++; throw new Error('no'); };
+  let r = await w.fetch(new Request('https://x/v1/fork', { method: 'POST',
+    headers: { 'content-type': 'application/json', 'x-cx-device': DEV }, body: '{}' }),
+    { ANTHROPIC_API_KEY: 'k', CX_KV: makeKV(), IP_SALT: 's' });
+  t('fork: originless request rejected', r.status === 403, String(r.status));
+  r = await w.fetch(fpost({ turns: [] }), { ANTHROPIC_API_KEY: 'k', CX_KV: makeKV(), IP_SALT: 's' });
+  t('fork: no turns is refused before spend', r.status === 400 && (await r.json()).error === 'no_turns' && upstream === 0);
+  r = await w.fetch(fpost({ reply: 'tiny' }), { ANTHROPIC_API_KEY: 'k', CX_KV: makeKV(), IP_SALT: 's' });
+  t('fork: short reply is refused before spend', r.status === 400 && upstream === 0);
+  r = await w.fetch(fpost(), { CX_KV: makeKV(), IP_SALT: 's' });
+  t('fork: no server key -> server_not_configured', (await r.json()).error === 'server_not_configured' && upstream === 0);
+  r = await w.fetch(new Request('https://x/v1/fork'), { ANTHROPIC_API_KEY: 'k' });
+  t('fork: GET is not allowed', r.status === 405, String(r.status));
+
+  // the same twenty: a fork spends from the device counter /v1/next-steps uses
+  const day = new Date().toISOString().slice(0, 10);
+  const full = makeKV({ ['q:' + DEV + ':' + day]: String(LIMIT) });
+  r = await w.fetch(fpost(), { ANTHROPIC_API_KEY: 'k', CX_KV: full, IP_SALT: 's' });
+  const qb = await r.json();
+  t('fork: a spent device quota returns 429 with the same shape', r.status === 429 && qb.error === 'quota' && qb.limit === LIMIT && Number.isFinite(Date.parse(qb.resetsAt)));
+  t('fork: and costs nothing upstream', upstream === 0, 'calls=' + upstream);
+
+  // a good fork
+  sent = [];
+  globalThis.fetch = okBrief(BRIEF);
+  const kv = makeKV();
+  r = await w.fetch(fpost(), { ANTHROPIC_API_KEY: 'k', CX_KV: kv, IP_SALT: 's', MODEL: 'claude-sonnet-5' });
+  let b = await r.json();
+  t('fork: 200 with the brief', r.status === 200 && b.brief === BRIEF, JSON.stringify(b).slice(0, 120));
+  t('fork: the brief counts as one reply asked about', kv.store.get('q:' + DEV + ':' + day) === '1' && b.quota && b.quota.used === 1 && b.quota.limit === LIMIT);
+  t('fork: one upstream call', sent.length === 1);
+  const p = sent[0];
+  t('fork: FORK_SYSTEM travels as one cached block', Array.isArray(p.system) && p.system.length === 1
+    && p.system[0].cache_control && p.system[0].cache_control.type === 'ephemeral' && /the BRIEF/.test(p.system[0].text));
+  t('fork: it is not the mining prompt', !/INDEPENDENT next moves/.test(sysText(p.system)));
+  t('fork: the prompt says nothing the session did not say', /Nothing the session did not say/.test(sysText(p.system)));
+  t('fork: and names the paste slot for material the new chat lacks', /<paste here>/.test(sysText(p.system)));
+  t('fork: and lets an empty brief be the honest answer', /\{"brief":""\}/.test(sysText(p.system)));
+  t('fork: the body is the same session the mining call reads', /^SESSION SO FAR:\n\[1\] make me a website/.test(p.messages[0].content)
+    && /\n\nCLAUDE'S LATEST REPLY:\n/.test(p.messages[0].content));
+  t('fork: half the mining ceiling', p.max_tokens === 1200, String(p.max_tokens));
+  t('fork: thinking disabled, like every other call', p.thinking && p.thinking.type === 'disabled');
+  t('fork: the response carries no grounding or moves fields', !('moves' in b) && !('grounding' in b));
+
+  // the honest zero
+  globalThis.fetch = okBrief('');
+  r = await w.fetch(fpost(), { ANTHROPIC_API_KEY: 'k', CX_KV: makeKV(), IP_SALT: 's' });
+  b = await r.json();
+  t('fork: an empty brief is 200 with brief "", not an error', r.status === 200 && b.brief === '');
+
+  // cleaning
+  globalThis.fetch = okBrief('  Goal: x.\r\n\r\n\r\n\r\nSettled:\r\n- y   \r\n');
+  r = await w.fetch(fpost(), { ANTHROPIC_API_KEY: 'k', CX_KV: makeKV(), IP_SALT: 's' });
+  b = await r.json();
+  t('fork: line endings normalised and blank runs collapsed', b.brief === 'Goal: x.\n\nSettled:\n- y', JSON.stringify(b.brief));
+  const long = Array.from({ length: 80 }, (_, i) => `- settled fact number ${i + 1} about the bakery site`).join('\n');
+  globalThis.fetch = okBrief('Goal: bakery.\nSettled:\n' + long);
+  r = await w.fetch(fpost(), { ANTHROPIC_API_KEY: 'k', CX_KV: makeKV(), IP_SALT: 's' });
+  b = await r.json();
+  t('fork: an overlong brief is cut at a line boundary under 1,800 chars', b.brief.length <= 1800 && b.brief.length > 1500 && /about the bakery site$/.test(b.brief), String(b.brief.length));
+  globalThis.fetch = okBrief({ not: 'a string' });
+  r = await w.fetch(fpost(), { ANTHROPIC_API_KEY: 'k', CX_KV: makeKV(), IP_SALT: 's' });
+  b = await r.json();
+  t('fork: a non-string brief is the empty brief, never "[object Object]"', b.brief === '', JSON.stringify(b.brief));
+
+  // parse failure carries the fork's own ceiling in its diag
+  globalThis.fetch = async () => ({ ok: true, status: 200, async text() { return ''; },
+    async json() { return { stop_reason: 'max_tokens', usage: { input_tokens: 400, output_tokens: 1200 },
+      content: [{ type: 'text', text: '{"brief":"Goal: never clo' }] }; } });
+  r = await w.fetch(fpost(), { ANTHROPIC_API_KEY: 'k', CX_KV: makeKV(), IP_SALT: 's' });
+  b = await r.json();
+  t('fork: a truncated brief is reported with the fork ceiling in diag', r.status === 502 && b.error === 'truncated' && b.diag && b.diag.ceiling === 1200, JSON.stringify(b.diag));
+  t('fork: diag carries no brief text', !JSON.stringify(b).includes('never clo'));
+
+  // the refactor did not move the mining endpoint's behaviour
+  sent = [];
+  globalThis.fetch = async (_u, o) => { sent.push(JSON.parse(o.body)); return { ok: true, status: 200, async text() { return ''; },
+    async json() { return { stop_reason: 'end_turn', usage: { input_tokens: 900, output_tokens: 200 },
+      content: [{ type: 'text', text: JSON.stringify({ moves: [{ label: 'Write the menu page', text: 'Write the menu page.', evidence: 'now the menu page' }] }) }] }; } }; };
+  r = await w.fetch(post(), { ANTHROPIC_API_KEY: 'k', CX_KV: makeKV(), IP_SALT: 's' });
+  b = await r.json();
+  t('mining still returns moves through the shared gates', r.status === 200 && b.moves.length === 1 && sent[0].max_tokens === 2500 && /INDEPENDENT next moves/.test(sysText(sent[0].system)));
+
+  // the two prompts are the two the build compares
+  const src = readFileSync(rel('./src/index.js'), 'utf8');
+  t('the worker builds every payload in one place', (src.match(/system: cachedSystem\(/g) || []).length === 1);
+  t('and both endpoints go through it', /callUpstream\(env, MOVES_SYSTEM,/.test(src) && /callUpstream\(env, FORK_SYSTEM,/.test(src));
+  t('cleanBrief lives inside the injected helper block', src.indexOf('function cleanBrief') > src.indexOf('function cleanTurns') && src.indexOf('function cleanBrief') < src.indexOf('/* end of the injected helper block'));
+}
+
 globalThis.fetch = realFetch;
 console.log(fails.length ? '\nFAILED: ' + fails.join(', ') : '\nall worker checks passed');
 process.exit(fails.length ? 1 : 0);
