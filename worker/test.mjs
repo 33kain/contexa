@@ -144,6 +144,18 @@ t('unknown route 404', r.status === 404, String(r.status));
       content: [{ type: 'text', text: '{"moves":[{"label":"Add a contact for' }], stop: 'max_tokens',
       usage: { input_tokens: 900, output_tokens: 2500 },
       expect: d => d.hadJson === true && d.steps === 1 },
+    /* The cache counters ride along (0.9.72). Before this, whether the prefix
+       was served from cache was visible nowhere but the bill. */
+    { name: 'cache counters are carried',
+      content: [{ type: 'text', text: 'Let me think about the best next steps here.' }], stop: 'max_tokens',
+      usage: { input_tokens: 3000, output_tokens: 2500, cache_read_input_tokens: 2400, cache_creation_input_tokens: 0 },
+      expect: d => d.cacheRead === 2400 && d.cacheWrite === 0 && d.in === 3000 && d.out === 2500 },
+    /* An API that does not report the cache is a different fact from a cache
+       that read nothing: absent counters are null, never 0. */
+    { name: 'absent cache counters read as null, not 0',
+      content: [{ type: 'text', text: 'prose' }], stop: 'max_tokens',
+      usage: { input_tokens: 900, output_tokens: 2500 },
+      expect: d => d.cacheRead === null && d.cacheWrite === null },
   ];
   for (const c of cases) {
     globalThis.fetch = async () => ({
@@ -363,6 +375,18 @@ t('unknown route 404', r.status === 404, String(r.status));
     t('nothing is interpolated into the cached text',
       sysText(sys).length > 1000 && !/\d{4}-\d{2}-\d{2}/.test(sysText(sys)),
       String(sysText(sys).length));
+  }
+
+  // --- whether caching WORKS is readable only from usage, so every call logs it ---
+  /* Pinned on the source: the worker's console is `wrangler tail`, and a
+     success path that stopped logging usage would take the only live view of
+     the cache with it while every product test stayed green. */
+  {
+    const src = readFileSync(rel('./src/index.js'), 'utf8');
+    t('every upstream response logs its usage, cache counters included',
+      /console\.log\('\[CONTEXA\] usage', JSON\.stringify\(usageOf\(data\)\)\)/.test(src));
+    t('and usageOf reads both cache counters',
+      /cache_read_input_tokens/.test(src) && /cache_creation_input_tokens/.test(src));
   }
 
   // --- the fallback: caching must never be why a user gets nothing ---

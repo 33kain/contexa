@@ -42,6 +42,7 @@ The Cloudflare Worker has no build step; deployment is `npx wrangler deploy` fro
 - the injected helper block — from `function cleanTurns` through `groundMoves`, `tallySources`, `ACTION_OPENERS` and `enforceAction`, up to the `/* end of the injected helper block` sentinel comment — must be byte-identical (do not delete that sentinel; it is the end anchor);
 - the extension must still capture the session (`captureTurns()` inside `askNow`), without which every request is refused;
 - the shipped model name must agree across `background.js`, `worker/src/index.js`, and `worker/wrangler.toml`, and the worker's `BUILD` must equal the manifest version;
+- the cost-parity helpers `cachedSystem` and `usageOf` must be byte-identical in both files, and both call sites must still send the system prompt through `cachedSystem` (the own-key path did not until 0.9.72, and nothing but the bill could tell);
 - the model-default freeze guards: `DEFAULTS.model` in `options.js` and `background.js` must be `''` (a stored concrete model once froze installs on Haiku), the options page must not backfill an empty model field with the default, and the shipped model must not also appear in `SUPERSEDED_MODEL_DEFAULTS`.
 
 If you edit the system prompt, edit both files identically and run `npm run build` to verify before committing. The prompt is written once in a scratch file and injected into both, which is why they are byte-identical by construction rather than by discipline.
@@ -56,7 +57,7 @@ This was not always so. Until 0.9.58 the worker served three extension generatio
 
 ### Hosted vs. own-key paths must behave identically
 
-Every request path exists twice — once in `extension/background.js` (calls Anthropic directly when the user has set their own API key) and once in `worker/src/index.js` (hosted/proxied, quota-enforced). The functions that police model output — `cleanTurns`, `cleanMoves`, `groundMoves`, `enforceAction`, plus `trimPayload` — are duplicated across both files and **must stay behaviorally identical**. All but `trimPayload` live in the injected helper block that `build.mjs` asserts byte-identical; the rule they inherit is that a gate living only in the worker is a gate half the users do not have. When fixing a bug in one, check the other.
+Every request path exists twice — once in `extension/background.js` (calls Anthropic directly when the user has set their own API key) and once in `worker/src/index.js` (hosted/proxied, quota-enforced). The functions that police model output — `cleanTurns`, `cleanMoves`, `groundMoves`, `enforceAction`, plus `trimPayload` — are duplicated across both files and **must stay behaviorally identical**. All but `trimPayload` live in the injected helper block that `build.mjs` asserts byte-identical; the rule they inherit is that a gate living only in the worker is a gate half the users do not have. The rule covers cost as well as output: `cachedSystem` (the system prompt as one cacheable block) and `usageOf` (the four usage counters, cache reads included) are duplicated the same way and checked the same way, because until 0.9.72 only the worker cached the prefix and no product test could see the difference. When fixing a bug in one, check the other.
 
 Two gates run on every row, in order:
 

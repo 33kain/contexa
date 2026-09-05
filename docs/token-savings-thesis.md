@@ -140,7 +140,7 @@ because a real regression paid for them:
 | Screen-reader duplicates and UI chrome skipped | `SKIP_SEL` | Hidden text is cost with no information, and worse, it is quotable |
 | Session window: 40 turns, 2,000 chars each, 12,000 total, first turn pinned | `fitTurns`, `MAX_TURNS*` | Oldest *middle* turns go first, so the closest thing to a stated goal is never the thing dropped to save tokens |
 | 2,500 output tokens, thinking disabled | `MAX_TOKENS`, `callClaude` | Adaptive thinking was observed spending the whole budget with zero text out |
-| System prompt marked cacheable | `cachedSystem` (worker) | The ~2.4k-token fixed prefix was re-billed at full input price on every call until 2026-08-27; caching it is the largest cost lever available and changes nothing a user sees |
+| System prompt marked cacheable | `cachedSystem`, byte-identical on both paths | The ~2.4k-token fixed prefix was re-billed at full input price on every call — hosted until 2026-08-27, own-key until 0.9.72; caching it is the largest cost lever available and changes nothing a user sees |
 | Per-session result cache, keyed on the whole session | `stepsCache` in `chrome.storage.session` | A second click on a row already seen is a hit, not a re-roll that costs quota |
 
 The cache key deliberately covers every turn, not the last exchange: mining
@@ -236,13 +236,16 @@ been tried the other way and paid for.
 
 A thesis that only lists its successes is marketing. These are the gaps.
 
-1. **The own-key path does not cache the system prompt.** `callClaude` in
-   `extension/background.js` sends `system` as a plain string; only the
-   worker wraps it in `cachedSystem` with `cache_control`. A user on their own
-   key pays full input price for the ~2.4k-token prefix on every click. The
-   product is identical either way, so `build.mjs` does not catch it, and the
-   "hosted and own-key must behave identically" rule has not so far been read
-   as covering cost. It should be. This is the first follow-up.
+1. **The own-key path did not cache the system prompt** — *closed in 0.9.72*.
+   `callClaude` in `extension/background.js` sent `system` as a plain string
+   while the worker wrapped it in `cachedSystem`, so a user on their own key
+   paid full input price for the ~2.4k-token prefix on every click. The product
+   was identical either way, which is why nothing caught it. Both paths now
+   send the same cached block from a byte-identical helper, `build.mjs` asserts
+   the helper and its call site in both files, and the "hosted and own-key
+   must behave identically" rule is read as covering cost. Kept on this list
+   because the shape of the gap — a divergence no product test could see — is
+   the one to keep looking for.
 2. **The user-side saving is argued, not measured.** Nothing in the product
    records whether a sent move produced a clarifying question, or how many
    turns a session took to reach an outcome. The field test asks how often the
@@ -265,13 +268,15 @@ A thesis that only lists its successes is marketing. These are the gaps.
 The instrumentation for most of this already exists; what is missing is the
 habit of reading it.
 
-- **`in` / `out` per call** — already returned by `diagnose` on both paths.
-  **`cache_read` is not**: `diagnose` reads `usage.input_tokens` and
-  `usage.output_tokens` only, so whether the prefix was served from cache is
-  currently visible nowhere but the bill. Adding the two cache fields to
-  `diagnose` is a one-line change on each path, and the number to watch is the
-  share of input tokens served from cache; if it is not close to the system
-  prompt's share, caching has silently stopped.
+- **`in` / `out` / `cacheRead` / `cacheWrite` per call** — read by `usageOf`
+  on both paths, carried by `diagnose`, and since 0.9.72 logged as one
+  `[CONTEXA] usage` line on every call, success or failure: the service-worker
+  console on the own-key path, `wrangler tail` on the hosted one. Before that,
+  `diagnose` reported `in` and `out` only and whether the prefix was served
+  from cache was visible nowhere but the bill. The number to watch is
+  `cacheRead` against the system prompt's share of `in`; `cacheWrite` marks
+  the first call of a cache window; zero in both, press after press, means
+  caching has silently stopped.
 - **Rows per click and moves per row** — `total` before the gates and the
   count after, already in the grounding result. Track the drop rate per gate.
 - **`fromTurns` vs `fromReply`** — already tallied. A row earned only by the

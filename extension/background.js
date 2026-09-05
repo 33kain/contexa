@@ -168,6 +168,21 @@ function salvageTruncated(t, start) {
   } catch { return null; }
 }
 
+/* The system prompt travels as one cacheable content block — the same shape
+   the worker has sent since 2026-08-27, from the same function. build.mjs
+   asserts the two bodies are byte-identical and that both call sites use it,
+   because the reason to have it here at all is cost parity: until 0.9.72 only
+   the hosted path cached the ~2.4k-token prefix, and a user on their own key
+   paid full input price for the same bytes on every press while the product
+   looked identical. No product test could see that; the bill could. The full
+   account of what fails silently around caching (the minimum cacheable length,
+   the byte-identical prefix) is on the worker's copy; the rule that matters
+   here is the same one — the block is built from the constant alone, with
+   nothing interpolated into it. */
+function cachedSystem(text) {
+  return [{ type: 'text', text, cache_control: { type: 'ephemeral' } }];
+}
+
 async function callClaude(system, userText, maxTokens) {
   const { apiKey, model } = await getSettings();
   if (!apiKey) return { error: 'no_key' };
@@ -186,11 +201,17 @@ async function callClaude(system, userText, maxTokens) {
     model: useModel,
     max_tokens: maxTokens,
     thinking: { type: 'disabled' },
-    system,
+    system: cachedSystem(system),
     messages: [{ role: 'user', content: userText }]
   };
   let res, body = '';
-  for (let attempt = 0; attempt < 2; attempt++) {
+  /* Two independent degradations, each allowed once, tracked by flags rather
+     than by attempt index — the worker's shape. The old `attempt === 0` guard
+     could only recover a thinking rejection when it was the FIRST failure, and
+     with two possible degradations that ordering is not a safe assumption.
+     Three attempts because both can legitimately fire on one request. */
+  let droppedThinking = false, droppedCache = false;
+  for (let attempt = 0; attempt < 3; attempt++) {
     try {
       res = await fetch(API_URL, {
         method: 'POST',
@@ -209,9 +230,22 @@ async function callClaude(system, userText, maxTokens) {
     body = await res.text().catch(() => '');
     // Every error path logs its full evidence at the moment of capture.
     console.warn('[CONTEXA] api error', res.status, body.slice(0, 300));
-    if (attempt === 0 && res.status === 400 && /thinking/i.test(body) && payload.thinking) {
+    if (!droppedThinking && res.status === 400 && /thinking/i.test(body) && payload.thinking) {
       console.warn('[CONTEXA] model rejected the thinking config — retrying without it');
       delete payload.thinking;
+      droppedThinking = true;
+      continue;
+    }
+    /* Prompt caching is an optimisation, never a requirement. If the API
+       rejects the cache_control block for any reason, flatten it back to a
+       plain string and try once more — a request that costs more is strictly
+       better than a request that fails. The regex is deliberately broad: the
+       wording of somebody else's 400 is not ours to predict, and a narrow
+       regex here would turn a recoverable request into a dead one. */
+    if (!droppedCache && res.status === 400 && /cache/i.test(body) && Array.isArray(payload.system)) {
+      console.warn('[CONTEXA] API rejected prompt caching — retrying uncached');
+      payload.system = payload.system.map(b => b.text).join('');
+      droppedCache = true;
       continue;
     }
     break;
@@ -222,6 +256,12 @@ async function callClaude(system, userText, maxTokens) {
   const data = await res.json();
   const text = (data.content || []).map(b => b.text || '').join('');
   const truncated = data.stop_reason === 'max_tokens';
+  /* Logged on every call, success or failure, so whether the prefix was served
+     from cache is readable in the service-worker console rather than only on
+     the bill. `cacheRead` near the prompt's share of `in` is caching working;
+     `cacheWrite` is the first call of a window; zero in both, press after
+     press, is caching silently off. Numbers only — no conversation content. */
+  console.log('[CONTEXA] usage', usageOf(data));
   try {
     const parsed = extractJson(text);
     return { data: parsed, truncated, partial: parsed.__cxPartial === true };
@@ -236,14 +276,29 @@ async function callClaude(system, userText, maxTokens) {
   }
 }
 
+/* The four usage counters the API returns, under the names the logs and diag
+   have always used for the first two. Byte-identical to the worker's copy
+   (build.mjs checks). `cacheRead` / `cacheWrite` are the thesis's second
+   one-line gap: without them, whether caching was working was visible nowhere
+   but the bill. A missing counter reads as null, never as 0 — an API that does
+   not report the cache is a different fact from a cache that read nothing. */
+function usageOf(data) {
+  const u = (data && data.usage) || {};
+  return {
+    in: u.input_tokens ?? null,
+    out: u.output_tokens ?? null,
+    cacheRead: u.cache_read_input_tokens ?? null,
+    cacheWrite: u.cache_creation_input_tokens ?? null
+  };
+}
+
 /* Identify why a response could not be parsed, without conversation content.
    `blocks` is decisive: budget spent on content types other than `text` leaves a
    short body with `out` at the ceiling, and raising max_tokens will not fix it. */
 function diagnose(data, text, ceiling) {
   return {
     stop: data.stop_reason || null,
-    out: data.usage ? data.usage.output_tokens : null,
-    in: data.usage ? data.usage.input_tokens : null,
+    ...usageOf(data),
     ceiling: ceiling ?? null,
     len: text.length,
     hadJson: text.indexOf('{') >= 0,

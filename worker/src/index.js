@@ -18,7 +18,7 @@
    which build is live. Deliberately independent of the extension's manifest
    version — they ship on separate paths and a worker fix should not force
    everyone to reinstall the extension. */
-const BUILD = '0.9.71';   // matches the extension generation this serves; every bump here has paid for itself by telling one deploy from another — 0.9.52 could not tell a pre-fork deploy from a post-fork one, 0.9.54 a pre-voice from a post-voice, 0.9.56 a pre-precedence-fix from a post-precedence-fix, and 0.9.58 is the first that must distinguish a worker that speaks moves from one that still speaks questions
+const BUILD = '0.9.72';   // matches the extension generation this serves; every bump here has paid for itself by telling one deploy from another — 0.9.52 could not tell a pre-fork deploy from a post-fork one, 0.9.54 a pre-voice from a post-voice, 0.9.56 a pre-precedence-fix from a post-precedence-fix, and 0.9.58 is the first that must distinguish a worker that speaks moves from one that still speaks questions
 
 const ANTHROPIC_URL = 'https://api.anthropic.com/v1/messages';
 /* Sonnet 5 rather than Haiku, on measured evidence: in a controlled three-model
@@ -112,7 +112,9 @@ const KV_TTL_SECONDS = 60 * 60 * 48;
       correct.
 
    Kept as a function rather than an inline literal so the shape exists in
-   exactly one place: the retry below has to be able to recognise and undo it. */
+   exactly one place: the retry below has to be able to recognise and undo it.
+   Since 0.9.72 the extension carries a byte-identical copy for the own-key
+   path (build.mjs asserts it), so "exactly one place" now means one per file. */
 function cachedSystem(text) {
   return [{ type: 'text', text, cache_control: { type: 'ephemeral' } }];
 }
@@ -259,6 +261,22 @@ async function bumpQuota(env, key, limit) {
   return { ok: true, used: used + 1, limit };
 }
 
+/* The four usage counters the API returns, under the names the logs and diag
+   have always used for the first two. Byte-identical to the extension's copy
+   (build.mjs checks). `cacheRead` / `cacheWrite` are the thesis's second
+   one-line gap: without them, whether caching was working was visible nowhere
+   but the bill. A missing counter reads as null, never as 0 — an API that does
+   not report the cache is a different fact from a cache that read nothing. */
+function usageOf(data) {
+  const u = (data && data.usage) || {};
+  return {
+    in: u.input_tokens ?? null,
+    out: u.output_tokens ?? null,
+    cacheRead: u.cache_read_input_tokens ?? null,
+    cacheWrite: u.cache_creation_input_tokens ?? null
+  };
+}
+
 /* Enough to identify why a response could not be parsed, with no conversation
    content in it. `blocks` is the decisive field: if the budget was spent on
    content types other than `text`, the text body is short while `out` is at the
@@ -266,8 +284,7 @@ async function bumpQuota(env, key, limit) {
 function diagnose(data, text, ceiling = MAX_TOKENS) {
   return {
     stop: data.stop_reason || null,
-    out: data.usage ? data.usage.output_tokens : null,
-    in: data.usage ? data.usage.input_tokens : null,
+    ...usageOf(data),
     ceiling,
     len: text.length,
     hadJson: text.indexOf('{') >= 0,
@@ -731,6 +748,9 @@ export default {
     let data;
     try { data = await upstream.json(); } catch { return json({ error: 'upstream_bad_json' }, 502, request, env); }
     const text = (data.content || []).map(b => b.text || '').join('');
+    /* One line per call in `wrangler tail`, success or failure: the number to
+       watch is cacheRead against the prompt's share of in. Numbers only. */
+    console.log('[CONTEXA] usage', JSON.stringify(usageOf(data)));
 
     let parsed;
     try {

@@ -241,6 +241,124 @@ const TURNS = [
     JSON.stringify(session).slice(0, 80));
 }
 
+/* ---- 9c. the own-key path caches the system prompt ----------------------- */
+/* Until 0.9.72 only the worker sent the ~2.4k-token prefix as a cacheable block;
+   callClaude sent a bare string, so an own-key press paid full input price for
+   the same bytes on every click. The product was identical either way, which is
+   exactly why nothing here caught it. These are the worker's caching tests,
+   run against this path: the block reaches the wire, nothing is interpolated
+   into it, a cache-rejecting 400 falls back to a plain string, the two
+   degradations are independent, and an unrelated 400 is not mistaken for one. */
+{
+  const sysText = (v) => Array.isArray(v) ? v.map(b => b && b.text || '').join('') : String(v || '');
+  const okOnce = () => ({ ok: true, status: 200, async text() { return ''; },
+    async json() { return { stop_reason: 'end_turn',
+      usage: { input_tokens: 500, output_tokens: 200, cache_read_input_tokens: 2400, cache_creation_input_tokens: 0 },
+      content: [{ type: 'text', text: JSON.stringify({ moves: [
+        { label: 'Write the menu page', text: 'Write the menu page.', evidence: 'now the menu page' }
+      ] }) }] }; } });
+  const fresh = async () => { const h = load({ storage: { model: '', apiKey: 'sk-x' } }); await settle(); return h; };
+  const ask = (h, reply) => h.send({ type: 'nextSteps', reply, turns: TURNS });
+
+  // --- the prompt travels as a cached block, not a bare string ---
+  {
+    const h = await fresh();
+    const logs = [];
+    h.sandbox.console = { log: (...a) => logs.push(a), warn() {}, error() {} };
+    h.sandbox.fetch = async (_u, o) => { h.requests.push({ body: JSON.parse(o.body) }); return okOnce(); };
+    const r = await ask(h, 'a'.repeat(80));
+    const sys = h.requests[0] && h.requests[0].body.system;
+    t('own key: the system prompt travels as content blocks', Array.isArray(sys), typeof sys);
+    t('own key: exactly one text block, marked cacheable',
+      Array.isArray(sys) && sys.length === 1 && sys[0].type === 'text'
+        && !!sys[0].cache_control && sys[0].cache_control.type === 'ephemeral',
+      JSON.stringify(sys && sys[0] && sys[0].cache_control));
+    /* A cache HIT needs a byte-identical prefix. Anything interpolated into the
+       system text — a build stamp, a date, the user's own words — would miss on
+       every call while looking perfectly correct in the logs. */
+    t('own key: nothing is interpolated into the cached text',
+      sysText(sys).length > 1000 && !/\d{4}-\d{2}-\d{2}/.test(sysText(sys)) && !sysText(sys).includes('a'.repeat(80)),
+      String(sysText(sys).length));
+    t('own key: and the row still arrives', Array.isArray(r.moves) && r.moves.length === 1, JSON.stringify(r).slice(0, 120));
+    /* Whether caching WORKS is readable only from usage, so a success logs it.
+       Without this line the cache was visible nowhere but the bill. */
+    const usage = logs.find(a => a[0] === '[CONTEXA] usage');
+    t('own key: a successful call logs the cache counters',
+      !!usage && usage[1].cacheRead === 2400 && usage[1].cacheWrite === 0 && usage[1].in === 500,
+      JSON.stringify(usage && usage[1]));
+  }
+
+  // --- the fallback: caching must never be why a user gets nothing ---
+  {
+    const h = await fresh();
+    let calls = 0; const systems = [];
+    h.sandbox.fetch = async (_u, o) => {
+      calls++; systems.push(JSON.parse(o.body).system);
+      if (calls === 1) return { ok: false, status: 400,
+        async text() { return '{"error":{"message":"cache_control: unsupported"}}'; } };
+      return okOnce();
+    };
+    const r = await ask(h, 'b'.repeat(80));
+    t('own key: a cache-rejecting 400 is retried', calls === 2, 'calls=' + calls);
+    t('own key: the retry drops the block and sends a byte-identical plain string',
+      typeof systems[1] === 'string' && systems[1] === sysText(systems[0]), typeof systems[1]);
+    t('own key: and the user still gets a row', Array.isArray(r.moves) && r.moves.length === 1, JSON.stringify(r).slice(0, 120));
+  }
+
+  // --- the two degradations are independent, and order must not matter ---
+  {
+    const h = await fresh();
+    let calls = 0; const payloads = [];
+    h.sandbox.fetch = async (_u, o) => {
+      calls++; const b = JSON.parse(o.body); payloads.push(b);
+      if (calls === 1) return { ok: false, status: 400, async text() { return 'thinking cannot be disabled'; } };
+      if (calls === 2) return { ok: false, status: 400, async text() { return 'cache_control not supported for this model'; } };
+      return okOnce();
+    };
+    const r = await ask(h, 'c'.repeat(80));
+    t('own key: thinking then cache — both degradations fire on one request', calls === 3, 'calls=' + calls);
+    t('own key: thinking is gone by the second attempt', !payloads[1].thinking);
+    t('own key: caching is gone by the third', typeof payloads[2].system === 'string');
+    t('own key: and the request still succeeds', Array.isArray(r.moves) && r.moves.length === 1, JSON.stringify(r).slice(0, 120));
+  }
+
+  // --- an unrelated 400 must NOT be mistaken for a cache problem ---
+  {
+    const h = await fresh();
+    let calls = 0;
+    h.sandbox.fetch = async () => { calls++; return { ok: false, status: 400,
+      async text() { return 'max_tokens is too large'; } }; };
+    const r = await ask(h, 'd'.repeat(80));
+    t('own key: an ordinary 400 is not retried as a cache failure', calls === 1, 'calls=' + calls);
+    t('own key: and it still surfaces as api_400', r.error === 'api_400', String(r.error));
+  }
+
+  // --- diag carries the cache counters, so a silently-off cache is visible ---
+  {
+    const h = await fresh();
+    h.sandbox.fetch = async () => ({ ok: true, status: 200, async text() { return ''; },
+      async json() { return { stop_reason: 'max_tokens',
+        usage: { input_tokens: 3000, output_tokens: 2500, cache_read_input_tokens: 2400, cache_creation_input_tokens: 0 },
+        content: [{ type: 'text', text: 'Let me think about the best next steps here.' }] }; } });
+    const r = await ask(h, 'e'.repeat(80));
+    t('own key: diag carries cacheRead and cacheWrite',
+      r.error === 'truncated' && !!r.diag && r.diag.cacheRead === 2400 && r.diag.cacheWrite === 0
+        && r.diag.in === 3000 && r.diag.out === 2500,
+      JSON.stringify(r.diag));
+  }
+  {
+    /* An API that does not report the cache is a different fact from a cache
+       that read nothing: absent counters are null, never 0. */
+    const h = await fresh();
+    h.sandbox.fetch = async () => ({ ok: true, status: 200, async text() { return ''; },
+      async json() { return { stop_reason: 'max_tokens', usage: { input_tokens: 900, output_tokens: 2500 },
+        content: [{ type: 'text', text: 'prose' }] }; } });
+    const r = await ask(h, 'f'.repeat(80));
+    t('own key: absent cache counters read as null, not 0',
+      !!r.diag && r.diag.cacheRead === null && r.diag.cacheWrite === null, JSON.stringify(r.diag));
+  }
+}
+
 /* ---- 10. capture: the DOM walker that feeds the model -------------------- */
 /* Extracted from content.js and run against a hand-rolled DOM, because the two
    capture defects (glued paragraphs, whole code blocks) shipped invisibly for

@@ -9,6 +9,68 @@ backend's live version separately so a deploy can be told from a no-op.
 
 ---
 
+## 0.9.72 — Extension + Worker
+
+*The first gap in the token-savings thesis, closed. Nothing a user sees is
+different; what an own-key press costs is.*
+
+### The own-key path caches the system prompt
+
+Since 2026-08-27 the worker has sent `MOVES_SYSTEM` as one content block marked
+`cache_control: ephemeral`, so a hosted press pays a tenth of the input price
+for the ~2.4k-token prefix on every call after the first in a cache window.
+`callClaude` in `background.js` sent the same prompt as a plain string. The
+moves were identical, the grounding was identical, `build.mjs`'s prompt check
+passed — and a user on their own key paid full price for the same bytes on
+every press. The rule that hosted and own-key must behave identically had never
+been read as covering cost; 0.9.71's thesis said it should be, and this is that.
+
+`cachedSystem` now exists in both files, byte-identical, and `callClaude` sends
+`system: cachedSystem(system)`. The retry loop takes the worker's shape with
+it: two independent degradations, thinking and caching, each allowed once and
+tracked by flags rather than by attempt index, three attempts because both can
+fire on one request. A 400 that mentions the cache flattens the block back to a
+plain string and tries again — a request that costs more beats a request that
+fails — and an unrelated 400 is not mistaken for one. The extension's tests now
+carry the worker's caching assertions for this path.
+
+The settings page's ping (`healthCheck`) goes through the same function with a
+one-line system prompt. That is below the minimum cacheable length and is
+simply not cached — the documented silent behaviour, not an error.
+
+### The cache is visible
+
+The thesis's other one-line gap: `diagnose` reported `in` and `out` only, so
+whether the prefix was being served from cache was visible nowhere but the
+bill. A `usageOf` helper, byte-identical on both paths, reads the four usage
+counters the API returns — `input_tokens`, `output_tokens`,
+`cache_read_input_tokens`, `cache_creation_input_tokens` — as `in`, `out`,
+`cacheRead`, `cacheWrite`. A counter the API does not report reads as `null`,
+never `0`: an API that says nothing about the cache is a different fact from a
+cache that read nothing. `diagnose` carries all four, and every call now logs
+one `[CONTEXA] usage` line on success as well as failure — the service-worker
+console on the own-key path, `wrangler tail` on the hosted one. The number to
+watch is `cacheRead` against the prompt's share of `in`. The first call in a
+window shows it as `cacheWrite`; zero in both, press after press, is caching
+silently off.
+
+### What the build now refuses
+
+`build.mjs` asserts `cachedSystem` and `usageOf` are byte-identical across the
+two files, and that both call sites still send the prompt through
+`cachedSystem`. A drift here is invisible to every product test — the row is
+the same either way — which is exactly the class of check the build exists for.
+
+### What ships
+
+Both. The extension, because `background.js` changed; the worker, because its
+diagnostics changed, and a `/v1/health` still reporting 0.9.71 is a worker that
+does not yet log its cache. `docs/token-savings-thesis.md` marks gap 1 closed
+and rewrites the `cache_read` note in section 7; the remaining gaps stand. The
+site's version stamps move with the manifest.
+
+---
+
 ## 0.9.71 — Extension + Website
 
 *A motto, and the name changes to carry it. Nothing the extension or the
