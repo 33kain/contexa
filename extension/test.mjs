@@ -1725,7 +1725,7 @@ const TURNS = [
   t('a project page is not an existing conversation', /EXISTING_RE = \/\^\\\/\(chat\\\/\[0-9a-f-\]\{36\}\|cowork\\\/cse_/.test(c));
 }
 
-/* ---- 0.9.89 – 0.9.92 — the project page's address ------------------------- */
+/* ---- 0.9.89 – 0.9.93 — the project page's address ------------------------- */
 {
   const c = readFileSync('./content.js', 'utf8');
   const f = (c.match(/function coworkProjectUrl\(ctx\)[\s\S]*?\n  \}/) || [''])[0];
@@ -1741,11 +1741,15 @@ const TURNS = [
   t('the page\'s own project fetch is read from resource timing, org-checked, by exact path', /getEntriesByType\('resource'\)/.test(pf) && /api\\\/organizations\\\/\(\[0-9a-f-\]\{36\}\)\\\/projects\\\/\(\[0-9a-f-\]\{36\}\)\(\?=\[\/\?#\]\|\$\)/.test(pf) && /m\[1\]\.toLowerCase\(\) === org\.toLowerCase\(\)/.test(pf));
   t('and it is a source only when exactly one project uuid was fetched, after every exact match', /if \(!ctx\.coworkProjectUrl && pf\.uuids\.length === 1\) ctx\.coworkProjectUrl = COWORK_PROJECT_URL \+ pf\.uuids\[0\]\[0\];/.test(l));
   t('a resource timing that cannot be read is an empty answer, not a throw', /catch \{ return \{ uuids: \[\], other, sample, n: 0 \}; \}/.test(pf));
-  t('0.9.92: the org\'s conversations are searched for the session\'s cse_ id, a project uuid taken only from a field named for it', /\/chat_conversations'\)/.test(l) && /JSON\.stringify\(c\)\.includes\(cse\)/.test(l) && /found\.find\(\(\[k\]\) => \/project\/i\.test\(k\)\)/.test(l));
+  t('0.9.93: the record itself is searched first, for a uuid under a path naming a project, and all its keys are said', /const r = projUuidIn\(recBody\);/.test(l) && /'record keys: ' \+ Object\.keys\(recBody\)\.join\(','\)/.test(l) && /if \(r\.pick\) ctx\.coworkProjectUrl = COWORK_PROJECT_URL \+ r\.pick;/.test(l));
+  t('the record is kept on the context for it, and the list is asked only after it', /ctx\.coworkRecord = record;\n    await coworkProjectLookup\(ctx\);/.test(c) && /if \(!ctx\.coworkProjectUrl\) try \{\n      const list = await apiJson\('\/api\/organizations\/' \+ org \+ '\/projects'\);/.test(l));
+  const pu = (c.match(/function projUuidIn\(o\)[\s\S]*?\n  \}/) || [''])[0];
+  t('the uuid walk is three levels deep and picks only a path naming a project', /d > 3\) return;/.test(pu) && /found\.find\(\(\[k\]\) => \/project\/i\.test\(k\)\)/.test(pu));
+  t('0.9.92: the org\'s conversations are searched for the session\'s cse_ id, a project uuid taken only from a field named for it', /\/chat_conversations'\)/.test(l) && /JSON\.stringify\(c\)\.includes\(cse\)/.test(l) && /projUuidIn\(hit\)/.test(l));
   t('then each project\'s conversations, stopping at the first project holding the session', /\/projects\/' \+ u \+ '\/conversations'\)/.test(l) && /if \(!u \|\| match\) continue;/.test(l));
   t('then the code API\'s session list, with the page\'s headers', /\/v1\/code\/sessions\?limit=50', codeHeaders\(\)/.test(l));
   t('each of the three is asked only while nothing has answered and only on a session page', (l.match(/if \(!ctx\.coworkProjectUrl && cse/g) || []).length === 3);
-  t('every step of the lookup is caught and leaves a diag line', (l.match(/catch \(e\) \{ lines\.push\(/g) || []).length === 4 && (l.match(/lines\.push\(/g) || []).length >= 8 && /ctx\.coworkLookup = lines;/.test(l));
+  t('every step of the lookup is caught and leaves a diag line', (l.match(/catch \(e\) \{ lines\.push\(/g) || []).length === 4 && (l.match(/lines\.push\(/g) || []).length >= 9 && /ctx\.coworkLookup = lines;/.test(l));
   t('the lookup runs inside the session read, before any chip', /await coworkProjectLookup\(ctx\);\n    const used = usage/.test(c));
   t('the chip resolves the address at click time', /const projectUrl = onCowork \? coworkProjectUrl\(ctx\) : null;/.test(c));
   t('the diag says what would open, what the lookup found, and what the page links (diag only)', /'project page to open: '/.test(c) && /\.\.\.\(ctx\.coworkLookup \|\| \[\]\)/.test(c) && /'project links on page: ' \+ \(pageProjectLinks\(\)/.test(c));

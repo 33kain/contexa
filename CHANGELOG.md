@@ -9,6 +9,19 @@ backend's live version separately so a deploy can be told from a no-op.
 
 ---
 
+## 0.9.93 — Extension (worker build number only)
+
+*Eighteenth card: conversations carry `project_uuid`, `session_id` and
+`workspace_session_id` but none holds this session; the code API's session
+list carries `relations`, `tags` and `title` — keys the record's twelve-key
+summary never showed.* The session record is now the first source,
+searched (`projUuidIn`, three levels, a path naming a project) before any
+list is asked, and the diag says all of its keys, its `relations` and
+`tags`. The conversations line says how many entries hold a session id and
+what one looks like; the sessions line shows one entry's `relations`.
+
+---
+
 ## 0.9.92 — Extension (worker build number only)
 
 *Seventeenth card: project details add only `prompt_template,

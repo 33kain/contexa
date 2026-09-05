@@ -622,6 +622,7 @@
        messages, which is exactly where the landing lets a parked brief in
        (the thirteenth card: it did, by itself). So the fork chip can open it. */
     ctx.coworkProject = (function find(o, d) { if (!o || typeof o !== 'object' || d > 3) return null; if (typeof o.chat_project_id === 'string' && o.chat_project_id) return o.chat_project_id; for (const k of Object.keys(o)) { const r = find(o[k], d + 1); if (r) return r; } return null; })(record, 0);
+    ctx.coworkRecord = record;
     await coworkProjectLookup(ctx);
     const used = usage && Number(usage.used_tokens);
     ctx.coworkShape = ['record: ' + shapeOf(record, 2)
@@ -1087,6 +1088,21 @@
     }
     return { uuids: [...out.entries()], other, sample, n: entries.length };
   }
+  /* Every uuid-shaped string in an object, three levels deep, with the path
+     that holds it; the pick is the first whose path names a project. */
+  function projUuidIn(o) {
+    const found = [];
+    (function walk(v, path, d) {
+      if (!v || typeof v !== 'object' || d > 3) return;
+      for (const k of Object.keys(v)) {
+        const x = v[k];
+        if (typeof x === 'string' && UUID_RE.test(x)) found.push([path + k, x]);
+        else walk(x, path + k + '.', d + 1);
+      }
+    })(o, '', 0);
+    const pick = found.find(([k]) => /project/i.test(k));
+    return { pick: pick && pick[1], keys: found.map(([k]) => k).slice(0, 8) };
+  }
   async function coworkProjectLookup(ctx) {
     const id = ctx.coworkProject;
     const lines = [];
@@ -1095,8 +1111,20 @@
     if (UUID_RE.test(id)) { ctx.coworkProjectUrl = COWORK_PROJECT_URL + id; ctx.coworkLookup = ['project lookup: the record id is a uuid']; return; }
     const org = orgUuid();
     const uuidOf = o => o && [o.uuid, o.id].find(v => typeof v === 'string' && UUID_RE.test(v));
+    /* 0.9.93 — the eighteenth card: the code API's session list carries
+       relations, tags and title that the record's twelve-key summary never
+       showed. The record itself is searched first, for a uuid held under a
+       path that names a project, and all of its keys are said. */
+    const rec = ctx.coworkRecord || null;
+    const recBody = rec && rec.response_shape && typeof rec.response_shape === 'object' ? rec.response_shape : rec;
+    if (recBody) {
+      const r = projUuidIn(recBody);
+      lines.push('record keys: ' + Object.keys(recBody).join(',') + '; uuid fields: ' + (r.keys.join(',') || 'none')
+        + (recBody.relations != null ? '; relations: ' + shapeOf(recBody.relations, 2) : '') + (recBody.tags != null ? '; tags: ' + JSON.stringify(recBody.tags).slice(0, 120) : ''));
+      if (r.pick) ctx.coworkProjectUrl = COWORK_PROJECT_URL + r.pick;
+    }
     let listed = [];
-    try {
+    if (!ctx.coworkProjectUrl) try {
       const list = await apiJson('/api/organizations/' + org + '/projects');
       listed = firstArray(list).filter(p => p && typeof p === 'object');
       const hit = listed.find(p => JSON.stringify(p).includes(id));
@@ -1149,26 +1177,16 @@
        session's cse_ id; and the code API's session list, for a uuid-shaped
        field on this session's own entry. */
     const cse = (location.pathname.match(COWORK_RE) || [])[1] || '';
-    const projUuidIn = o => {
-      const found = [];
-      (function walk(v, path, d) {
-        if (!v || typeof v !== 'object' || d > 3) return;
-        for (const k of Object.keys(v)) {
-          const x = v[k];
-          if (typeof x === 'string' && UUID_RE.test(x)) found.push([path + k, x]);
-          else walk(x, path + k + '.', d + 1);
-        }
-      })(o, '', 0);
-      const pick = found.find(([k]) => /project/i.test(k));
-      return { pick: pick && pick[1], keys: found.map(([k]) => k).slice(0, 6) };
-    };
     if (!ctx.coworkProjectUrl && cse) {
       try {
         const list = await apiJson('/api/organizations/' + org + '/chat_conversations');
         const arr = firstArray(list).filter(c => c && typeof c === 'object');
         const hit = arr.find(c => JSON.stringify(c).includes(cse));
         const r = hit ? projUuidIn(hit) : null;
+        const withSid = arr.filter(c => c.session_id || c.workspace_session_id);
+        const ex = withSid[0];
         lines.push('conversations: n=' + arr.length + (arr[0] ? ' keys={' + Object.keys(arr[0]).slice(0, 14).join(',') + '}' : '')
+          + '; with a session id: ' + withSid.length + (ex ? ' e.g. ' + String(ex.session_id || '').slice(0, 10) + '/' + String(ex.workspace_session_id || '').slice(0, 10) : '')
           + '; entry with this session: ' + (hit ? (r.pick || 'no project uuid; uuid fields ' + r.keys.join(',')) : 'none'));
         if (r && r.pick) ctx.coworkProjectUrl = COWORK_PROJECT_URL + r.pick;
       } catch (e) { lines.push('conversations: ' + (e && e.message)); }
@@ -1196,7 +1214,10 @@
         const arr = firstArray(list).filter(c => c && typeof c === 'object');
         const hit = arr.find(c => JSON.stringify(c).includes(cse));
         const r = hit ? projUuidIn(hit) : null;
+        const withRel = arr.find(c => c.relations && Object.keys(c.relations).length);
         lines.push('code sessions list: n=' + arr.length + (arr[0] ? ' keys={' + Object.keys(arr[0]).slice(0, 14).join(',') + '}' : '')
+          + (withRel ? '; relations e.g. ' + JSON.stringify(withRel.relations).slice(0, 160) : '; no entry with relations')
+          + (arr[0] && arr[0].tags != null ? '; tags e.g. ' + JSON.stringify(arr[0].tags).slice(0, 80) : '')
           + '; this session: ' + (hit ? (r.pick || 'no project uuid; uuid fields ' + r.keys.join(',')) : 'not in the first page'));
         if (r && r.pick) ctx.coworkProjectUrl = COWORK_PROJECT_URL + r.pick;
       } catch (e) { lines.push('code sessions list: ' + (e && e.message)); }
