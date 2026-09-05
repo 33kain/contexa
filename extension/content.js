@@ -540,6 +540,42 @@
     if (typeof p === 'string' && p.length < 300 && apiPaths.length < 40 && !apiPaths.includes(p)) apiPaths.push(p);
   });
   const shortPath = p => p.replace(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f-]{23}/gi, '<uuid>').replace(/\/([a-z]+_[A-Za-z0-9]{6})[A-Za-z0-9]{6,}/g, '/$1…');
+
+  /* 0.9.79 — the shape of the Cowork session API, for the diagnostic card only.
+     The page's own calls showed the base (/cowork/sessions/<id>/…) and not the
+     content, so four GETs under that base report their status and, on a JSON
+     200, the top-level key names — names, never values, never text. One round
+     of this replaces a week of guessing. */
+  const COWORK_TRIES = ['', '/events', '/messages', '/transcript'];
+  async function coworkProbe(ctx) {
+    const cw = location.pathname.match(COWORK_RE);
+    if (!cw) return;
+    const cookieOrg = (document.cookie.match(/(?:^|;\s*)lastActiveOrg=([0-9a-f-]{36})/i) || [])[1];
+    let org = cookieOrg;
+    if (!org) {
+      try { const list = await apiJson('/api/organizations'); org = ((Array.isArray(list) ? list : []).find(o => o && o.uuid) || {}).uuid; } catch (e) { ctx.coworkShape = ['org: ' + (e && e.message)]; refreshDiag(ctx); return; }
+    }
+    if (!org) { ctx.coworkShape = ['org: none']; refreshDiag(ctx); return; }
+    const base = '/api/organizations/' + org + '/cowork/sessions/' + cw[1];
+    const out = [];
+    for (const suffix of COWORK_TRIES) {
+      try {
+        const r = await fetch(base + suffix, { credentials: 'same-origin', headers: { accept: 'application/json' } });
+        let shape = '';
+        if (r.ok) {
+          const ct = r.headers.get('content-type') || '';
+          if (/json/.test(ct)) {
+            const j = await r.json();
+            shape = Array.isArray(j) ? 'array[' + j.length + ']' + (j[0] && typeof j[0] === 'object' ? ' of {' + Object.keys(j[0]).slice(0, 12).join(',') + '}' : '')
+              : (j && typeof j === 'object') ? '{' + Object.keys(j).slice(0, 14).join(',') + '}' : typeof j;
+          } else shape = ct.slice(0, 30) || 'no content-type';
+        }
+        out.push(('sessions/…' + suffix) + ': ' + r.status + (shape ? ' ' + shape : ''));
+      } catch (e) { out.push(('sessions/…' + suffix) + ': ' + String(e && e.message || e).slice(0, 40)); }
+    }
+    ctx.coworkShape = out;
+    refreshDiag(ctx);
+  }
   async function apiJson(url) {
     const r = await fetch(url, { credentials: 'same-origin', headers: { accept: 'application/json' } });
     if (!r.ok) throw new Error('http_' + r.status);
@@ -607,6 +643,7 @@
      page's API answers and says the thread is bigger, the label row is redrawn
      with the better number — the line appears a beat late rather than never. */
   async function refineThread(anchor, ctx) {
+    if (COWORK_RE.test(location.pathname)) coworkProbe(ctx);
     let api = null;
     try { api = await apiThread(ctx); }
     catch (e) { ctx.apiError = String(e && e.message || e); ctx.apiState = 'failed: ' + ctx.apiError; console.log('[CONTEXA] thread — page API unavailable (' + ctx.apiError + '); the rendered estimate stands'); refreshDiag(ctx); return; }
@@ -650,7 +687,8 @@
         : 'page API: ' + (ctx.apiState || 'not asked yet'),
       'user turns in DOM: ' + turns.length + ', last three: ' + (lastThree.join('/') || '-') + ' chars',
       'model on page: ' + (pageModel() || 'not found') + '; reply ' + ((ctx.reply || '').length) + ' chars',
-      'page API paths seen (' + apiPaths.length + '):' + (apiPaths.length ? '\n  ' + apiPaths.slice(-14).map(shortPath).join('\n  ') : ' none — probe not running?')
+      ...(ctx.coworkShape ? ['cowork API shape:\n  ' + ctx.coworkShape.join('\n  ')] : []),
+      'page API paths seen (' + apiPaths.length + '):' + (apiPaths.length ? '\n  ' + apiPaths.slice(-16).map(shortPath).join('\n  ') : ' none — probe not running?')
     ];
   }
   function refreshDiag(ctx) {

@@ -63,6 +63,8 @@
 
 <h2 id="versions">By version, newest first</h2>
 <dl>
+  <dt><code>0.9.79</code></dt>
+  <dd>Two cards from the field. On a chat, the page's API answered and the session the moves are mined from is now the whole one, six messages where the page showed three. On Cowork, the page's own calls showed the session's base and not its content, so the probe now also records WebSocket and EventSource connections and other hosts, and four read-only requests under the session's base report their status and key names, never values, into the card.</dd>
   <dt><code>0.9.78</code></dt>
   <dd>The card said where it was: a Cowork session, not a chat. Cowork keeps three to five blocks on the page and talks to an API this product does not know and will not guess. A small script in the page's own world now records the paths of the API calls the page itself makes, paths only, never a body or a header, and the diagnostic card lists them. A field diagnostic, to be removed once the endpoint is known.</dd>
   <dt><code>0.9.77</code></dt>
@@ -110,13 +112,13 @@
 </ul>
 
 <h2 id="status">Status</h2>
-<p>Version 0.9.78 is the number in the extension's manifest and in the worker's <code>BUILD</code> constant; the worker's <code>/v1/health</code> reports it with the model and the limit, so a deploy can be told from a no-op. The shipped model on both paths is <code>claude-sonnet-5</code>. The open questions of the field test are how often a press earns nothing, and how much of a long thread a brief actually replaces.</p>
+<p>Version 0.9.79 is the number in the extension's manifest and in the worker's <code>BUILD</code> constant; the worker's <code>/v1/health</code> reports it with the model and the limit, so a deploy can be told from a no-op. The shipped model on both paths is <code>claude-sonnet-5</code>. The open questions of the field test are how often a press earns nothing, and how much of a long thread a brief actually replaces.</p>
 </main>
 
 <footer class="site">
   <p>CONTEXA is an independent project. It is not affiliated with, endorsed by, or sponsored by Anthropic.</p>
   <p><a href="https://chromewebstore.google.com/detail/phhamigkjeeabbjncpmhkppkjccfglhb">Chrome Web Store</a> · <a href="https://github.com/33kain/contexa">Source on GitHub</a> · <a href="https://github.com/33kain/contexa/blob/main/LICENSE">MIT licence</a> · <a href="https://github.com/33kain/contexa/blob/main/publishing/PRIVACY.md">Privacy policy</a> · <a href="https://github.com/33kain/contexa/blob/main/CHANGELOG.md">Changelog</a></p>
-  <p class="muted">Version 0.9.78. This site is static files served from one origin: no fonts, scripts, images or analytics are loaded from anywhere else.</p>
+  <p class="muted">Version 0.9.79. This site is static files served from one origin: no fonts, scripts, images or analytics are loaded from anywhere else.</p>
 </footer>
 </body>
 </html>

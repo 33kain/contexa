@@ -1633,14 +1633,26 @@ const TURNS = [
   t('the probe runs in the page world at document_start, on claude.ai only', !!probe && probe.world === 'MAIN' && probe.run_at === 'document_start' && probe.matches.join() === 'https://claude.ai/*');
   t('the content script still runs in the isolated world', mf.content_scripts.some(cs => cs.js.includes('content.js') && !cs.world));
   const p = readFileSync('./probe.js', 'utf8');
-  t('the probe records same-origin /api/ paths only', /p\.origin !== location\.origin \|\| !p\.pathname\.startsWith\('\/api\/'\)\) return;/.test(p));
-  t('and hands over the pathname alone, as a string', /detail: p\.pathname/.test(p) && !/init|body|headers|response/.test(p.replace(/\/\*[\s\S]*?\*\//, '')));
+  t('the probe records transport, host and path — and nothing else', /const key = kind \+ ' ' \+ \(p\.origin === location\.origin \? '' : p\.host\) \+ p\.pathname;/.test(p) && !/body|headers|response/.test(p.replace(/\/\*[\s\S]*?\*\//, '')));
+  t('and skips assets and analytics', /woff2\?/.test(p) && /event_logging/.test(p));
+  t('and covers WebSocket and EventSource as well as fetch and XHR', /report\('ws', url\)/.test(p) && /report\('sse', url\)/.test(p) && /report\('fetch', input\)/.test(p) && /report\('xhr', url\)/.test(p));
   t('and passes every call through untouched', /return origFetch\.apply\(this, arguments\)/.test(p) && /return origOpen\.apply\(this, arguments\)/.test(p));
   const c = readFileSync('./content.js', 'utf8');
   t('the content script keeps the paths as bounded strings', /typeof p === 'string' && p\.length < 300 && apiPaths\.length < 40/.test(c));
   t('a Cowork session is named as such in the diag', /COWORK_RE = \/\\\/cowork\\\//.test(c) && /'cowork session '/.test(c));
   t('the diag card lists the paths, ids shortened', /page API paths seen/.test(c) && /map\(shortPath\)/.test(c));
   t('the build ships the probe', /'content\.js', 'probe\.js'/.test(readFileSync('../build.mjs', 'utf8')));
+}
+
+/* ---- 0.9.79 — the Cowork shape probe ------------------------------------ */
+{
+  const c = readFileSync('./content.js', 'utf8');
+  const cp = (c.match(/async function coworkProbe\(ctx\)[\s\S]*?\n  \}/) || [''])[0];
+  t('the Cowork probe runs only on a Cowork page', /location\.pathname\.match\(COWORK_RE\);\s*if \(!cw\) return;/.test(cp));
+  t('it reports status and key names, never values', /Object\.keys\(j\)\.slice\(0, 14\)/.test(cp) && !/JSON\.stringify\(j/.test(cp) && !/j\.text|\.content/.test(cp));
+  t('it is GET-only and same-origin', !/method:/.test(cp) && /credentials: 'same-origin'/.test(cp));
+  t('it is kicked off with the refinement, on Cowork pages only', /if \(COWORK_RE\.test\(location\.pathname\)\) coworkProbe\(ctx\);/.test(c));
+  t('and lands in the diag card', /'cowork API shape:/.test(c));
 }
 
 console.log(fails.length ? '\nFAILED: ' + fails.join(', ') : '\nall extension checks passed');

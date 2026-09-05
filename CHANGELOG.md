@@ -9,6 +9,38 @@ backend's live version separately so a deploy can be told from a no-op.
 
 ---
 
+## 0.9.79 — Extension (worker build number only)
+
+*The third and fourth cards from the field, one from a chat and one from
+Cowork.*
+
+The chat card said `page API: 8111 chars in 11 messages, 6 yours` against
+three user turns in the DOM: the API read works on the phone, and the session
+the moves are mined from is now the whole one. The Cowork card listed the
+page's own calls and the session's base — `/cowork/sessions/<id>/mcp-servers`
+— and no call that carries the content, so the content arrives by a transport
+the probe did not wrap, or from another origin.
+
+### The probe, widened
+
+`probe.js` now records fetch, XHR, WebSocket and EventSource, on any host,
+as "transport host/path" — paths only, still; assets and the page's own
+analytics are skipped.
+
+### The Cowork shape
+
+On a Cowork page, four GETs under the session's base (the base itself,
+`/events`, `/messages`, `/transcript`) report their status and, on a JSON
+200, the top-level key names — names, never values — into the card. One round
+of this replaces guessing.
+
+### What ships
+
+The extension, as a field build. The worker's `BUILD` moves with the
+manifest; not redeployed.
+
+---
+
 ## 0.9.78 — Extension (worker build number only)
 
 *The second card from the field.*
