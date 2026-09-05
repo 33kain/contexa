@@ -622,6 +622,7 @@
        messages, which is exactly where the landing lets a parked brief in
        (the thirteenth card: it did, by itself). So the fork chip can open it. */
     ctx.coworkProject = (function find(o, d) { if (!o || typeof o !== 'object' || d > 3) return null; if (typeof o.chat_project_id === 'string' && o.chat_project_id) return o.chat_project_id; for (const k of Object.keys(o)) { const r = find(o[k], d + 1); if (r) return r; } return null; })(record, 0);
+    await coworkProjectLookup(ctx);
     const used = usage && Number(usage.used_tokens);
     ctx.coworkShape = ['record: ' + shapeOf(record, 2)
       + (usage ? ' context_usage=' + JSON.stringify({ used_tokens: usage.used_tokens, max_tokens: usage.max_tokens }) : ' (no context_usage found)')];
@@ -850,6 +851,19 @@
      a chip does not count — those have jobs of their own. The context is the
      last trigger's, which is the one the walk wrote into. */
   let lastCtx = null;
+  /* Diag only (0.9.90): every distinct /cowork/project/ link the page holds,
+     with its text, so a card can say whether the session's own project is
+     linked at all. Never a source — the first one was the wrong project. */
+  function pageProjectLinks() {
+    const seen = new Map();
+    for (const a of document.querySelectorAll('a[href]')) {
+      let u; try { u = new URL(a.getAttribute('href'), location.href); } catch { continue; }
+      if (u.origin !== location.origin || !/^\/cowork\/project\/[A-Za-z0-9_-]{8,}\/?$/.test(u.pathname)) continue;
+      const id = u.pathname.split('/')[3];
+      if (!seen.has(id)) seen.set(id, id.slice(0, 8) + '… "' + (a.textContent || '').trim().slice(0, 24) + '"');
+    }
+    return [...seen.values()].slice(0, 6);
+  }
   function diagLines(ctx) {
     let v = '?'; try { v = chrome.runtime.getManifest().version; } catch {}
     const r = lastThreadRead || {};
@@ -863,7 +877,8 @@
         : 'page API: ' + (ctx.apiState || 'not asked yet'),
       'user turns in DOM: ' + turns.length + ', last three: ' + (lastThree.join('/') || '-') + ' chars',
       'model on page: ' + (pageModel() || 'not found') + '; reply ' + ((ctx.reply || '').length) + ' chars',
-      ...(COWORK_RE.test(location.pathname) ? ['project link on page: ' + (coworkProjectUrl(ctx) || 'none') + '; record project id: ' + (ctx.coworkProject || 'none')] : []),
+      ...(COWORK_RE.test(location.pathname) ? ['project page to open: ' + (coworkProjectUrl(ctx) || 'none (the chip copies)') + '; record project id: ' + (ctx.coworkProject || 'none'),
+        ...(ctx.coworkLookup || []), 'project links on page: ' + (pageProjectLinks().join(' | ') || 'none')] : []),
       ...(ctx.lastError ? ['last error (' + ctx.lastError.call + '): ' + ctx.lastError.code + (ctx.lastError.diag ? ' ' + JSON.stringify(ctx.lastError.diag) : '') + (ctx.lastError.detail ? ' ' + String(ctx.lastError.detail).slice(0, 120) : '')] : []),
       ...(ctx.coworkShape ? ['cowork session API:\n  ' + ctx.coworkShape.join('\n  ')] : []),
     ];
@@ -1028,18 +1043,62 @@
   const COWORK_PROJECT_URL = 'https://claude.ai/cowork/project/';
   /* 0.9.89 — the fourteenth card: the record's chat_project_id is a
      claude_proj_… id, and the project page's address is a different id, the
-     project's uuid, which the record does not carry. The session page itself
-     links to its project (the breadcrumb), with the exact address the user
-     is taken to — so that link is the source, read at click time. The record's
-     id is used only when no link exists and it already looks like the page's
-     kind of id; otherwise the chip copies, which cannot fail. */
+     project's uuid, which the record does not carry.
+     0.9.90 — the fifteenth card: the first /cowork/project/ link on the
+     session page is the sidebar's first project, not the session's own (it
+     opened Squiggle), so the page is not a source. The mapping is asked of
+     claude.ai's own project list (coworkProjectLookup, at read time): the
+     entry that carries the record's id anywhere gives its uuid. The record's
+     id is used only when it already looks like a uuid; otherwise the chip
+     copies, which cannot fail, and never opens a project it cannot name. */
   function coworkProjectUrl(ctx) {
-    for (const a of document.querySelectorAll('a[href]')) {
-      let u; try { u = new URL(a.getAttribute('href'), location.href); } catch { continue; }
-      if (u.origin === location.origin && /^\/cowork\/project\/[A-Za-z0-9_-]{8,}\/?$/.test(u.pathname)) return u.origin + u.pathname;
-    }
+    if (ctx && ctx.coworkProjectUrl) return ctx.coworkProjectUrl;
     const id = ctx && ctx.coworkProject;
     return id && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f-]{23}$/i.test(id) ? COWORK_PROJECT_URL + id : null;
+  }
+  function orgUuid() {
+    return (document.cookie.match(/(?:^|;\s*)lastActiveOrg=([0-9a-f-]{36})/i) || [])[1] || '';
+  }
+  const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  /* The project's uuid, from the org's project list: the entry whose text
+     holds the record's claude_proj_ id, wherever it keeps it. Failing that,
+     the code API's own project record is asked and its shape recorded, so
+     the next card can say where the uuid lives if the list does not. Each
+     step writes one diag line; none of them can throw out. */
+  async function coworkProjectLookup(ctx) {
+    const id = ctx.coworkProject;
+    const lines = [];
+    ctx.coworkProjectUrl = null;
+    if (!id) { ctx.coworkLookup = ['project lookup: no chat_project_id in the record']; return; }
+    if (UUID_RE.test(id)) { ctx.coworkProjectUrl = COWORK_PROJECT_URL + id; ctx.coworkLookup = ['project lookup: the record id is a uuid']; return; }
+    const org = orgUuid();
+    try {
+      const list = await apiJson('/api/organizations/' + org + '/projects');
+      const arr = firstArray(list);
+      const hit = arr.find(p => p && typeof p === 'object' && JSON.stringify(p).includes(id));
+      const uuid = hit && [hit.uuid, hit.id].find(v => typeof v === 'string' && UUID_RE.test(v));
+      lines.push('projects API: n=' + arr.length + (arr[0] ? ' keys={' + Object.keys(arr[0]).slice(0, 14).join(',') + '}' : '')
+        + '; match by record id: ' + (hit ? (uuid || 'entry without uuid') : 'none'));
+      if (uuid) ctx.coworkProjectUrl = COWORK_PROJECT_URL + uuid;
+    } catch (e) { lines.push('projects API: ' + (e && e.message)); }
+    if (!ctx.coworkProjectUrl) {
+      try {
+        const rec = await apiJson('/v1/code/projects/' + encodeURIComponent(id), codeHeaders());
+        const found = [];
+        (function walk(o, path, d) {
+          if (!o || typeof o !== 'object' || d > 3) return;
+          for (const k of Object.keys(o)) {
+            const v = o[k];
+            if (typeof v === 'string' && UUID_RE.test(v)) found.push(path + k + '=' + v);
+            else walk(v, path + k + '.', d + 1);
+          }
+        })(rec, '', 0);
+        lines.push('code project record: ' + shapeOf(rec, 2) + (found.length ? '; uuids: ' + found.slice(0, 4).join(' ') : '; no uuid-shaped field'));
+        const pick = found.find(f => /project/i.test(f.split('=')[0])) || found.find(f => /uuid/i.test(f.split('=')[0]));
+        if (pick) ctx.coworkProjectUrl = COWORK_PROJECT_URL + pick.split('=')[1];
+      } catch (e) { lines.push('code project record: ' + (e && e.message)); }
+    }
+    ctx.coworkLookup = lines;
   }
   function renderBrief(anchor, ctx, brief, briefTokens) {
     const wrap = shell(anchor, 'brief');

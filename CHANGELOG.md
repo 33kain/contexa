@@ -9,6 +9,21 @@ backend's live version separately so a deploy can be told from a no-op.
 
 ---
 
+## 0.9.90 — Extension (worker build number only)
+
+*Fifteenth card: the chip opened the Squiggle project.* The first
+`/cowork/project/` link on a session page is the sidebar's first project,
+not the session's own, so the page is not a source. `coworkProjectLookup`
+(run inside `coworkRead`) asks `/api/organizations/<org>/projects` for the
+entry that carries the record's `claude_proj_…` id anywhere and takes its
+uuid; failing that it reads `/v1/code/projects/<id>` with the page's headers
+and records the shape and any uuid-shaped field. With no answer the chip
+copies the brief and opens nothing — a wrong project is worse than a copy.
+The diag card carries the address that would open, each lookup step, and
+every project link the page holds (informational only).
+
+---
+
 ## 0.9.89 — Extension (worker build number only)
 
 *Fourteenth card: "Couldn't load this project" at

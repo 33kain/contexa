@@ -1725,14 +1725,23 @@ const TURNS = [
   t('a project page is not an existing conversation', /EXISTING_RE = \/\^\\\/\(chat\\\/\[0-9a-f-\]\{36\}\|cowork\\\/cse_/.test(c));
 }
 
-/* ---- 0.9.89 — the project page's address comes from the page ------------ */
+/* ---- 0.9.89 / 0.9.90 — the project page's address ------------------------- */
 {
   const c = readFileSync('./content.js', 'utf8');
   const f = (c.match(/function coworkProjectUrl\(ctx\)[\s\S]*?\n  \}/) || [''])[0];
-  t('the project link is read off the session page, same origin, exact path shape', /a\[href\]/.test(f) && /u\.origin === location\.origin/.test(f) && /cowork\\\/project\\\/\[A-Za-z0-9_-\]\{8,\}/.test(f));
-  t('the record\'s id is a fallback only when it looks like the page\'s kind of id', /\^\[0-9a-f\]\{8\}-\[0-9a-f\]\{4\}-\[0-9a-f-\]\{23\}\$/.test(f) && /: null;/.test(f));
+  t('the chip opens the address the lookup resolved, else a uuid-shaped record id, else nothing', /ctx\.coworkProjectUrl\) return ctx\.coworkProjectUrl;/.test(f) && /: null;/.test(f));
+  t('the page\'s links are not a source any more (the first one was the wrong project)', !/a\[href\]/.test(f) && !/querySelectorAll/.test(f));
+  const l = (c.match(/async function coworkProjectLookup\(ctx\)[\s\S]*?\n  \}/) || [''])[0];
+  t('the lookup asks the org\'s project list and matches the entry carrying the record id', /\/api\/organizations\/' \+ org \+ '\/projects'/.test(l) && /JSON\.stringify\(p\)\.includes\(id\)/.test(l));
+  t('a match is used only through a uuid-shaped field', /\[hit\.uuid, hit\.id\]\.find\(v => typeof v === 'string' && UUID_RE\.test\(v\)\)/.test(l));
+  t('the code API\'s project record is asked only when the list gave nothing, with the page\'s headers', /if \(!ctx\.coworkProjectUrl\) \{[\s\S]*?\/v1\/code\/projects\/' \+ encodeURIComponent\(id\), codeHeaders\(\)/.test(l));
+  t('a uuid from that record is taken only from a field named for the project or a uuid', /\/project\/i\.test\(f\.split\('='\)\[0\]\)\) \|\| found\.find\(f => \/uuid\/i/.test(l));
+  t('every step of the lookup is caught and leaves a diag line', (l.match(/catch \(e\) \{ lines\.push\(/g) || []).length === 2 && /ctx\.coworkLookup = lines;/.test(l));
+  t('the lookup runs inside the session read, before any chip', /await coworkProjectLookup\(ctx\);\n    const used = usage/.test(c));
   t('the chip resolves the address at click time', /const projectUrl = onCowork \? coworkProjectUrl\(ctx\) : null;/.test(c));
-  t('and the diag says what it found', /'project link on page: '/.test(c));
+  t('the diag says what would open, what the lookup found, and what the page links (diag only)', /'project page to open: '/.test(c) && /\.\.\.\(ctx\.coworkLookup \|\| \[\]\)/.test(c) && /'project links on page: ' \+ \(pageProjectLinks\(\)/.test(c));
+  const pl = (c.match(/function pageProjectLinks\(\)[\s\S]*?\n  \}/) || [''])[0];
+  t('the page-link list is same-origin, exact path shape, distinct, and capped', /u\.origin !== location\.origin/.test(pl) && /cowork\\\/project\\\/\[A-Za-z0-9_-\]\{8,\}/.test(pl) && /new Map\(\)/.test(pl) && /\.slice\(0, 6\)/.test(pl));
 }
 
 console.log(fails.length ? '\nFAILED: ' + fails.join(', ') : '\nall extension checks passed');
