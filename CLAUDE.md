@@ -38,10 +38,10 @@ The Cloudflare Worker has no build step; deployment is `npx wrangler deploy` fro
 
 ### The shared prompt is the load-bearing contract
 
-`extension/background.js` and `worker/src/index.js` each define their own copy of `MOVES_SYSTEM` — the one system prompt sent to Claude. **These two copies must be byte-identical**, because a user's own-key request (extension calls Anthropic directly) and a hosted request (extension → Worker → Anthropic) must produce the same product. `build.mjs` extracts both by regex and fails the build if they differ, along with several related checks:
+`extension/background.js` and `worker/src/index.js` each define their own copy of `MOVES_SYSTEM` — the system prompt behind the row of moves — and, since 0.9.73, of `FORK_SYSTEM`, the prompt behind the thread brief. **Each pair must be byte-identical**, because a user's own-key request (extension calls Anthropic directly) and a hosted request (extension → Worker → Anthropic) must produce the same product. `build.mjs` extracts both by regex and fails the build if they differ, along with several related checks:
 
-- the request's `SESSION SO FAR:` section labels must match on both sides;
-- the injected helper block — from `function cleanTurns` through `groundMoves`, `tallySources`, `ACTION_OPENERS` and `enforceAction`, up to the `/* end of the injected helper block` sentinel comment — must be byte-identical (do not delete that sentinel; it is the end anchor);
+- the request's `SESSION SO FAR:` section labels must match on both sides, and both worker endpoints must send their prompt through `callUpstream` while the own-key fork sends `FORK_SYSTEM`;
+- the injected helper block — from `function cleanTurns` through `groundMoves`, `tallySources`, `ACTION_OPENERS`, `enforceAction` and `cleanBrief`, up to the `/* end of the injected helper block` sentinel comment — must be byte-identical (do not delete that sentinel; it is the end anchor);
 - the extension must still capture the session (`captureTurns()` inside `askNow`), without which every request is refused;
 - the shipped model name must agree across `background.js`, `worker/src/index.js`, and `worker/wrangler.toml`, and the worker's `BUILD` must equal the manifest version;
 - the cost-parity helpers `cachedSystem` and `usageOf` must be byte-identical in both files, and both call sites must still send the system prompt through `cachedSystem` (the own-key path did not until 0.9.72, and nothing but the bill could tell);
@@ -51,7 +51,7 @@ If you edit the system prompt, edit both files identically and run `npm run buil
 
 ### One shape, and what that replaced
 
-There is one request shape and one response shape. The worker takes `{ reply, turns[] }` and returns `{ moves: [{label, text, evidence}], grounding, quota }`. A request with no turns is refused before either quota is charged.
+There is one request shape, `{ reply, turns[] }`, and two endpoints that read it. `POST /v1/next-steps` returns `{ moves: [{label, text, evidence}], grounding, quota }`; `POST /v1/fork` (0.9.73) returns `{ brief, quota }`, the first message of a fresh chat. Both go through one `admit()` (origin, key, device token, body, turns, reply, IP quota, device quota) and one `callUpstream()`, and a fork spends from the same daily twenty. A request with no turns is refused before either quota is charged.
 
 This was not always so. Until 0.9.58 the worker served three extension generations from one endpoint, negotiated by a `v` field and an `accepts: [...]` capability list, because the Chrome Web Store approves updates on its own schedule and no deploy order avoids a window where old and new clients hit the same worker. That machinery — `LEGACY_STEPS_SYSTEM`, `QUESTIONS_SYSTEM`, `EXPAND_SYSTEM`, `wantsQuestions()`, `wantsChips()`, `/v1/expand` — was deleted in the history-mining pivot, on the explicit basis that there is no installed base to protect.
 
@@ -65,6 +65,10 @@ Two gates run on every row, in order:
 
 1. **Evidence grounding** (`groundMoves`) runs over **the turns and the reply as two separate haystacks**, not one concatenated corpus, and records per move which one earned it (`sources`, tallied as `fromTurns` / `fromReply`). Ideas are mined from the session, so a move earned by the earliest turn is grounded; the turns are checked first so the session's own material is never credited to the reply. Two tiers: no evidence at all is dropped, a near-miss quote renders but is counted and logged.
 2. **Action gate** (`enforceAction`) drops any move whose label does not open with a doable imperative verb from the `ACTION_OPENERS` allowlist (English and Serbian). It fails **closed** — an unknown verb is a drop — so a row of non-English labels can be emptied by the verb list rather than by the model. The content script tells these two causes of an empty row apart (see below).
+
+### The fork and the cost line (0.9.73)
+
+`threadTokens()` in `content.js` estimates the whole page at chars/4; above `LONG_THREAD_TOKENS` the card's label row carries the number and a **Start fresh** control (`costLine`). Clicking it runs `askFork`, which reads the session like `askNow` and asks the background for a `fork`; the brief renders as one chip whose title is the brief (`renderBrief`). That chip's click stages the brief in `chrome.storage.session` (`stageBrief`, two-minute TTL, consumed on read) and opens `https://claude.ai/new`; the content script loading at `/new` collects it (`collectBrief` → `takeBrief`) and inserts it through `insertPrompt`. No URL prefill parameter is used. An empty brief renders the inert "Nothing to carry over." notice through `renderNothing`, which now has exactly two callers, both honest zeros. The fork is the second control since the pencil chip went; the reason it earns a place is that it is the exit from a thread, not a second way into this one, and it renders only when there is a thread worth leaving.
 
 ### Content script flow (`extension/content.js`)
 

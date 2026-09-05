@@ -47,7 +47,8 @@ function load({ storage = {}, session = {} } = {}) {
           for (const [k, v] of Object.entries(defaults || {})) out[k] = k in sess ? sess[k] : v;
           return out;
         },
-        async set(obj) { Object.assign(sess, obj); }
+        async set(obj) { Object.assign(sess, obj); },
+        async remove(k) { for (const key of [].concat(k)) delete sess[key]; }
       }
     },
     runtime: {
@@ -1102,14 +1103,24 @@ const TURNS = [
      typography-over-property mistake this file has now made four times. What
      matters is that the notice has exactly ONE caller and that it sits inside
      the earned-nothing branch, with no row rendered in between. */
+  /* 0.9.73 gave the notice a second caller: the fork's honest zero, a brief
+     that came back empty from a call that succeeded. Same property, so the
+     check is the same for both — each caller sits inside its own earned-
+     nothing branch with nothing rendered in between, and there are exactly
+     the two. A third would be a new silence and needs a new argument. */
   {
-    const calls = csrcM.split('renderNothing(').length - 1;
+    const calls = csrcM.split('renderNothing(').length - 1;   // declaration + callers
     const at = csrcM.indexOf('if (!moves.length) {');
     const call = csrcM.indexOf('renderNothing(anchor', at);
     const between = at >= 0 && call > at ? csrcM.slice(at, call) : 'x';
-    t('the only path to the notice is a successful call that earned nothing',
-      calls === 2 && at >= 0 && call > at && !/renderMoves\(/.test(between),
-      'callsites=' + (calls - 1));
+    t('one path to the notice is a mining call that earned nothing',
+      at >= 0 && call > at && !/renderMoves\(/.test(between));
+    const fat = csrcM.indexOf('if (!brief) {');
+    const fcall = csrcM.indexOf("renderNothing(anchor, 'fork')", fat);
+    const fbetween = fat >= 0 && fcall > fat ? csrcM.slice(fat, fcall) : 'x';
+    t('the other is a fork call that had nothing to carry over',
+      fat >= 0 && fcall > fat && !/renderBrief\(/.test(fbetween));
+    t('and there is no third', calls === 3, 'callsites=' + (calls - 1));
   }
 
   /* The click is send-ready: composes and stops. A call here would reintroduce
@@ -1431,6 +1442,120 @@ const TURNS = [
     /body: JSON\.stringify\(\{ reply, turns \}\)/.test(bsrcM));
   t('and no longer negotiates a schema',
     !/accepts:/.test(bsrcM) && !/getManifest\(\)\.version/.test(bsrcM));
+}
+
+/* ---- 0.9.73 — brake 2: the fork, on both paths, and the hand-off ----------
+   The brief is one string that goes into the composer of a NEW tab, which
+   makes it the second thing this product can put in front of Claude. So it
+   takes every rule the moves take: same session read, same cleaning on both
+   paths, a cache so a seen brief is never re-rolled for quota, and a hand-off
+   that lands it in exactly one composer or nowhere. */
+{
+  const BRIEF = 'Goal: a website for my bakery.\nSettled:\n- opening hours on the front page\nExists now:\n- the landing page HTML <paste here>\nNext: write the menu page.';
+  const briefOk = (brief) => ({ ok: true, status: 200, async text() { return ''; },
+    async json() { return { stop_reason: 'end_turn', usage: { input_tokens: 400, output_tokens: 120 },
+      content: [{ type: 'text', text: JSON.stringify({ brief }) }] }; } });
+
+  // --- own key ---
+  {
+    const h = load({ storage: { model: '', apiKey: 'sk-x' } }); await settle();
+    h.sandbox.fetch = async (_u, o) => { h.requests.push({ body: JSON.parse(o.body) }); return briefOk(BRIEF); };
+    const r = await h.send({ type: 'fork', reply: 'r'.repeat(80), turns: TURNS });
+    const body = h.requests[0] && h.requests[0].body;
+    t('own key: the fork sends FORK_SYSTEM as one cached block',
+      !!body && Array.isArray(body.system) && body.system.length === 1 && /the BRIEF/.test(body.system[0].text)
+        && body.system[0].cache_control && body.system[0].cache_control.type === 'ephemeral');
+    t('own key: it is not the mining prompt', !!body && !/INDEPENDENT next moves/.test(body.system[0].text));
+    t('own key: the fork reads the same session sections as mining',
+      !!body && /^SESSION SO FAR:\n\[1\] make me a website/.test(body.messages[0].content)
+        && /\n\nCLAUDE'S LATEST REPLY:\n/.test(body.messages[0].content));
+    t('own key: the fork ceiling is 1,200 output tokens', !!body && body.max_tokens === 1200, String(body && body.max_tokens));
+    t('own key: the brief comes back as one string', r.brief === BRIEF, JSON.stringify(r).slice(0, 100));
+    const n = h.requests.length;
+    const again = await h.send({ type: 'fork', reply: 'r'.repeat(80), turns: TURNS });
+    t('own key: a second fork of the same session is a cache hit, not a call', again.brief === BRIEF && h.requests.length === n);
+    const none = await h.send({ type: 'fork', reply: 'r'.repeat(80), turns: [] });
+    t('own key: no turns is refused before any call', none.error === 'no_turns' && h.requests.length === n);
+    h.sandbox.fetch = async (_u, o) => { h.requests.push({ body: JSON.parse(o.body) }); return briefOk(''); };
+    const zero = await h.send({ type: 'fork', reply: 'z'.repeat(80), turns: TURNS });
+    t('own key: an empty brief is an honest empty string, not an error', zero.brief === '' && !zero.error);
+  }
+
+  // --- hosted ---
+  {
+    const h = load(); await settle();
+    h.sandbox.fetch = async (u, o) => { h.requests.push({ url: u, body: JSON.parse(o.body), headers: o.headers });
+      return { ok: true, status: 200, async text() { return ''; },
+        async json() { return { brief: BRIEF + '\n\n\n\nextra', quota: { used: 1, limit: 20 } }; } }; };
+    const r = await h.send({ type: 'fork', reply: 'r'.repeat(80), turns: TURNS });
+    t('hosted: the fork posts to /v1/fork with the device token',
+      /\/v1\/fork$/.test(h.requests[0].url) && !!h.requests[0].headers['x-cx-device']);
+    t('hosted: the wire carries reply and turns, and nothing else',
+      JSON.stringify(Object.keys(h.requests[0].body)) === '["reply","turns"]');
+    t('hosted: the brief is cleaned on this side too', r.brief === BRIEF + '\n\nextra', JSON.stringify(r.brief).slice(-30));
+    h.sandbox.fetch = async () => ({ ok: true, status: 200, async text() { return ''; }, async json() { return { moves: [] }; } });
+    const bad = await h.send({ type: 'fork', reply: 'x'.repeat(80), turns: TURNS });
+    t('hosted: a body with no brief is bad_response, never silence', bad.error === 'bad_response');
+    h.sandbox.fetch = async () => ({ ok: false, status: 429, async text() { return ''; },
+      async json() { return { error: 'quota', limit: 20, resetsAt: new Date(Date.now() + 3600e3).toISOString() }; } });
+    const q = await h.send({ type: 'fork', reply: 'y'.repeat(80), turns: TURNS });
+    t('hosted: quota on the fork reads as quota, with the limit', q.error === 'quota' && q.limit === 20);
+  }
+
+  // --- the hand-off ---
+  {
+    const h = load(); await settle();
+    const staged = await h.send({ type: 'stageBrief', brief: '  ' + BRIEF + '\r\n' });
+    t('stageBrief parks a cleaned brief in session storage',
+      staged.ok === true && !!h.sess.pendingBrief && h.sess.pendingBrief.text === BRIEF);
+    const took = await h.send({ type: 'takeBrief' });
+    t('takeBrief hands it back', took.brief === BRIEF);
+    const again = await h.send({ type: 'takeBrief' });
+    t('and a second take finds nothing — one brief, one composer', again.brief === '' && !h.sess.pendingBrief);
+    const empty = await h.send({ type: 'stageBrief', brief: '   ' });
+    t('an empty brief is refused at staging', empty.ok === false);
+    await h.send({ type: 'stageBrief', brief: BRIEF });
+    h.sess.pendingBrief.t = Date.now() - 3 * 60 * 1000;
+    const stale = await h.send({ type: 'takeBrief' });
+    t('a stale brief is dropped rather than landing in some later chat', stale.brief === '' && !h.sess.pendingBrief);
+  }
+
+  // --- cleanBrief, the gate both paths share ---
+  {
+    const h = load(); await settle();
+    const cleanBrief = h.sandbox.cleanBrief;
+    t('cleanBrief is exposed by the injected block', typeof cleanBrief === 'function');
+    if (typeof cleanBrief === 'function') {
+      t('cleanBrief: null and undefined are the empty brief', cleanBrief(null) === '' && cleanBrief(undefined) === '');
+      t('cleanBrief: an object or array is the empty brief, never its toString', cleanBrief({ a: 1 }) === '' && cleanBrief(['x']) === '' && cleanBrief(42) === '');
+      t('cleanBrief: CRLF and trailing spaces are normalised', cleanBrief('a  \r\nb\r\n') === 'a\nb');
+      t('cleanBrief: blank runs collapse to one blank line', cleanBrief('a\n\n\n\n\nb') === 'a\n\nb');
+      const long = 'Goal: x.\n' + Array.from({ length: 100 }, (_, i) => '- fact ' + (i + 1) + ' about the site').join('\n');
+      const cut = cleanBrief(long);
+      t('cleanBrief: cuts under 1,800 at a whole line', cut.length <= 1800 && /about the site$/.test(cut) && cut.length > 1500, String(cut.length));
+      const oneLine = 'w'.repeat(3000);
+      t('cleanBrief: a single giant word is cut hard rather than kept whole', cleanBrief(oneLine).length <= 1800);
+    }
+  }
+
+  // --- content.js: the control, the card, the landing ---
+  {
+    const c = readFileSync('./content.js', 'utf8');
+    t('the thread estimate reads the page, not the capture', /function threadTokens\(\)[\s\S]{0,300}textContent/.test(c));
+    t('the cost line renders only above the threshold', /const LONG_THREAD_TOKENS = \d+;/.test(c) && /ctx\.thread < LONG_THREAD_TOKENS\) return;/.test(c));
+    t('and never through innerHTML', !/innerHTML[^\n]*(kTokens|thread|brief)/.test(c));
+    const fork = (c.match(/async function askFork\([\s\S]*?\n  \}/) || [''])[0];
+    t('askFork captures the session at click time, like askNow', /captureTurns\(\)/.test(fork));
+    t('askFork sends the fork message with the reply and the turns', /type: 'fork', reply: ctx\.reply, turns/.test(fork));
+    t('askFork treats an empty brief as the honest zero, with its own wording', /renderNothing\(anchor, 'fork'\)/.test(fork) && /'Nothing to carry over\.'/.test(c));
+    t('askFork logs before against after, per send', /thread ≈ ' \+ ctx\.thread \+ ' tokens, brief ≈ '/.test(fork));
+    const card = (c.match(/function renderBrief\([\s\S]*?\n  \}/) || [''])[0];
+    t('the brief is the chip\'s title, set as a property', /chip\.title = brief;/.test(card));
+    t('the click stages the brief, then opens a fresh chat', /type: 'stageBrief', brief/.test(card) && /window\.open\(NEW_CHAT_URL, '_blank', 'noopener'\)/.test(card) && /NEW_CHAT_URL = 'https:\/\/claude\.ai\/new'/.test(c));
+    t('the landing is restricted to /new', /location\.pathname !== '\/new'\) return;/.test(c));
+    t('and goes through insertPrompt, which never overwrites a draft', /function landBrief\(\)[\s\S]{0,300}insertPrompt\(text\)/.test(c));
+    t('the fork control stays on the mined row', /function renderMoves\(anchor, moves, ctx\)[\s\S]{0,600}costLine\(/.test(c));
+  }
 }
 
 console.log(fails.length ? '\nFAILED: ' + fails.join(', ') : '\nall extension checks passed');

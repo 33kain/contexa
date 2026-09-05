@@ -22,6 +22,13 @@ Claude's latest reply is read too, but as material rather than as the subject �
 what it just built is what makes a new move possible. CONTEXA never sends you
 back over an answer you have already read.
 
+On a long thread — roughly 12,000 tokens of conversation on the page — the card
+also says what the next send costs to re-read, and offers **Start fresh**: one
+click writes a brief of the thread (what you set out to do, what was settled,
+what exists now, what's next), a second opens a new chat with that brief already
+in the message box. You read it and send it yourself. That spends one call, the
+same as asking for moves.
+
 No account, no API key, free to use. Nothing overlays your composer, nothing
 scores your writing, and nothing appears unless it's real.
 

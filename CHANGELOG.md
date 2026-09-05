@@ -9,6 +9,90 @@ backend's live version separately so a deploy can be told from a no-op.
 
 ---
 
+## 0.9.73 — Extension + Worker
+
+*Brakes 2 and 3 of the token-savings plan (`tokenbrake/HANDOFF.md`): the
+thread's weight, said out loud, and the one move that stops paying it.*
+
+### The cost line
+
+Every message sent on claude.ai re-reads the whole thread, so the cost of the
+next send is the size of everything on the page — and the page is the one place
+that number can be read. `threadTokens` in `content.js` sums the text of every
+user message and every reply in the DOM at chars/4 (accurate enough for a
+warning; it is not a bill) and, above `LONG_THREAD_TOKENS` (12,000, a product
+number: roughly a fifteen-turn build session), the card's label row carries
+"≈ 14k tokens re-read per send" and a small control, **Start fresh**. Below the
+threshold nothing renders at all: a cost line on every short chat would be the
+noise this product exists to refuse. The line rides the trigger card and the
+mined row alike, because a long thread is long whether or not it earned moves.
+
+### The fork
+
+**Start fresh** spends one call — the same session read as the mascot, at the
+same moment, for the same reason — and gets back one string: the brief, the
+first message of a fresh chat. `FORK_SYSTEM` is the second prompt in the
+product and lives under the same rule as the first: byte-identical in
+`background.js` and `worker/src/index.js`, `build.mjs` fails on drift. It
+writes the brief as the user, in first person, in four labelled blocks — Goal,
+Settled, Exists now, Next — with nothing the session did not say, the session's
+own words for every fact, at most three `<paste here>` bullets for material
+the new chat will not have, and "Pick up from here." rather than an invented
+next step. A thread with nothing to carry over earns `{"brief":""}`, and the
+card says "Nothing to carry over." with the same inert notice the mined row
+uses for its honest zero.
+
+The brief renders as one sentence with the two numbers and one chip, whose
+hover title is the brief itself — the promise the move chips make, kept here.
+Clicking it parks the brief with the service worker (`stageBrief`, in
+`storage.session`, two-minute TTL, consumed on read) and opens
+`https://claude.ai/new`. The content script that loads THERE asks for it
+(`takeBrief`, only at `/new`) and puts it in the composer through
+`insertPrompt`, which never overwrites a draft. No URL parameter is relied on:
+the `?q=` prefill claude.ai used to honour has been reported removed, and a
+mechanism this product owns end to end beats one it borrows. Two clicks on
+purpose — one writes, one opens — so the brief can be read before it goes
+anywhere, and the open happens inside a fresh gesture rather than at the tail
+of a network wait where a popup blocker would eat it. Nothing is sent. The
+user reads it in the new tab and presses send.
+
+The worker grew `POST /v1/fork` for it. One `admit()` now holds the gate
+order both endpoints share — origin, key, device token, body, turns, reply, IP
+quota, device quota — and one `callUpstream()` holds the retry shape, so a
+gate that changes changes for both. A fork is one reply asked about and spends
+from the same twenty. `cleanBrief` is in the injected helper block, so the
+own-key path cuts the brief exactly where the worker would (1,800 chars, at a
+line, then a sentence, then a word), and it refuses anything that is not a
+string — the first test of the gate produced `[object Object]` from an object,
+and a gate that lets that into a composer is worse than none.
+
+### The measurement
+
+`askFork` logs, on every fork, the thread's estimated tokens against the
+brief's — "thread ≈ 14,300 tokens, brief ≈ 420 tokens (97% less per send)".
+The HANDOFF's "a third or more of a long thread's cost is re-sent history" was
+a guess and said so; this line is what replaces it, one fork at a time, and
+the marketing copy waits for it.
+
+### What this is not
+
+"One control, one job" is a design note for a reason, and this is the second
+control since the pencil chip went. It earns its place by being the exit from a
+thread rather than a second way into this one: the row of moves stays the only
+path into this thread's message box, and the fork control renders only when
+there is a thread worth leaving. The peak-window indicator the plan sketched
+for brake 3 is not built — the "existing clock logic" it was to reuse does not
+exist in this repository — and the native usage page is not read: the estimate
+is of the thread, in tokens, not a percentage of a session.
+
+### What ships
+
+Both. The extension, for the line, the control and the landing; the worker,
+for the endpoint. A `/v1/health` still reporting 0.9.72 is a worker that
+returns 404 to every fork.
+
+---
+
 ## 0.9.72 — Extension + Worker
 
 *The first gap in the token-savings thesis, closed. Nothing a user sees is

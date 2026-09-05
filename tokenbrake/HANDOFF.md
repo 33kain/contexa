@@ -17,15 +17,16 @@ Brakes don't raise anyone's cap. They cut the share of the cap that goes to wast
 | # | Name | Surface | Status |
 |---|------|---------|--------|
 | 1 | Bash-output guard hooks | npm package (`tokenbrake`) | **built, live-verified on Linux** (Claude Code 2.1.261) |
-| 2 | Fork thread with summary | CONTEXA | spec'd only |
-| 3 | Send-cost preview + long-thread warning | CONTEXA | spec'd only |
+| 2 | Fork thread with summary | CONTEXA | **built in 0.9.73**, not field-tested |
+| 3 | Send-cost preview + long-thread warning | CONTEXA | **built in 0.9.73** (cost line only; no peak-window indicator, no usage-page read) |
 | 4 | What's eating your tokens | JSONL monitor | spec'd only |
 | 5 | Batch + model-routing nudge | CONTEXA | spec'd only |
 
 Shared plumbing across all five: one Worker backend, one token-estimation module
 (`chars/4` is accurate enough for warnings), one settings/telemetry schema.
 
-Ship order: 1 → (2 + 3 as one CONTEXA release) → 4 → 5.
+Ship order: 1 → (2 + 3 as one CONTEXA release) → 4 → 5. Brakes 2 + 3 shipped as CONTEXA 0.9.73 on 2026-09-05
+(worker deployed; extension awaits the Chrome Web Store). Next: brake 4.
 
 ---
 
@@ -179,14 +180,22 @@ Don't re-derive these; re-check only if something behaves differently.
 
 ## Brakes 2–5 — short specs
 
-**2. Fork thread with summary (CONTEXA).** The biggest waste in chat is a long thread re-sending its whole
-history every turn. One button: summarize the thread through the Worker (or own-key), open a fresh chat
-seeded with the brief. CONTEXA already reads conversation context; this is mostly UI plus one prompt.
-Instrument it: log tokens-before vs tokens-after so the store listing can quote a measured number.
+**2. Fork thread with summary (CONTEXA) — built, 0.9.73.** `FORK_SYSTEM` (byte-identical in
+`extension/background.js` and `worker/src/index.js`), `POST /v1/fork` on the worker sharing every gate and
+the same daily twenty, `cleanBrief` in the injected helper block. The brief is one chip whose hover title is
+the brief; its click stages the text in `chrome.storage.session` and opens `claude.ai/new`, where the content
+script inserts it into the composer. No `?q=` URL parameter: reported removed from claude.ai in late 2025, and
+a mechanism the extension owns end to end is the only one that can be tested here. Instrumented: every fork
+logs `thread ≈ N tokens, brief ≈ M tokens (P% less per send)`. NOT field-tested — the CHANGELOG entry says what
+to watch for; the first live fork on a real long thread is the next verification.
 
-**3. Send-cost preview + long-thread warning (CONTEXA).** Estimate thread tokens (`chars/4`), read the native
-usage page for session percentage, show "this send ≈ X% of your session" near the mascot. Above a threshold,
-offer the fork from brake 2. Add a peak-window indicator — reuse the existing clock logic.
+**3. Send-cost preview + long-thread warning (CONTEXA) — built in part, 0.9.73.** `threadTokens()` reads the
+page at chars/4 and, above `LONG_THREAD_TOKENS` (12,000), the card's label row carries "≈ Nk tokens re-read per
+send" and the **Start fresh** control from brake 2. Not built: the session-percentage figure (it needs the native
+usage page, which is a different page and would mean fetching claude.ai's internal API from the content script —
+fragile, and outside what the extension does today), and the peak-window indicator — the "existing clock logic"
+this spec pointed at does not exist in the CONTEXA repository. Both stay open and are recorded as such in the
+0.9.73 changelog.
 
 **4. What's eating your tokens (JSONL monitor).** Rank tool results by context consumed within a session:
 the `cat` of a 4,000-line file, the test run that dumped 30k tokens. Per-session breakdown, not a burn rate.
