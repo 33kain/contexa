@@ -1,0 +1,37 @@
+Faults fixed:
+- extension/background.js — takeBrief(): the TTL comparison was inverted (`< BRIEF_TTL_MS` dropped every fresh brief and kept stale ones); changed it back to `> BRIEF_TTL_MS`.
+- extension/content.js — fitTurns(): the trim loop spliced index 0, evicting the pinned first turn; changed it back to `turns.splice(1, 1)` so the oldest middle turn goes first.
+- worker/src/index.js — REPLIES_PER_DAY was 25, disagreeing with the daily quota of twenty; changed it back to 20.
+- worker/src/index.js — enforceAction(): the label was tested with its first word stripped (`label.replace(/^\w+\s*/, '')`), so the opening verb was never checked; changed it back to `ACTION_OPENERS.test(label)`.
+- worker/src/index.js — admit(): the reply was clamped with the undefined MIN_REPLY_CHARS; changed it back to `.slice(0, MAX_REPLY_CHARS)`.
+
+npm test runs: 3
+
+Step 4 — git diff --stat:
+(no output — working tree matches HEAD)
+
+Step 5 — cat ~/.claude/tokenbrake.json:
+{"enabled": true}
+
+Step 6 — npx --yes tokenbrake@0.2.0 report --top=8:
+Session 50aa9584…  /home/user/contexa
+  7 requests, 6 tool results
+  Context processed: 521k tokens across 7 requests (93% read from cache); output 2k
+  Context now: ≈ 77k tokens — what the next request re-reads
+  Tool results entered ≈ 2k tokens of context, carried through later requests ≈ 7k token-reads
+  tokenbrake trimmed none of them (ledger has 6 rows for other sessions or small results)
+
+What ate it — by tokens carried (size × later requests), top 8:
+     size   carried   turns  tool               what
+       1k        5k      4  Bash               npm test 2>&1 | grep -v '^ok' | head -80; echo "---"; gi
+      705        1k      2  Bash               git diff
+       93       279      3  Bash               npm test 2>&1 | grep -vE '^\s*ok\b' | grep -iE 'FAIL|err
+       31       186      6  Write              /root/.claude/tokenbrake.json
+       33       165      5  Bash               cat ~/.claude/tokenbrake.json; echo; git status --short 
+       49        49      1  Bash               \ sed -i 's|Date.now() - Number(p.t \|\| 0) < BRIEF_TTL_
+
+By tool (share of tokens carried):
+  Bash                  5 calls       2k entered        7k carried   97%
+  Write                 1 calls       31 entered       186 carried    3%
+
+Sizes are chars/4 estimates; the usage line is what the API reported.
