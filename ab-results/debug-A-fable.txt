@@ -1,0 +1,38 @@
+Faults fixed:
+- extension/background.js (takeBrief): the staleness check was inverted (`< BRIEF_TTL_MS`), so a fresh brief was dropped and only a stale one would land; changed it back to `> BRIEF_TTL_MS`.
+- extension/content.js (fitTurns): the trim removed index 0 (`turns.splice(0, 1)`), decapitating the pinned first turn; changed it to `turns.splice(1, 1)` so the oldest middle turn goes first and turn one survives.
+- worker/src/index.js (REPLIES_PER_DAY): the daily quota constant was 25 instead of 20, so the device and IP ceilings and the public copy disagreed; set it back to 20.
+- worker/src/index.js (enforceAction): the action gate tested `label.replace(/^\w+\s*/, '')`, stripping the opening verb before matching ACTION_OPENERS so every move was dropped as "no production verb" (and the helper block no longer matched the extension's copy); changed it back to `ACTION_OPENERS.test(label)`.
+- worker/src/index.js (admit): the server-side reply clamp sliced to `MIN_REPLY_CHARS` instead of `MAX_REPLY_CHARS`, truncating (or, with MIN undefined, not clamping) the reply; changed it back to `MAX_REPLY_CHARS`.
+
+npm test runs: 3
+
+Step 4 output (git diff --stat):
+
+Step 5 output (cat ~/.claude/tokenbrake.json):
+{"enabled": false}
+
+Step 6 output (npx --yes tokenbrake@0.2.0 report --top=8):
+Session 4f6e53e1…  /home/user/contexa
+  16 requests, 15 tool results
+  Context processed: 1.2M tokens across 16 requests (97% read from cache); output 3k
+  Context now: ≈ 80k tokens — what the next request re-reads
+  Tool results entered ≈ 3k tokens of context, carried through later requests ≈ 26k token-reads
+
+What ate it — by tokens carried (size × later requests), top 8:
+     size   carried   turns  tool               what
+       1k       13k     10  Bash               npm test 2>&1 | tail -80
+      705        6k      8  Bash               git diff
+      234        3k     13  Bash               git status --short && git branch --show-current && node   [error]
+      241        2k      9  Bash               npm test 2>&1 | grep -nE "FAIL|Error|error:|^>|exit|work
+       31       465     15  Write              /root/.claude/tokenbrake.json
+       61       366      6  Bash               sed -i '/^ function fitTurns(turns) {$/,/^ }$/ s/turns.s
+       22       242     11  Bash               node scripts/ab/inject-faults.mjs
+       30       210      7  Bash               sed -i 's/Date.now() - Number(p.t || 0) < BRIEF_TTL_MS) 
+
+By tool (share of tokens carried):
+  Bash                 13 calls       3k entered       25k carried   98%
+  Write                 1 calls       31 entered       465 carried    2%
+  Read                  1 calls        5 entered        70 carried    0%
+
+Sizes are chars/4 estimates; the usage line is what the API reported.
