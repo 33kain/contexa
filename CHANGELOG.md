@@ -9,6 +9,15 @@ backend's live version separately so a deploy can be told from a no-op.
 
 ---
 
+## Repository, 2026-09-06 — tokenbrake split out
+
+`tokenbrake/` is now `33kain/tokenbrake`, moved with its history (26 commits). The root `npm test` runs the extension
+and worker suites; the publish workflow went with the package. `.claude/settings.json` and the guard copy under
+`.claude/hooks/` stay: they are the project-scope install, and every Cowork session on this repository still runs
+brake 1. The A/B measurements (16% on Fable, 37% on Opus, identical answers) live in the new repository's `AB-TASK.md`.
+
+---
+
 ## 0.9.95 — Extension (worker build number only)
 
 The motto: *save tokens*. *Every token earned* stays as the test behind it
