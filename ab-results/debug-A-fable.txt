@@ -1,0 +1,40 @@
+DEBUG ARM A (hooks OFF) — v2 — results
+
+Faults fixed (file, what was wrong, what I changed):
+1. extension/content.js — fitTurns spliced index 0 in its drop loop, so the pinned first turn (the stated goal) was the first thing dropped on a long session. Changed `turns.splice(0, 1)` to `turns.splice(1, 1)` so the oldest MIDDLE turn goes and turn one survives.
+2. extension/background.js — takeBrief's staleness check was inverted: `Date.now() - p.t < BRIEF_TTL_MS` returned an empty brief, so a fresh brief was refused and a stale one was handed back. Changed `<` to `>` so only a brief older than BRIEF_TTL_MS is dropped.
+3. worker/src/index.js — REPLIES_PER_DAY was 25 while the public copy (options.js / options.html) and /v1/health's contract say 20. Set it back to 20.
+4. worker/src/index.js — enforceAction tested the label with its first word stripped (`ACTION_OPENERS.test(label.replace(/^\w+\s*/, ''))`), so every label lost its opening verb and the action gate emptied every row. Changed it to `ACTION_OPENERS.test(label)`, matching the extension's copy of the injected helper block.
+5. worker/src/index.js — admit() clamped the reply to MIN_REPLY_CHARS (50) instead of MAX_REPLY_CHARS (6000), so any evidence quoted from past the first 50 characters of the reply could never ground. Changed the slice to MAX_REPLY_CHARS.
+
+Number of times I ran `npm test`: 6
+
+=== Step 4: git diff --stat HEAD~1 ===
+(no output — the diff is empty: the fixed tree is byte-identical to the original pre-fault tree)
+
+=== Step 5: cat ~/.claude/tokenbrake.json ===
+{"enabled": false}
+
+=== Step 6: npx --yes tokenbrake@0.2.0 report --top=8 ===
+Session 4145b7d6…  /home/user/contexa
+  24 requests, 23 tool results
+  Context processed: 2.1M tokens across 24 requests (97% read from cache); output 10k
+  Context now: ≈ 106k tokens — what the next request re-reads
+  Tool results entered ≈ 14k tokens of context, carried through later requests ≈ 154k token-reads
+
+What ate it — by tokens carried (size × later requests), top 8:
+     size   carried   turns  tool               what
+       1k       29k     20  Bash               npm test 2>&1 | grep -v '^ok' | head -100; echo "---"; n
+       1k       24k     17  Bash               sed -n 1030,1070p extension/test.mjs; echo ====== ; sed 
+      941       15k     16  Bash               sed -n 375,420p extension/content.js; echo ====== BG; se
+       1k       12k     11  Bash               sed -n 70,90p worker/test.mjs; echo ====== SALVAGE TEST;
+      902       11k     12  Bash               sed -n 445,455p $S/run4.txt; sed -n 495,520p $S/run4.txt
+       1k       10k     10  Bash               grep -n "DEVICE\|DAILY\|limit:" src/index.js | head -30;
+      543       10k     18  Bash               sed -n 205,222p $S/run3.txt; echo ======; sed -n 318,332
+       1k        9k      9  Bash               sed -n 50,66p src/index.js; echo ====== OPENERS; sed -n 
+
+By tool (share of tokens carried):
+  Bash                 22 calls      14k entered      154k carried  100%
+  Write                 1 calls       31 entered       713 carried    0%
+
+Sizes are chars/4 estimates; the usage line is what the API reported.
