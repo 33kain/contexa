@@ -47,7 +47,7 @@ mkdir -p ab-results/real
 npx --yes tokenbrake@0.2.0 report --top=8 > "ab-results/real/$(date -u +%F)-<session>.txt"
 ```
 
-where `<session>` is the eight-character prefix printed on the report's first line (`Session ced42a1a…`). Commit that one file on your current branch, with the message `ab-results: tokenbrake report for <session>`, and push. Do not amend it into a work commit, do not edit its content, and do not put it on `main`: the files stay on the session branches (`claude/new-session-…`, `claude/handoff-…`) and are collected from there. `ab-results/real/README.md` says what they are for. The command needs the network once for the npm fetch; if it fails, say so in your final message rather than skipping silently.
+where `<session>` is the eight-character prefix printed on the report's first line (`Session ced42a1a…`). Commit that one file on your current branch, with the message `ab-results: tokenbrake report for <session>`, and push. Do not amend it into a work commit and do not edit its content. If the branch is merged the file rides along to `main`; if it is not, it stays on the session branch. Either way it is collected from every `claude/…` branch, so never open a PR just to deliver one. `ab-results/real/README.md` says what the files are for. The command needs the network once for the npm fetch; if it fails, say so in your final message rather than skipping silently.
 
 ## Architecture
 

@@ -15,7 +15,7 @@ What to read off each file, and what the table over all of them will hold:
 
 Per session: entered, kept out, not carried, and kept out as a share of entered. Over all sessions: median, min, max. The table goes into `AB-TASK.md` and the README of `33kain/tokenbrake` once there are enough files to be a distribution rather than an anecdote, roughly a week of sessions.
 
-The files live on the branches that produced them, never on `main`. Collect with:
+A file lands on `main` only when the branch that wrote it is merged; a session branch that is never merged keeps its file. So collect from every `claude/…` branch, not from `main`:
 
 ```bash
 git fetch origin && mkdir -p collected
@@ -26,4 +26,4 @@ for b in $(git branch -r | grep -E 'origin/claude/'); do
 done
 ```
 
-Only this README is on `main`.
+The loop deduplicates by name, since a merged file exists on `main` and on its branch.
