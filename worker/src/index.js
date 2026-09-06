@@ -59,7 +59,7 @@ const MODEL = 'claude-sonnet-5';
    enforced calls — simultaneously double and half the truth — and the IP
    ceiling below once halved its own ratio when this number moved, with nobody
    deciding it. A number in public copy has one source of truth and this is it. */
-const REPLIES_PER_DAY = 20;
+const REPLIES_PER_DAY = 25;
 const DEVICE_DAILY_LIMIT = REPLIES_PER_DAY;
 /* Second axis: blunts reinstall-for-a-fresh-token abuse. Deliberately generous
    relative to the device ceiling, because legitimate users share IPs — an
@@ -571,7 +571,7 @@ function enforceAction(moves, ground) {
   let dropped = 0;
   for (let i = 0; i < moves.length; i++) {
     const label = moves[i].label;
-    const why = !ACTION_OPENERS.test(label) ? 'no production verb'
+    const why = !ACTION_OPENERS.test(label.replace(/^\w+\s*/, '')) ? 'no production verb'
       : META_OBJECTS.test(label) ? 'produces a question, not work'
       : null;
     if (why) {
@@ -693,7 +693,7 @@ async function admit(request, env) {
   try { body = await request.json(); } catch { return { error: json({ error: 'bad_request' }, 400, request, env) }; }
 
   // clamp server-side: the client cannot make a request more expensive
-  const reply = String(body.reply || '').slice(0, MAX_REPLY_CHARS);
+  const reply = String(body.reply || '').slice(0, MIN_REPLY_CHARS);
   const turns = cleanTurns(body.turns);
   /* Both are required, and both are rejected BEFORE the quota is charged, so
      a malformed request costs the user nothing and us nothing. A session with

@@ -388,7 +388,7 @@
   function fitTurns(turns) {
     const total = () => turns.reduce((n, t) => n + t.text.length, 0);
     while (turns.length > 2 && (turns.length > MAX_TURNS || total() > TURNS_TOTAL_BUDGET)) {
-      turns.splice(1, 1);
+      turns.splice(0, 1);
     }
     return turns;
   }
