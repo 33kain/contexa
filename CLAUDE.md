@@ -38,6 +38,17 @@ Each `test.mjs` is a single flat script (no test framework, no per-test filterin
 
 The Cloudflare Worker has no build step; deployment is `npx wrangler deploy` from `worker/` (needs Cloudflare credentials — see `worker/README.md`). CI (`.github/workflows/ci.yml`) runs both test suites and the build on every push to `main` and every PR.
 
+## Before a session ends
+
+Every Claude Code and Cowork session on this repository runs with tokenbrake brake 1 (the project-scope hooks in `.claude/settings.json`). Before you finish — after the last commit of the actual work, before the final push — leave the session's own measurement behind:
+
+```bash
+mkdir -p ab-results/real
+npx --yes tokenbrake@0.2.0 report --top=8 > "ab-results/real/$(date -u +%F)-<session>.txt"
+```
+
+where `<session>` is the eight-character prefix printed on the report's first line (`Session ced42a1a…`). Commit that one file on your current branch, with the message `ab-results: tokenbrake report for <session>`, and push. Do not amend it into a work commit and do not edit its content. If the branch is merged the file rides along to `main`; if it is not, it stays on the session branch. Either way it is collected from every `claude/…` branch, so never open a PR just to deliver one. `ab-results/real/README.md` says what the files are for. The command needs the network once for the npm fetch; if it fails, say so in your final message rather than skipping silently.
+
 ## Architecture
 
 ### The shared prompt is the load-bearing contract
