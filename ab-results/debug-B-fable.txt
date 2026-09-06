@@ -1,0 +1,38 @@
+Faults fixed:
+- extension/content.js (fitTurns): the trim loop spliced index 0, dropping the pinned first turn instead of the oldest middle turn; changed `turns.splice(0, 1)` to `turns.splice(1, 1)`.
+- extension/background.js (takeBrief): the TTL comparison was inverted (`Date.now() - p.t < BRIEF_TTL_MS` returned an empty brief), so a fresh brief was dropped and a stale one was handed back; changed `<` to `>`.
+- worker/src/index.js (enforceAction, injected helper block): the label had its first word stripped before the ACTION_OPENERS test (`label.replace(/^\w+\s*/, '')`), so every label failed the verb gate and every row emptied (also broke salvage, retry and the trimPayload test that crashed on moves[0]); changed back to `ACTION_OPENERS.test(label)`, which also restores byte-identity with the extension copy.
+- worker/src/index.js (REPLIES_PER_DAY): the daily device ceiling was 25 instead of the 20 the product advertises; changed to 20.
+- worker/src/index.js (admit): the server-side clamp sliced the reply to MIN_REPLY_CHARS (50) instead of MAX_REPLY_CHARS (6000), so evidence past the first 50 chars of the reply could not ground; changed to MAX_REPLY_CHARS.
+
+npm test runs: 6 (plus one direct `node test.mjs` inside worker/ to read the worker failures in isolation).
+
+Step 4 — git diff --stat HEAD~1 (verbatim, empty: the fixed tree is byte-identical to the pre-fault commit):
+
+Step 5 — cat ~/.claude/tokenbrake.json:
+{"enabled": true}
+
+Step 6 — npx --yes tokenbrake@0.2.0 report --top=8:
+Session 8ef8e1cc…  /home/user/contexa
+  17 requests, 16 tool results
+  Context processed: 1.4M tokens across 17 requests (96% read from cache); output 7k
+  Context now: ≈ 93k tokens — what the next request re-reads
+  Tool results entered ≈ 8k tokens of context, carried through later requests ≈ 69k token-reads
+  tokenbrake trimmed 3 of them: ≈ 2k tokens kept out, ≈ 18k token-reads not carried
+
+What ate it — by tokens carried (size × later requests), top 8:
+     size   carried   turns  tool               what
+       1k       15k     13  Bash               npm test 2>&1 | grep -vE '^ok ' | head -80; echo "=== ru
+       1k       13k     11  Bash               sed -n 195,235p extension/test.mjs; echo ==========; sed  [trimmed from 2k]
+       1k       11k      8  Bash               node test.mjs 2>&1 | grep -nE 'FAIL|TypeError' -A 8 | he  [trimmed from 2k]
+      886        9k     10  Bash               grep -n 'function fitTurns' -A 28 extension/content.js; 
+      769        5k      7  Bash               grep -nE 'const (DEVICE_DAILY_LIMIT|PROMPTS_PER_DAY|IP_D
+       1k        5k      4  Bash               grep -n 'rate stays measurable\|all-reply row of doable   [trimmed from 2k]
+      340        4k     12  Bash               npm test 2>&1 | grep -nE 'FAIL|Error|error|✗|exit|Assert
+      131        1k      9  Bash               sed -i '391s/turns.splice(0, 1);/turns.splice(1, 1);/' e
+
+By tool (share of tokens carried):
+  Bash                 15 calls       8k entered       69k carried   99%
+  Write                 1 calls       31 entered       496 carried    1%
+
+Sizes are chars/4 estimates; the usage line is what the API reported.
