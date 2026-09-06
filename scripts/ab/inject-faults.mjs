@@ -4,12 +4,19 @@
    string replacement; the script refuses to run if any anchor is missing, so
    both arms of a run start from the same broken state or not at all.
 
-   node scripts/ab/inject-faults.mjs          plant all faults
+   node scripts/ab/inject-faults.mjs          plant all faults and commit them
    node scripts/ab/inject-faults.mjs --list   name them without touching files
-   node scripts/ab/inject-faults.mjs --only=3 plant one (for probing)
+   node scripts/ab/inject-faults.mjs --only=3 plant one, uncommitted (for probing)
+   node scripts/ab/inject-faults.mjs --no-commit   plant all, uncommitted
 
-   Undo with `git checkout -- extension worker`. Never commit a planted tree. */
+   The planted tree is committed on the current branch (message "ab: planted
+   faults"), so `git diff` is clean and the faults have to be found by running
+   tests and reading code, not by diffing: both Fable arms of the first run
+   read every fault off `git diff` in one command. Compare fixes against the
+   original with `git diff --stat HEAD~1`; undo everything with
+   `git reset --hard HEAD~1`. Never merge a branch carrying that commit. */
 import { readFileSync, writeFileSync } from 'node:fs';
+import { execFileSync } from 'node:child_process';
 
 const FAULTS = [
   { file: 'extension/content.js',    from: 'turns.splice(1, 1);',                      to: 'turns.splice(0, 1);' },
@@ -28,4 +35,12 @@ for (const f of chosen) {
   if (src.split(f.from).length !== 2) { console.error(`anchor not found exactly once in ${f.file}: ${f.from}`); process.exit(1); }
 }
 for (const f of chosen) writeFileSync(f.file, readFileSync(f.file, 'utf8').replace(f.from, f.to));
-console.log(`planted ${chosen.length} fault(s) in ${[...new Set(chosen.map(f => f.file))].join(', ')}`);
+const files = [...new Set(chosen.map(f => f.file))];
+if (only || args.includes('--no-commit')) {
+  console.log(`planted ${chosen.length} fault(s) in ${files.join(', ')} (uncommitted)`);
+} else {
+  const git = (...a) => execFileSync('git', a, { stdio: ['ignore', 'pipe', 'inherit'] }).toString().trim();
+  git('add', '--', ...files);
+  git('-c', 'user.name=ab', '-c', 'user.email=ab@local', 'commit', '-q', '--no-verify', '-m', 'ab: planted faults (do not merge)');
+  console.log(`planted ${chosen.length} fault(s) in ${files.join(', ')} and committed as ${git('rev-parse', '--short', 'HEAD')}; the working tree is clean. Compare fixes with: git diff --stat HEAD~1`);
+}
