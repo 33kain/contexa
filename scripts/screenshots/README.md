@@ -6,18 +6,21 @@ Captures the card, with the real extension running, into
 **This is no longer what ships.** The store set authored 2026-09-07 for 0.9.95
 is designed illustrations, not captures — see
 `publishing/screenshots/README.md`. This harness produced every set before it,
-still works, and is where the next captured set starts.
+still works, and is where the next captured set starts. It writes the **same
+five filenames the shipped set uses**, so a run overwrites the shipped frames
+in place — which is the point, and also the warning.
 
-**Mind the filenames.** It writes `1-composed`, `2-moves`, `3-trigger`,
-`4-light`, `5-settings`; the shipping set is `1-start-fresh`, `2-brief`,
-`3-moves`, `4-composed`, `5-trigger`. A re-run therefore leaves **ten** PNGs in
-`publishing/screenshots/`, two of them (`3-*`) contradicting each other by
-number. Decide which set ships and delete the other; do not upload from a
-folder holding both.
+Two runs make the five, because the fork frames need a long thread padded in
+before the reply lands and the default frames need a short one:
 
 ```bash
-xvfb-run -a node scripts/screenshots/capture.mjs
+xvfb-run -a node scripts/screenshots/capture.mjs             # 3-moves, 4-composed, 5-trigger
+CX_FORK=1 xvfb-run -a node scripts/screenshots/capture.mjs   # 1-start-fresh, 2-brief
 ```
+
+The old `4-light` and `5-settings` frames are not made any more: the shipped
+set has no equivalents (it is mixed light and dark, which shows the theme
+following without a frame of its own).
 
 Needs Playwright and a Chromium (both already present in this repo's dev
 image; otherwise `npm i -g playwright && npx playwright install chromium`).

@@ -2,8 +2,15 @@
  *
  *   node scripts/screenshots/capture.mjs
  *
- * Writes the five 1280x800 PNGs in publishing/screenshots/, and fails loudly
- * rather than writing a wrong one.
+ * Writes the 1280x800 PNGs in publishing/screenshots/, and fails loudly rather
+ * than writing a wrong one. The five shipped frames come from two runs:
+ *
+ *   node scripts/screenshots/capture.mjs            -> 3-moves, 4-composed, 5-trigger
+ *   CX_FORK=1 node scripts/screenshots/capture.mjs  -> 1-start-fresh, 2-brief
+ *
+ * The fork run pads the thread before the reply lands (a long thread is what
+ * makes the cost line and Start fresh appear), so it cannot share a page with
+ * the default run; the filenames are the listing order, not the capture order.
  *
  * WHY THIS FILE IS COMMITTED. The first attempt at these screenshots (PR #13)
  * committed only the PNGs — so when the card turned out to be mispositioned in
@@ -84,7 +91,7 @@ const FORK = process.env.CX_FORK === '1';
 const NUDGE = process.env.CX_NUDGE === '1';
 const OUT = ZERO
   ? join(REPO, 'build-ready', 'zero-check')
-  : FORK ? join(REPO, 'build-ready', 'fork-check')
+  : FORK ? join(REPO, 'publishing', 'screenshots')
   : NUDGE ? join(REPO, 'build-ready', 'nudge-check')
   : join(REPO, 'publishing', 'screenshots');
 const MOCK = join(HERE, 'mock-claude.html');
@@ -321,10 +328,10 @@ async function main() {
        and the available browser build do not match, which is the usual state
        of a CI image. */
     ...(process.env.CX_CHROME ? { executablePath: process.env.CX_CHROME } : {}),
-    /* The listing set is dark. This is what carries options.html (which follows
-       prefers-color-scheme) into dark with the rest; the conversation shots do
-       NOT rely on it, because the mock sets data-mode, which content.js treats
-       as authoritative — so 4-light.png stays light regardless of this. */
+    /* The conversation shots do NOT rely on this: the mock sets data-mode,
+       which content.js treats as authoritative. It is kept so anything the
+       extension opens outside the mock (options.html follows
+       prefers-color-scheme) matches the dark frames. */
     colorScheme: 'dark',
     args: [
       `--disable-extensions-except=${EXT}`,
@@ -370,11 +377,11 @@ async function main() {
     await page.waitForTimeout(400);
     await page.evaluate(() => window.__mock.finishStream());
 
-    // ---- 3-trigger: the mascot as it arrives, before anything is asked ------
+    // ---- 5-trigger: the mascot as it arrives, before anything is asked ------
     await page.waitForSelector(MASCOT, { timeout: 15000 });
     await page.evaluate(() => window.__mock.bottom());
     await page.waitForTimeout(900);              // let the entrance settle
-    await shoot(page, '3-trigger.png', 'the trigger, before any click', { card: true });
+    if (!FORK) await shoot(page, '5-trigger.png', 'the trigger, before any click', { card: true });
 
     /* ---- CX_TURNS: does captureTurns() actually see a long conversation?
        The question the field test could not answer and no assertion could
@@ -495,7 +502,7 @@ async function main() {
       console.log('  cost line:', JSON.stringify(cost));
       if (!cost || !/≈ \d+k tokens re-read per send/.test(cost.text)) throw new Error('cost line did not render with a token estimate');
       if (cost.button !== 'Start fresh') throw new Error('fork control missing from the cost line');
-      await shoot(page, 'fork-1-cost.png', 'a long thread: the cost line and the fork control', { card: true });
+      await shoot(page, '1-start-fresh.png', 'a long thread: the cost line and the fork control', { card: true });
 
       const logs = [];
       page.on('console', m => { if (m.text().includes('[CONTEXA] fork')) logs.push(m.text()); });
@@ -515,7 +522,6 @@ async function main() {
       console.log(' ', measured.replace(/^\S+\s/, ''));
       await page.evaluate(() => window.__mock.bottom());
       await page.waitForTimeout(400);
-      await shoot(page, 'fork-2-brief.png', 'the brief, ready — its text is the chip\'s title', { card: true });
 
       /* The hand-off. The click opens https://claude.ai/new in a NEW tab; the
          mock serves the same page there, content.js loads at /new, asks the
@@ -536,13 +542,13 @@ async function main() {
       const landed = await fresh.evaluate(() => document.querySelector('#composer').innerText.trim());
       if (landed.replace(/\s+/g, ' ') !== BRIEF.replace(/\s+/g, ' ')) throw new Error('the composer holds something other than the brief: ' + landed.slice(0, 120));
       await fresh.waitForTimeout(400);
-      await shoot(fresh, 'fork-3-landed.png', 'the new chat, with the brief in its message box');
+      await shoot(fresh, '2-brief.png', 'the new chat, with the brief in its message box');
       /* And only once: a reload of /new must find nothing waiting. */
       await fresh.reload({ waitUntil: 'domcontentloaded' });
       await fresh.waitForTimeout(1500);
       const again = await fresh.evaluate(() => (document.querySelector('#composer')?.innerText || '').trim());
       if (again) throw new Error('the brief landed twice — takeBrief did not consume it');
-      console.log(`\nfork verified end to end, shots written to ${OUT}`);
+      console.log(`\nfork verified end to end — wrote 1-start-fresh, 2-brief to ${OUT}`);
       return;
     }
 
@@ -577,19 +583,18 @@ async function main() {
       return;
     }
 
-    /* The frames are numbered in LISTING order, not capture order: the composed
-       frame is shot second but ships first. The row alone reads as smart-reply
-       stubs, which is the category the product is not in; a full prompt in the
-       box under a highlighted chip is the proof of "without the writing", so
-       that is what a visitor sees first. */
-    // ---- 2-moves: click it, the mined row arrives --------------------------
+    /* The frames are numbered in LISTING order, not capture order. Since 0.9.95
+       the listing leads with the saving — Start fresh and the brief, from the
+       CX_FORK run — and the row and the composed prompt follow; the trigger,
+       shot first, ships last. */
+    // ---- 3-moves: click it, the mined row arrives --------------------------
     await page.click(MASCOT);
     await page.waitForSelector(`${CARD} .chip.move`, { timeout: 15000 });
     await page.evaluate(() => window.__mock.bottom());
     await page.waitForTimeout(600);
-    await shoot(page, '2-moves.png', 'the mined row of next moves', { card: true });
+    await shoot(page, '3-moves.png', 'the mined row of next moves', { card: true });
 
-    // ---- 1-composed: one click, the whole prompt lands in the box -----------
+    // ---- 4-composed: one click, the whole prompt lands in the box -----------
     /* One click, not a walk through four. That is the shot: the old sequence
        clicked a pill per question because the prompt was assembled from the
        answers, and this one exists to show that it no longer is. */
@@ -600,32 +605,9 @@ async function main() {
     );
     await page.evaluate(() => window.__mock.bottom());
     await page.waitForTimeout(600);
-    await shoot(page, '1-composed.png', 'the prompt, landed in the message box', { card: true });
+    await shoot(page, '4-composed.png', 'the prompt, landed in the message box', { card: true });
 
-    // ---- 4-light: the same row, host in light mode -------------------------
-    await page.evaluate(() => window.__mock.setTheme('light'));
-    await page.reload({ waitUntil: 'domcontentloaded' });
-    await page.evaluate(() => window.__mock.setTheme('light'));
-    await page.waitForTimeout(1200);
-    await page.evaluate(html => window.__mock.streamReply(html), REPLY_HTML);
-    await page.waitForTimeout(400);
-    await page.evaluate(() => window.__mock.finishStream());
-    await page.waitForSelector(MASCOT, { timeout: 15000 });
-    await page.click(MASCOT);
-    await page.waitForSelector(`${CARD} .chip.move`, { timeout: 15000 });
-    await page.evaluate(() => window.__mock.bottom());
-    await page.waitForTimeout(600);
-    await shoot(page, '4-light.png', 'the same row, light mode', { card: true });
-
-    // ---- 5-settings: the real options page ---------------------------------
-    const sw = ctx.serviceWorkers()[0] || await ctx.waitForEvent('serviceworker');
-    const id = new URL(sw.url()).host;
-    const opts = await ctx.newPage();
-    await opts.goto(`chrome-extension://${id}/options.html`, { waitUntil: 'load' });
-    await opts.waitForTimeout(700);
-    await shoot(opts, '5-settings.png', 'the settings page');
-
-    console.log('\nwrote 5 screenshots to publishing/screenshots/');
+    console.log('\nwrote 3-moves, 4-composed, 5-trigger to publishing/screenshots/ — run again with CX_FORK=1 for 1-start-fresh and 2-brief');
   } finally {
     await ctx.close();
     server.close();
