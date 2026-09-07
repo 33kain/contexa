@@ -203,6 +203,27 @@ if (!buildWrk) fails.push('BUILD not found in worker/src/index.js');
 else if (buildWrk !== VERSION)
   fails.push(`version mismatch: extension manifest=${VERSION} worker BUILD=${buildWrk}`);
 
+/* CHANGELOG.md carries the number a third time, and it is the copy no other
+   step reads: the manifest is the single home, the worker's BUILD is checked
+   against it directly above, and the changelog entry is typed by hand at
+   release time — so it is the one that quietly keeps the previous generation's
+   number while the entry underneath it describes this one. The entry heading
+   IS the record of what shipped; a heading that disagrees with the manifest
+   makes every heading above it suspect, which is the whole file's value.
+
+   Only the FIRST entry heading is checked — the release being built. Headings
+   that do not open with a version (`## Repository, 2026-09-06 — …`) are notes,
+   not entries, so the pattern anchors on the number rather than on the `##`
+   and skips past them. Kept as one self-contained function so the test suite
+   can lift it out of this file and run it on changelogs that do not exist. */
+function changelogVersion(text) {
+  const m = String(text || '').match(/^##[ \t]+(\d+\.\d+\.\d+)[ \t]+[—–-]/m);
+  return m ? m[1] : null;
+}
+const clVersion = changelogVersion(readFileSync('CHANGELOG.md', 'utf8'));
+if (!clVersion) fails.push('CHANGELOG.md has no `## <version> —` entry heading — the release entry is missing or its heading drifted');
+else if (clVersion !== VERSION) fails.push(`version mismatch: extension manifest=${VERSION} CHANGELOG.md=${clVersion}`);
+
 /* A superseded default must never also be the current one, or the migration would
    clear the very value it is meant to install. */
 const superseded = (outBg.match(/const SUPERSEDED_MODEL_DEFAULTS = \[([^\]]*)\]/) || [])[1] || '';

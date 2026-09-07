@@ -1749,5 +1749,61 @@ const TURNS = [
   t('the diag says what would open and what the decode found', /'project page to open: '/.test(c) && /\.\.\.\(ctx\.coworkLookup \|\| \[\]\)\] : \[\]\)/.test(c));
 }
 
+/* ---- build.mjs — the changelog's first entry carries the manifest's version */
+/* The manifest version is checked against the worker's BUILD, the model against
+   three files, and now the CHANGELOG's newest entry heading against the manifest.
+   That check lives in build.mjs, which cannot be imported (importing it BUILDS),
+   so its parts are lifted out by pattern and run here on changelogs that do not
+   exist — the same trick the projectUuidOf section above uses, and the only way
+   to exercise the FAILING case without moving the real repository to a bad state.
+   Resolved against this file rather than the cwd: the suite is documented as
+   run from extension/, but a '../build.mjs' that is silently right in one cwd
+   and wrong in another is the trap worker/test.mjs's rel() exists to avoid. */
+{
+  const build = readFileSync(new URL('../build.mjs', import.meta.url), 'utf8');
+
+  const fnSrc = (build.match(/function changelogVersion\(text\) \{[\s\S]*?\n\}/) || [''])[0];
+  t('changelogVersion is one self-contained function in build.mjs', fnSrc.length > 0);
+  const changelogVersion = new Function(fnSrc + '\nreturn changelogVersion;')();
+
+  /* The heading above the newest entry is a repository note, not a release, and
+     the real file has carried one since the tokenbrake split. A check that took
+     the first `##` would read "Repository," as this generation's number. */
+  const NOTE = '# Changelog\n\nprose about the number\n\n---\n\n## Repository, 2026-09-06 — tokenbrake split out\n\nnot a release\n\n---\n\n';
+  t('the newest version heading is the answer, and a non-version heading above it is skipped',
+    changelogVersion(NOTE + '## 0.9.95 — Extension\n\n---\n\n## 0.9.94 — Extension\n') === '0.9.95');
+  t('a changelog whose newest entry is stale reports the stale number, not the newest anywhere',
+    changelogVersion(NOTE + '## 0.9.94 — Extension\n\n---\n\n## 0.9.95 — Extension\n') === '0.9.94');
+  t('no entry heading at all is null, not a guess',
+    changelogVersion(NOTE) === null && changelogVersion('') === null && changelogVersion(null) === null);
+  t('a version-shaped string that is not a heading does not count',
+    changelogVersion('the 0.9.95 — release\n\n### 0.9.95 — Extension\n') === null);
+
+  /* And the check itself, both ways. `fails.push` is how every other guard in
+     build.mjs reports, so a check that computed the right answer and forgot to
+     push would pass a function test and fail nobody's build. */
+  const checkSrc = (build.match(/const clVersion = [\s\S]*?\n\n/) || [''])[0];
+  t('the check reads CHANGELOG.md and reports through fails.push', /fails\.push/.test(checkSrc));
+  const runCheck = new Function('changelogVersion', 'readFileSync', 'VERSION', 'fails', checkSrc);
+
+  let f = [];
+  runCheck(changelogVersion, () => '## 0.9.95 — Extension\n', '0.9.95', f);
+  t('passing case: an entry heading matching the manifest fails nothing', f.length === 0, f.join('; '));
+
+  f = [];
+  runCheck(changelogVersion, () => '## 0.9.94 — Extension\n', '0.9.95', f);
+  t('failing case: a stale entry heading fails the build, naming both numbers',
+    f.length === 1 && /manifest=0\.9\.95/.test(f[0]) && /CHANGELOG\.md=0\.9\.94/.test(f[0]), f.join('; '));
+
+  f = [];
+  runCheck(changelogVersion, () => '# Changelog\n\n## Repository, 2026-09-06 — x\n', '0.9.95', f);
+  t('failing case: a changelog with no entry heading fails the build too', f.length === 1, f.join('; '));
+
+  /* The real files, which is the assertion a release actually trips over. */
+  const version = JSON.parse(readFileSync('./manifest.json', 'utf8')).version;
+  const real = changelogVersion(readFileSync(new URL('../CHANGELOG.md', import.meta.url), 'utf8'));
+  t("the shipped CHANGELOG.md's newest entry is this manifest's version", real === version, real + ' vs ' + version);
+}
+
 console.log(fails.length ? '\nFAILED: ' + fails.join(', ') : '\nall extension checks passed');
 process.exit(fails.length ? 1 : 0);
