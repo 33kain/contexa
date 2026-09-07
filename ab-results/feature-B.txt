@@ -1,0 +1,50 @@
+What I changed
+
+- build.mjs — added `changelogVersion(src)` (a pure helper that returns the version of the first
+  `## <version> —` heading, skipping prose headings like `## Repository, …`) plus, in the top-level
+  invariant block right after the worker-BUILD check, the comparison that pushes `changelog mismatch: …`
+  onto `fails` when it disagrees with the manifest version (or `CHANGELOG.md has no …` when there is none).
+- extension/test.mjs — added a build-guard block at the end of the suite: it lifts `changelogVersion` out of
+  ../build.mjs by source (importing build.mjs would run the build), covers heading selection/skip/null,
+  the passing case (real CHANGELOG.md vs real manifest.json) and the failing case (a stale heading), and
+  asserts build.mjs actually wires the helper into `fails`.
+
+Runs: `npm test` 2 times (plus one `npm run test:extension` on its own while iterating); `node build.mjs`
+3 times — a green run, one deliberate red run with the newest heading temporarily set to 0.9.94 to see the
+check fail (CHANGELOG.md reverted with `git checkout --` immediately), and a final green run.
+
+Step 4 — git diff --stat
+
+ build.mjs          | 18 ++++++++++++++++++
+ extension/test.mjs | 41 +++++++++++++++++++++++++++++++++++++++++
+ 2 files changed, 59 insertions(+)
+
+Step 5 — cat ~/.claude/tokenbrake.json
+
+{"enabled": true}
+
+Step 6 — npx --yes tokenbrake@0.2.0 report --top=8
+
+Session 0d8662e4…  /home/user/contexa
+  23 requests, 22 tool results
+  Context processed: 2.1M tokens across 23 requests (97% read from cache); output 10k
+  Context now: ≈ 106k tokens — what the next request re-reads
+  Tool results entered ≈ 10k tokens of context, carried through later requests ≈ 159k token-reads
+  tokenbrake trimmed 1 of them: ≈ 4k tokens kept out, ≈ 79k token-reads not carried
+
+What ate it — by tokens carried (size × later requests), top 8:
+     size   carried   turns  tool               what
+       1k       29k     20  Bash               cat -n build.mjs  [trimmed from 5k]
+       1k       26k     19  Bash               sed -n '150,240p' build.mjs
+       1k       23k     16  Bash               cat package.json; echo "=== head of extension/test.mjs =
+       1k       19k     17  Bash               grep -n "CHANGELOG\|manifest.json\|readFileSync\|^/\* --
+      942       17k     18  Bash               sed -n '95,150p' build.mjs; echo "=== grep build.mjs in 
+      537       11k     21  Bash               cat ~/.claude/tokenbrake.json; echo "---"; git status --
+      616        9k     15  Bash               ls -R scripts | head -40; echo "=== ==="; grep -rn "buil
+      741        7k      9  Bash               python3 - <<'PY' import io p='extension/test.mjs' s=io.o
+
+By tool (share of tokens carried):
+  Bash                 21 calls      10k entered      159k carried  100%
+  Write                 1 calls       31 entered       682 carried    0%
+
+Sizes are chars/4 estimates; the usage line is what the API reported.
