@@ -1,0 +1,18 @@
+Session 22afe55e…  /home/user/contexa
+  5 requests, 4 tool results
+  Context processed: 362k tokens across 5 requests (91% read from cache); output 2k
+  Context now: ≈ 74k tokens — what the next request re-reads
+  Tool results entered ≈ 933 tokens of context, carried through later requests ≈ 2k token-reads
+  tokenbrake trimmed none of them (ledger has 4 rows for other sessions or small results)
+
+What ate it — by tokens carried (size × later requests), top 8:
+     size   carried   turns  tool               what
+      218       872      4  Bash               git status --short && echo "--- branch ---" && git branc
+      245       735      3  Bash               git fetch origin main 2>&1 | tail -3; echo "--- local vs
+      218       436      2  Bash               echo "=== #53 ==="; git show --stat --oneline 4a87976 | 
+      252       252      1  Bash               mkdir -p ab-results/real && npx --yes tokenbrake@0.2.1 r
+
+By tool (share of tokens carried):
+  Bash                  4 calls      933 entered        2k carried  100%
+
+Sizes are chars/4 estimates; the usage line is what the API reported.

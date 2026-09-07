@@ -1,6 +1,9 @@
 # Every token earned — the CONTEXA token-savings thesis
 
-*Status: adopted as the product's standing rule and its motto. This document
+*Status: adopted as the product's standing rule. It was the store name's second
+half too until 0.9.95, which replaced it there with "Save tokens" — a store field
+is read once by a stranger, and wants the promise rather than the rule — and left
+this as the test each decision still has to pass. This document
 states the claim, ties each part of it to the code that enforces it, does the
 arithmetic, names what the claim forbids, and lists where it is not yet true.*
 
@@ -314,3 +317,7 @@ chosen because the alternative produced a turn the user did not need, and a
 turn the user did not need is the same thing as a token that was not earned.
 The motto is the rule that was already being followed, written down so it can
 be enforced.
+
+(0.9.95 moved *save tokens* into the store name and the short description, where
+a first-time reader needs the promise. This document keeps the rule; the name is
+what the rule buys.)

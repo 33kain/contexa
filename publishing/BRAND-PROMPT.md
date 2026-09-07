@@ -47,11 +47,14 @@ READ FIRST, IN THIS ORDER:
 
 HARD CONSTRAINTS — DO NOT PROPOSE CHANGES TO THESE WITHOUT FLAGGING THEM AS
 A SEPARATE DECISION, IN THEIR OWN SECTION OF THE MEMO:
-- The name ("CONTEXA for Claude - Every token earned") is 39 of the
+- The name ("CONTEXA for Claude - Save tokens") is 32 of the
   45-character Chrome Web Store limit and byte-identical to `name` in
-  extension/manifest.json. The second half is the product motto. Changing it is a version bump and a rebuild — a
-  product change, not a copy edit.
-- The short description is at 125/132 characters and byte-identical to
+  extension/manifest.json. The second half is the product motto: "Save tokens"
+  since 0.9.95, "Every token earned" before it. That older line is not store
+  text any more; it stays as the rule the copy has to pass, in
+  docs/token-savings-thesis.md. Changing the name is a version bump and a
+  rebuild — a product change, not a copy edit.
+- The short description is at 127/132 characters and byte-identical to
   `description` in extension/manifest.json. Same constraint.
 - "Claude" stays in the name and in the description. It was removed once on
   a speculative trademark worry and put back because it is the single most
