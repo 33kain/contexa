@@ -69,16 +69,19 @@ Copy comes from `publishing/STORE-LISTING.md`, which since 2026-08-31 IS the lis
 - [ ] Category: Productivity.
 - [ ] Icon: `extension/icons/icon128.png`.
 - [ ] Screenshots: the five 1280×800 PNGs in `publishing/screenshots/`.
-      Order them `1-composed` → `2-moves` → `3-trigger` → `4-light` →
-      `5-settings`; the first is what most people judge the listing by.
-      Regenerate with `xvfb-run -a node scripts/screenshots/capture.mjs` rather
-      than editing the PNGs by hand.
-- [ ] ⚠️ **Retake the screenshots on real claude.ai** before you submit. They
-      are captured with the real extension running, but against a local mock of
-      claude.ai's DOM and with canned model output. Reviewers compare
-      screenshots against actual behaviour, and real ones are simply more honest
-      and more convincing — and only a live session proves the selectors still
-      match the site as it stands today.
+      Order them `1-start-fresh` → `2-brief` → `3-moves` → `4-composed` →
+      `5-trigger`; the first is what most people judge the listing by, and it
+      leads on the saving because the name and short description do.
+- [ ] ⚠️ **Retake the screenshots on real claude.ai** before you submit. The set
+      authored 2026-09-07 is **designed illustrations, not captures** — each
+      frame says `Illustrative demo` in its footer, which is what makes it
+      honest, and none of them proves the selectors still match the site.
+      Reviewers compare screenshots against actual behaviour, so a live set is
+      both more convincing and the only evidence the extension still mounts.
+      `publishing/screenshots/README.md` says what changed and why; the capture
+      harness (`xvfb-run -a node scripts/screenshots/capture.mjs`) is still
+      there if the next set should be a capture again. Either way, do not
+      retouch a captured frame by hand.
 - [ ] Single purpose description (verbatim from `SUBMISSION.md` — it is a
       review-facing field, so it lives there, not in the listing copy).
 - [x] Privacy policy URL. **Set 2026-09-01** to the repo file — see Phase 2.

@@ -1,10 +1,26 @@
 # scripts/screenshots
 
-Generates the five Chrome Web Store screenshots in `publishing/screenshots/`.
+Captures the card, with the real extension running, into
+`publishing/screenshots/`.
+
+**This is no longer what ships.** The store set authored 2026-09-07 for 0.9.95
+is designed illustrations, not captures — see
+`publishing/screenshots/README.md`. This harness produced every set before it,
+still works, and is where the next captured set starts. It writes the **same
+five filenames the shipped set uses**, so a run overwrites the shipped frames
+in place — which is the point, and also the warning.
+
+Two runs make the five, because the fork frames need a long thread padded in
+before the reply lands and the default frames need a short one:
 
 ```bash
-xvfb-run -a node scripts/screenshots/capture.mjs
+xvfb-run -a node scripts/screenshots/capture.mjs             # 3-moves, 4-composed, 5-trigger
+CX_FORK=1 xvfb-run -a node scripts/screenshots/capture.mjs   # 1-start-fresh, 2-brief
 ```
+
+The old `4-light` and `5-settings` frames are not made any more: the shipped
+set has no equivalents (it is mixed light and dark, which shows the theme
+following without a frame of its own).
 
 Needs Playwright and a Chromium (both already present in this repo's dev
 image; otherwise `npm i -g playwright && npx playwright install chromium`).

@@ -110,7 +110,7 @@ publishing/           Chrome Web Store listing copy, privacy policy, screenshots
 publishing/website/   the static product site (deployed to Cloudflare Pages by deploy-pages.yml)
 store-assets/         store listing images, promo tiles, mascot brand source assets
 scripts/              dev/release tooling (release-commit, dogfood-test, reproduce-test)
-scripts/screenshots/  regenerates publishing/screenshots/ by driving the real extension against a mock claude.ai DOM (Playwright + Xvfb; not part of the test suite)
+scripts/screenshots/  captures the card by driving the real extension against a mock claude.ai DOM (Playwright + Xvfb; not part of the test suite). It made every store set up to 0.9.68; what ships since 2026-09-07 is designed illustrations, and the harness writes the same five filenames (default run: 3–5; `CX_FORK=1`: 1–2), so a re-run overwrites the shipped frames in place
 scripts/promo/        renders the store promo tiles into store-assets/ from an HTML source
 scripts/website/      renders the site's social preview and touch icon into publishing/website/ from an HTML source
 scripts/archive/      one-off scripts from closed investigations — not part of the workflow
