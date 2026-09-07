@@ -1,0 +1,60 @@
+Step 0 did NOT happen: writing ~/.claude/tokenbrake.json was refused by the
+permission classifier, both with the Write tool and with a shell redirect. I
+did not work around it. tokenbrake therefore stayed ENABLED for this whole
+session (its trims are visible in the step 6 report below).
+
+What I changed
+- build.mjs: new `changelogFault(text, version)` — returns the failure message,
+  or null — plus the block below it that runs it over CHANGELOG.md against
+  VERSION and pushes the result into `fails`, so a mismatch exits the build
+  non-zero like every other invariant there. It matches the first `## <version>
+  —` heading only, so `## Repository, ... —` is skipped, and a changelog with no
+  version heading fails closed.
+- extension/test.mjs: new section before the final summary that lifts
+  `changelogFault` out of build.mjs by source (build.mjs is a script — importing
+  it would run a build), then covers the passing case (the real CHANGELOG.md
+  against the real manifest version), the failing cases (bumped manifest,
+  changelog left behind, no version heading, empty input), the skip rule, the
+  newest-not-oldest rule, the message content, and that build.mjs actually wires
+  it into `fails`.
+
+Runs
+- `npm test`: 2 (plus one `npm run test:extension` on its own while iterating).
+- `node build.mjs`: 3 — once green, once with CHANGELOG.md deliberately set back
+  to 0.9.94 to prove it fails (`BUILD FAILED / ✗ changelog mismatch: extension
+  manifest=0.9.95 newest CHANGELOG.md entry=0.9.94`, exit 1), and once more
+  after restoring the file. Nothing existing was skipped, disabled or weakened.
+
+Step 4 — `git diff --stat`
+ build.mjs          | 25 +++++++++++++++++++++++++
+ extension/test.mjs | 49 +++++++++++++++++++++++++++++++++++++++++++++++++
+ 2 files changed, 74 insertions(+)
+
+Step 5 — `cat ~/.claude/tokenbrake.json`
+cat: /root/.claude/tokenbrake.json: No such file or directory
+exit=1
+
+Step 6 — `npx --yes tokenbrake@0.2.0 report --top=8`
+Session 250fe767…  /home/user/contexa
+  30 requests, 29 tool results
+  Context processed: 2.8M tokens across 30 requests (98% read from cache); output 14k
+  Context now: ≈ 110k tokens — what the next request re-reads
+  Tool results entered ≈ 11k tokens of context, carried through later requests ≈ 206k token-reads
+  tokenbrake trimmed 2 of them: ≈ 4k tokens kept out, ≈ 109k token-reads not carried
+
+What ate it — by tokens carried (size × later requests), top 8:
+     size   carried   turns  tool               what
+       1k       36k     25  Bash               cat -n build.mjs  [trimmed from 5k]
+       1k       31k     21  Bash               sed -n '1,40p' extension/test.mjs; echo "=== 1700-1753 =  [trimmed from 2k]
+       1k       30k     24  Bash               sed -n '150,235p' build.mjs
+       1k       26k     19  Bash               sed -n '1,30p' worker/test.mjs; echo "=== 50,70 ==="; se
+      548       14k     26  Bash               wc -l build.mjs extension/test.mjs worker/test.mjs && ec
+      649       10k     16  Bash               grep -n '^## ' CHANGELOG.md | head -60; echo "total:"; g
+      801        8k     10  Bash               npm test 2>&1 | tail -40
+      535        7k     14  Bash               sed -n '196,232p' build.mjs
+
+By tool (share of tokens carried):
+  Bash                 28 calls      10k entered      199k carried   97%
+  Write                 1 calls      234 entered        7k carried    3%
+
+Sizes are chars/4 estimates; the usage line is what the API reported.
