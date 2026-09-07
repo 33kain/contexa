@@ -1749,5 +1749,54 @@ const TURNS = [
   t('the diag says what would open and what the decode found', /'project page to open: '/.test(c) && /\.\.\.\(ctx\.coworkLookup \|\| \[\]\)\] : \[\]\)/.test(c));
 }
 
+
+/* ---- the build's changelog check ----------------------------------------- */
+/* build.mjs is a script, not a module — importing it would RUN a build — so the
+   check is lifted out by source, the same way projectUuidOf is above. The
+   function is the whole check (it returns the failure message, or null), so
+   both directions are reachable from here: the shipped tree passing, and a
+   changelog left on the previous version failing.
+
+   It lives in the extension suite because the version it guards is the
+   extension's: extension/manifest.json is the number's single home, and
+   worker/test.mjs says in as many words that the worker's BUILD is not the
+   thing a changelog entry describes. */
+{
+  const bsrc = readFileSync(new URL('../build.mjs', import.meta.url), 'utf8');
+  const fsrc = (bsrc.match(/function changelogFault\(text, version\) \{[\s\S]*?\n\}/) || [''])[0];
+  t('changelogFault is one function in build.mjs', fsrc.length > 0);
+  const changelogFault = new Function(fsrc + '\nreturn changelogFault;')();
+
+  const head = '# Changelog\n\nblurb\n\n---\n\n## Repository, 2026-09-06 — tokenbrake split out\n\nnot a release\n\n---\n\n';
+  t('a heading that names no version is skipped, not matched loosely',
+    changelogFault(head + '## 0.9.95 — Extension\n\nnotes\n', '0.9.95') === null);
+  t('the NEWEST version heading is the one checked, not the oldest',
+    changelogFault(head + '## 0.9.95 — Extension\n\nx\n\n## 0.9.94 — Extension\n', '0.9.94') !== null);
+  t('a changelog with no version heading at all fails closed',
+    typeof changelogFault(head, '0.9.95') === 'string');
+  t('and so does an empty or missing file, rather than throwing',
+    typeof changelogFault('', '0.9.95') === 'string' && typeof changelogFault(null, '0.9.95') === 'string');
+  t('the message names both numbers, so the reader knows which one to move',
+    /manifest=0\.9\.95/.test(changelogFault(head + '## 0.9.94 — Extension\n', '0.9.95')) &&
+    /entry=0\.9\.94/.test(changelogFault(head + '## 0.9.94 — Extension\n', '0.9.95')));
+
+  /* The two real cases, against the real files. */
+  const mv = JSON.parse(readFileSync('./manifest.json', 'utf8')).version;
+  const clog = readFileSync(new URL('../CHANGELOG.md', import.meta.url), 'utf8');
+  t('PASSING: the shipped tree — CHANGELOG.md leads with the manifest version',
+    changelogFault(clog, mv) === null, 'manifest ' + mv);
+  t('FAILING: the same changelog against a bumped manifest is a failure message',
+    typeof changelogFault(clog, '9.9.9') === 'string');
+  t('FAILING: a manifest bumped past the newest entry is caught',
+    typeof changelogFault(clog.replace(/^## \d+\.\d+\.\d+ —/m, '## 0.0.1 —'), mv) === 'string');
+
+  /* A check nobody wired in is a check nobody has. Assert it reads the real
+     file, against the real VERSION, and pushes into the fails array, whose
+     length exits the build non-zero — rather than warning. */
+  t('build.mjs runs it over CHANGELOG.md against the manifest version and FAILS the build',
+    /changelogFault\(readFileSync\('CHANGELOG\.md', 'utf8'\), VERSION\)/.test(bsrc) &&
+    /if \(fault\) fails\.push\(fault\);/.test(bsrc));
+}
+
 console.log(fails.length ? '\nFAILED: ' + fails.join(', ') : '\nall extension checks passed');
 process.exit(fails.length ? 1 : 0);

@@ -203,6 +203,31 @@ if (!buildWrk) fails.push('BUILD not found in worker/src/index.js');
 else if (buildWrk !== VERSION)
   fails.push(`version mismatch: extension manifest=${VERSION} worker BUILD=${buildWrk}`);
 
+/* CHANGELOG.md's newest release heading must name THIS version, for the third
+   time and the same reason as the model and BUILD above: agreement across files
+   is asserted, not assumed. The changelog entry is written by hand AFTER the
+   manifest is bumped, so the two drift in the one direction that looks fine in
+   every diff — a bumped manifest shipping under the previous version's notes,
+   which makes the changelog say a release happened that did not and stays wrong
+   forever, since nobody rereads an old entry.
+
+   Only headings that actually NAME a version are releases. "## Repository,
+   2026-09-06 — tokenbrake split out" is a repo-level entry above them and must
+   be skipped rather than matched loosely; the FIRST heading that names one is
+   the newest release. A changelog with no version heading at all is a failure,
+   not a pass — the check has to fail closed, or deleting the entry would be the
+   way to satisfy it. */
+function changelogFault(text, version) {
+  const m = String(text || '').match(/^##[ \t]+(\d+\.\d+\.\d+)[ \t]+—/m);
+  if (!m) return 'CHANGELOG.md has no `## <version> —` heading to check the manifest against';
+  return m[1] === version ? null
+    : `changelog mismatch: extension manifest=${version} newest CHANGELOG.md entry=${m[1]}`;
+}
+{
+  const fault = changelogFault(readFileSync('CHANGELOG.md', 'utf8'), VERSION);
+  if (fault) fails.push(fault);
+}
+
 /* A superseded default must never also be the current one, or the migration would
    clear the very value it is meant to install. */
 const superseded = (outBg.match(/const SUPERSEDED_MODEL_DEFAULTS = \[([^\]]*)\]/) || [])[1] || '';
