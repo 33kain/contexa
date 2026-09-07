@@ -217,6 +217,13 @@ header.site .tagline { margin: .15rem 0 0; color: var(--muted); font-style: ital
 .mas-whisp { opacity: 0; transition: .2s; }
 .mas:hover .mas-whisp, .mas.peek .mas-whisp { opacity: 1; }
 .mas-hint { color: var(--s-ink3); font-size: 11.5px; }
+/* In the write state this is the only thing asking for a click, so it stops
+   being chrome: the verb rides the accent, the rest stays quiet. */
+.mas-hint.call { color: var(--s-ink2); font-size: 12.5px; }
+.mas-hint b { color: var(--s-accent); font-weight: 700; white-space: nowrap; }
+.mas-hint.call b { border-bottom: 1.5px solid var(--s-accent); padding-bottom: 1px; }
+.mas.hop { animation: mas-hop .42s ease; }
+@keyframes mas-hop { 40% { transform: translateY(-8px); } }
 
 /* the composer */
 .composer { display: flex; align-items: flex-end; gap: 10px; background: var(--s-panel);
@@ -326,7 +333,7 @@ footer.site p { margin: .35rem 0; max-width: none; }
         </svg>
         <span class="bubble">What now? <b>&#10022;</b></span>
       </button>
-      <span class="mas-hint" id="masHint">Press me when your message is in the box.</span>
+      <span class="mas-hint call" id="masHint"><b id="masLead">&#8592; Press me</b><span id="masRest"> &mdash; I read what you wrote, you pick what to send.</span></span>
     </div>
     <div class="composer" id="composer">
       <label class="sr-only" for="box">Your message to Claude</label>
@@ -814,7 +821,8 @@ footer.site p { margin: .35rem 0; max-width: none; }
   /* ---------------- the page ---------------------------------------- */
   var box = document.getElementById('box'), thread = document.getElementById('thread'),
       ghost = document.getElementById('ghost'), mas = document.getElementById('mas'),
-      masHint = document.getElementById('masHint'), composer = document.getElementById('composer'),
+      masHint = document.getElementById('masHint'), masLead = document.getElementById('masLead'),
+      masRest = document.getElementById('masRest'), composer = document.getElementById('composer'),
       send = document.getElementById('send'), count = document.getElementById('count'),
       readyFlag = document.getElementById('readyFlag'), copyBtn = document.getElementById('copy'),
       resetBtn = document.getElementById('reset'), editHint = document.getElementById('editHint'),
@@ -843,11 +851,17 @@ footer.site p { margin: .35rem 0; max-width: none; }
     while (host.children.length > 4) host.removeChild(host.firstChild);
   }
   var HINTS = {
-    write: 'Press me when your message is in the box.',
-    read: 'Reading your message\u2026',
-    pick: 'Pick one. Clicking costs nothing.',
-    edit: 'Yours to edit. Nothing is sent from this demo.'
+    write: ['\u2190 Press me', ' — I read what you wrote, you pick what to send.'],
+    empty: ['Type a message first', ' — then press me.'],
+    read: ['Reading your message\u2026', ''],
+    pick: ['Pick one', ' — clicking costs nothing.'],
+    edit: ['Yours to edit', ' — nothing is sent from this demo.']
   };
+  function hint(name) {
+    masLead.textContent = HINTS[name][0];
+    masRest.textContent = HINTS[name][1];
+    masHint.className = 'mas-hint' + (name === 'write' ? ' call' : '');
+  }
   function paintRail(rail, order, name) {
     var at = order.indexOf(name), items = rail.querySelectorAll('li'), i;
     for (i = 0; i < items.length; i++) {
@@ -857,7 +871,7 @@ footer.site p { margin: .35rem 0; max-width: none; }
   }
   function setStep(name) {
     state = name;
-    masHint.textContent = HINTS[name];
+    hint(name === 'write' && !box.value.trim() ? 'empty' : name);
     paintRail(steps, ['write', 'read', 'pick', 'edit'], name);
   }
   function meter() {
@@ -866,6 +880,23 @@ footer.site p { margin: .35rem 0; max-width: none; }
     count.textContent = w + (w === 1 ? ' word' : ' words') + ' · ≈ ' + tokensOf(v) + ' tokens';
     mas.disabled = !v || state === 'read';
     send.disabled = !v;
+    if (state === 'write') hint(v ? 'write' : 'empty');
+  }
+
+  /* A demo whose first step is a click nobody notices is a demo of nothing, so
+     the trigger asks: a small hop every few seconds while there is a message
+     waiting and it has not been pressed. Three times and it stops — the point
+     is to be seen once, not to nag. Reduced motion gets the words only. */
+  var hops = 0, hopTimer = null;
+  function askForIt() {
+    window.clearInterval(hopTimer);
+    if (reduced) return;
+    hopTimer = window.setInterval(function () {
+      if (state !== 'write' || !box.value.trim() || hops >= 3) { window.clearInterval(hopTimer); return; }
+      hops++;
+      mas.classList.add('hop');
+      window.setTimeout(function () { mas.classList.remove('hop'); }, 460);
+    }, 5200);
   }
   /* The card, as extension/content.js writes its shell: the label row with the
      sparkle and the wordmark, then the chips. Both stages build it here, so the
@@ -1028,6 +1059,8 @@ footer.site p { margin: .35rem 0; max-width: none; }
     editHint.textContent = '';
     grow(); meter();
     setStep('write');
+    hops = 0;
+    askForIt();
     log('ready · nothing read, nothing spent');
     box.focus();
   }
@@ -1564,6 +1597,7 @@ footer.site p { margin: .35rem 0; max-width: none; }
      the product in a working state rather than an empty shell. */
   box.value = SEEDS[0][1];
   grow(); meter(); setStep('write');
+  askForIt();
   if (!reduced) window.setTimeout(function () {
     mas.classList.add('peek');
     window.setTimeout(function () { mas.classList.remove('peek'); }, 2200);
