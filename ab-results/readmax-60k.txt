@@ -1,0 +1,44 @@
+1. npm test — 569 checks passed, 0 failed (extension 418, worker 151); exit 0.
+2. node build.mjs — contexa-v0.9.95.zip
+3. extension/content.js — weightLine (line 958)
+4. worker/src/index.js — MAX_BRIEF_CHARS = 1800 (line 633)
+5. extension/background.js — BRIEF_TTL_MS = 2 * 60 * 1000, i.e. two minutes (line 753)
+6. worker/test.mjs — 112 lines begin with two spaces followed by t(
+7. scripts/screenshots/capture.mjs — chromium.launchPersistentContext(profile, {...}) (line 313)
+8. git log --stat -40 — tokenbrake/HANDOFF.md, in 18 of the 40 commits
+9. grep -rn "Start fresh" publishing/ — 29 matching lines
+10. .claude/hooks/tokenbrake/guard.js first line — #!/usr/bin/env node
+11. cat ~/.claude/tokenbrake.json — {"enabled": true, "readMaxBytes": 60000}
+12. npx --yes tokenbrake@0.2.0 report --top=8 — session 9add5b2a, 25 requests, 3.4M tokens processed, context now ≈ 232k; Read is 97% of tokens carried, one result trimmed.
+
+--- step 11 output, verbatim ---
+{"enabled": true, "readMaxBytes": 60000}
+
+--- step 12 output, verbatim ---
+Session 9add5b2a…  /home/user/contexa
+  25 requests, 36 tool results
+  Context processed: 3.4M tokens across 25 requests (93% read from cache); output 8k
+  Context now: ≈ 232k tokens — what the next request re-reads
+  Tool results entered ≈ 91k tokens of context, carried through later requests ≈ 912k token-reads
+  tokenbrake trimmed 1 of them: ≈ 789 tokens kept out, ≈ 2k token-reads not carried
+
+What ate it — by tokens carried (size × later requests), top 8:
+     size   carried   turns  tool               what
+       7k       77k     11  Read               /home/user/contexa/worker/src/index.js
+       5k       77k     16  Read               /home/user/contexa/extension/content.js
+       5k       73k     15  Read               /home/user/contexa/extension/content.js
+       4k       67k     15  Read               /home/user/contexa/extension/content.js
+       5k       63k     14  Read               /home/user/contexa/extension/content.js
+       4k       61k     14  Read               /home/user/contexa/extension/content.js
+       4k       58k     13  Read               /home/user/contexa/extension/content.js
+       5k       47k      9  Read               /home/user/contexa/extension/background.js
+
+By tool (share of tokens carried):
+  Read                 21 calls      88k entered      884k carried   97%
+  Bash                 13 calls       4k entered       27k carried    3%
+  Write                 1 calls       31 entered       682 carried    0%
+  Grep                  1 calls       16 entered        80 carried    0%
+
+One result to have brakes on: Read "/home/user/contexa/worker/src/index.js" — ≈ 7k tokens carried 11 times. An offset/limit read, or a Grep first, would have kept most of it out.
+
+Sizes are chars/4 estimates; the usage line is what the API reported.
