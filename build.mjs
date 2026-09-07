@@ -203,6 +203,24 @@ if (!buildWrk) fails.push('BUILD not found in worker/src/index.js');
 else if (buildWrk !== VERSION)
   fails.push(`version mismatch: extension manifest=${VERSION} worker BUILD=${buildWrk}`);
 
+/* The changelog is the third place the number lives, and the only one a human
+   writes by hand. A release whose newest entry still names the previous
+   generation is not a cosmetic slip: CHANGELOG.md is what says which artifact
+   shipped, so a stale heading silently attributes this build's changes to the
+   last one. Same treatment as BUILD above — asserted, not assumed.
+
+   Only headings that START with a version are candidates; `## Repository, ...`
+   and any other prose heading are skipped rather than failed, because entries
+   that belong to no generation are a deliberate part of this file. */
+function changelogVersion(src) {
+  const m = String(src || '').match(/^##[ \t]+(\d+\.\d+\.\d+)[ \t]+\u2014/m);
+  return m ? m[1] : null;
+}
+const changelogVer = changelogVersion(readFileSync('CHANGELOG.md', 'utf8'));
+if (!changelogVer) fails.push('CHANGELOG.md has no `## <version> \u2014` heading to compare');
+else if (changelogVer !== VERSION)
+  fails.push(`changelog mismatch: extension manifest=${VERSION} CHANGELOG.md newest entry=${changelogVer}`);
+
 /* A superseded default must never also be the current one, or the migration would
    clear the very value it is meant to install. */
 const superseded = (outBg.match(/const SUPERSEDED_MODEL_DEFAULTS = \[([^\]]*)\]/) || [])[1] || '';

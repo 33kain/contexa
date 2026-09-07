@@ -1749,5 +1749,46 @@ const TURNS = [
   t('the diag says what would open and what the decode found', /'project page to open: '/.test(c) && /\.\.\.\(ctx\.coworkLookup \|\| \[\]\)\] : \[\]\)/.test(c));
 }
 
+/* ---- build guard: the changelog's newest entry names the shipped version ----
+   The number lives in three places now — extension/manifest.json, the worker's
+   BUILD, and CHANGELOG.md — and only the changelog is written by hand, so it is
+   the one that can go stale while every other check stays green. A stale
+   heading is not cosmetic: CHANGELOG.md is what says which artifact shipped, so
+   it would file this generation's changes under the last one.
+
+   build.mjs asserts it; this exercises the assertion on a passing file and on a
+   failing one, because a guard that has never been shown a red case is a guard
+   nobody has tested. The function is lifted out of build.mjs by source rather
+   than imported: importing that file RUNS the build. */
+{
+  const bsrcC = readFileSync('../build.mjs', 'utf8');
+  const fnSrc = (bsrcC.match(/function changelogVersion\(src\) \{[\s\S]*?\n\}/) || [''])[0];
+  t('changelogVersion is one function in build.mjs', fnSrc.length > 0);
+  const changelogVersion = new Function(fnSrc + '\nreturn changelogVersion;')();
+
+  /* A prose heading that belongs to no generation sits above the newest entry in
+     the real file, and must be skipped rather than failed. */
+  const head = '# Changelog\n\nprose\n\n---\n\n## Repository, 2026-09-06 \u2014 tokenbrake split out\n\nbody\n\n---\n\n';
+  t('the FIRST version heading wins and prose headings are skipped',
+    changelogVersion(head + '## 0.9.95 \u2014 Extension\n\nbody\n\n## 0.9.94 \u2014 Extension\n') === '0.9.95');
+  t('a stale newest entry reads as the version it actually names, not the one below it',
+    changelogVersion(head + '## 0.9.94 \u2014 Extension\n\nbody\n\n## 0.9.93 \u2014 Extension\n') === '0.9.94');
+  t('a file with no version heading at all is null, not a guess',
+    changelogVersion('# Changelog\n\n## Repository, 2026-09-06 \u2014 split\n') === null && changelogVersion('') === null);
+
+  const manifestVer = JSON.parse(readFileSync('./manifest.json', 'utf8')).version;
+  t('PASSING CASE: the shipped CHANGELOG.md names the shipped manifest version',
+    changelogVersion(readFileSync('../CHANGELOG.md', 'utf8')) === manifestVer);
+  t('FAILING CASE: a changelog left on an older generation does not match the manifest',
+    changelogVersion(head + '## 0.0.1 \u2014 Extension\n') === '0.0.1' && '0.0.1' !== manifestVer);
+
+  /* And the comparison is wired into the build, not just available to it — an
+     extracted helper nobody calls is the 0.9.71 gap wearing a fix's name. */
+  t('build.mjs reads CHANGELOG.md through it and pushes a fail on a mismatch',
+    /const changelogVer = changelogVersion\(readFileSync\('CHANGELOG\.md', 'utf8'\)\);/.test(bsrcC)
+    && /if \(!changelogVer\) fails\.push\(/.test(bsrcC)
+    && /else if \(changelogVer !== VERSION\)\n\s*fails\.push\(`changelog mismatch/.test(bsrcC));
+}
+
 console.log(fails.length ? '\nFAILED: ' + fails.join(', ') : '\nall extension checks passed');
 process.exit(fails.length ? 1 : 0);
