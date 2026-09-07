@@ -1,0 +1,56 @@
+What I changed
+
+- build.mjs: added `changelogVersion(text)` (new top-level function) plus the check
+  beside the existing worker-BUILD guard — it reads CHANGELOG.md, takes the first
+  `## <version> —` heading (skipping non-version headings like `## Repository, …`)
+  and pushes onto `fails` when it is missing or disagrees with the manifest version.
+- extension/test.mjs: new end-of-file section that lifts `changelogVersion` and the
+  check block out of build.mjs by pattern and runs both — the passing case (heading
+  matches the manifest: no failure), the failing cases (stale heading, no heading at
+  all: one failure naming both numbers), plus the real CHANGELOG.md against the real
+  manifest.
+
+Runs: `npm test` 3 times (all green; plus one `npm run test:extension` on its own
+while reading the new section's output), `node build.mjs` 2 times — once in the repo
+(exit 0) and once in an isolated copy of the tree with the heading set to 0.9.94, to
+confirm the check fails the build end to end (`BUILD FAILED — version mismatch:
+extension manifest=0.9.95 CHANGELOG.md=0.9.94`, exit 1). Nothing was skipped,
+disabled or weakened.
+
+Step 4 — git diff --stat
+
+ build.mjs          | 21 ++++++++++++++++++++
+ extension/test.mjs | 56 ++++++++++++++++++++++++++++++++++++++++++++++++++++++
+ 2 files changed, 77 insertions(+)
+
+Step 5 — cat .claude/settings.json
+
+{
+  "hooks": {}
+}
+
+Step 6 — npx --yes tokenbrake@0.2.0 report --top=8
+
+Session ede60f9f…  /home/user/contexa
+  24 requests, 24 tool results
+  Context processed: 2.3M tokens across 24 requests (97% read from cache); output 13k
+  Context now: ≈ 114k tokens — what the next request re-reads
+  Tool results entered ≈ 13k tokens of context, carried through later requests ≈ 222k token-reads
+
+What ate it — by tokens carried (size × later requests), top 8:
+     size   carried   turns  tool               what
+       5k      109k     21  Bash               cat -n build.mjs
+       2k       30k     15  Bash               sed -n 1,40p extension/test.mjs; echo '=== tail'; tail -
+       1k       25k     17  Bash               sed -n 1,40p worker/test.mjs; echo '=== 290-360'; sed -n
+      673       13k     19  Bash               grep -n "CHANGELOG\|manifest.json\|readFileSync" extensi
+      540       12k     22  Bash               wc -l build.mjs extension/test.mjs worker/test.mjs && he
+      747       10k     13  Bash               sed -n 35,75p scripts/release-commit.ps1; echo === ; cat
+      542        5k     10  Bash               cat > /tmp/claude-0/-home-user-contexa/ede60f9f-edb2-5a8
+      565        4k      7  Bash               python3 - <<'PY' import io p='extension/test.mjs' s=io.o
+
+By tool (share of tokens carried):
+  Bash                 24 calls      13k entered      222k carried  100%
+
+One result to have brakes on: Bash "cat -n build.mjs" — ≈ 5k tokens carried 21 times. The tokenbrake guard would have trimmed it to its head, tail and error lines.
+
+Sizes are chars/4 estimates; the usage line is what the API reported.
