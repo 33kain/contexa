@@ -14,7 +14,19 @@
      page builds, and the evidence check requires a verbatim fragment of what the
      visitor typed. What is not real: no model is called. The moves are written
      from templates chosen by keyword and filled with the visitor's own words, so
-     the mechanism is honest and the prose is canned. Nothing leaves the page. -->
+     the mechanism is honest and the prose is canned. Nothing leaves the page.
+
+     The second stage is the other control, Start fresh. Real there: the
+     12,000-token gate, which runs and draws nothing below the line; the cost
+     line's own wording and kTokens; the four-block brief; cleanBrief, copied
+     verbatim; and the two clicks, one to write the brief and one to open the
+     chat. Invented there: the conversation, like the one in the figure on the
+     site — but NOT its weight. The page holds all 58 messages and counts the
+     characters it holds, which is what puts it over the threshold. Do not
+     "simplify" that by hardcoding the number or by counting messages the page
+     does not hold: the cost line is a measurement, and a demo that fakes it is
+     doing the thing this product exists to refuse. The brief is not written
+     either; it is cut from the clauses of the thread's own user turns. -->
 
 <style>
 /* ---- page tokens: the site's, all three theme states ------------------- */
@@ -147,7 +159,40 @@ header.site .tagline { margin: .15rem 0 0; color: var(--muted); font-style: ital
   animation: cxpulse 1.2s ease-in-out infinite; }
 @keyframes cxpulse { 0%,100% { opacity: .55; } 50% { opacity: 1; } }
 .wrap .quiet { display: inline-flex; align-items: center; gap: 7px; border: 1px dashed var(--border2);
-  border-radius: 999px; padding: 6px 14px; color: var(--text2); font-size: 12px; font-style: italic; }
+  border-radius: 999px; padding: 6px 14px; color: var(--text2); font-size: 12px; font-style: italic;
+  pointer-events: none; }
+
+/* the cost line and its control, as extension/content.js styles them */
+.ctxa-cost { margin-left: auto; display: inline-flex; align-items: center; gap: 8px; flex-wrap: wrap;
+  letter-spacing: 0; text-transform: none; font-size: 11px; color: var(--text2); }
+.ctxa-cost button { border: 1px solid var(--border2); background: transparent; color: var(--text2);
+  border-radius: 999px; padding: 3px 9px; font-size: 10px; letter-spacing: .06em; text-transform: uppercase;
+  cursor: pointer; font-family: inherit; white-space: nowrap; }
+.ctxa-cost button:hover { color: var(--accent); border-color: var(--accent); }
+.ctxa-cost button:disabled { cursor: default; border-style: dashed; color: var(--text2);
+  animation: cxpulse 1.2s ease-in-out infinite; }
+.brief { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px; font-size: 11.5px;
+  color: var(--text2); line-height: 1.45; }
+.brief .peekbtn { background: none; border: 0; padding: 0; font: inherit; color: var(--accent);
+  text-decoration: underline; text-underline-offset: .15em; cursor: pointer; }
+.peek { margin: 9px 0 0; padding: 10px 12px; background: var(--surface2); border: 1px solid var(--border2);
+  border-radius: 10px; font-size: 11.5px; line-height: 1.55; white-space: pre-wrap; color: var(--s-ink);
+  max-height: 240px; overflow: auto; }
+
+/* the transcript: a long thread, rendered the way a long thread is */
+.stage .transcript { max-height: 400px; overflow-y: auto; }
+.stage .reply { margin-bottom: 14px; }
+.stage .reply p { margin: 0 0 9px; color: var(--s-ink); line-height: 1.6; max-width: none; }
+.stage .reply p:last-child { margin-bottom: 0; }
+.stage .fold { display: block; width: 100%; background: none; border: 0; border-top: 1px dashed var(--s-line);
+  border-bottom: 1px dashed var(--s-line); padding: 9px 0; margin: 0 0 14px; cursor: pointer;
+  font: inherit; font-size: 11.5px; color: var(--s-ink3); text-align: center; }
+.stage .fold:hover { color: var(--s-accent); }
+.weigh { display: grid; grid-template-columns: max-content max-content max-content; gap: .25rem 1.4rem;
+  font-variant-numeric: tabular-nums; font-size: .92em; margin: .9rem 0 0; overflow-x: auto; }
+.weigh b { color: var(--strong); font-weight: 600; }
+.weigh .cut { color: var(--link); font-weight: 600; }
+@media (max-width: 40em) { .weigh { grid-template-columns: max-content max-content; gap: .25rem .9rem; } }
 .wrap .quiet b { color: var(--accent); font-style: normal; }
 .evidence { margin: 8px 0 0; font-size: 11px; color: var(--s-ink3); line-height: 1.45; }
 .evidence q { font-style: italic; }
@@ -321,10 +366,64 @@ footer.site p { margin: .35rem 0; max-width: none; }
   </div>
 </div>
 
+<hr>
+
+<h2 id="fresh">The other control: Start fresh</h2>
+<p>The row of moves is a way into the thread you are in. This is the way out of it. Every message you send on claude.ai is processed with the whole conversation behind it, so on a long thread the cost of the next message is the size of everything above it &mdash; and it is paid again on the one after. Past about 12,000 tokens the card says that number and offers one control. Below is a thread that got there.</p>
+
+<ol class="steps" id="steps2">
+  <li data-step="heavy"><span class="n">1</span>A thread that got heavy</li>
+  <li data-step="press"><span class="n">2</span>Press Start fresh</li>
+  <li data-step="read"><span class="n">3</span>Read what it carries</li>
+  <li data-step="open"><span class="n">4</span>A new chat, unsent</li>
+</ol>
+
+<div class="stage" id="stage2">
+  <div class="top" id="top2">Claude</div>
+  <div class="thread transcript" id="thread2"></div>
+  <div class="dock" id="dock2">
+    <div id="cardSlot2"></div>
+    <div class="composer" id="composer2" hidden>
+      <label class="sr-only" for="box2">The first message of the new conversation</label>
+      <textarea id="box2" rows="2" placeholder="Reply to Claude&#8230;" spellcheck="false"></textarea>
+      <button class="send" id="send2" type="button" title="claude.ai's own Send. Nothing is sent from this demo." aria-label="Send (inert in this demo)">&#9650;</button>
+    </div>
+    <p class="meter" id="meterRow2" hidden><span id="count2">0 words &#183; &#8776; 0 tokens</span><span class="ready" id="readyFlag2" hidden>Ready to send</span></p>
+  </div>
+</div>
+
+<div class="bar">
+  <button class="txt" type="button" id="copy2" disabled>Copy the brief</button>
+  <button class="txt" type="button" id="reset2">Load the thread again</button>
+  <span class="sep" id="editHint2"></span>
+</div>
+
+<div class="weigh" id="weigh"></div>
+
+<div class="log" id="log2" role="status" aria-live="polite"><p>[CONTEXA] example thread loaded</p></div>
+
+<h3>What just happened here</h3>
+<div class="notes">
+  <div>
+    <h3>The thread is invented. The number is not.</h3>
+    <p>Nobody types a 58-message session into a demo, so this one is written &mdash; like the conversation in the figure on the site. The number beside CONTEXA is counted, not claimed: every character the page holds, divided by four, which is the estimate the extension makes on a real page. Open the fold and count them.</p>
+  </div>
+  <div>
+    <h3>The brief is cut from the thread, not written about it.</h3>
+    <p>No model here either. Every line is a run of words from a message above it, picked by rule: a clause naming a choice or a number becomes a settled fact, one naming something built becomes what exists now, and material you must bring along ends in <code>&lt;paste here&gt;</code>. The page adds the four labels and the bullets. The extension writes it with a model, under a prompt whose first rule is the one these rules cannot break anyway: nothing the session did not say.</p>
+  </div>
+  <div>
+    <h3>Below the threshold, nothing.</h3>
+    <p>The same gate runs on the card at the top of this page and draws nothing at all, because one message is sixty tokens rather than twelve thousand. And a heavy thread that settled nothing earns an empty brief: the card says <em>Nothing to carry over</em> rather than inventing a summary.</p>
+  </div>
+</div>
+
+<p class="muted"><strong>Open a new chat with it</strong> does not open claude.ai from here. The stage becomes the new conversation, with the brief in its message box, unsent &mdash; which is where the extension leaves you, in a real new tab. Nothing was deleted: the old thread is still there, and what changed is what the next message costs.</p>
+
 <h2>What the extension adds</h2>
 <ul>
   <li><strong>The whole session, not one message.</strong> It reads every message you wrote in the conversation, oldest pinned first, and offers up to four independent moves.</li>
-  <li><strong>The exit from a heavy thread.</strong> Past about 12,000 tokens the card says how much is re-read on every send and offers <strong>Start fresh</strong>: a brief of a few hundred tokens, in a new conversation, unsent. Measured on one live session, the same five messages cost 9% of the five-hour limit in a 689k-token thread and 3% after the brief.</li>
+  <li><strong>The exit from a heavy thread</strong> is on this page now, one section up. What the page cannot show is the measurement &mdash; on one live session the same five messages cost 9% of the five-hour limit in a 689k-token thread and 3% after the brief, and across five threads the brief landed between 300 and 450 tokens whatever the thread weighed &mdash; or the model that writes it, in whatever language the session is already in. On a Cowork session it opens a new session in the same project instead of a new chat.</li>
   <li><strong>Nothing sent until you click.</strong> A reply nobody asks about costs nothing and never leaves the page; clicking a move costs no further model call.</li>
 </ul>
 <p class="muted">The demo writes its moves from templates chosen by keyword, filled with your own words, and passed through the two gates above. The extension writes them with a model, against your whole session, and passes them through the same gates.</p>
@@ -734,13 +833,14 @@ footer.site p { margin: .35rem 0; max-width: none; }
   ];
 
   function tokensOf(t) { return Math.round(t.length / 4); }
-  function log(line, strong) {
+  function log(line, strong, host) {
+    host = host || logBox;
     var p = document.createElement('p');
     if (strong) { p.appendChild(document.createTextNode('[CONTEXA] ')); var b = document.createElement('b');
       b.textContent = line; p.appendChild(b); }
     else p.textContent = '[CONTEXA] ' + line;
-    logBox.appendChild(p);
-    while (logBox.children.length > 4) logBox.removeChild(logBox.firstChild);
+    host.appendChild(p);
+    while (host.children.length > 4) host.removeChild(host.firstChild);
   }
   var HINTS = {
     write: 'Press me when your message is in the box.',
@@ -748,15 +848,17 @@ footer.site p { margin: .35rem 0; max-width: none; }
     pick: 'Pick one. Clicking costs nothing.',
     edit: 'Yours to edit. Nothing is sent from this demo.'
   };
-  function setStep(name) {
-    state = name;
-    masHint.textContent = HINTS[name];
-    var order = ['write', 'read', 'pick', 'edit'], at = order.indexOf(name), i;
-    var items = steps.querySelectorAll('li');
+  function paintRail(rail, order, name) {
+    var at = order.indexOf(name), items = rail.querySelectorAll('li'), i;
     for (i = 0; i < items.length; i++) {
       items[i].setAttribute('data-on', i < at ? 'done' : i === at ? 'now' : 'next');
       if (i === at) items[i].setAttribute('aria-current', 'step'); else items[i].removeAttribute('aria-current');
     }
+  }
+  function setStep(name) {
+    state = name;
+    masHint.textContent = HINTS[name];
+    paintRail(steps, ['write', 'read', 'pick', 'edit'], name);
   }
   function meter() {
     var v = box.value.trim();
@@ -765,23 +867,33 @@ footer.site p { margin: .35rem 0; max-width: none; }
     mas.disabled = !v || state === 'read';
     send.disabled = !v;
   }
-  function newCard() {
-    if (card) card.parentNode.removeChild(card);
-    card = document.createElement('div');
-    card.className = 'wrap in';
+  /* The card, as extension/content.js writes its shell: the label row with the
+     sparkle and the wordmark, then the chips. Both stages build it here, so the
+     second card cannot drift from the first — and nothing carries an id, since
+     two cards on one page would collide on it. */
+  function buildCard(host, old) {
+    if (old && old.parentNode) old.parentNode.removeChild(old);
+    var wrap = document.createElement('div');
+    wrap.className = 'wrap in';
     var label = document.createElement('div');
     label.className = 'label';
     var b = document.createElement('b'); b.textContent = '✦';
     label.appendChild(b);
     label.appendChild(document.createTextNode(' CONTEXA'));
-    var cost = document.createElement('span'); cost.className = 'cost'; cost.id = 'cost';
-    label.appendChild(cost);
-    card.appendChild(label);
+    wrap.appendChild(label);
     var chips = document.createElement('div');
     chips.className = 'chips';
-    card.appendChild(chips);
-    thread.appendChild(card);
-    return chips;
+    wrap.appendChild(chips);
+    host.appendChild(wrap);
+    return { wrap: wrap, label: label, chips: chips };
+  }
+  function newCard() {
+    var built = buildCard(thread, card);
+    card = built.wrap;
+    var cost = document.createElement('span');
+    cost.className = 'cost';
+    built.label.appendChild(cost);
+    return built.chips;
   }
 
   /* Press: the message becomes the turn CONTEXA read, the box empties to
@@ -825,7 +937,7 @@ footer.site p { margin: .35rem 0; max-width: none; }
 
   function show(res, raw) {
     var chips = newCard();
-    document.getElementById('cost').textContent = '≈ ' + tokensOf(raw) + ' tokens read';
+    card.querySelector('.cost').textContent = '≈ ' + tokensOf(raw) + ' tokens read';
     if (!res.moves.length) {
       var quiet = document.createElement('span');
       quiet.className = 'quiet';
@@ -860,7 +972,6 @@ footer.site p { margin: .35rem 0; max-width: none; }
     });
     var ev = document.createElement('p');
     ev.className = 'evidence';
-    ev.id = 'evidence';
     ev.textContent = 'Each move is earned by something you wrote. Hover a move to see the whole message it composes.';
     card.appendChild(ev);
     if (res.f.foreign) {
@@ -885,7 +996,7 @@ footer.site p { margin: .35rem 0; max-width: none; }
     meter();
     readyFlag.hidden = false;
     copyBtn.disabled = false;
-    var q = document.getElementById('evidence');
+    var q = card.querySelector('.evidence');
     if (q) q.textContent = 'Earned by your own words: “' + m.evidence + '”';
     var slot = m.text.indexOf('<paste here>');
     editHint.textContent = slot >= 0
@@ -898,9 +1009,10 @@ footer.site p { margin: .35rem 0; max-width: none; }
     log('composed into the message box · ' + tokensOf(m.text) + ' tokens · nothing sent');
   }
 
-  function grow() {
-    box.style.height = 'auto';
-    box.style.height = Math.min(box.scrollHeight, 320) + 'px';
+  function grow(el) {
+    el = el || box;
+    el.style.height = 'auto';
+    el.style.height = Math.min(el.scrollHeight, 320) + 'px';
   }
 
   function reset() {
@@ -955,6 +1067,498 @@ footer.site p { margin: .35rem 0; max-width: none; }
     });
     seedRow.appendChild(btn);
   });
+
+
+  /* ====================================================================
+     START FRESH - the second control (extension/content.js costLine,
+     askFork, renderBrief; extension/background.js FORK_SYSTEM, cleanBrief).
+
+     What is the product's here: the 12,000-token gate, which really runs and
+     really draws nothing below the line; kTokens and the cost line's own
+     wording; the four-block brief; cleanBrief, copied verbatim; and the two
+     clicks - one writes the brief, the next opens the chat - so the brief can
+     be read before it goes anywhere.
+
+     What is this page's: the conversation, which is invented, and the brief
+     itself, which no model writes. It is cut from the clauses of the thread's
+     own user turns by the rules below. The token number is NOT invented: the
+     page holds every character it counts, the folded ones included.
+     ==================================================================== */
+  var CHARS_PER_TOKEN = 4, LONG_THREAD_TOKENS = 12000;
+  function kTokens(n) { return n >= 1000 ? Math.round(n / 1000) + 'k' : String(n); }
+
+  /* Copied verbatim from extension/background.js, like the two gates above. */
+  var MAX_BRIEF_CHARS = 1800;
+  function cleanBrief(v) {
+    if (typeof v !== 'string') return '';
+    let t = v.replace(/\r\n?/g, '\n').replace(/[ \t]+\n/g, '\n')
+      .replace(/\n{3,}/g, '\n\n').trim();
+    if (t.length <= MAX_BRIEF_CHARS) return t;
+    const cut = t.slice(0, MAX_BRIEF_CHARS);
+    const nl = cut.lastIndexOf('\n');
+    if (nl > MAX_BRIEF_CHARS * 0.5) return cut.slice(0, nl).trimEnd();
+    const dot = Math.max(cut.lastIndexOf('. '), cut.lastIndexOf('? '), cut.lastIndexOf('! '));
+    if (dot > MAX_BRIEF_CHARS * 0.5) return cut.slice(0, dot + 1).trimEnd();
+    const sp = cut.lastIndexOf(' ');
+    return (sp > 0 ? cut.slice(0, sp) : cut).trimEnd();
+  }
+
+  var THREAD = [
+    ["u", "I want to take my dad somewhere for four days at the end of May. He's 72, walks a lot, can't do heat, and has never been to Portugal."],
+    ["c", "Portugal in late May is close to ideal for him: mild, long evenings, and the heat that arrives in July hasn't yet. Lisbon or Porto both fit, and they fail in different ways.\n\nPorto is smaller and you can see the centre in two days, but it is genuinely steep — the walk up from the Ribeira to the cathedral is the kind of climb that ends an afternoon rather than starting one. Lisbon is also hilly, but the hills are optional there in a way Porto's are not: the flat city between the river and Rossio is where most of the days would sit, and the funiculars and the metro do the climbing for you when you want to be higher up.\n\nLisbon also gives you four days without repeating yourself. Belem is a half day on its own, Sintra is a day, and the centre is two more without stretching. The day trips are easy by train from stations you can walk to.\n\nWeather in the last week of May: usually 21 to 24 in the afternoon, down to about 15 at night, and the wind off the river makes the shade feel cooler than the number suggests. That is the last comfortable fortnight before the summer crowds and the summer prices.\n\nThe one thing to decide early is how much walking a good day is for him. Not how far he can walk — you said he walks a lot — but how far he can walk and still enjoy the evening. Everything else follows from that number."],
+    ["u", "Lisbon then. One thing — he doesn't know yet. I'm giving him the plan as a birthday present on the 12th."],
+    ["c", "Good choice, and a good present. A plan with dates on it is a better present than a vague promise, and it gives him three weeks to look forward to it, which is most of the pleasure.\n\nIt changes one thing about how I would write it. A present should read like an invitation, not an itinerary: enough detail that he can picture the days, few enough fixed points that he can still say \"actually, could we do that on Thursday instead\". If every hour is booked, the gift becomes a schedule he has to keep up with.\n\nSo I would aim for two fixed things a day and nothing else committed. Morning anchor, evening anchor, and the middle left open. That also survives the thing that actually goes wrong on trips with someone in their seventies, which is not exhaustion but the small unpredictable stuff: a knee that complains, a queue that is longer than it looked, a lunch that turns out to be worth two hours.\n\nTell me how you want the days to feel and I will lay them out that way."],
+    ["u", "Plan the four days. He'll want to see everything, but I want one slow day in there."],
+    ["c", "Here are the four days, with the slow one third rather than last, so the trip ends on something he will remember rather than on a rest.\n\nDay 1 — the centre, flat\nLand, drop the bags, and start at Praca do Comercio, which is the one square that makes people understand the city is on a river. Walk up Rua Augusta into the Baixa grid — flat, wide, no decisions — and stop at the Carmo ruins, which are open to the sky and take twenty minutes. Late afternoon at the Miradouro de Santa Catarina for the light. Dinner in Chiado or Bica.\nWalking: about 4 km, all of it level except the last 200 m to Carmo.\n\nDay 2 — Belem, half a day of monuments and half an hour of pastry\nTram 15E from Praca da Figueira, or the train from Cais do Sodre. Jeronimos first, before the coaches, then the cloister if the queue is moving. The Torre de Belem is better from the outside than the inside — the stairs are a spiral with one-way traffic and no way to change your mind halfway. Pasteis de Belem for the queue that actually moves. Back by mid-afternoon so the evening is his.\nWalking: about 3 km, flat, but exposed — take the hats.\n\nDay 3 — the slow day\nNo monuments. The Gulbenkian gardens in the morning, which are shaded, level, full of benches and one of the few places in the city where nobody is in a hurry. A long lunch. The afternoon in Principe Real, which is one small park, two streets of shops he can potter in, and a view at the end. If he wants a museum, the Gulbenkian's own collection is small enough to see in an hour and good enough to be worth it.\nWalking: about 2.5 km, and you can cut it to one.\n\nDay 4 — Sintra\nThe 09:30-ish train from Rossio, which is a station he will like on its own. Quinta da Regaleira first — it is the flattest of the big three and the one people remember. Pena only if the morning has gone well: it is high, it is a climb even with the bus, and it is where a good day turns into a long one. Back in Lisbon by six, last dinner somewhere you booked.\nWalking: 5 to 7 km depending on Pena, and this is the day to keep honest.\n\nIf four days looks like three good ones and one that is too much, it is Day 4 that needs cutting, not Day 1."],
+    ["u", "Day 3 worries me. How much walking is Sintra really, and is there a way to do Pena without the climb?"],
+    ["c", "Sintra is the day where the brochure and the legs disagree, so here are the real numbers.\n\nFrom Sintra station to the historic centre is about 1.2 km, downhill on the way there and up on the way back. Most people walk it without noticing on the way out and notice very much on the way back.\n\nQuinta da Regaleira is 800 m from the centre along a road with a narrow pavement, then about 1.5 to 2 km of paths inside, most of it level, some of it gravel, with the famous well being a spiral staircase down and up. You can see the grounds without doing the well.\n\nPena is the problem. The palace sits 500 m above the town. There are three ways up:\n- The 434 bus from the station, which loops station to centre to Pena to Moorish castle and back. It costs a few euros, runs constantly, and gets full at eleven.\n- A taxi or tuk-tuk to the palace gate for around 10 to 15 euros, which is the version that saves a knee.\n- Walking, which is 45 to 60 minutes uphill on a road with no pavement for stretches. I would not.\n\nEven with the bus or a taxi there is a last climb: the gate is not the palace. From the ticket gate to the terrace is another 10 to 15 minutes uphill on cobbles, or a shuttle bus for about 3 euros that drops you at the top of that stretch. Take the shuttle. It is the single best three euros of the day.\n\nSo the honest version: with the 434 up, the shuttle inside, Regaleira in the morning and a taxi back to the station at the end, Sintra is about 4 km on his feet and a good day. Without the shuttle and the taxi, it is 8 km with 300 m of climbing, and it is the day he remembers for the wrong reason."],
+    ["u", "Good. We'll do Regaleira and skip the palace interior if he's tired. What about the trains out there — do I book them?"],
+    ["c", "No booking, and there is nothing to book. The Sintra line is a commuter train, not a reservation service.\n\nPractically: trains leave Rossio about every 20 to 30 minutes, take 40 minutes, and stop at Sintra as the end of the line, so there is no chance of missing the stop. Rossio is the station in the middle of town with the horseshoe doorways — it is a five-minute walk from most of Baixa, and the platforms are up one escalator.\n\nTickets are on a Viva Viagem card: you buy the card once for 50 cents, load it, and tap in. A single to Sintra is a little over 2 euros. The same card works on the metro, the trams and the buses in the city, which is why I would buy two on the first morning and load 20 euros on each rather than buying tickets all week.\n\nThe one thing worth planning is the time. Aim for a train around 09:00 to 09:30. Earlier is an unnecessary alarm on a holiday. Later and you arrive with the coach parties, and the queue at Regaleira goes from five minutes to forty.\n\nComing back, trains run into the evening and are much emptier from about four o'clock. If you are done at three, come back at three — an extra hour in Lisbon with a drink beats an extra hour in Sintra on tired feet."],
+    ["u", "Where should we stay? I was thinking Alfama for the atmosphere but I'm now worried about the hills."],
+    ["c", "Your worry is right, and it is the single decision that shapes the trip most.\n\nAlfama is the most beautiful place to stay in Lisbon and the worst place to stay with knees. The streets are cobbled, they are steep in both directions, and almost nothing there is flat for more than 30 m. Taxis often cannot reach the door — you get dropped at a corner and walk the last stretch, uphill, with luggage. Every evening ends with a climb, and every climb happens when he is most tired.\n\nThree alternatives, in the order I would rank them for you:\n\nChiado. Central, handsome, and the flattest of the pretty options. From most of Chiado you can walk down into Baixa without a slope worth naming, and back up from dinner in ten minutes on a gentle grade. Taxis reach everything. It is not cheap, but it costs you one night's difference and buys you four days of not thinking about it.\n\nBaixa. Flatter still — the grid is genuinely level. Slightly less charming, noisier at night, and full of the kind of restaurants with photographs of the food outside. But if flat is the priority, this is flat.\n\nPrincipe Real. Quieter, leafier, a little way above the centre. The catch is that \"a little way above\" means the walk home from dinner in Baixa is uphill, and the funicular closes before the evening ends.\n\nAlfama is a place to spend an afternoon, not a place to sleep with a 72-year-old. Go and look at it on Day 1, from the top, having arrived by tram."],
+    ["u", "Chiado then, no Alfama — the hills are the whole problem. Somewhere I can walk him back to in ten minutes from dinner."],
+    ["c", "Chiado it is. Here is what ten minutes actually buys you from there, so you can judge a hotel by its address rather than by its photographs.\n\nThe flat spine is Rua Garrett and Rua do Carmo down into Rua Augusta. Anything on or one street off that line is level walking, and the whole of Baixa is within ten minutes of it. Largo do Chiado, Rua Ivens, Rua Anchieta, Rua Nova da Trindade: all fine, all within a few minutes of each other, all reachable by taxi.\n\nWhat to avoid, even though it looks close on a map:\n- Anything on or below Rua da Bica de Duarte Belo. That is the funicular street. It is a staircase with a tram in it, it is charming, and it is 20 percent gradient.\n- The top of Rua do Alecrim towards Bairro Alto. Two hundred metres that feel like six hundred at the end of a day.\n- Anything described as \"moments from the Miradouro\". The miradouros are up. That is what makes them miradouros.\n\nConcretely, if you stay within the block bounded by Rua Garrett, Rua Serpa Pinto, Rua Ivens and Largo do Chiado, then: Baixa is five minutes downhill on a gentle grade, Cais do Sodre station is eight minutes, Rossio station is ten, and the walk back from dinner in Baixa is a slow rise rather than a climb — the kind you notice only if you are looking for it.\n\nOne practical thing about the buildings themselves. Lisbon's old centre is four and five storey blocks, and lifts were retrofitted where they fit. Filter for a lift and read the description for \"few steps to the entrance\" — a fair number of otherwise perfect places have five or six steps up from the street to the lobby, which is nothing on Day 1 and something on Day 4.\n\nAsk for a room off the street if there is one. Chiado is quiet by Lisbon standards, but Portuguese cities are noisy at night in a cheerful way, and he will be going to bed earlier than the street does."],
+    ["u", "What does the whole thing cost, roughly? Flights aside — I'll book those separately."],
+    ["c", "Rough, for two people, four nights, end of May, and deliberately on the honest side rather than the optimistic one.\n\nAccommodation. Chiado, a comfortable but not grand double with a lift, late May: 140 to 200 euros a night. Four nights is 560 to 800. This is the item that moves most with how early you book — the same room in three weeks' time is often the same room 30 percent dearer.\n\nFood. Breakfast at a pastelaria is 4 to 6 euros each. Lunch in a tasca, the kind with a paper tablecloth and a written menu, is 12 to 18 each with wine. Dinner in a decent Chiado restaurant is 30 to 45 each; in a neighbourhood place, 20 to 25. If you have one good dinner and three ordinary ones, food lands around 380 to 480 for the four days.\n\nTransport inside the city. Two Viva Viagem cards, 20 euros loaded on each, will cover the metro, the trams, the buses and both Sintra trains with change left over. Add 40 to 60 euros for the taxis I would take rather than argue about: airport to hotel and back, the Sintra station to Regaleira leg, and one evening when the walk home turns out to be too far. Call it 100 all in.\n\nSintra. Trains about 5 euros each return. Regaleira is around 12 each, and there is a reduction over 65. Pena is around 20 each if you go in, and the shuttle inside is about 3. With Regaleira and no Pena interior, the day costs about 45 for the two of you.\n\nMuseums and entries in Lisbon. Jeronimos is around 12, the cloister included, with a senior reduction. Carmo is about 7. The Gulbenkian collection is about 12 and free on Sundays after two. If you do three paid things, that is 50 to 70 for both.\n\nSo, flights aside: roughly 1,150 to 1,500 for the four days, with accommodation the only lever that really matters. If you want to bring it down, the move is a smaller hotel one street further out, not fewer good lunches — the lunches are what he will describe when he gets home."],
+    ["u", "He's 72 — are there senior prices on the museums? And which ones close on Mondays?"],
+    ["c", "Both worth planning around, and the Monday question is the more expensive one to get wrong.\n\nReductions. Most state-run sites in Portugal have a reduction for over-65s, usually somewhere between 15 and 50 percent off, and they ask for ID rather than proof of residence — a passport is enough. Jeronimos, the Torre de Belem and the national museums all do it. The Gulbenkian has its own reduction over 65. Quinta da Regaleira and Pena, which are run privately or by a concession, have senior prices too, typically a couple of euros off rather than half. Nobody offers it unprompted at the desk, so say his age when you buy, not after.\n\nClosures, which is the part that ruins an afternoon:\n- Monday: Jeronimos, the Torre de Belem, the Carmo archaeological museum and most of the national museums are closed. Belem on a Monday is a walk along the river and a pastry, and nothing else.\n- Tuesday: the Gulbenkian collection is closed, though the gardens are open.\n- The Coach Museum in Belem is closed Mondays as well, so it is not a rescue.\n\nWhat is open on a Monday: the churches, the miradouros, the Oceanario, MAAT for the building if not always the exhibition, the market at Ribeira, and Sintra, where Regaleira and Pena both open every day.\n\nSo if any of your four days lands on a Monday, that is the day to put Sintra, and to move the slow day off it — a slow day is exactly the day where you might drift into a museum, and on Monday there is nothing to drift into.\n\nOn the Lisboa Card: it covers a lot and includes the transport, and it pays for itself if you do three or more paid sites in a day and move constantly. For your trip, which is two or three paid things across four days and a deliberately slow middle, it does not pay. Buy the entries as you go."],
+    ["u", "Skip tram 28. He'll hate the queue and I've read it's pickpocket heaven. What do we do instead for the views?"],
+    ["c", "Agreed, and for a better reason than the pickpockets: 28 is now a queue with a tram attached. At Martim Moniz you can wait 40 minutes to stand for 25 in a carriage where nobody can see out. It is a thing people do because it is on the list.\n\nThe views without the tram:\n\nMiradouro de Santa Catarina. Ten minutes from Chiado, level most of the way, and it faces west over the river, so it is the sunset one. Benches, a kiosk that sells beer and coffee, and a mixed crowd that makes it feel like a park rather than a viewpoint.\n\nMiradouro de Sao Pedro de Alcantara. The grand one, with the tiled terraces and the whole castle hill laid out opposite. Get there with the Gloria funicular from Restauradores, which costs a couple of euros, takes 90 seconds, and does the entire climb for you. This is the single best use of a lift in the city.\n\nThe Santa Justa walkway. Everyone queues at the bottom of the Santa Justa lift for half an hour. The platform at the top connects to the Carmo ruins at street level from the Chiado side — so you walk in from Largo do Carmo, pay a small amount at the top, and get the same view with no queue and no lift.\n\nGraca and Senhora do Monte, if you want the highest one. Take the 12E tram, which runs a similar route to the 28 through Alfama and Graca, is the same kind of old carriage, and is half empty because it is not the famous number. That is the tram ride he wants, and you should take it in the middle of the day rather than at nine.\n\nAnd the cheapest view in Lisbon: the ferry to Cacilhas from Cais do Sodre. It costs about 1.50, takes ten minutes, and gives you the whole city from the water on the way back. There is a fish restaurant at the other end and a lift up to the statue if you want to make an afternoon of it."],
+    ["u", "The slow day — I want it genuinely slow. Not a museum marathon disguised as a rest."],
+    ["c", "Then let me take the museum out of it entirely and give you a day with three decisions in it.\n\nMorning. The Gulbenkian gardens, from the Sao Sebastiao metro. They are seven hectares of shade, water and benches in the middle of the city, laid out so that you cannot see the road from most of it. There are ducks, there is a lake, there are long stretches of level path, and there is one cafe with tables under the trees. If he wants to sit for an hour and watch, the garden is built for exactly that. Entry to the garden is free.\n\nLunch. Somewhere with a table you can keep. Portuguese lunch is unhurried by default: order the dish of the day, which will be written on a board and will be what the kitchen actually cooked that morning, and nobody will bring the bill until you ask. Two hours is normal. That is the point of the day.\n\nAfternoon. Principe Real, which is fifteen minutes downhill from the gardens or five in a taxi. It is one square with an enormous cedar trained flat over the whole of it, a handful of shops in a converted palace, and a view at the far end. The Estufa Fria is next door if he likes plants — a cool, shaded greenhouse in the Eduardo VII park, level paths, and almost nobody in it on a weekday.\n\nEvening. Nothing planned. If he has energy, Bairro Alto is above you and downhill on the way home. If he has not, dinner is five minutes from the hotel.\n\nThe rule that keeps a slow day slow: one place per half-day, and no ticket with a time on it. The moment there is a timed entry, the day is a schedule again — you start watching the clock at eleven, and the sitting-and-watching hour is the one that gets cut."],
+    ["u", "He eats early, about 7. Is that a problem in Lisbon?"],
+    ["c", "It is a mild problem with an easy fix, and knowing it now saves you two bad evenings.\n\nPortuguese dinner runs late. A restaurant that opens at seven is often empty until half past eight, and the good ones fill between nine and half past. At seven you will be the first table, which has advantages — you get the attention, you get the dish that has just come out of the kitchen — and one disadvantage, which is that a dining room with nobody in it feels like a waiting room.\n\nThree ways around it:\n\nEat where the locals eat lunch. Tascas serve continuously or reopen at seven with actual customers, because the neighbourhood eats earlier than the tourist streets do. These are the places with a written menu, six tables and a television on in the corner, and they are the best value in the city.\n\nMake seven o'clock the drink and half past eight the dinner. A glass of vinho verde and a plate of cheese at a kiosk in a square at seven, a slow walk, then dinner. This is what the city itself does, and it turns the awkward hour into the best hour of the day.\n\nOr eat the big meal at lunch. Lunch is when Portuguese kitchens do the dish of the day, it costs half what the same food costs at nine, and it suits a 72-year-old's appetite better than a heavy plate at ten at night. Then dinner is soup and a pastry, early, and nobody has to negotiate.\n\nOne thing to check: many family-run places close one day a week, and it is usually Sunday or Monday. If there is a restaurant you have set your heart on for the last night, look up its closing day before you build the evening around it."],
+    ["u", "Book nothing that can't be cancelled. If his knee plays up we're changing the whole thing on the day."],
+    ["c", "That is the right instinct, and it costs you almost nothing here, because most of this trip does not need booking at all.\n\nWhat genuinely needs booking, in order of how much it matters:\n\nThe hotel. Book a rate with free cancellation, which in late May usually costs 10 to 15 percent more than the non-refundable rate. Pay it. That difference is the price of the whole plan being changeable, and you are buying it for exactly the reason you said.\n\nOne dinner, for the last night. Somewhere he would be pleased to be taken. Restaurants cancel by email or phone with a day's notice and nobody minds.\n\nQuinta da Regaleira, if you want a specific morning. Timed entry is not always required, but on a warm Saturday it saves a queue. Their tickets are usually refundable up to 24 hours ahead — check on the page before you buy rather than assuming.\n\nWhat needs no booking whatsoever: the trains to Sintra, the 434 bus, the trams, the funiculars, the ferry, the miradouros, the gardens, the Carmo ruins, Jeronimos on a weekday morning before ten, and every restaurant on the list except the last one.\n\nThe pattern that keeps a trip flexible with someone whose knee is a variable: fix the sleeping and one meal, leave the moving parts loose, and decide the day's shape at breakfast rather than three weeks out. If he wakes up stiff, the day becomes the garden and a long lunch, and you have lost nothing but a walk you can take on Thursday.\n\nI would also find, now rather than then, the two nearest pharmacies to the hotel and the phone number of a taxi firm. Not because anything will happen, but because looking either of those up at nine at night with a tired man on a bench is the actual worst case, and it takes four minutes to make it impossible."],
+    ["u", "I'll have the flight times tomorrow — probably landing early afternoon on the 28th and out mid-morning on the 1st."],
+    ["c", "If those hold, the shape of the trip changes at both ends, and mostly for the better.\n\nLanding early afternoon on the 28th. Lisbon airport is unusually close to the city — 20 minutes by taxi to Chiado, about 20 euros, or the red metro line with one change at Alameda, which is cheap but has stairs and a suitcase. Take the taxi on the way in. You would be at the hotel by three, which makes the 28th half a day rather than a write-off: bags down, walk into Baixa, Praca do Comercio at the end of the afternoon when the light is on the buildings, an early dinner nearby, bed. Do not put anything with a ticket on it on that day.\n\nOut mid-morning on the 1st. That is the awkward one. Mid-morning means leaving the hotel around seven, which means the last night ends early and the last day is not a day at all. So the last real day is the 31st, and whatever you want the trip to end on has to happen then — that is where I would put the good dinner, not on the 30th.\n\nThat gives you: 28th half day in the centre, 29th and 30th the two full days, 31st the last full day and the dinner, 1st the airport. Four nights, three and a half usable days.\n\nWhich means the four-day plan I wrote needs one cut, and the honest candidate is Belem — it is the one that is a half-day rather than a day, and it is the one he will mind least never having seen, because he does not know it is on the list. Or move Belem to the morning of the 28th? No: you land at two, you will not be at Jeronimos before four, and it closes at six.\n\nSend me the times when you have them and I will lay the four days out against them properly, including which morning Sintra should be, because that decision depends on which day is a Monday."],
+    ["u", "What if it rains? Late May is usually fine but I don't want a plan that collapses."],
+    ["c", "Late May in Lisbon averages three or four wet days a month, and they are usually showers rather than a day of rain. But a wet morning with no alternative is how a trip turns into an argument, so here is the swap for each day.\n\nDay in the centre, wet. The Baixa grid is arcaded in stretches and the shops are continuous, so you can move a long way without getting soaked. If it settles in: the Carmo ruins are open to the sky and therefore out, but the Se cathedral, the Sao Roque church with its ceiling, and the Time Out market at Cais do Sodre are all indoors and all within ten minutes of each other. Sao Roque in particular is a small, dark, gilded room that is far more impressive than its plain front suggests.\n\nBelem, wet. The worst of the four to do in rain, because the walking between the monastery, the tower and the river is all exposed. Swap it out entirely. The Gulbenkian collection is the best indoor hour in the city, and MAAT is dry, close and mostly indoors.\n\nSlow day, wet. Almost unaffected. The Estufa Fria is a greenhouse, which is the one place where rain improves the experience. A long lunch is a long lunch. Add the Gulbenkian collection if the afternoon needs filling.\n\nSintra, wet. This is the one to move rather than endure. Sintra sits in its own microclimate, it is often in cloud when Lisbon is clear, and the gardens at Regaleira are steep, unlit and slippery in the wet. If the forecast is bad, swap Sintra and the slow day, which costs you nothing and can be decided at breakfast.\n\nThe practical version: check the forecast the night before, and if it is wet, the day becomes the Gulbenkian, a long lunch and a church. Take one small umbrella between you rather than two coats — showers here are short and warm, and the pavements dry in twenty minutes."],
+    ["u", "What do I actually give him on the 12th? A printed thing, or something he opens?"],
+    ["c", "Both, and the printed thing should be smaller than you think.\n\nWhat I would not do is print the whole plan. Eight pages of itinerary reads like homework, and it removes the pleasure of finding out. It also commits you in front of him to a schedule you said you wanted to keep loose.\n\nWhat works: one card per day, four cards, each with the date at the top, a title, and three lines. \"Friday 29th — Belem. Monastery in the morning, pastries afterwards, evening free.\" That is enough for him to picture it and short enough to read out at a table. Put them in an envelope with the flight times on a fifth card at the front.\n\nAdd one photograph. Not of a monument — of the thing that will make him say yes: the terrace at Santa Catarina with the river behind it, or the tram going up Bica. He will look at the photograph for longer than the cards.\n\nAnd write one line that is not logistics. Something that says why him, why now, why Portugal. The cards are the plan; that line is the present.\n\nPractical bits: give it to him early enough in the day that he can ask questions and look things up, and have the map on your phone ready for when he does. Expect the first question to be about money, and have an answer that closes it — \"it is done, it is booked, it is a present\" — because the second question, once that is out of the way, will be whether he needs new shoes, and that is the question you want him asking three weeks out rather than the night before."],
+    ["u", "He'd love a fado night. One fado evening, early, somewhere small — not the dinner-and-show places."],
+    ["c", "Then you want a fado vadio house rather than a fado show, and the difference is the whole evening.\n\nThe show version, mostly in Alfama and Bairro Alto, has a set menu, a fixed start time, a minimum spend and a professional singer working three rooms a night. It is not fake exactly, but it is a performance for people who are leaving tomorrow.\n\nThe other version is a small room where the singers are locals, some of them regulars and some of them whoever stands up, and the music happens between plates rather than instead of them. Rules are simple and absolute: total silence while someone sings, lights down, no photographs, no talking, not even a whisper to the waiter. When it stops you clap and the room goes back to being a restaurant. He will like this far more than a stage.\n\nPractically, for an early evening: these places start late, and the first singer is often not before half past nine. That is your one conflict with eating at seven. The workable version is dinner at seven somewhere else, then arrive at half past eight, take a table, order a drink and a plate of cheese, and be seated when it starts. Or ask the house whether there is an earlier set — some do one at eight for exactly this reason.\n\nAlfama is where most of them are, which brings back the hills. Two ways round it: take a taxi to the door and a taxi back, or find one of the Bairro Alto rooms, which is a flatter walk from Chiado and downhill on the way home. Either way, book — the small rooms have eight tables — and tell them it is a birthday. They will do something about it, and that is the sort of thing he will describe when he gets home."],
+    ["u", "Money and language — is he going to struggle? He has no Portuguese and doesn't like using cards abroad."],
+    ["c", "He will be fine on both counts, with one habit worth teaching him before you go.\n\nLanguage. English is widely spoken in Lisbon, in restaurants and shops almost universally, and Portuguese people are patient with visitors who try. Four words carry him a long way: bom dia, obrigado, por favor, desculpe. He should say obrigado rather than obrigada — the word agrees with the speaker, not the listener, which is the one thing English speakers get wrong and Portuguese people find charming when corrected.\n\nCards. Portugal is close to cashless. Cards are taken almost everywhere including taxis and the small tascas, and contactless is standard. But a few genuinely useful places are cash-only or cash-preferred: the smallest pastelarias, some market stalls, the ferry ticket machine when it is being difficult, and tips. Take 150 to 200 euros in cash between you for the four days and top up from an ATM in a bank branch rather than one of the yellow standalone machines in tourist streets, which charge a fee and offer a bad conversion.\n\nThe habit worth teaching him: when the card machine asks whether to charge in euros or in pounds, always choose euros. Choosing pounds hands the exchange rate to the machine's operator and costs 3 to 5 percent every time. It is the single most expensive button on any holiday.\n\nTipping is light. Round up a coffee, leave 5 to 10 percent for a good dinner, nothing on a taxi beyond rounding. Nobody is offended either way, and there is no service charge tradition to check for.\n\nOne thing that catches people: the bread, olives and cheese that arrive without being ordered are not free. It is called couvert, it costs a few euros, and you can wave it away without any awkwardness at all. Tell him in advance, or he will spend the first dinner worrying that he has been swindled."],
+    ["u", "Should we do the Oceanario? Everyone says it's the best in Europe."],
+    ["c", "It probably is, and I would still leave it out of this trip.\n\nThe case for it: it is genuinely excellent, it is fully indoors and level, there are benches in front of the main tank, and it is the one big attraction in Lisbon that works equally well in rain.\n\nThe case against, for these four days: it is at Parque das Nacoes, which is 25 minutes out on the metro at the other end of the city, and the trip is the cost, not the ticket. Getting there and back is an hour and a half of a day you have three and a half of. It is busy from opening, with school groups on weekday mornings, and the route through the tanks is one-way and slow-moving — an hour and a half inside with no way to shortcut it if he has had enough. And it is 25 euros a head.\n\nThe deeper reason: it is a world-class aquarium, which he can see in any number of cities, and it is the least Lisbon thing on the list. He has never been to Portugal. Four days is not enough to include the thing that is not about the place.\n\nIf you want a wet-weather insurance policy that is indoors, level and central, the Gulbenkian is fifteen minutes away rather than fifty and better suited to an unhurried hour.\n\nKeep the Oceanario in the back pocket for the version of this trip where he comes back for a week, which — if the four days go the way you are planning them — is a conversation you will be having on the flight home."],
+    ["u", "What should he pack? He'll take one pair of shoes and argue about it."],
+    ["c", "The shoes are the argument worth winning, and there is a version of it he will accept.\n\nLisbon is paved in calcada portuguesa — small limestone blocks set by hand, polished by two hundred years of feet, and slippery in a way that surprises people, especially on a slope and especially when damp. Smooth-soled shoes are genuinely unsafe on it. What he needs is one pair with a proper tread and a bit of ankle, worn in, not new. Trainers are fine. Leather-soled anything is not.\n\nFrame it as the surface rather than as his knees, and he will agree without it being about age: the pavements here are polished stone, everybody slips on them, and the locals wear rubber soles.\n\nThe rest, for late May:\n- Layers rather than a coat. Twenty-two in the afternoon, fifteen after dark, and the wind off the Tejo makes the evenings feel cooler than the number. A light jacket he can carry.\n- A hat. Belem and the Sintra gardens are exposed, and midday sun in May is stronger than the temperature suggests.\n- Sunglasses. The limestone pavements throw light back up at you, which is tiring in a way people do not attribute to their eyes.\n- One smart-ish shirt for the last dinner and the fado room. Lisbon is not formal, but neither is it shorts at nine o'clock.\n- A small bag rather than a rucksack, worn in front on the metro and the 15E tram, which are the two places where bags get opened.\n- Any regular medication in its box with the pharmacy label, in hand luggage, plus a photograph of the prescription on your phone.\n\nAnd one water bottle each. Fountains are not common enough to rely on, cafes will refill a bottle if you buy a coffee, and dehydration is the most common way a good day turns into a headache and an early night."],
+    ["u", "Anything medical I should sort out beforehand? He's on blood pressure tablets."],
+    ["c", "Three things, none of them complicated, and one of them is the reason people end up paying a great deal of money.\n\nThe card. If he has a UK GHIC or a European EHIC, it covers state healthcare in Portugal on the same terms as a resident, which for a consultation is a small fee rather than a bill. If his has expired, the replacement is free and takes a couple of weeks — so it is a thing to do this week, not the week before.\n\nInsurance. The card is not insurance and does not cover repatriation, a private clinic, or a cancelled trip. A single-trip policy for a 72-year-old with declared blood pressure is not expensive, but the declaration matters: an undeclared condition is the standard reason a claim is refused, and blood pressure is the most commonly forgotten one because people stop thinking of it as a condition after twenty years of tablets.\n\nThe tablets themselves. Bring the full course plus three or four days spare, in the original box, in hand luggage rather than the case. If something did go missing, Portuguese pharmacies are excellent and can often dispense a common blood pressure medication with the box or the prescription photograph as evidence — but that is the fallback, not the plan.\n\nTwo practical things while I am here. Pharmacies show a green cross and there is a rota for the one open overnight in each district, posted in the window of all the others. And the emergency number is 112, which is the same across Europe and staffed in English in Lisbon.\n\nNone of this is likely to matter. All of it takes an hour this week and removes the only category of problem that could actually spoil the trip."],
+    ["u", "Give me six restaurants — two proper dinners, two lunches, two places for a coffee and a pastry. Nothing with a queue outside."],
+    ["c", "I will describe them by kind rather than by name, because restaurant names go out of date faster than anything else in a plan and a place I recommend today may have changed hands by the end of May. Take these to a map and look for the description; you will find several of each within ten minutes of Chiado.\n\nTwo dinners\nThe good one, for the last night: a small dining room in Chiado or Principe Real with a written menu of eight or ten dishes, a cook rather than a chef, and a wine list of Portuguese bottles under forty euros. What you want on the menu is fish cooked whole, arroz de marisco for two, and one slow-cooked pork dish. Book it, tell them it is a birthday.\nThe neighbourhood one: a tasca with a paper tablecloth, the day written on a board, and a television. Grilled fish, boiled potatoes, a plate of greens, half a litre of house wine in a jug. Two people eat for forty euros. This is the meal he will talk about.\n\nTwo lunches\nThe market: Ribeira at Cais do Sodre for the choice, but eat at the edges rather than the middle and go at noon rather than one, or the seating becomes a competition. Level, indoors, and there is something for everyone, which matters on a day when nobody can decide.\nThe garden: the Gulbenkian cafe, on the slow day. Tables under trees, unhurried service, and you can sit for two hours without anyone minding.\n\nTwo coffees and a pastry\nThe old pastelaria: marble counters, mirrors, waiters in waistcoats, and a pastel de nata that costs a euro twenty. Order it at the counter standing up, which is what everyone else is doing, and a bica, which is the espresso.\nThe one with the view: any kiosk in a square with metal tables outside — Principe Real, Sao Pedro de Alcantara, Santa Catarina. Coffee, a pastry, and half an hour of watching. He will want to do this every day, and you should let him.\n\nThe rule that avoids every queue: eat at the hours the city eats. Lunch at half past twelve rather than half past one, dinner at seven when the room is empty or after nine when it has turned over. The queues in Lisbon are almost entirely made of people arriving at the same hour as everyone else with a screenshot of the same list."],
+    ["u", "How far is he actually walking each day? Give me the totals so I can decide what to cut."],
+    ["c", "Totals as the plan stands, counting the walking that is not optional — hotel to the first thing, between things, and back at the end. I have assumed you take the taxis and the funiculars where I said.\n\nArrival half day: 2 to 3 km. All level. Praca do Comercio, Rua Augusta, a square, dinner near the hotel. This is a stretch-the-legs day and it does not need cutting.\n\nBelem: 3.5 to 4 km. Flat, but exposed and with more standing than walking — the monastery, the queue, the pastry shop. Standing tires people faster than walking does, which is why this day feels longer than its number.\n\nThe slow day: 1.5 to 2.5 km, and you control which. The garden is as much or as little as he wants; Principe Real can be a taxi away instead of a walk down.\n\nSintra: 4 km with the taxi to Regaleira and the 434 to Pena, or 7 to 8 km without them, with 300 m of climbing. The gap between those two numbers is about fifteen euros.\n\nThe last full day, as it stands: 3 to 4 km, plus whatever the evening adds.\n\nSo the week is roughly 14 to 17 km across three and a half days, which is a comfortable amount for someone who walks a lot, provided the long day is not next to the second-longest. As written it is not: Sintra sits with the slow day on one side.\n\nIf you need to cut, cut in this order. First Pena, which removes 2 km and 250 m of climb and costs you a photograph. Then Belem, which removes an entire half day and is the least Lisbon of the four. Do not cut the slow day to make room for something — it is what makes the rest of it possible, and cutting it is how a good trip becomes a tiring one on the third afternoon."],
+    ["u", "Is Cascais a better day trip than Sintra for him? Flat and by the sea sounds like his kind of thing."],
+    ["c", "It is the easier day by a wide margin, and for a 72-year-old who likes walking on the level it may genuinely be the better one. Here is the comparison rather than a recommendation, because this is your call and not mine.\n\nCascais. Forty minutes from Cais do Sodre on a train that runs along the water for most of the way, which is itself worth the fare — he will spend the journey looking out of the window. The town is flat, small, and built around a bay: a fishing harbour, a couple of squares, a marina, a nineteenth-century park with peacocks in it, and a promenade you can walk as far as you feel like and turn round on. Lunch is fish, outdoors, with the sea in front of it. Total walking, entirely on your terms, 2 to 4 km with no climb at all.\n\nSintra. The thing everybody remembers. Palaces, a wooded hill with its own weather, and a garden with a well you climb down inside. It is also the day with the coaches, the queues, the bus that fills at eleven, and 300 m of climbing you have to pay a taxi to avoid.\n\nThe honest trade: Sintra is more remarkable and Cascais is more pleasant. Sintra will be the photograph he shows people; Cascais will be the afternoon he actually enjoyed most.\n\nThere is a version that takes both, and I would not do it: the coast road bus between the two exists, it takes an hour, and it turns two good half days into one long one.\n\nIf you want my opinion for this particular trip: do Cascais, and keep Sintra for the week-long return visit. You have three and a half days, one of them is deliberately slow, and Sintra is the only day in the plan that could end badly. Cascais cannot. It is a train, a promenade, a fish lunch and a train back, and on a warm day at the end of May that is close to a perfect one.\n\nIf he has read about Sintra and wants it, take him to Sintra. Wanting to see a thing is its own argument, and disappointment costs more than tired legs."],
+    ["u", "What's worth bringing home? He always wants to bring something back for my sister."],
+    ["c", "The things worth carrying back from Lisbon are mostly edible, cheap and heavier than they look, so decide early and buy on the last afternoon rather than on the first.\n\nTinned fish. Not a joke and not a tourist item — Portuguese conservas are genuinely good, they keep for years, and the old shops sell them in printed tins that look like presents without being wrapped. Sardines in olive oil, mackerel, tuna belly. Six tins is about fifteen euros and is the most Portuguese thing you can put in a suitcase. Buy them in a grocer's rather than in the shop by the castle where the same tins cost triple.\n\nWine. A bottle of vinho verde costs four euros in a supermarket and is impossible to find at home for that. Or a bottle of the wine you drank at the good dinner, which will mean something later. Bubble-wrap it in the middle of the case; there is no other way and it works.\n\nOlive oil and flor de sal. Portuguese oil is underrated and much cheaper than in the shops at home. The salt comes in small cloth bags and weighs nothing.\n\nGinjinha. Sour cherry liqueur, sold in tiny bars in Baixa by the glass with a cherry in the bottom, and in bottles for a few euros. It is the drink he will remember drinking standing up in a doorway, which is exactly the association a present wants.\n\nTiles. Real antique azulejos are expensive, exportable only with care, and often taken off buildings they should still be on. Reproductions are honest, light and about ten euros. There is a good shop in Chiado that sells them loose from wooden drawers, which is a nice ten minutes in itself.\n\nWhat I would skip: anything cork that is not a coaster, the painted roosters, and everything on the racks in Rua Augusta.\n\nAnd one that costs nothing: a photograph of the two of them, taken by a waiter, on the last night. Your sister would rather have that than the tin."],
+    ["u", "He'll have three weeks between the present and the flight. Anything he could read or watch that would make it better?"],
+    ["c", "Three weeks is exactly the right amount — long enough to look forward to it, short enough that he does not exhaust the subject before he arrives.\n\nTo read. Pessoa is the obvious answer and the wrong first one: he is a poet of interior weather and he will make more sense after the city than before it. Start instead with a short history — Portugal's story is unusually legible from Lisbon, because the earthquake of 1755 divides everything into before and after, and the grid he will walk down on the first afternoon was the after. Knowing that one fact changes how the Baixa looks: it is not an old city centre, it is the first modern one, rebuilt in five years by a marquis who hanged the people who got in his way.\n\nThen Saramago, if he reads novels — The Year of the Death of Ricardo Reis is set in Lisbon and half of it happens in streets you will be walking down. It is slow in the way he may enjoy at 72 and would not have at 40.\n\nTo watch. There is a decent amount of documentary about the Carnation Revolution of 1974, which is within his adult lifetime and which almost nobody in Britain knows anything about — a dictatorship ending in a day, soldiers with flowers in their rifles, and the reason the old men in the squares have the politics they have. If he watches one thing, that.\n\nTo listen to. Amalia Rodrigues, before the fado night. Fado is much easier to sit through in silence when the form is already familiar, and half an hour of her recordings does that.\n\nAnd one small thing that works better than any of it: give him the map with the cards. Not a phone map — a paper one, folded, with the hotel marked. People who have been given a paper map look at it for three weeks, and he will arrive already knowing which way the river is, which is the single most useful thing to know in Lisbon."],
+    ["u", "Last one for tonight. If he's not tired when we land on the 28th, what's the best possible first evening?"],
+    ["c", "The best first evening in Lisbon is deliberately unambitious, because everything you would gain by pushing it is available on Thursday and the thing you would lose is not.\n\nHere is the version I would want if it were my father.\n\nBags down by three, out by half past. Walk down through Chiado into the Baixa grid, which is level and wide and will orient him within ten minutes — he will understand the shape of the city from that one walk. Come out at Praca do Comercio, which opens onto the river with no warning at all. That moment is the trip's first photograph and it costs nothing to arrange: you simply arrive from the right direction.\n\nSit down there. There are cafes under the arcade with tables in the square. A coffee or a beer, half an hour, and let him look at it. This is the part people skip and then describe as their favourite when they get home.\n\nAt around six, walk west along the river as far as Cais do Sodre — flat, ten minutes, the water on your left the whole way. If he has energy, take the ferry across to Cacilhas and come straight back: twenty minutes on the water, a euro and a half, and the whole city lit from the front as you return. It is the best cheap thing in Lisbon and it works best on the first evening, before he knows what he is looking at.\n\nThen dinner at seven, close to the hotel, somewhere ordinary. Grilled fish, a jug of wine, bed by ten.\n\nWhat that evening does: it gets him on his feet after the flight without a climb, it shows him the river twice, it puts nothing at risk, and it ends early enough that the first full day starts well. And if he is tired after all, every part of it can be dropped without losing anything — the square is still there on Thursday.\n\nThe one thing I would not do on arrival day is Alfama or a miradouro. Save the height for when the legs are fresh, and let the first night be flat and by the water."],
+    ["u", "I've written the four days out now with the walking distances under each one, and the cards for the present are done. Two things still open."],
+    ["c", "Good. Reading back over what we settled, here is the state of it as I understand it, so you can check I have not lost anything.\n\nFixed: Lisbon, four days at the end of May, arriving the 28th and out on the 1st. Staying in Chiado, in the flat block between Rua Garrett and Largo do Chiado, in a room with a lift and free cancellation. No Alfama.\n\nThe shape of the days: a half day in the centre on arrival, two full days, and the last full day ending with the good dinner. One of those days is Sintra, with Regaleira in the morning, the 434 up and a taxi back, and Pena only if the morning goes well. One is deliberately slow: the Gulbenkian gardens, a long lunch, Principe Real, nothing with a time on it. Belem is the half day that gets cut if the flights make four days into three and a half.\n\nDecided against: tram 28, the Oceanario, and the dinner-and-show fado houses. The views come from Santa Catarina, Sao Pedro de Alcantara via the Gloria funicular, the Carmo entrance to the Santa Justa walkway, and the ferry to Cacilhas.\n\nBooked or to be booked: the hotel on a cancellable rate, one dinner for the last night, one small fado room with a note that it is a birthday, and Regaleira if you want a fixed morning. Nothing else.\n\nReady: the four days written out with the walking distances, and the cards.\n\nThat leaves the two you mean — the flight times, which decide which day is which, and whether Belem survives the cut. Everything else is done."],
+    ["u", "Right. Next thing is fitting the days around the flights once I have the times tomorrow."],
+    ["c", "Send them over and I will lay the days out against them.\n\nWhat I will need from you: the landing time on the 28th and the departure time on the 1st, and whether the 29th, 30th and 31st include a Monday — because the Monday closures decide which day Sintra has to be, and Sintra is the only day that cannot move without moving everything else.\n\nTwo things I would think about in the meantime, both of which you can answer without me.\n\nWhether the last dinner is on the 31st or the 30th. If the flight out on the 1st is genuinely mid-morning, the 31st ends early and a late dinner is a bad idea; a good dinner on the 30th and something simple and close on the 31st may end the trip better.\n\nAnd whether he is walking three days or four. The plan as it stands has one easy day, one moderate day and one long day, which is the right ratio for a fit 72-year-old on flat ground. Sintra is the long day and it is optional in a way nothing else is. If you would rather trade it for a second slow day and a longer lunch, that is a legitimate version of this trip and not a lesser one.\n\nSend the times when you have them."]
+  ];
+
+  var t2 = document.getElementById('thread2'),
+      slot2 = document.getElementById('cardSlot2'), top2 = document.getElementById('top2'),
+      box2 = document.getElementById('box2'), composer2 = document.getElementById('composer2'),
+      meterRow2 = document.getElementById('meterRow2'), count2 = document.getElementById('count2'),
+      readyFlag2 = document.getElementById('readyFlag2'), send2 = document.getElementById('send2'),
+      copy2 = document.getElementById('copy2'), reset2 = document.getElementById('reset2'),
+      editHint2 = document.getElementById('editHint2'), weigh = document.getElementById('weigh'),
+      logBox2 = document.getElementById('log2'), steps2 = document.getElementById('steps2');
+  var forkCard = null;
+
+  var THREAD_CHARS = (function () {
+    var n = 0;
+    for (var i = 0; i < THREAD.length; i++) n += THREAD[i][1].length;
+    return n;
+  })();
+  var THREAD_TOKENS = Math.round(THREAD_CHARS / CHARS_PER_TOKEN);
+
+  function setStep2(name) { paintRail(steps2, ['heavy', 'press', 'read', 'open'], name); }
+  function log2(line, strong) { log(line, strong, logBox2); }
+  function threadNote() {
+    return '≈ ' + kTokens(THREAD_TOKENS) + ' tokens on the page (' + THREAD_CHARS.toLocaleString()
+      + ' chars in ' + THREAD.length + ' messages). Start fresh appears from '
+      + kTokens(LONG_THREAD_TOKENS) + '.';
+  }
+
+  /* ---- the transcript ------------------------------------------------ */
+  function msgNode(m) {
+    var row = document.createElement('div');
+    if (m[0] === 'u') {
+      row.className = 'user';
+      var span = document.createElement('span');
+      span.textContent = m[1];
+      row.appendChild(span);
+      return row;
+    }
+    row.className = 'reply';
+    var paras = m[1].split(/\n{2,}/);
+    for (var i = 0; i < paras.length; i++) {
+      var p = document.createElement('p');
+      p.textContent = paras[i];
+      row.appendChild(p);
+    }
+    return row;
+  }
+  var HEAD = 2, TAIL = 4;
+  function renderThread2(all) {
+    t2.textContent = '';
+    var i;
+    if (all || THREAD.length <= HEAD + TAIL) {
+      for (i = 0; i < THREAD.length; i++) t2.appendChild(msgNode(THREAD[i]));
+    } else {
+      for (i = 0; i < HEAD; i++) t2.appendChild(msgNode(THREAD[i]));
+      var hidden = THREAD.length - HEAD - TAIL;
+      var fold = document.createElement('button');
+      fold.type = 'button';
+      fold.className = 'fold';
+      fold.setAttribute('aria-expanded', 'false');
+      fold.textContent = '· · ·  ' + hidden
+        + ' messages folded — all of them are on this page, and counted  · · ·';
+      fold.addEventListener('click', function () {
+        renderThread2(true);
+        log2('transcript unfolded — ' + THREAD.length + ' messages, '
+          + THREAD_CHARS.toLocaleString() + ' chars');
+      });
+      t2.appendChild(fold);
+      for (i = THREAD.length - TAIL; i < THREAD.length; i++) t2.appendChild(msgNode(THREAD[i]));
+    }
+    t2.scrollTop = t2.scrollHeight;
+  }
+
+  /* ---- the cost line, and the gate that decides whether it exists ----- */
+  function costLine(label, tokens) {
+    if (tokens < LONG_THREAD_TOKENS) return;      /* below the line, nothing renders */
+    var cost = document.createElement('span');
+    cost.className = 'ctxa-cost';
+    var words = document.createElement('span');
+    words.textContent = '≈ ' + kTokens(tokens) + ' tokens re-read per send';
+    var btn = document.createElement('button');
+    btn.type = 'button';
+    btn.textContent = 'Start fresh';
+    btn.title = 'Write a brief of this thread and open a new chat with it';
+    btn.addEventListener('click', function () {
+      if (btn.disabled) return;
+      btn.disabled = true;
+      btn.textContent = 'writing the brief…';
+      startFresh();
+    });
+    cost.appendChild(words);
+    cost.appendChild(btn);
+    label.appendChild(cost);
+  }
+
+  function heavyCard() {
+    var built = buildCard(slot2, forkCard);
+    forkCard = built.wrap;
+    built.label.title = threadNote();
+    costLine(built.label, THREAD_TOKENS);
+    var note = document.createElement('p');
+    note.className = 'evidence';
+    note.textContent = 'In the extension this same row also carries the moves you saw above — a long thread is long whether or not it earned any. Here it is trimmed to the control this section is about.';
+    built.wrap.appendChild(note);
+  }
+
+  /* ---- the brief, cut from the thread's own user turns ---------------- */
+  var QUESTIONY = /^(what|which|how|why|when|where|who|is|are|was|were|do|does|did|can|could|should|would|will|any|anything|am)\b/i;
+  var DECIDED = /\b(we'?ll|we will|let'?s|going with|go with|went with|chose|chosen|decided|settled on|picked|sticking with|stick with|instead of|rather than|dropped|ruled out|skip|book|keep|then|no longer|i'?m giving|i want|i'?ll)\b/i;
+  var ABSOLUTE = /\b(only|always|never|must|has to|have to|cannot|can'?t|nothing|not|no|every|at most|at least)\b/i;
+  var BUILT = /\b(written|wrote|made|built|created|added|done|finished|ready|booked|set up)\b/i;
+  var WRITTEN = /\b(written|wrote|drafted|typed|the list|the plan|the notes|the times|the file|the code)\b/i;
+  var HANDOVER = /\b(i'?ll have|i will have|i'?ll send|i can send|i'?ll paste|i'?ll bring|here'?s|here is)\b/i;
+  var MATERIAL = /\b(times|export|file|list|plan|notes|code|script|spreadsheet|photos?|map|cards|numbers)\b/i;
+  var NEXTY = /\b(next|still|left|open|need to|about to|going to|once i|tomorrow|before)\b/i;
+  var PASTE_LEAD = /^(?:i(?:'ve| have)? (?:written|wrote|made|added|drafted)|i (?:will |'?ll )?(?:have|send|paste|bring)|here'?s|here is)\s+/i;
+  var BULLET_LEAD = /^(?:but|and|so|then|well|ok|okay|right|yes|also|plus)\s+/i;
+  var NEXT_LEAD = /^(?:next thing is|next up is|next is|next,?)\s+/i;
+
+  /* Clause splitting that remembers which pieces were questions. The mining
+     half's clauses() throws the mark away; here it decides everything, because
+     a thread of questions must never become a list of settled facts. A full
+     stop only ends a sentence when whitespace follows it, so 4.2% survives. */
+  function statements(t) {
+    var parts = tidy(t).split(/([.!?;]+(?=\s|$)|\n+)/), out = [], i, j;
+    for (i = 0; i < parts.length; i += 2) {
+      var piece = parts[i] || '', mark = parts[i + 1] || '';
+      if (mark.indexOf('?') >= 0) continue;
+      var bits = piece.split(/,\s+/);
+      for (j = 0; j < bits.length; j++) {
+        var c = tidy(bits[j]);
+        if (!c || !contentWords(c).length || QUESTIONY.test(c)) continue;
+        out.push(c);
+      }
+    }
+    return out;
+  }
+  function bullet(c, max) {
+    var w = words(tidy(c).replace(BULLET_LEAD, '')).slice(0, max || 16);
+    return w.join(' ').replace(/[,:;—-]+$/, '');
+  }
+  function sentence(s) {
+    s = tidy(s).replace(/[,:;—-]+$/, '');
+    if (!s) return '';
+    s = s.charAt(0).toUpperCase() + s.slice(1);
+    return /[.!?]$/.test(s) ? s : s + '.';
+  }
+  function userTurns() {
+    var out = [];
+    for (var i = 0; i < THREAD.length; i++) if (THREAD[i][0] === 'u') out.push(THREAD[i][1]);
+    return out;
+  }
+  /* Goal: the earliest turn, one or two sentences, as the product pins it. */
+  function goalOf(turns) {
+    var sents = tidy(turns[0] || '').split(/[.!?]+(?=\s)/)
+      .map(function (s) { return tidy(s); }).filter(Boolean).slice(0, 2);
+    if (!sents.length) return '';
+    sents[0] = stripLead(sents[0]);
+    return sentence(sents[0]) + (sents[1] ? ' ' + sentence(sents[1]) : '');
+  }
+  function nextOf(turns) {
+    var cs = statements(turns[turns.length - 1] || ''), i;
+    for (i = 0; i < cs.length; i++) {
+      if (cs[i].length >= 12 && NEXTY.test(cs[i])) {
+        return sentence(fragment(cs[i].replace(NEXT_LEAD, ''), 22));
+      }
+    }
+    return 'Pick up from here.';                  /* never invent a next step */
+  }
+
+  function buildBrief() {
+    var turns = userTurns(), goal = goalOf(turns), goalKey = contentWords(goal).join(' ');
+    var settled = [], exists = [], pastes = [], seen = {}, i, j;
+    for (i = 0; i < turns.length; i++) {
+      var cs = statements(turns[i]);
+      for (j = 0; j < cs.length; j++) {
+        var c = cs[j];
+        if (c.length < 9) continue;      /* "Lisbon then" is a decision, and it is eleven */
+        var key = contentWords(c).join(' ');
+        if (!key || seen[key]) continue;
+        if (goalKey.indexOf(key) >= 0) { seen[key] = 1; continue; }
+        var f = bullet(c, 16), n = contentWords(c).length;
+        if (f.length < 10) continue;
+        seen[key] = 1;
+        /* Each shape has to clear its own bar. A digit alone is not a settled
+           fact — "Day 3 worries me" is a worry — so a number has to arrive in a
+           clause with something in it, while an explicit decision word can
+           carry a phrase as short as "Lisbon then". */
+        if ((HANDOVER.test(c) && MATERIAL.test(c)) || (BUILT.test(c) && WRITTEN.test(c))) {
+          if (pastes.length < 3) {
+            var mat = tidy(c.split(/\s+[—–]\s+/)[0]);        /* the material is named before the dash */
+            pastes.push('- ' + tidy(bullet(mat, 14).replace(PASTE_LEAD, '')) + ': <paste here>');
+          }
+        } else if (BUILT.test(c) && exists.length < 3) {
+          exists.push('- ' + f);
+        } else if ((DECIDED.test(c) && f.length >= 9) || (ABSOLUTE.test(c) && n >= 2)
+          || (/\d/.test(c) && n >= 4)) {
+          if (settled.length < 8) settled.push('- ' + f);
+        }
+      }
+    }
+    var own = exists.concat(pastes);
+    /* A brief needs something the session actually settled or built. A goal on
+       its own is the same question again, and that earns the empty brief. */
+    if (!settled.length && !own.length) return '';
+    var next = nextOf(turns);
+
+    /* FORK_SYSTEM's "at most 1,500 characters", spent in order of load: the
+       goal, what exists and what is next are reserved, then the settled facts
+       go in while there is room, so the budget can only cut the tail of the
+       list rather than a block the new chat cannot do without. */
+    var head = 'Goal: ' + goal;
+    var tail = (own.length ? '\n\nExists now:\n' + own.join('\n') : '') + '\n\nNext: ' + next;
+    var keep = [], used = head.length + tail.length + 12;
+    for (i = 0; i < settled.length; i++) {
+      if (used + settled[i].length + 1 > 1500) break;
+      keep.push(settled[i]);
+      used += settled[i].length + 1;
+    }
+    return head + (keep.length ? '\n\nSettled:\n' + keep.join('\n') : '') + tail;
+  }
+
+  /* ---- the two clicks ------------------------------------------------ */
+  function startFresh() {
+    setStep2('press');
+    log2('fork — session ' + userTurns().length + ' turn(s), thread ≈ '
+      + THREAD_TOKENS + ' tokens');
+    window.setTimeout(function () {
+      var brief = cleanBrief(buildBrief());
+      if (!brief) return nothingToCarry();
+      renderBrief(brief);
+    }, reduced ? 120 : 850);
+  }
+
+  function nothingToCarry() {
+    var built = buildCard(slot2, forkCard);
+    forkCard = built.wrap;
+    var quiet = document.createElement('span');
+    quiet.className = 'quiet nothing';
+    var b = document.createElement('b');
+    b.textContent = '✦';
+    quiet.appendChild(b);
+    quiet.appendChild(document.createTextNode(' Nothing to carry over.'));
+    built.chips.appendChild(quiet);
+    log2('fork — nothing to carry over', true);
+    window.setTimeout(function () { heavyCard(); setStep2('heavy'); }, reduced ? 400 : 4000);
+  }
+
+  function renderBrief(brief) {
+    var built = buildCard(slot2, forkCard);
+    forkCard = built.wrap;
+    var briefTokens = Math.round(brief.length / CHARS_PER_TOKEN);
+    var row = document.createElement('div');
+    row.className = 'brief';
+    var said = document.createElement('span');
+    said.textContent = 'Brief ready: ≈ ' + kTokens(briefTokens) + ' tokens instead of ≈ '
+      + kTokens(THREAD_TOKENS) + ' per send.';
+    row.appendChild(said);
+    var chip = document.createElement('button');
+    chip.className = 'chip';
+    chip.type = 'button';
+    chip.textContent = 'Open a new chat with it';
+    chip.title = brief;                 /* the hover shows exactly what will land */
+    row.appendChild(chip);
+    /* The extension puts the brief in that hover text. A hover does not exist
+       on a phone, and the whole reason there are two clicks is that the brief
+       can be read before it goes anywhere - so here it is also a control. */
+    var peekBtn = document.createElement('button');
+    peekBtn.className = 'peekbtn';
+    peekBtn.type = 'button';
+    peekBtn.textContent = 'Read it first';
+    peekBtn.setAttribute('aria-expanded', 'false');
+    row.appendChild(peekBtn);
+    built.wrap.appendChild(row);
+
+    var pre = document.createElement('div');
+    pre.className = 'peek';
+    pre.textContent = brief;
+    pre.hidden = true;
+    built.wrap.appendChild(pre);
+    peekBtn.addEventListener('click', function () {
+      pre.hidden = !pre.hidden;
+      peekBtn.setAttribute('aria-expanded', String(!pre.hidden));
+      peekBtn.textContent = pre.hidden ? 'Read it first' : 'Hide it';
+    });
+
+    chip.addEventListener('click', function () {
+      if (chip.disabled) return;
+      chip.disabled = true;
+      chip.textContent = 'Opened a new chat';
+      /* The brief is in the message box now; a second copy of it above the box
+         is the same words twice. */
+      pre.hidden = true;
+      peekBtn.hidden = true;
+      openFresh(brief, briefTokens);
+    });
+    setStep2('read');
+    log2('fork — thread ≈ ' + THREAD_TOKENS + ' tokens, brief ≈ ' + briefTokens
+      + ' tokens (' + Math.round(100 - 100 * briefTokens / Math.max(1, THREAD_TOKENS))
+      + '% less per send)', true);
+  }
+
+  /* insertPrompt's rule: never replace a draft, append below it. */
+  function insertPrompt(el, text) {
+    var existing = el.value.replace(/\s+$/, '');
+    el.value = existing ? existing + '\n\n' + text : text;
+    return !!existing;
+  }
+
+  function meter2() {
+    var v = box2.value.trim(), w = v ? words(v).length : 0;
+    count2.textContent = w + (w === 1 ? ' word' : ' words') + ' · ≈ ' + tokensOf(v) + ' tokens';
+    copy2.disabled = !v;
+  }
+
+  function openFresh(brief, briefTokens) {
+    top2.textContent = 'Claude — new chat';
+    t2.textContent = '';
+    t2.classList.remove('transcript');
+    var ghost = document.createElement('p');
+    ghost.className = 'ghost';
+    ghost.textContent = 'A new conversation. Nothing behind it — the brief below is the first thing it will read.';
+    t2.appendChild(ghost);
+
+    composer2.hidden = false;
+    meterRow2.hidden = false;
+    var appended = insertPrompt(box2, brief);
+    composer2.classList.add('filled');
+    grow(box2);
+    meter2();
+    readyFlag2.hidden = false;
+    editHint2.textContent = 'Yours to edit before you send it. Replace each <paste here>.';
+    var slot = box2.value.indexOf('<paste here>');
+    box2.focus();
+    if (slot >= 0) { try { box2.setSelectionRange(slot, slot + 12); } catch (e) {} }
+
+    weigh.textContent = '';
+    function line(what, chars, per, cut) {
+      var a = document.createElement('b'); a.textContent = what;
+      var b = document.createElement('span'); b.textContent = chars;
+      var c = document.createElement('span'); c.textContent = per;
+      if (cut) c.className = 'cut';
+      weigh.appendChild(a); weigh.appendChild(b); weigh.appendChild(c);
+    }
+    line('this thread', THREAD_CHARS.toLocaleString() + ' chars',
+      '≈ ' + kTokens(THREAD_TOKENS) + ' tokens on every send');
+    line('the new one', brief.length.toLocaleString() + ' chars',
+      '≈ ' + kTokens(briefTokens) + ' tokens on every send — '
+      + Math.round(100 - 100 * briefTokens / Math.max(1, THREAD_TOKENS)) + '% less', true);
+
+    setStep2('open');
+    log2('brief landed in a new chat, ≈ ' + briefTokens + ' tokens — nothing sent'
+      + (appended ? ' · appended below the draft already in the box' : ''));
+  }
+
+  function loadThread() {
+    top2.textContent = 'Claude';
+    t2.classList.add('transcript');
+    composer2.hidden = true;
+    meterRow2.hidden = true;
+    composer2.classList.remove('filled');
+    readyFlag2.hidden = true;
+    box2.value = '';
+    copy2.disabled = true;
+    editHint2.textContent = '';
+    weigh.textContent = '';
+    renderThread2(false);
+    heavyCard();
+    setStep2('heavy');
+  }
+
+  send2.addEventListener('click', function () {
+    log2('nothing is sent from this demo — in the extension this button is claude.ai’s own Send', true);
+  });
+  box2.addEventListener('input', function () { grow(box2); meter2(); });
+  reset2.addEventListener('click', function () {
+    loadThread();
+    log2('example thread loaded again · ' + THREAD_CHARS.toLocaleString() + ' chars, ≈ '
+      + THREAD_TOKENS + ' tokens');
+  });
+  copy2.addEventListener('click', function () {
+    var text = box2.value;
+    function done() {
+      copy2.textContent = 'Copied';
+      window.setTimeout(function () { copy2.textContent = 'Copy the brief'; }, 1600);
+    }
+    function select() {
+      box2.focus(); box2.select();
+      copy2.textContent = 'Selected — press Ctrl/Cmd+C';
+      window.setTimeout(function () { copy2.textContent = 'Copy the brief'; }, 2600);
+    }
+    if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text).then(done, select);
+    else select();
+  });
+
+  loadThread();
+  log2('example thread loaded · ' + THREAD_CHARS.toLocaleString() + ' chars in '
+    + THREAD.length + ' messages, ≈ ' + THREAD_TOKENS + ' tokens re-read per send');
 
   /* At rest the box already holds a message, so the first thing on screen is
      the product in a working state rather than an empty shell. */
