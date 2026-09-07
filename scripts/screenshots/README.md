@@ -1,6 +1,19 @@
 # scripts/screenshots
 
-Generates the five Chrome Web Store screenshots in `publishing/screenshots/`.
+Captures the card, with the real extension running, into
+`publishing/screenshots/`.
+
+**This is no longer what ships.** The store set authored 2026-09-07 for 0.9.95
+is designed illustrations, not captures — see
+`publishing/screenshots/README.md`. This harness produced every set before it,
+still works, and is where the next captured set starts.
+
+**Mind the filenames.** It writes `1-composed`, `2-moves`, `3-trigger`,
+`4-light`, `5-settings`; the shipping set is `1-start-fresh`, `2-brief`,
+`3-moves`, `4-composed`, `5-trigger`. A re-run therefore leaves **ten** PNGs in
+`publishing/screenshots/`, two of them (`3-*`) contradicting each other by
+number. Decide which set ships and delete the other; do not upload from a
+folder holding both.
 
 ```bash
 xvfb-run -a node scripts/screenshots/capture.mjs

@@ -127,8 +127,8 @@ this file changes.
   data usage, certifications — are **not** here. They are in `SUBMISSION.md`,
   and they are written to match this copy. If you change what the product reads
   or sends, all three files move in the same release.
-- Screenshots: `publishing/screenshots/`, regenerated on 2026-09-01 against
-  0.9.68 with the history-mining session. Upload in filename order — the
-  composed frame goes first.
+- Screenshots: `publishing/screenshots/`, authored 2026-09-07 for 0.9.95 —
+  designed illustrations rather than captures, each footed `Illustrative demo`.
+  Upload in filename order: Start fresh leads, because this copy does.
 - The live listing went to 0.9.68 on 2026-09-01. Check it against this file
   before pasting; this file is what it is supposed to say.

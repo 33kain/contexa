@@ -4,10 +4,13 @@ Developer and release tooling. None of it is part of the shipped product
 (`extension/` and `worker/`) or the build entry point (`build.mjs` at the repo
 root) — these are convenience scripts run by hand.
 
-- `screenshots/` — generates the five Chrome Web Store screenshots into
-  `publishing/screenshots/`, by driving the real unpacked extension in a real
-  Chromium against a mock of claude.ai's DOM. Needs Playwright and Xvfb; not
-  part of the test suite. See `scripts/screenshots/README.md`.
+- `screenshots/` — captures the card by driving the real unpacked extension in
+  a real Chromium against a mock of claude.ai's DOM, into
+  `publishing/screenshots/`. Needs Playwright and Xvfb; not part of the test
+  suite. It produced every store set up to 0.9.68; the set shipping since
+  2026-09-07 is designed illustrations under different filenames, so a re-run
+  now *adds a second set beside* the shipping one rather than refreshing it —
+  delete or rename deliberately. See `scripts/screenshots/README.md`.
 - `promo/` — generates the two Chrome Web Store promo tiles into
   `store-assets/` from an HTML source, headless. See `scripts/promo/README.md`.
 - `release-commit.ps1` — release ceremony: bump, build, tag, push.

@@ -39,9 +39,12 @@ READ FIRST, IN THIS ORDER:
    to a reviewer.
 5. publishing/PRIVACY.md — the privacy claims and their tone. Brand copy
    must not contradict this in fact or in register.
-6. scripts/screenshots/capture.mjs — the canned session and the MOVES
-   constant at the top. This is the example conversation the store
-   screenshots show. It is brand material and it is editable.
+6. publishing/screenshots/ — the five store frames and their README. Since
+   2026-09-07 they are designed illustrations (headline, claude.ai-shaped
+   frame, `Illustrative demo` footer), so their headlines and the Lisbon
+   session in them ARE brand copy. scripts/screenshots/capture.mjs holds the
+   same canned session in its MOVES constant, for the captured set it still
+   produces. Both are brand material and both are editable.
 7. CHANGELOG.md, recent entries only — for what actually shipped, so every
    positioning claim describes the product as it is.
 
