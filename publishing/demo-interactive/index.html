@@ -165,12 +165,29 @@ header.site .tagline { margin: .15rem 0 0; color: var(--muted); font-style: ital
 /* the cost line and its control, as extension/content.js styles them */
 .ctxa-cost { margin-left: auto; display: inline-flex; align-items: center; gap: 8px; flex-wrap: wrap;
   letter-spacing: 0; text-transform: none; font-size: 11px; color: var(--text2); }
-.ctxa-cost button { border: 1px solid var(--border2); background: transparent; color: var(--text2);
-  border-radius: 999px; padding: 3px 9px; font-size: 10px; letter-spacing: .06em; text-transform: uppercase;
-  cursor: pointer; font-family: inherit; white-space: nowrap; }
-.ctxa-cost button:hover { color: var(--accent); border-color: var(--accent); }
-.ctxa-cost button:disabled { cursor: default; border-style: dashed; color: var(--text2);
+/* The extension draws this control muted, on a card the user has already
+   summoned. Here nobody summoned anything and it has to be found, so the demo
+   spends what the product does not: the accent border, the soft fill, and a
+   ring that pulses three times when the stage first comes into view. Do not
+   copy this back into extension/content.js — there the quiet version is right.
+   The label takes --link rather than --accent because 10px uppercase teal on a
+   tinted fill is 2.6:1, and this one has to be read. */
+.ctxa-cost button { border: 1px solid var(--accent); background: var(--s-accent-soft);
+  color: var(--link); border-radius: 999px; padding: 7px 13px; font-size: 11px; font-weight: 700;
+  letter-spacing: .07em; text-transform: uppercase; cursor: pointer; font-family: inherit;
+  white-space: nowrap; }
+.ctxa-cost button:hover { background: var(--accent); color: var(--s-panel); border-color: var(--accent); }
+.ctxa-cost button:disabled { cursor: default; border-style: dashed; background: none;
+  color: var(--text2); border-color: var(--border2); font-weight: 400;
   animation: cxpulse 1.2s ease-in-out infinite; }
+.ctxa-cost button.ask { animation: cx-ask 1.7s ease-out 3; }
+@keyframes cx-ask {
+  0% { box-shadow: 0 0 0 0 rgba(33,180,161,.5); }
+  70% { box-shadow: 0 0 0 8px rgba(33,180,161,0); }
+  100% { box-shadow: 0 0 0 0 rgba(33,180,161,0); }
+}
+.evidence.call { color: var(--text2); font-size: 11.5px; margin-top: 9px; }
+.evidence.call b { color: var(--link); font-weight: 700; white-space: nowrap; }
 .brief { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px; font-size: 11.5px;
   color: var(--text2); line-height: 1.45; }
 .brief .peekbtn { background: none; border: 0; padding: 0; font: inherit; color: var(--accent);
@@ -1289,15 +1306,41 @@ footer.site p { margin: .35rem 0; max-width: none; }
     label.appendChild(cost);
   }
 
+  /* The stage is a long way down the page, so an animation that runs on load
+     is an animation nobody sees. It waits for the section to come into view,
+     then rings three times and stops. */
+  function askForFork(btn) {
+    if (!btn || reduced) return;
+    if (!('IntersectionObserver' in window)) { btn.classList.add('ask'); return; }
+    var io = new IntersectionObserver(function (entries) {
+      if (!entries[0].isIntersecting) return;
+      btn.classList.add('ask');
+      io.disconnect();
+    }, { threshold: 0.3 });
+    io.observe(document.getElementById('stage2'));
+  }
+
   function heavyCard() {
     var built = buildCard(slot2, forkCard);
     forkCard = built.wrap;
     built.label.title = threadNote();
     costLine(built.label, THREAD_TOKENS);
+    /* The number is the reason to press; this is the invitation. Same shape as
+       the trigger's line in the first stage: the verb picked out, the rest quiet. */
+    var call = document.createElement('p');
+    call.className = 'evidence call';
+    var lead = document.createElement('b');
+    lead.textContent = '\u2191 Press Start fresh';
+    call.appendChild(lead);
+    call.appendChild(document.createTextNode(
+      ' — it writes a brief of this thread from your own messages. The next click opens a new chat with it, unsent.'));
+    built.wrap.appendChild(call);
+
     var note = document.createElement('p');
     note.className = 'evidence';
     note.textContent = 'In the extension this same row also carries the moves you saw above — a long thread is long whether or not it earned any. Here it is trimmed to the control this section is about.';
     built.wrap.appendChild(note);
+    askForFork(built.label.querySelector('.ctxa-cost button'));
   }
 
   /* ---- the brief, cut from the thread's own user turns ---------------- */
