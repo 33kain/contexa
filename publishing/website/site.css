@@ -210,6 +210,32 @@ figcaption p { margin: 0 0 .5rem; max-width: none; }
 .demo .chip:hover, .demo .chip.is-hover { border-color: var(--accent); color: var(--accent); background: var(--surface2);
   transform: translateY(-1px); }
 .demo .chip.busy { border-style: dashed; color: var(--text2); cursor: default; animation: cxpulse 1.2s ease-in-out infinite; }
+/* 0.9.73's cost line and fork control, and the brief card they lead to. Same
+   rules as content.js draws them with: the line rides the label row pushed to
+   the right, in the label's quiet colour with its tracking and casing undone —
+   a number and a small button, not a second headline. */
+.demo .ctxa-cost { margin-left: auto; display: inline-flex; align-items: center; gap: 8px;
+  letter-spacing: 0; text-transform: none; font-size: 11px; color: var(--text2); }
+.demo .ctxa-cost button { border: 1px solid var(--border2); background: transparent; color: var(--text2);
+  border-radius: 999px; padding: 2px 9px; font-size: 10px; letter-spacing: .06em;
+  text-transform: uppercase; cursor: pointer; font-family: inherit; white-space: nowrap;
+  transition: border-color .14s, color .14s; }
+.demo .ctxa-cost button.is-hover { color: var(--accent); border-color: var(--accent); }
+.demo .ctxa-cost button:disabled { cursor: default; border-style: dashed; color: var(--text2);
+  animation: cxpulse 1.2s ease-in-out infinite; }
+.demo .brief { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px;
+  font-size: 11.5px; color: var(--text2); line-height: 1.45; }
+/* The head of a long thread: what the cost line is counting, without forty
+   invented messages in the DOM. */
+.demo .row.more { display: flex; align-items: center; gap: 10px; color: var(--ink3);
+  font-size: 11.5px; margin-bottom: 16px; }
+.demo .row.more::before, .demo .row.more::after { content: ""; flex: 1; height: 1px; background: var(--line); }
+/* The new conversation the fork opens: no messages, which is the point. */
+.demo .empty { display: none; padding: 34px 18px 10px; }
+.demo .empty p { margin: 0; color: var(--ink3); font-size: 12.5px; text-align: center; }
+.demo[data-view="new"] .col { display: none; }
+.demo[data-view="new"] .empty { display: block; }
+.demo[data-view="new"] .slot { min-height: 0; }
 @keyframes cxpulse { 0%,100% { opacity: .55; } 50% { opacity: 1; } }
 .demo .ctxa-mas-slot { display: inline-flex; align-items: center; gap: 8px; }
 .demo .ctxa-mas { background: none; border: none; padding: 0; cursor: pointer; position: relative; display: inline-flex; line-height: 0; }

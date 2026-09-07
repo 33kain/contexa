@@ -50,10 +50,11 @@
 <p><a href="https://chromewebstore.google.com/detail/phhamigkjeeabbjncpmhkppkjccfglhb">Install it from the Chrome Web Store</a>. Which browsers can, and how to tell it is working, are under <a href="#install">Install</a> below.</p>
 
 <figure aria-labelledby="fig1">
-  <div class="demo" id="demo" data-mode="light" role="group" aria-label="Animated reproduction of the card in a claude.ai conversation">
+  <div class="demo" id="demo" data-mode="light" role="group" aria-label="Animated reproduction of the card in a claude.ai conversation: first Start fresh, then the row of moves">
     <div class="stage" aria-hidden="true">
-      <div class="top">Claude</div>
-      <div class="col">
+      <div class="top" id="top">Claude</div>
+      <div class="col" id="col">
+        <div class="row more" id="more">38 earlier messages</div>
         <div class="row user" id="turn1"><span>I'm giving a five-minute toast at my sister's wedding in three weeks. I've never spoken in public and I'm dreading it.</span></div>
         <div class="row reply"><p>Five minutes is about six hundred words, which is less than it sounds. The ones that work have three parts: one story only you can tell, one honest line about the person she's marrying, and a short toast to end on. Want me to lay out a structure you can fill in?</p></div>
         <div class="row user"><span>Yes, lay it out. Keep it simple, I'll add the stories.</span></div>
@@ -66,6 +67,7 @@
           <p>Write it out in full first, then cut it to cards later.</p>
         </div>
       </div>
+      <div class="empty" id="empty"><p>Nothing here yet. The brief is in the message box, unsent.</p></div>
       <div class="dock">
         <div class="slot" id="slot"></div>
         <div class="composer" id="composer">
@@ -76,12 +78,12 @@
     </div>
     <span class="pointer" id="pointer" aria-hidden="true"></span>
   </div>
-  <p class="sr-only" id="demo-text">In the figure, pressing the trigger offers three next moves: "Plan three weeks of rehearsal", "Turn the structure into cue cards", and "Write the closing toast line". Clicking the first puts this in the message box, unsent: Give me a three-week rehearsal plan for a five-minute wedding toast, for someone who has never spoken in public. Week by week, ten minutes a day at most. What to do about a shaking voice and losing my place. When to stop editing the words and only practise saying them. Assume: the four-part structure is settled; this is about delivery, not writing.</p>
+  <p class="sr-only" id="demo-text">The figure has two parts. First: on a long conversation the card's own line reads "≈ 14k tokens re-read per send" and offers Start fresh. Pressing it writes a brief — "Brief ready: ≈ 137 tokens instead of ≈ 14k per send." — and one press more opens a new conversation with the brief already in the message box, unsent: Goal: write and deliver a five-minute toast at my sister's wedding in three weeks. I have never spoken in public. Settled: four parts, in order, who I am to her (30 seconds), one story told straight (2 minutes), what changed when she met him (1 minute), the toast (30 seconds); one story only, with a detail nobody else would know; write it out in full first, cut it to cue cards later. Open: which story to use, and how to rehearse it. Have: the four-part structure with its timings, in full, paste here. Next: a three-week rehearsal plan, ten minutes a day at most. Second: back on the conversation, pressing the trigger offers three next moves: "Plan three weeks of rehearsal", "Turn the structure into cue cards", and "Write the closing toast line". Clicking the first puts this in the message box, unsent: Give me a three-week rehearsal plan for a five-minute wedding toast, for someone who has never spoken in public. Week by week, ten minutes a day at most. What to do about a shaking voice and losing my place. When to stop editing the words and only practise saying them. Assume: the four-part structure is settled; this is about delivery, not writing.</p>
   <p class="sr-only" id="live" aria-live="polite"></p>
   <figcaption>
     <p class="scene" id="cap" aria-hidden="true"></p>
     <p class="figure-controls" hidden><button type="button" id="replay">Replay</button><button type="button" id="toggle">Pause</button></p>
-    <p id="fig1">Figure 1. The card as the extension draws it, in an invented conversation about a wedding toast. Pressing the trigger offered three moves. Clicking the first put the whole prompt in the message box, unsent; the line beginning <code>Assume:</code> is the part you change before sending. The markup, styles and gestures are the extension's own (<code>extension/content.js</code>); the conversation and the moves are canned for this figure, and nothing here is recorded or sent anywhere. <noscript>The figure animates with JavaScript; without it, this is the frame before the trigger appears.</noscript></p>
+    <p id="fig1">Figure 1. The card as the extension draws it, in an invented conversation about a wedding toast. It shows both halves of the product, in the order the saving matters. First the exit: past about 12,000 tokens the card says what each send re-reads and offers <b>Start fresh</b>, which writes a brief of the thread and opens a new conversation with it already in the message box — a hundred-odd tokens in place of fourteen thousand. Then the row: pressing the trigger offers three moves, and clicking one puts the whole prompt in the box; the line beginning <code>Assume:</code> is the part you change before sending. Nothing is sent in either half. The markup, styles and gestures are the extension's own (<code>extension/content.js</code>); the conversation, the brief and the moves are canned for this figure, and nothing here is recorded or sent anywhere. The brief's figure of ≈ 137 tokens is the chars-over-four estimate of the brief actually on screen, and it is shorter than the briefs measured on real threads — those ran 313 to 444 tokens, in <a href="#tokens">the table below</a>, which is the number to go by. <noscript>The figure animates with JavaScript; without it, this is the frame before the card appears.</noscript></p>
   </figcaption>
 </figure>
 
