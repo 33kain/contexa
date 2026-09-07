@@ -1,0 +1,29 @@
+Session c905b53d…  /home/user/contexa
+  60 requests, 59 tool results
+  Context processed: 9.2M tokens across 60 requests (98% read from cache); output 76k
+  Context now: ≈ 195k tokens — what the next request re-reads
+  Tool results entered ≈ 19k tokens of context, carried through later requests ≈ 842k token-reads
+  tokenbrake trimmed 4 of them: ≈ 4k tokens kept out, ≈ 239k token-reads not carried
+
+What ate it — by tokens carried (size × later requests), top 8:
+     size   carried   turns  tool               what
+       2k      104k     53  Bash               sed -n '1,110p' publishing/website/index.html  [trimmed from 3k]
+       1k       78k     57  Bash               sed -n '120,420p' publishing/website/site.css  [trimmed from 2k]
+       1k       75k     58  Bash               sed -n '1,120p' publishing/website/site.css
+       1k       72k     56  Bash               sed -n '155,215p' /root/.claude/tokenbrake/out/c905b53d-
+       1k       57k     49  Bash               cat .github/workflows/deploy-pages.yml; echo "=== listin
+       1k       56k     55  Bash               cat publishing/website/demo.js  [trimmed from 3k]
+       1k       56k     54  Bash               sed -n '35,200p' /root/.claude/tokenbrake/out/c905b53d-U  [trimmed from 2k]
+       1k       48k     34  mcp__playwright__b 
+
+By tool (share of tokens carried):
+  Bash                 30 calls      14k entered      701k carried   83%
+  mcp__playwright__b    7 calls       4k entered      120k carried   14%
+  mcp__playwright__b    7 calls      445 entered       12k carried    1%
+  mcp__playwright__b    4 calls      271 entered        5k carried    1%
+  mcp__playwright__b    1 calls       46 entered        2k carried    0%
+  mcp__playwright__b    3 calls       69 entered        1k carried    0%
+  Artifact              1 calls      268 entered       804 carried    0%
+  Skill                 1 calls        8 entered       384 carried    0%
+
+Sizes are chars/4 estimates; the usage line is what the API reported.
