@@ -30,6 +30,17 @@ then Start fresh, then the moves. The site's tagline, title and og:title
 follow. Not touched: the promo tiles in `store-assets/`, which still carry the
 old wording and are rebuilt by `scripts/promo/`.
 
+*Superseded 2026-09-05:* the tiles were rebuilt the next day (`70868d2`) and
+carry the motto and this version's one-line description; `store-assets/README.md`
+holds the current stamp. The sentence above is left as it shipped, and this line
+is here because it was read as current a day later and sent someone rendering
+images that were already right.
+
+*Superseded 2026-09-07:* `og.png` — the site's social preview, rendered from
+`scripts/website/assets.html` — was the last surface still reading *Every token
+earned*; it now says *Save tokens*, with every page's `og:image:alt` moved with
+it.
+
 ---
 
 ## 0.9.94 — Extension (worker build number only)
