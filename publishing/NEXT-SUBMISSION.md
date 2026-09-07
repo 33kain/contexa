@@ -1,5 +1,11 @@
 # The 0.9.68 store push — handover
 
+> **Superseded snapshot, kept for provenance.** This is the handover as it stood
+> on 2026-08-31, when 0.9.68 was the shipped generation; every version, table row
+> and next step below describes *that* push. For the current review-facing state
+> read `SUBMISSION.md` (revised for 0.9.95) and the top of `CHANGELOG.md`.
+> Nothing links here, and nothing here is a to-do.
+
 **Written 2026-08-31, at the end of the session that produced 0.9.58 → 0.9.68.**
 The code work is finished and deployed. What remains is the store, and it was
 deliberately left for a fresh session with a person at a browser.

@@ -92,8 +92,11 @@ because that is what the extension works with. Nominative use is allowed;
 implying endorsement is not.
 
 - [x] ~~"Claude" appears nowhere in the extension **name**.~~ **Reversed, and
-      deliberately.** The shipped name is `CONTEXA - Claude prompts, without the
-      writing`. The policy forbids implying endorsement, not naming the service
+      deliberately.** The shipped name is `CONTEXA for Claude - Save tokens`
+      (0.9.95; it read `CONTEXA - Claude prompts, without the writing` when this
+      was reversed, and `CONTEXA for Claude - Every token earned` from 0.9.71).
+      The word stayed through every one of those. The policy forbids implying
+      endorsement, not naming the service
       an extension works with — and dropping the word cost the single most
       obvious search term against a speculative risk. Full reasoning in
       `SUBMISSION.md` § "The name, and the one policy call worth remembering".
