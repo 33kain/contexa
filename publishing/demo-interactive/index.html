@@ -1,0 +1,968 @@
+<title>Try CONTEXA</title>
+
+<!-- Interactive demo of CONTEXA. Private preview: not part of publishing/website/,
+     not deployed by deploy-pages.yml, not linked from the live site.
+
+     The look is the site's (publishing/website/site.css): system sans, black-ish
+     on white, one teal, rules between sections, no web font and nothing loaded
+     from anywhere else. The stage reproduces claude.ai's frame and the card as
+     extension/content.js draws it (.wrap, .label, .chips, .chip, the mascot
+     trigger and its gestures), with the same tokens.
+
+     What is real here: the two gates. ACTION_OPENERS and META_OBJECTS below are
+     copied verbatim from extension/background.js and run on the strings this
+     page builds, and the evidence check requires a verbatim fragment of what the
+     visitor typed. What is not real: no model is called. The moves are written
+     from templates chosen by keyword and filled with the visitor's own words, so
+     the mechanism is honest and the prose is canned. Nothing leaves the page. -->
+
+<style>
+/* ---- page tokens: the site's, all three theme states ------------------- */
+:root {
+  color-scheme: light dark;
+  --bg: #fff; --text: #333; --strong: #111; --muted: #666;
+  --rule: #ccc; --hair: #e6e6e6; --code-bg: #f4f4f4;
+  --link: #0e6e63; --focus: #0e6e63; --warn: #900;
+  /* the reproduced claude.ai frame, light */
+  --s-bg: #FAF9F5; --s-panel: #FFFFFF; --s-line: #E8E6DE;
+  --s-ink: #3D3929; --s-ink2: #5A574A; --s-ink3: #8A877A;
+  --s-user: #FFFFFF; --s-surface2: #FAF9F5; --s-border2: #DEDCD1;
+  --s-accent: #15a594; --s-accent-soft: #E0F2EF; --coral: #D97757;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #111; --text: #ccc; --strong: #eee; --muted: #999;
+    --rule: #444; --hair: #2a2a2a; --code-bg: #1c1c1c;
+    --link: #2cc4ae; --focus: #2cc4ae; --warn: #f0917f;
+    --s-bg: #262624; --s-panel: #30302E; --s-line: #3F3F3C;
+    --s-ink: #F5F4EF; --s-ink2: #C2C0B6; --s-ink3: #8F8D85;
+    --s-user: #3A3A37; --s-surface2: #3A3A37; --s-border2: #4A4A46;
+    --s-accent: #2cc4ae; --s-accent-soft: #274641;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #111; --text: #ccc; --strong: #eee; --muted: #999;
+  --rule: #444; --hair: #2a2a2a; --code-bg: #1c1c1c;
+  --link: #2cc4ae; --focus: #2cc4ae; --warn: #f0917f;
+  --s-bg: #262624; --s-panel: #30302E; --s-line: #3F3F3C;
+  --s-ink: #F5F4EF; --s-ink2: #C2C0B6; --s-ink3: #8F8D85;
+  --s-user: #3A3A37; --s-surface2: #3A3A37; --s-border2: #4A4A46;
+  --s-accent: #2cc4ae; --s-accent-soft: #274641;
+}
+
+html { background: var(--bg); }
+body {
+  background: var(--bg); color: var(--text);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Noto Sans", Helvetica, Arial, sans-serif;
+  font-size: 17px; line-height: 1.5; margin: 0;
+}
+.page { max-width: 48rem; margin: 0 auto; padding: 0 1.25rem 3.5rem; }
+@media (max-width: 40em) { body { font-size: 16px; } .page { padding: 0 1rem 2.5rem; } }
+
+h1, h2, h3 { color: var(--strong); line-height: 1.2; text-wrap: balance; }
+h1 { font-size: 1.95em; font-weight: 400; margin: 1.5rem 0 .3rem; }
+h2 { font-size: 1.3em; font-weight: 600; margin: 2.4rem 0 .6rem; }
+h3 { font-size: 1.02em; font-weight: 600; margin: 1.5rem 0 .3rem; }
+p, ul, ol { margin: 0 0 1rem; }
+p, li { max-width: 68ch; text-wrap: pretty; }
+ul { padding-left: 1.3rem; }
+li { margin-bottom: .35rem; }
+strong { color: var(--strong); font-weight: 600; }
+.muted { color: var(--muted); font-size: .92em; }
+a { color: var(--link); text-decoration: underline; text-decoration-thickness: 1px; text-underline-offset: .15em; }
+a:hover { text-decoration-thickness: 2px; }
+:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+hr { border: 0; border-top: 1px solid var(--rule); margin: 2.2rem 0; }
+code, kbd { font-family: ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace; font-size: .88em; }
+code { background: var(--code-bg); padding: 1px 4px; border-radius: 2px; }
+.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+
+/* ---- masthead ---------------------------------------------------------- */
+header.site { display: flex; align-items: center; gap: 1rem; margin: 1.75rem 0 0; }
+header.site .mascot { width: 58px; height: 50px; flex: none; }
+header.site .name { font-size: 1.5em; color: var(--strong); font-weight: 400; line-height: 1.1; margin: 0; }
+header.site .tagline { margin: .15rem 0 0; color: var(--muted); font-style: italic; }
+.strip {
+  margin: 1rem 0 0; padding-bottom: 1rem; border-bottom: 1px solid var(--rule);
+  color: var(--muted); font-size: .92em;
+}
+.strip b { color: var(--strong); font-weight: 600; }
+
+/* ---- the four steps: a real sequence, so it is numbered ---------------- */
+.steps { display: grid; grid-template-columns: repeat(4, 1fr); gap: 0; list-style: none;
+  margin: 1.6rem 0 1.2rem; padding: 0; border-top: 1px solid var(--hair); }
+.steps li { margin: 0; padding: .6rem .8rem .6rem 0; border-top: 2px solid transparent;
+  color: var(--muted); font-size: .86em; line-height: 1.35; transition: color .2s, border-color .2s; }
+.steps li .n { display: block; font-variant-numeric: tabular-nums; letter-spacing: .12em;
+  font-size: .82em; margin-bottom: .1rem; }
+.steps li[data-on="done"] { color: var(--text); border-top-color: var(--hair); }
+.steps li[data-on="now"] { color: var(--strong); border-top-color: var(--link); font-weight: 600; }
+@media (max-width: 40em) {
+  .steps { grid-template-columns: 1fr 1fr; gap: 0 .8rem; }
+  .steps li { padding-right: 0; }
+}
+
+/* ---- the stage: claude.ai's frame, the card as the extension draws it --- */
+.stage {
+  position: relative; background: var(--s-bg); color: var(--s-ink);
+  border: 1px solid var(--rule); max-width: 680px; overflow: hidden;
+  font: 13px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Noto Sans", Helvetica, Arial, sans-serif;
+}
+.stage .top { padding: 10px 16px; border-bottom: 1px solid var(--s-line);
+  font-size: 14px; font-weight: 600; letter-spacing: .01em; }
+.stage .thread { padding: 16px 16px 2px; min-height: 88px; }
+.stage .ghost {
+  border: 1px dashed var(--s-line); border-radius: 10px; padding: 11px 13px;
+  color: var(--s-ink3); font-style: italic; line-height: 1.5;
+}
+.stage .user { display: flex; justify-content: flex-end; margin-bottom: 12px; }
+.stage .user span { display: block; background: var(--s-user); border: 1px solid var(--s-line);
+  border-radius: 12px; padding: 9px 13px; max-width: 84%; white-space: pre-wrap;
+  overflow-wrap: anywhere; transition: box-shadow .25s, border-color .25s; }
+.stage .user.lit span { border-color: var(--s-accent); box-shadow: 0 0 0 1px var(--s-accent); }
+.stage .read-note { color: var(--s-ink3); font-size: 11.5px; margin: -6px 0 12px; text-align: right; }
+.stage .dock { padding: 4px 16px 16px; }
+
+/* the card */
+.wrap { --surface: var(--s-panel); --surface2: var(--s-surface2); --text2: var(--s-ink2);
+  --border2: var(--s-border2); --accent: var(--s-accent);
+  display: block; margin: 2px 0 14px; }
+.wrap.in { animation: cx-rise .22s ease both; }
+@keyframes cx-rise { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+.wrap .label { display: flex; align-items: center; gap: 6px; flex-wrap: wrap;
+  font-size: 9.5px; letter-spacing: .15em; text-transform: uppercase;
+  color: var(--text2); margin-bottom: 7px; }
+.wrap .label b { color: var(--accent); font-weight: 700; letter-spacing: .17em; }
+.wrap .label .cost { margin-left: auto; letter-spacing: .08em; font-variant-numeric: tabular-nums; }
+.wrap .chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.wrap .chip { display: inline-flex; align-items: center; background: var(--surface);
+  border: 1px solid var(--border2); border-radius: 999px; padding: 6px 13px; cursor: pointer;
+  font: inherit; font-size: 12px; line-height: 1.35; color: var(--s-ink);
+  max-width: 100%; text-align: left;
+  transition: border-color .14s, color .14s, transform .1s, background .14s; }
+.wrap .chip:hover { border-color: var(--accent); color: var(--accent); background: var(--surface2); transform: translateY(-1px); }
+.wrap .chip[aria-pressed="true"] { border-color: var(--accent); color: var(--accent);
+  background: var(--s-accent-soft); }
+.wrap .chip.busy { border-style: dashed; color: var(--text2); cursor: default;
+  animation: cxpulse 1.2s ease-in-out infinite; }
+@keyframes cxpulse { 0%,100% { opacity: .55; } 50% { opacity: 1; } }
+.wrap .quiet { display: inline-flex; align-items: center; gap: 7px; border: 1px dashed var(--border2);
+  border-radius: 999px; padding: 6px 14px; color: var(--text2); font-size: 12px; font-style: italic; }
+.wrap .quiet b { color: var(--accent); font-style: normal; }
+.evidence { margin: 8px 0 0; font-size: 11px; color: var(--s-ink3); line-height: 1.45; }
+.evidence q { font-style: italic; }
+
+/* the mascot trigger, with the extension's own gestures */
+.mas-slot { display: flex; align-items: center; gap: 9px; margin-bottom: 8px; min-height: 36px; }
+.mas { background: none; border: 0; padding: 0; cursor: pointer; position: relative;
+  display: inline-flex; line-height: 0; animation: mas-popin .55s cubic-bezier(.3,1.2,.4,1); transform-origin: 50% 100%; }
+.mas svg { width: 40px; height: 34.5px; display: block; }
+.mas:disabled { cursor: default; opacity: .45; }
+@keyframes mas-popin { 0% { transform: scale(0); } 62% { transform: scale(1.12,.86); } 82% { transform: scale(.95,1.06); } 100% { transform: scale(1); } }
+.mas .bubble { position: absolute; bottom: 100%; left: 50%; transform: translateX(-50%) translateY(3px);
+  margin-bottom: 7px; background: var(--s-panel); color: var(--s-ink); border: 1px solid var(--s-border2);
+  border-radius: 999px; padding: 4px 11px; font-size: 11px; line-height: 1.35; white-space: nowrap;
+  opacity: 0; transition: .2s; pointer-events: none; box-shadow: 0 2px 8px rgba(0,0,0,.12); }
+.mas .bubble b { color: var(--s-accent); font-weight: 700; }
+.mas:hover .bubble, .mas:focus-visible .bubble, .mas.peek .bubble { transform: translateX(-50%) translateY(0); opacity: 1; }
+.mas-wink { animation: mas-winkIdle 6s infinite; transform-box: fill-box; transform-origin: center; }
+@keyframes mas-winkIdle { 0%,93%,100% { transform: scaleY(1); } 94.5%,96.5% { transform: scaleY(.08); } }
+.mas-pup { animation: mas-glance 8s ease-in-out infinite; }
+@keyframes mas-glance { 0%,72%,100% { transform: translateX(0); } 80%,90% { transform: translateX(1.5px); } }
+.mas-whisp { opacity: 0; transition: .2s; }
+.mas:hover .mas-whisp, .mas.peek .mas-whisp { opacity: 1; }
+.mas-hint { color: var(--s-ink3); font-size: 11.5px; }
+
+/* the composer */
+.composer { display: flex; align-items: flex-end; gap: 10px; background: var(--s-panel);
+  border: 1px solid var(--s-line); border-radius: 16px; padding: 10px 10px 10px 14px;
+  box-shadow: 0 2px 14px rgba(0,0,0,.06); transition: border-color .2s, box-shadow .2s; }
+.composer:focus-within { border-color: var(--s-ink3); }
+.composer.filled { border-color: var(--s-accent); }
+.composer textarea {
+  flex: 1; min-width: 0; border: 0; background: none; resize: none; outline: none;
+  font: inherit; color: var(--s-ink); line-height: 1.5; padding: 2px 0; min-height: 44px;
+  max-height: 320px; overflow-y: auto; }
+.composer textarea::placeholder { color: var(--s-ink3); }
+.send { flex: none; width: 30px; height: 30px; border: 0; border-radius: 50%; background: var(--coral);
+  color: #fff; font-size: 11px; display: grid; place-items: center; cursor: pointer; }
+.send:disabled { opacity: .45; cursor: default; }
+.meter { display: flex; gap: .8rem; align-items: baseline; flex-wrap: wrap;
+  margin: 7px 2px 0; font-size: 11px; color: var(--s-ink3); font-variant-numeric: tabular-nums; }
+.meter .ready { color: var(--s-accent); font-weight: 600; }
+
+/* ---- controls under the stage ------------------------------------------ */
+.bar { display: flex; flex-wrap: wrap; gap: .5rem .6rem; align-items: center; margin: .9rem 0 0; }
+button.txt { background: none; border: 1px solid var(--rule); border-radius: 3px; padding: .38rem .7rem;
+  font: inherit; font-size: .88em; color: var(--link); cursor: pointer; min-height: 38px; }
+button.txt:hover { border-color: var(--link); }
+button.txt.primary { border-color: var(--link); color: var(--bg); background: var(--link); }
+button.txt.primary:hover { filter: brightness(1.08); }
+button.txt:disabled { color: var(--muted); border-color: var(--hair); cursor: default; background: none; }
+.bar .sep { color: var(--muted); font-size: .88em; }
+.log { margin: .9rem 0 0; padding: .55rem .7rem; background: var(--code-bg); border: 1px solid var(--hair);
+  font-family: ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+  font-size: 11.5px; line-height: 1.55; color: var(--muted); overflow-x: auto; }
+.log p { margin: 0; max-width: none; white-space: nowrap; }
+@media (max-width: 46em) { .log p { white-space: normal; } }
+.log p b { color: var(--strong); font-weight: 600; }
+.seeds { margin: 1.1rem 0 .3rem; }
+.seeds .lead { color: var(--muted); font-size: .88em; margin: 0 0 .45rem; }
+.seeds .row { display: flex; flex-wrap: wrap; gap: .5rem; }
+.seeds button { max-width: 100%; }
+
+/* ---- explanation blocks ------------------------------------------------ */
+.notes { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.4rem; margin: 1.2rem 0 0; }
+.notes h3 { margin-top: 0; }
+.notes p { font-size: .95em; margin: 0; }
+@media (max-width: 46em) { .notes { grid-template-columns: 1fr; gap: 1rem; } }
+footer.site { margin-top: 2.6rem; padding-top: 1rem; border-top: 1px solid var(--rule); font-size: .92em; color: var(--muted); }
+footer.site p { margin: .35rem 0; max-width: none; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation: none !important; transition: none !important; }
+}
+</style>
+
+<div class="page">
+
+<header class="site">
+  <svg class="mascot" viewBox="0 0 58 50" role="img" aria-label="The CONTEXA mascot: a teal rounded shape with two wide eyes and a small smile">
+    <defs>
+      <linearGradient id="hg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#2cc4ae"/><stop offset="1" stop-color="#15a594"/></linearGradient>
+      <linearGradient id="hp" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="58" y2="0"><stop offset="0" stop-color="#000"/><stop offset="1" stop-color="#000"/></linearGradient>
+      <linearGradient id="ho" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="58" y2="0"><stop offset="0" stop-color="#0a352f"/><stop offset="1" stop-color="#0a352f"/></linearGradient>
+    </defs>
+    <path d="M29 3 C43 3 53 12 53 26 L53 50 L5 50 L5 26 C5 12 15 3 29 3 Z" fill="url(#hg)"/>
+    <ellipse cx="21" cy="25.5" rx="7.4" ry="8.6" fill="#fff"/><ellipse cx="37" cy="25.5" rx="7.4" ry="8.6" fill="#fff"/>
+    <circle cx="22.9" cy="27.2" r="3.8" fill="url(#hp)"/><circle cx="38.9" cy="27.2" r="3.8" fill="url(#hp)"/>
+    <circle cx="21.7" cy="25.9" r="1.3" fill="#fff" opacity=".95"/><circle cx="37.7" cy="25.9" r="1.3" fill="#fff" opacity=".95"/>
+    <path d="M25 37 Q29 39.5 33 37" stroke="url(#ho)" stroke-width="2.6" fill="none" stroke-linecap="round"/>
+  </svg>
+  <div>
+    <p class="name">CONTEXA</p>
+    <p class="tagline">Save tokens. Extend your sessions.</p>
+  </div>
+</header>
+<p class="strip"><b>Interactive demo.</b> Nothing is installed, no model is called, and nothing you type leaves this page.</p>
+
+<h1>Write it roughly. Send it properly.</h1>
+<p>In the extension this happens inside claude.ai, on your own conversation. Here it happens in the page, on one message: type the way you actually type when you are in a hurry, press CONTEXA, and pick which complete message you would rather have sent.</p>
+
+<ol class="steps" id="steps">
+  <li data-step="write"><span class="n">1</span>Write it roughly</li>
+  <li data-step="read"><span class="n">2</span>Press CONTEXA</li>
+  <li data-step="pick"><span class="n">3</span>Pick a move</li>
+  <li data-step="edit"><span class="n">4</span>Edit, then it is ready</li>
+</ol>
+
+<div class="stage" id="stage">
+  <div class="top">Claude</div>
+  <div class="thread" id="thread">
+    <p class="ghost" id="ghost">Your conversation sits here. In the extension CONTEXA reads every message you wrote in it; in this demo it reads the one you are about to write below.</p>
+  </div>
+  <div class="dock">
+    <div class="mas-slot">
+      <button class="mas" id="mas" type="button" aria-label="Ask CONTEXA what to send next">
+        <svg viewBox="0 0 58 50" aria-hidden="true">
+          <defs>
+            <linearGradient id="tg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#2cc4ae"/><stop offset="1" stop-color="#15a594"/></linearGradient>
+            <linearGradient id="tp" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="58" y2="0"><stop offset="0" stop-color="#000"/><stop offset="1" stop-color="#000"/></linearGradient>
+            <linearGradient id="to" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="58" y2="0"><stop offset="0" stop-color="#0a352f"/><stop offset="1" stop-color="#0a352f"/></linearGradient>
+            <linearGradient id="tw" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="58" y2="0"><stop offset="0" stop-color="#2cc4ae"/><stop offset="1" stop-color="#2cc4ae"/></linearGradient>
+          </defs>
+          <path d="M29 3 C43 3 53 12 53 26 L53 50 L5 50 L5 26 C5 12 15 3 29 3 Z" fill="url(#tg)"/>
+          <g class="mas-pup">
+            <g><ellipse cx="21" cy="25.5" rx="7.4" ry="8.6" fill="#fff"/><circle cx="22.9" cy="27.2" r="3.8" fill="url(#tp)"/><circle cx="21.7" cy="25.9" r="1.3" fill="#fff" opacity=".95"/></g>
+            <g class="mas-wink"><ellipse cx="37" cy="25.5" rx="7.4" ry="8.6" fill="#fff"/><circle cx="38.9" cy="27.2" r="3.8" fill="url(#tp)"/><circle cx="37.7" cy="25.9" r="1.3" fill="#fff" opacity=".95"/></g>
+          </g>
+          <path d="M25 37 Q29 39.5 33 37" stroke="url(#to)" stroke-width="2.6" fill="none" stroke-linecap="round"/>
+          <ellipse class="mas-whisp" cx="41" cy="37" rx="4.6" ry="3.4" fill="url(#tw)"/>
+        </svg>
+        <span class="bubble">What now? <b>&#10022;</b></span>
+      </button>
+      <span class="mas-hint" id="masHint">Press me when your message is in the box.</span>
+    </div>
+    <div class="composer" id="composer">
+      <label class="sr-only" for="box">Your message to Claude</label>
+      <textarea id="box" rows="2" placeholder="Reply to Claude&#8230;" spellcheck="false"></textarea>
+      <button class="send" id="send" type="button" title="claude.ai's own Send. Nothing is sent from this demo." aria-label="Send (inert in this demo)">&#9650;</button>
+    </div>
+    <p class="meter"><span id="count">0 words &#183; &#8776; 0 tokens</span><span class="ready" id="readyFlag" hidden>Ready to send</span></p>
+  </div>
+</div>
+
+<div class="bar">
+  <button class="txt" type="button" id="copy" disabled>Copy the message</button>
+  <button class="txt" type="button" id="reset">Start over</button>
+  <span class="sep" id="editHint"></span>
+</div>
+
+<div class="log" id="log" role="status" aria-live="polite"><p>[CONTEXA] ready &#183; nothing read, nothing spent</p></div>
+
+<div class="seeds">
+  <p class="lead">Or start from one of these, the way somebody actually types them:</p>
+  <div class="row" id="seeds"></div>
+</div>
+
+<h2>What just happened</h2>
+<div class="notes">
+  <div>
+    <h3>Mined from your words</h3>
+    <p>Every move is earned by a fragment of what <em>you</em> wrote, quoted verbatim. A move that cannot quote you is dropped before you see it &mdash; which is why the reply on screen is material, never the subject.</p>
+  </div>
+  <div>
+    <h3>Two gates, both real</h3>
+    <p>The evidence check runs, then the action gate: a label that does not open with a doable verb is dropped, and one that produces another question rather than work is dropped too. The list is the extension's own, English and Serbian.</p>
+  </div>
+  <div>
+    <h3>Zero is a valid outcome</h3>
+    <p>There is no floor and no filler. Type three vague words and the card says so instead of inventing four moves. The count under the stage is the honest one.</p>
+  </div>
+</div>
+
+<h2>What the extension adds</h2>
+<ul>
+  <li><strong>The whole session, not one message.</strong> It reads every message you wrote in the conversation, oldest pinned first, and offers up to four independent moves.</li>
+  <li><strong>The exit from a heavy thread.</strong> Past about 12,000 tokens the card says how much is re-read on every send and offers <strong>Start fresh</strong>: a brief of a few hundred tokens, in a new conversation, unsent. Measured on one live session, the same five messages cost 9% of the five-hour limit in a 689k-token thread and 3% after the brief.</li>
+  <li><strong>Nothing sent until you click.</strong> A reply nobody asks about costs nothing and never leaves the page; clicking a move costs no further model call.</li>
+</ul>
+<p class="muted">The demo writes its moves from templates chosen by keyword, filled with your own words, and passed through the two gates above. The extension writes them with a model, against your whole session, and passes them through the same gates.</p>
+
+<footer class="site">
+  <p>CONTEXA &mdash; a third-party Chrome extension for claude.ai. Not affiliated with Anthropic.</p>
+  <p>Private preview. Not linked from <a href="https://contexa-website.pages.dev/">the site</a> and not part of it.</p>
+</footer>
+</div>
+
+<script>
+(function () {
+  'use strict';
+
+  /* ------------------------------------------------------------------
+     The two gates, copied verbatim from extension/background.js. They run
+     on the strings this page builds, exactly as they run on the model's
+     output in the product: a label without a production verb is dropped,
+     and so is one whose object is another question.
+     ------------------------------------------------------------------ */
+  var ACTION_OPENERS = new RegExp('^\\s*(' + [
+    'write|rewrite|draft|redraft|compose|author',
+    'build|rebuild|make|create|generate|produce|assemble',
+    'design|redesign|sketch|draw|wireframe|mock|model|prototype|storyboard',
+    'plan|outline|map|spec|scope|schedule|structure|organi[sz]e',
+    'add|extend|expand|fill|complete|finish',
+    'fix|repair|patch|correct|resolve|debug|unblock',
+    'set|setup|configure|install|deploy|publish|ship|release|wire',
+    'update|revise|refine|tighten|polish|improve|rework|refactor|simplify|clean',
+    'convert|port|migrate|translate|adapt|turn|swap|replace|rename|move|copy',
+    'split|merge|combine|group|sort|order|rank|filter|trim|cut|remove|delete|drop',
+    'list|enumerate|catalogue|catalog|tabulate|collect|gather|compile|extract|pull',
+    'test|run|check|verify|validate|measure|estimate|calculate|compute|forecast|benchmark|profile|audit|review|compare|evaluate|assess|diagnose|reproduce|trace|inspect|examine|investigate',
+    'define|specify|name|choose|pick|select|decide|settle',
+    'apply|enforce|implement|automate|script|instrument|do',
+    'napravi|napiši|napisi|izradi|kreiraj|generiši|generisi|sastavi|osmisli|smisli',
+    'definiši|definisi|precizuj|preciziraj|odredi|utvrdi|izaberi|odaberi',
+    'razradi|razvij|dopuni|dodaj|proširi|prosiri|dovrši|dovrsi|završi|zavrsi',
+    'postavi|podesi|instaliraj|deployuj|objavi|pusti|poveži|povezi',
+    'skiciraj|nacrtaj|iscrtaj|modeluj|modeliraj|projektuj|isprojektuj',
+    'popravi|ispravi|sredi|reši|resi|otkloni|debaguj',
+    'pretvori|prebaci|premesti|premjesti|zameni|zamijeni|preimenuj|kopiraj|migriraj|prevedi|prilagodi|uskladi',
+    'ažuriraj|azuriraj|osveži|osvezi|doradi|prepravi|refaktoriši|refaktorisi|pojednostavi|očisti|ocisti',
+    'proveri|provjeri|testiraj|izmeri|izmjeri|izračunaj|izracunaj|uporedi|usporedi|analiziraj|proceni|procijeni|reprodukuj|pregledaj|ispitaj',
+    'nabroji|izlistaj|popiši|popisi|prikupi|izvuci|sakupi',
+    'primeni|primijeni|implementiraj|automatizuj|skriptuj|uradi|odradi',
+    'ukloni|obriši|obrisi|izbaci|skrati|podeli|podijeli|spoji|grupiši|grupisi|sortiraj'
+  ].join('|') + ')\\b', 'i');
+  var META_OBJECTS = /\b(pitanj\w*|question|questions|odgovor\w*|answer|answers)\b/i;
+
+  /* ---------------- reading what the visitor wrote ------------------- */
+  var STOP = ' a an the and or but so if then than that this these those it its is are was were be been being am i me my we our you your they them their he she his her to of in on at for from with without about into over under after before while when where how what which who why do does did done can could should would will shall may might must not no nor very just really quite some any all each every much many more most need needs needed want wants get got make makes made have has had going go '
+    .split(' ').filter(Boolean);
+  var STOPSET = {};
+  for (var s = 0; s < STOP.length; s++) STOPSET[STOP[s]] = true;
+
+  var LEAD = /^(hi|hey|ok|okay|so|um|well|please|pls|basically|honestly|i need to|i need|i want to|i want|i'?m trying to|im trying to|i have to|i'?d like to|id like to|can you|could you|help me to|help me|help|need to|we need to|we need|trying to|how do i|how can i|treba mi|treba da|hoću da|hocu da|želim da|zelim da|možeš li|mozes li|pomozi mi da|pomozi mi|kako da)\b[\s,]+/i;
+
+  function tidy(t) { return String(t).replace(/\s+/g, ' ').trim(); }
+  function words(t) { return tidy(t).split(' ').filter(Boolean); }
+  function contentWords(t) {
+    return words(t.toLowerCase().replace(/[^\p{L}\p{N}\s'-]/gu, ' '))
+      .filter(function (w) { return w.length > 2 && !STOPSET[w]; });
+  }
+  function stripLead(s) {
+    var out = tidy(s);
+    for (var i = 0; i < 3; i++) { var n = out.replace(LEAD, ''); if (n === out) break; out = n; }
+    return out;
+  }
+  /* Split on sentence marks AND commas: people write one long line with commas
+     where they would write sentences, and each piece is still a contiguous run
+     of their own words, which is what the evidence check needs. */
+  function clauses(t) {
+    /* The decimal point in "4.2%" is not the end of a sentence. Hidden for the
+       split, restored straight after, so every piece stays verbatim. */
+    return tidy(t).replace(/(\d)\.(\d)/g, '$1\u0001$2')
+      .split(/[.!?;\n]+|,\s+/)
+      .map(function (c) { return tidy(c.replace(/\u0001/g, '.')); })
+      .filter(function (c) { return contentWords(c).length >= 2; });
+  }
+  /* A fragment kept for grounding is always a contiguous run of the visitor's
+     own words: lead-ins are stripped from the front, the tail is cut at a word
+     boundary, and nothing is rewritten. That is what makes the quote verbatim. */
+  function fragment(clause, max) {
+    var w = words(stripLead(clause)).slice(0, max || 14);
+    while (w.length > 3 && STOPSET[w[w.length - 1].toLowerCase().replace(/[^\p{L}\p{N}]/gu, '')]) w.pop();
+    return w.join(' ').replace(/[,:;]+$/, '');
+  }
+
+  /* The first clause is pinned, the way the extension pins the first captured
+     turn: the thing you say first is the closest thing to a stated goal. The
+     longest of the others becomes the context line. */
+  function readInput(raw) {
+    var cs = clauses(raw), i, f, topic = '', detail = '', at = -1;
+    for (i = 0; i < cs.length; i++) {
+      if (contentWords(cs[i]).length >= 3) { topic = fragment(cs[i], 14); at = i; break; }
+    }
+    if (!topic) topic = fragment(raw, 14);
+    for (i = 0; i < cs.length; i++) {
+      if (i === at) continue;
+      f = fragment(cs[i], 14);
+      if (f.length < 14 || topic.toLowerCase().indexOf(f.toLowerCase()) >= 0) continue;
+      if (f.length > detail.length) detail = f;
+    }
+    var low = ' ' + tidy(raw).toLowerCase() + ' ';
+    return {
+      raw: tidy(raw), low: low, topic: topic, detail: detail,
+      count: contentWords(raw).length,
+      foreign: (raw.match(LOOKS_SR) || []).length > 0 && !/\b(the|and|with|that|have|this|from)\b/i.test(raw),
+      has: function (re) { return re.test(low); }
+    };
+  }
+
+  /* ---------------- which family of moves this message calls for ----- */
+  var DOMAINS = [
+    ['learn', /\b(learn|learning|study|studying|understand|teach|course|tutorial|practi[cs]e|beginner|basics|naučit|naucit|učim|ucim)\b/],
+    ['decide', /\b(decide|deciding|choose|choosing|pick|options?|versus|vs|compare|worth it|should (i|we)|which (one|of|is)|better to|trade-?offs?|either|odlučit|odlucit|izabrat|da li da|ili)\b/],
+    ['data', /\b(data|numbers?|spreadsheet|csv|metrics?|analytics|chart|graph|report|revenue|conversion|figures?|podaci|brojevi)\b/],
+    ['build', /\b(bug|error|crash|fails?|failing|broken|code|app|api|server|database|deploy|function|script|css|html|react|node|python|sql|login|endpoint|build|test|refactor|kod|greška|greska)\b/],
+    ['write', /\b(email|e-mail|message|letter|post|blog|copy|article|reply|write|draft|announce|apolog|client|customer|newsletter|pitch|cv|resume|poruk|mejl|pišem|pisem)\b/],
+    ['plan', /\b(plan|planning|schedule|roadmap|launch|deadline|budget|trip|move|weeks?|months?|organi[sz]e|prepare|timeline|plan|rok)\b/]
+  ];
+  function domainOf(f) {
+    for (var i = 0; i < DOMAINS.length; i++) if (f.has(DOMAINS[i][1])) return DOMAINS[i][0];
+    return 'general';
+  }
+
+  /* The extension writes its moves with a model, so it answers in whatever
+     language you are already using. This demo writes them from English
+     templates. When the message is clearly not English, the card says so
+     rather than pretending the mixture was intended. */
+  var LOOKS_SR = /[šđčćžŠĐČĆŽ]|\b(da|se|ne|na|je|sam|što|sto|koji|ali|ili|mi|nam|treba|hoću|hocu|želim|zelim|jer|kod|sve|samo)\b/;
+
+  var HAS_ERROR = /\b(error|exception|crash|stack|trace|log|logs|fails?|failing|broken|timeout|500|404|greška|greska)\b/;
+  var HAS_PEOPLE = /\b(client|customer|team|boss|manager|users?|colleague|partner|investor|landlord|klijent|tim|šef|sef)\b/;
+  var HAS_TIME = /\b(week|weeks|day|days|month|months|deadline|tomorrow|tonight|monday|friday|autumn|spring|summer|winter|nedelj|dana|rok)\b/;
+  var HAS_NUM = /\d/;
+
+  /* ---------------- the move templates ------------------------------
+     Canned prose, the visitor's own words. Every label opens with a verb
+     from the list above; every text carries a verbatim fragment of what
+     was typed, which is what the evidence check then looks for.
+     ------------------------------------------------------------------ */
+  function P() { return Array.prototype.slice.call(arguments).join('\n'); }
+
+  var SETS = {
+    build: [
+      { label: 'Diagnose the most likely cause', text: function (f) { return P(
+        'Diagnose this, most likely cause first: ' + f.topic + '.',
+        '- three candidate causes, ranked, and what makes each one likely',
+        '- for each, the single check that rules it in or out in under five minutes',
+        '- name the file, setting or command I should be looking at',
+        'Assume: I can read code and run commands, so skip the basics.'); } },
+      { label: 'Write the smallest reproduction', detail: true, text: function (f) { return P(
+        'Write the smallest reproduction case for this: ' + f.topic + '.',
+        '- the exact steps, in order, that should trigger it every time',
+        '- what a healthy run looks like beside a broken one',
+        '- what to record while it happens so the cause is visible afterwards',
+        'Assume: I can run it locally, and one reliable case beats three vague ones.'); } },
+      { label: 'Trace it from the error backwards', when: function (f) { return f.has(HAS_ERROR); },
+        text: function (f) { return P(
+        'Trace this backwards from the error: ' + f.topic + '.',
+        'Error output: <paste here>',
+        '- read it line by line and say what each frame actually tells us',
+        '- name the first point in my own code where the state goes wrong',
+        '- what to log next if the trace is not enough',
+        'Assume: the output is complete and unedited.'); } },
+      { label: 'List the checks to run first', text: function (f) { return P(
+        'List the checks to run first here, ordered so each one eliminates the most possibilities: ' + f.topic + '.',
+        '- eight items at most, each a single command or click',
+        '- beside each, what its result rules out',
+        '- stop the list where the answer would already be obvious',
+        'Assume: nothing else changed at the same time.'); } },
+      { label: 'Plan the fix and the test for it', detail: true, text: function (f) { return P(
+        'Plan the fix and the test for it, assuming the most likely cause is the real one: ' + f.topic + '.',
+        '- the change itself in one paragraph, and where it goes',
+        '- what I run before shipping, and what result would prove it did not work',
+        '- what to leave alone even though it is tempting',
+        'Assume: a small reversible change beats a correct large one.'); } }
+    ],
+    write: [
+      { label: 'Draft the message', text: function (f) { return P(
+        'Draft this message for me: ' + f.topic + '.',
+        '- one short paragraph, then the specifics as a list',
+        '- lead with the fact, not with the apology',
+        '- end with the one thing I need back, and by when',
+        'Assume: they read it on a phone, in a hurry.'); } },
+      { label: 'Rewrite it three ways', detail: true, text: function (f) { return P(
+        'Rewrite that message three ways, same facts, different weight: plain, warm, formal. It is about: ' + f.topic + '.',
+        '- 120 words at most each',
+        '- say in one line which one you would send, and why',
+        'Assume: I would rather be short than careful.'); } },
+      { label: 'Write the reply to the pushback', when: function (f) { return f.has(HAS_PEOPLE); },
+        text: function (f) { return P(
+        'Write my reply to the hardest thing they can say back about this: ' + f.topic + '.',
+        '- name the three pushbacks, worst first',
+        '- a short reply to each, in my voice, conceding whatever is fair',
+        'Assume: I want to keep this relationship, not win the exchange.'); } },
+      { label: 'List what to leave out', text: function (f) { return P(
+        'List what to say and what to leave out here: ' + f.topic + '.',
+        '- what they need to know, in the order they will ask for it',
+        '- what is true but does not belong in this message',
+        '- the one sentence I should not write under any circumstances',
+        'Assume: this will be forwarded to somebody I have not met.'); } },
+      { label: 'Plan when to send it', when: function (f) { return f.has(HAS_TIME); }, detail: true,
+        text: function (f) { return P(
+        'Plan when to send this and what to do if there is no reply: ' + f.topic + '.',
+        '- the send window, and why that one',
+        '- one follow-up written out in full, and the day to send it',
+        '- the point at which I stop following up',
+        'Assume: silence is more likely than a refusal.'); } }
+    ],
+    plan: [
+      { label: 'Outline it week by week', text: function (f) { return P(
+        'Outline this week by week: ' + f.topic + '.',
+        '- what is finished by the end of each week, in one line',
+        '- the first task of each week, small enough to start today',
+        '- what slips first when I run out of time',
+        'Assume: I have evenings and one weekend day, not full days.'); } },
+      { label: 'List what has to be true first', detail: true, text: function (f) { return P(
+        'List what has to be true for this to work: ' + f.topic + '.',
+        '- the assumptions I am making without noticing',
+        '- which of them I can check this week, and how',
+        '- which one, if it is wrong, kills the whole plan',
+        'Assume: I would rather find that one now than in week three.'); } },
+      { label: 'Map the three risks', text: function (f) { return P(
+        'Map the three real risks here and what each one costs: ' + f.topic + '.',
+        '- how I would spot each one early',
+        '- the cheapest thing that reduces it',
+        '- the risk I should simply accept and stop thinking about',
+        'Assume: I cannot buy my way out of any of them.'); } },
+      { label: 'Estimate the time and the cost', when: function (f) { return f.has(HAS_NUM) || f.has(HAS_TIME); },
+        detail: true, text: function (f) { return P(
+        'Estimate what this takes, in time and in money: ' + f.topic + '.',
+        '- a low, a likely and a high figure, and what separates them',
+        '- the line item people always underestimate here',
+        'Assume: my own estimate is optimistic by about a third.'); } },
+      { label: 'Draft the first two days', text: function (f) { return P(
+        'Draft the first two days of this in detail: ' + f.topic + '.',
+        '- the exact first action, and what I need in front of me for it',
+        '- what done looks like at the end of day two',
+        'Assume: starting badly is the failure mode here, not finishing badly.'); } }
+    ],
+    learn: [
+      { label: 'Plan the first four weeks', text: function (f) { return P(
+        'Plan the first four weeks of this: ' + f.topic + '.',
+        '- an hour at a time, what I do in each session',
+        '- one thing built by the end of each week, not just read',
+        '- what I will be able to do at the end that I cannot do now',
+        'Assume: I learn by making things and lose interest reading theory.'); } },
+      { label: 'Build the smallest first project', detail: true, text: function (f) { return P(
+        'Build me the smallest first project for this: ' + f.topic + '.',
+        '- what it does, in two sentences',
+        '- the pieces it forces me to learn, and in what order',
+        '- how I know it works',
+        'Assume: one evening, not one weekend.'); } },
+      { label: 'List what to skip for now', text: function (f) { return P(
+        'List what to skip for now here: ' + f.topic + '.',
+        '- the parts everybody teaches first that I do not need yet',
+        '- what I will eventually need them for, so I know when to come back',
+        'Assume: I would rather be productive and shallow for a month than blocked and thorough.'); } },
+      { label: 'Test what I already know', detail: true, text: function (f) { return P(
+        'Write me ten short exercises that show what I already know and what I do not: ' + f.topic + '.',
+        '- five I should pass immediately, five that will hurt',
+        '- the key at the end, not beside them',
+        'Assume: I will be honest with myself about the score.'); } }
+    ],
+    decide: [
+      { label: 'Compare the options on my constraints', text: function (f) { return P(
+        'Compare the options against my constraints: ' + f.topic + '.',
+        '- one table, options down the side, my constraints across the top',
+        '- one line per cell, no hedging',
+        '- the option you would pick, and the single reason',
+        'Assume: I will live with this for a year.'); } },
+      { label: 'List what would change the call', detail: true, text: function (f) { return P(
+        'List what would change the call here: ' + f.topic + '.',
+        '- the facts I do not have that would flip the decision',
+        '- how to get each one cheaply, this week',
+        '- the point where more information stops being worth it',
+        'Assume: right now I am deciding on feel.'); } },
+      { label: 'Write the case for one option', text: function (f) { return P(
+        'Write the case for the option you would pick, as if you had to convince me: ' + f.topic + '.',
+        '- what it gets me in the first month',
+        '- the cost I am pretending is smaller than it is',
+        '- what I would have to give up',
+        'Assume: I have already heard the argument for the safe choice.'); } },
+      { label: 'Check what I am assuming', detail: true, text: function (f) { return P(
+        'Check what I am assuming in this: ' + f.topic + '.',
+        '- the assumption doing the most work, quoted back to me',
+        '- what happens to the decision if it turns out to be false',
+        'Assume: I do not need reassurance, I need the hole found.'); } }
+    ],
+    data: [
+      { label: 'Check the numbers for traps', text: function (f) { return P(
+        'Check these numbers for the traps I am likely to walk into: ' + f.topic + '.',
+        'The figures: <paste here>',
+        '- what the totals hide',
+        '- the comparison that is not like for like',
+        '- the number I should not quote without a caveat',
+        'Assume: somebody will repeat whatever I say next.'); } },
+      { label: 'List the three cuts worth making', detail: true, text: function (f) { return P(
+        'List the three cuts of this data worth an hour of my time: ' + f.topic + '.',
+        '- what each cut would show, and why it is worth doing',
+        '- the cut that looks interesting and is not',
+        'Assume: I have the raw rows and an hour.'); } },
+      { label: 'Draft the summary paragraph', text: function (f) { return P(
+        'Draft the summary paragraph for this: ' + f.topic + '.',
+        '- the finding in the first sentence, with the number in it',
+        '- what it does not prove',
+        '- one line on what I would do about it',
+        'Assume: the reader stops after three sentences.'); } },
+      { label: 'Design the one chart that settles it', detail: true, text: function (f) { return P(
+        'Design the one chart that settles this: ' + f.topic + '.',
+        '- what goes on each axis, and in what unit',
+        '- what the reader should see within five seconds',
+        '- why the obvious chart type is the wrong one here',
+        'Assume: it will be looked at on a phone.'); } }
+    ],
+    general: [
+      { label: 'Turn this into a brief', text: function (f) { return P(
+        'Turn this into a brief I can act on: ' + f.topic + '.',
+        '- what I am actually trying to get, in one sentence',
+        '- what is already settled and should not be reopened',
+        '- what is still open, shortest first',
+        'Assume: I have been circling this for longer than I want to admit.'); } },
+      { label: 'Outline the first three steps', detail: true, text: function (f) { return P(
+        'Outline the first three steps here: ' + f.topic + '.',
+        '- the first one small enough to finish in ten minutes',
+        '- what each step makes possible',
+        '- what I should not start yet',
+        'Assume: momentum matters more than order.'); } },
+      { label: 'Write the version I can act on today', text: function (f) { return P(
+        'Write the version of this I can act on today: ' + f.topic + '.',
+        '- the concrete thing, not the category it belongs to',
+        '- what I need in front of me before I start',
+        'Assume: anything I cannot start today, I will not start.'); } },
+      { label: 'List what is still undecided', detail: true, text: function (f) { return P(
+        'List what is still undecided here, and what each choice costs: ' + f.topic + '.',
+        '- the decisions I am avoiding, named plainly',
+        '- the one that blocks the others',
+        'Assume: not deciding is also a decision, and I have been making it.'); } }
+    ]
+  };
+
+  /* ---------------- mine, then gate --------------------------------- */
+  function mine(raw) {
+    var f = readInput(raw);
+    if (f.count < 3 || f.topic.length < 12) {
+      return { moves: [], total: 0, noEvidence: 0, gateDrops: 0, why: 'quiet', f: f };
+    }
+    var set = SETS[domainOf(f)], cand = [], i;
+    for (i = 0; i < set.length && cand.length < 4; i++) {
+      if (set[i].when && !set[i].when(f)) continue;
+      var text = set[i].text(f);
+      if (set[i].detail && f.detail) text += '\nContext: ' + f.detail + '.';
+      cand.push({ label: set[i].label, text: text });
+    }
+    var total = cand.length;
+
+    /* Evidence, as the product checks it: a move survives only if it carries a
+       fragment that also occurs verbatim in what was written. */
+    var pool = [f.topic, f.detail].filter(function (q) { return q && q.length >= 12; });
+    var grounded = [], noEvidence = 0;
+    for (i = 0; i < cand.length; i++) {
+      var found = '', j;
+      for (j = 0; j < pool.length; j++) {
+        var q = pool[j].toLowerCase();
+        if (cand[i].text.toLowerCase().indexOf(q) >= 0 && f.low.indexOf(q) >= 0
+          && q.length > found.length) found = pool[j];
+      }
+      if (!found) { noEvidence++; continue; }
+      cand[i].evidence = found;
+      grounded.push(cand[i]);
+    }
+
+    /* The action gate, failing closed. */
+    var keep = [], gateDrops = 0;
+    for (i = 0; i < grounded.length; i++) {
+      if (!ACTION_OPENERS.test(grounded[i].label) || META_OBJECTS.test(grounded[i].label)) { gateDrops++; continue; }
+      keep.push(grounded[i]);
+    }
+    return {
+      moves: keep, total: total, noEvidence: noEvidence, gateDrops: gateDrops,
+      why: keep.length ? null : (grounded.length ? 'action' : 'quiet'), f: f
+    };
+  }
+
+  /* ---------------- the page ---------------------------------------- */
+  var box = document.getElementById('box'), thread = document.getElementById('thread'),
+      ghost = document.getElementById('ghost'), mas = document.getElementById('mas'),
+      masHint = document.getElementById('masHint'), composer = document.getElementById('composer'),
+      send = document.getElementById('send'), count = document.getElementById('count'),
+      readyFlag = document.getElementById('readyFlag'), copyBtn = document.getElementById('copy'),
+      resetBtn = document.getElementById('reset'), editHint = document.getElementById('editHint'),
+      logBox = document.getElementById('log'), steps = document.getElementById('steps'),
+      stage = document.getElementById('stage');
+  var reduced = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  var card = null, state = 'write';
+
+  var SEEDS = [
+    ['A bug that started last week',
+     'the login on our react app randomly logs people out after a few minutes, started last week when we moved sessions to redis, no idea where to look'],
+    ['Bad news for a client',
+     'have to tell a client the launch slips two weeks, they already paid half up front and they were annoyed the last time, want to keep them'],
+    ['Learning something new',
+     'i want to learn rust properly this autumn, i already know python well, about an hour most evenings and i give up when it gets theoretical']
+  ];
+
+  function tokensOf(t) { return Math.round(t.length / 4); }
+  function log(line, strong) {
+    var p = document.createElement('p');
+    if (strong) { p.appendChild(document.createTextNode('[CONTEXA] ')); var b = document.createElement('b');
+      b.textContent = line; p.appendChild(b); }
+    else p.textContent = '[CONTEXA] ' + line;
+    logBox.appendChild(p);
+    while (logBox.children.length > 4) logBox.removeChild(logBox.firstChild);
+  }
+  var HINTS = {
+    write: 'Press me when your message is in the box.',
+    read: 'Reading your message\u2026',
+    pick: 'Pick one. Clicking costs nothing.',
+    edit: 'Yours to edit. Nothing is sent from this demo.'
+  };
+  function setStep(name) {
+    state = name;
+    masHint.textContent = HINTS[name];
+    var order = ['write', 'read', 'pick', 'edit'], at = order.indexOf(name), i;
+    var items = steps.querySelectorAll('li');
+    for (i = 0; i < items.length; i++) {
+      items[i].setAttribute('data-on', i < at ? 'done' : i === at ? 'now' : 'next');
+      if (i === at) items[i].setAttribute('aria-current', 'step'); else items[i].removeAttribute('aria-current');
+    }
+  }
+  function meter() {
+    var v = box.value.trim();
+    var w = v ? words(v).length : 0;
+    count.textContent = w + (w === 1 ? ' word' : ' words') + ' · ≈ ' + tokensOf(v) + ' tokens';
+    mas.disabled = !v || state === 'read';
+    send.disabled = !v;
+  }
+  function newCard() {
+    if (card) card.parentNode.removeChild(card);
+    card = document.createElement('div');
+    card.className = 'wrap in';
+    var label = document.createElement('div');
+    label.className = 'label';
+    var b = document.createElement('b'); b.textContent = '✦';
+    label.appendChild(b);
+    label.appendChild(document.createTextNode(' CONTEXA'));
+    var cost = document.createElement('span'); cost.className = 'cost'; cost.id = 'cost';
+    label.appendChild(cost);
+    card.appendChild(label);
+    var chips = document.createElement('div');
+    chips.className = 'chips';
+    card.appendChild(chips);
+    thread.appendChild(card);
+    return chips;
+  }
+
+  /* Press: the message becomes the turn CONTEXA read, the box empties to
+     receive the prompt, and only then is anything mined. */
+  function press() {
+    var raw = box.value.trim();
+    if (!raw || state === 'read') return;
+    setStep('read');
+    ghost.hidden = true;
+    var turn = thread.querySelector('.user');
+    if (!turn) {
+      turn = document.createElement('div');
+      turn.className = 'user';
+      turn.appendChild(document.createElement('span'));
+      thread.insertBefore(turn, ghost);
+      var note = document.createElement('p');
+      note.className = 'read-note';
+      note.id = 'readNote';
+      thread.insertBefore(note, turn.nextSibling);
+    }
+    turn.querySelector('span').textContent = raw;
+    turn.classList.add('lit');
+    document.getElementById('readNote').textContent =
+      'read by CONTEXA · nothing sent';
+    box.value = '';
+    composer.classList.remove('filled');
+    readyFlag.hidden = true;
+    copyBtn.disabled = true;
+    editHint.textContent = '';
+    meter();
+
+    var chips = newCard();
+    var busy = document.createElement('span');
+    busy.className = 'chip busy';
+    busy.textContent = '✦ reading…';
+    chips.appendChild(busy);
+    log('reading your message — ' + tokensOf(raw) + ' tokens, no model called in this demo');
+
+    window.setTimeout(function () { show(mine(raw), raw); }, reduced ? 120 : 750);
+  }
+
+  function show(res, raw) {
+    var chips = newCard();
+    document.getElementById('cost').textContent = '≈ ' + tokensOf(raw) + ' tokens read';
+    if (!res.moves.length) {
+      var quiet = document.createElement('span');
+      quiet.className = 'quiet';
+      var qb = document.createElement('b'); qb.textContent = '✦';
+      quiet.appendChild(qb);
+      quiet.appendChild(document.createTextNode(' ' + (res.why === 'action'
+        ? 'Nothing worth clicking here.' : 'Nothing for now.')));
+      chips.appendChild(quiet);
+      var hint = document.createElement('p');
+      hint.className = 'evidence';
+      hint.textContent = res.why === 'action'
+        ? 'Moves came back and the action gate dropped every one of them. In the product that is sometimes a defect in the verb list, not an empty session — which is why the two cards read differently.'
+        : 'An honest zero: there was not enough here to quote. Say what you are trying to get and what is in the way, then press again.';
+      card.appendChild(hint);
+      log(res.why === 'action'
+        ? 'action gate emptied the row — ' + res.gateDrops + ' move(s) dropped'
+        : 'quiet row — nothing mined from this message', true);
+      setStep('write');
+      meter();
+      return;
+    }
+
+    res.moves.forEach(function (m) {
+      var chip = document.createElement('button');
+      chip.className = 'chip';
+      chip.type = 'button';
+      chip.textContent = m.label;
+      chip.title = m.text;
+      chip.setAttribute('aria-pressed', 'false');
+      chip.addEventListener('click', function () { pick(m, chip); });
+      chips.appendChild(chip);
+    });
+    var ev = document.createElement('p');
+    ev.className = 'evidence';
+    ev.id = 'evidence';
+    ev.textContent = 'Each move is earned by something you wrote. Hover a move to see the whole message it composes.';
+    card.appendChild(ev);
+    if (res.f.foreign) {
+      var note = document.createElement('p');
+      note.className = 'evidence';
+      note.textContent = 'You wrote in another language. This demo composes from English templates and quotes you verbatim; the extension writes the whole move in the language you are already using.';
+      card.appendChild(note);
+    }
+    log(res.total + ' mined · ' + res.moves.length + ' grounded · ' +
+      res.noEvidence + ' without evidence · ' + res.gateDrops + ' dropped by the action gate');
+    setStep('pick');
+    meter();
+  }
+
+  function pick(m, chip) {
+    var all = card.querySelectorAll('.chip');
+    for (var i = 0; i < all.length; i++) all[i].setAttribute('aria-pressed', 'false');
+    chip.setAttribute('aria-pressed', 'true');
+    box.value = m.text;
+    composer.classList.add('filled');
+    grow();
+    meter();
+    readyFlag.hidden = false;
+    copyBtn.disabled = false;
+    var q = document.getElementById('evidence');
+    if (q) q.textContent = 'Earned by your own words: “' + m.evidence + '”';
+    var slot = m.text.indexOf('<paste here>');
+    editHint.textContent = slot >= 0
+      ? 'Replace <paste here>, and change the Assume: line if it is wrong.'
+      : 'Change the line beginning Assume: before you send — that is the part only you know.';
+    setStep('edit');
+    box.focus();
+    if (slot >= 0) { try { box.setSelectionRange(slot, slot + 12); } catch (e) {} }
+    else { try { box.setSelectionRange(box.value.length, box.value.length); } catch (e) {} }
+    log('composed into the message box · ' + tokensOf(m.text) + ' tokens · nothing sent');
+  }
+
+  function grow() {
+    box.style.height = 'auto';
+    box.style.height = Math.min(box.scrollHeight, 320) + 'px';
+  }
+
+  function reset() {
+    if (card) { card.parentNode.removeChild(card); card = null; }
+    var turn = thread.querySelector('.user'), note = document.getElementById('readNote');
+    if (turn) turn.parentNode.removeChild(turn);
+    if (note) note.parentNode.removeChild(note);
+    ghost.hidden = false;
+    box.value = '';
+    composer.classList.remove('filled');
+    readyFlag.hidden = true;
+    copyBtn.disabled = true;
+    editHint.textContent = '';
+    grow(); meter();
+    setStep('write');
+    log('ready · nothing read, nothing spent');
+    box.focus();
+  }
+
+  mas.addEventListener('click', press);
+  send.addEventListener('click', function () {
+    log('nothing is sent from this demo — in the extension this button is claude.ai’s own Send', true);
+  });
+  box.addEventListener('input', function () { grow(); meter(); });
+  resetBtn.addEventListener('click', reset);
+  copyBtn.addEventListener('click', function () {
+    var text = box.value;
+    function done() { copyBtn.textContent = 'Copied'; window.setTimeout(function () {
+      copyBtn.textContent = 'Copy the message'; }, 1600); }
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(done, select);
+    } else select();
+    function select() {
+      box.focus(); box.select();
+      copyBtn.textContent = 'Selected — press Ctrl/Cmd+C';
+      window.setTimeout(function () { copyBtn.textContent = 'Copy the message'; }, 2600);
+    }
+  });
+
+  var seedRow = document.getElementById('seeds');
+  SEEDS.forEach(function (s) {
+    var btn = document.createElement('button');
+    btn.className = 'txt';
+    btn.type = 'button';
+    btn.textContent = s[0];
+    btn.addEventListener('click', function () {
+      reset();
+      box.value = s[1];
+      grow(); meter();
+      box.focus();
+      stage.scrollIntoView({ block: 'nearest', behavior: reduced ? 'auto' : 'smooth' });
+    });
+    seedRow.appendChild(btn);
+  });
+
+  /* At rest the box already holds a message, so the first thing on screen is
+     the product in a working state rather than an empty shell. */
+  box.value = SEEDS[0][1];
+  grow(); meter(); setStep('write');
+  if (!reduced) window.setTimeout(function () {
+    mas.classList.add('peek');
+    window.setTimeout(function () { mas.classList.remove('peek'); }, 2200);
+  }, 900);
+})();
+</script>
