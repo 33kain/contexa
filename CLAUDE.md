@@ -13,9 +13,10 @@ Three artifacts ship from this repo:
 **tokenbrake** — the Claude Code hooks package (shell-output trim, Read cap, `tokenbrake report`) — lived in
 `tokenbrake/` here until 2026-09-06 and is now its own repository, `33kain/tokenbrake`, split out with its history. It
 shares an idea with CONTEXA (every request re-reads everything before it) and nothing else: it is hooks for Claude Code,
-not a browser extension. What remains here is `.claude/settings.json` plus `.claude/hooks/tokenbrake/guard.js`, the
-project-scope install that gives every Claude Code and Cowork session on this repository brake 1; `guard.js` there is a
-copy, refreshed by `npx tokenbrake init --project`, not a source.
+not a browser extension. A project-scope install (`.claude/settings.json` plus a copy of `guard.js`) gave every session
+on this repository brake 1 from 2026-09-06 to 2026-09-10 and wrote the per-session reports in `ab-results/real/`; it was
+removed on 2026-09-10 (`npx tokenbrake uninstall`), so sessions here now run without hooks unless the user installs them
+at user scope. `.claude/settings.json` is empty on purpose.
 
 They deploy on separate paths on purpose (a worker fix shouldn't force a Chrome Web Store resubmission), but they ship **one product per generation**: `build.mjs` fails if `BUILD` and the manifest version disagree, and they **share a byte-identical system prompt** — see Architecture below. (`CHANGELOG.md`'s header states the same rule.)
 
@@ -40,14 +41,16 @@ The Cloudflare Worker has no build step; deployment is `npx wrangler deploy` fro
 
 ## Before a session ends
 
-Every Claude Code and Cowork session on this repository runs with tokenbrake brake 1 (the project-scope hooks in `.claude/settings.json`). Before you finish — after the last commit of the actual work, before the final push — leave the session's own measurement behind:
+The tokenbrake report step is retired: the project-scope hooks that produced the measurement were removed on 2026-09-10, and a report from a session without them would say nothing. The files already in `ab-results/real/` stay as the record of the sessions that ran with brake 1 (its `README.md` says how to read them). Nothing else is required before a session ends beyond committing the work.
+
+For reference, the retired rule was: after the last commit of the actual work, before the final push, leave the session's own measurement behind with
 
 ```bash
 mkdir -p ab-results/real
 npx --yes tokenbrake@0.2.4 report --top=8 > "ab-results/real/$(date -u +%F)-<session>.txt"
 ```
 
-where `<session>` is the eight-character prefix printed on the report's first line (`Session ced42a1a…`). Commit that one file on your current branch, with the message `ab-results: tokenbrake report for <session>`, and push. Do not amend it into a work commit and do not edit its content. If the branch is merged the file rides along to `main`; if it is not, it stays on the session branch. Either way it is collected from every `claude/…` branch, so never open a PR just to deliver one. `ab-results/real/README.md` says what the files are for. The command needs the network once for the npm fetch; if it fails, say so in your final message rather than skipping silently.
+where `<session>` was the eight-character prefix on the report's first line, committed alone as `ab-results: tokenbrake report for <session>` and collected from every `claude/…` branch. Do not run it now; without the hooks it measures nothing.
 
 ## Architecture
 
@@ -104,7 +107,7 @@ Everything the model returns (labels, texts, evidence) renders through `document
 ```
 extension/            the product (Chrome extension, MV3)
 worker/               the hosted backend (Cloudflare Worker)
-.claude/              project-scope tokenbrake hooks (settings.json + a copy of guard.js); the package itself is 33kain/tokenbrake
+.claude/              empty project settings (the tokenbrake hooks that lived here were removed 2026-09-10; the package is 33kain/tokenbrake)
 build.mjs             extension/ -> build-ready/ + store zip, plus the invariant checks above
 publishing/           Chrome Web Store listing copy, privacy policy, screenshots, submission notes
 publishing/website/   the static product site (deployed to Cloudflare Pages by deploy-pages.yml)
