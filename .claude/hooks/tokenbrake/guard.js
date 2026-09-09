@@ -4,7 +4,9 @@
 // Zero dependencies. Fails open: any error => exit 0 with no output, Claude Code proceeds unchanged.
 //
 // Modes (argv[2]):
-//   post      PostToolUse (matcher *): trims oversized Bash/PowerShell output, logs every tool result size
+//   post      PostToolUse (matcher *) and PostToolUseFailure (Bash|PowerShell): trims oversized shell output,
+//             logs every tool result size. A command that exits non-zero is a different event, and until 0.2.2
+//             the guard never saw it: every failing test run entered whole.
 //   read-pre  PreToolUse (matcher Read): caps unbounded reads of large files via updatedInput.limit
 
 const fs = require('fs');
@@ -22,6 +24,7 @@ const DEFAULTS = {
   headLines: 40,
   tailLines: 40,
   keepErrorLines: 20,    // lines from the middle that look like errors/warnings are kept
+  errorContextLines: 3,  // and this many lines after each, up to a blank line: the assertion, the expected/actual, the first frame
   readMaxBytes: 60000,   // Read without offset/limit on a file bigger than this gets capped
   readLimitLines: 300,
   persistedLimitLines: 80, // a saved tool output (Claude Code's tool-results/, tokenbrake's out/) read whole is capped at this
@@ -35,6 +38,10 @@ const DEFAULTS = {
    too big to read whole, whatever readMaxBytes says. */
 const PERSISTED = /(^|[\\/])(tool-results|tokenbrake[\\/]out)[\\/][^\\/]+\.txt$/;
 
+/* A line that opens with a pass marker is a passing test whatever its name says: "ok   error render call
+   passes resp through" is not an error. Without this, a suite whose test names mention errors fills the
+   keepErrorLines budget with green lines and the real FAIL further down never makes the cut. */
+const PASS = /^\s*(?:ok|pass(?:ed)?|✓|✔|√)\b/i;
 const ERR = /\b(error|err!|fail(ed|ure|ing)?|exception|traceback|panic|fatal|warn(ing)?|not found|cannot|denied|refused)\b|✗|✖/i;
 
 function loadConfig() {
@@ -61,21 +68,54 @@ function trimText(text, cfg, savedPath) {
   let out;
 
   if (lines.length > cfg.headLines + cfg.tailLines + 5) {
-    const head = lines.slice(0, cfg.headLines);
-    const tail = lines.slice(-cfg.tailLines);
-    const midStart = cfg.headLines, midEnd = lines.length - cfg.tailLines;
-    const flagged = [];
-    for (let i = midStart; i < midEnd && flagged.length < cfg.keepErrorLines; i++) {
-      if (ERR.test(lines[i])) flagged.push(`  L${i + 1}: ${short(lines[i], 200)}`);
-    }
-    const omitted = midEnd - midStart;
-    const marker = [
+    /* Flagged lines from the middle, each with the lines that follow it up to a blank line or
+       errorContextLines, whichever comes first. A FAIL line alone names the test; the assertion, the
+       expected/actual pair and the first stack frame are the lines after it, and a model that gets only
+       the name comes back for the rest: a whole extra request that re-reads everything. Windows that
+       touch are merged; a gap between windows is shown as one "…" line. */
+    const chars = (arr) => arr.reduce((n, l) => n + l.length + 1, 0);
+    let headN = cfg.headLines, tailN = cfg.tailLines;
+    let ctx = Math.max(0, Number(cfg.errorContextLines) || 0);
+    const flaggedLines = (ctx) => {
+      const midStart = headN, midEnd = lines.length - tailN;
+      const keep = new Map();
+      let flaggedCount = 0;
+      for (let i = midStart; i < midEnd && flaggedCount < cfg.keepErrorLines; i++) {
+        if (PASS.test(lines[i]) || !ERR.test(lines[i])) continue;
+        flaggedCount++;
+        keep.set(i, true);
+        for (let j = i + 1; j <= i + ctx && j < midEnd; j++) {
+          if (!lines[j].trim()) break;
+          keep.set(j, true);
+        }
+      }
+      const out = [];
+      let prev = null;
+      for (const i of [...keep.keys()].sort((a, b) => a - b)) {
+        if (prev != null && i !== prev + 1) out.push('  …');
+        out.push(`  L${i + 1}: ${short(lines[i], 200)}`);
+        prev = i;
+      }
+      return out;
+    };
+    const marker = (flagged) => [
       '',
-      `[tokenbrake] ${omitted} lines omitted here (${text.length.toLocaleString()} chars total).${note}`,
-      ...(flagged.length ? [`[tokenbrake] error/warning-looking lines from the omitted region:`, ...flagged] : []),
+      `[tokenbrake] ${lines.length - tailN - headN} lines omitted here (${text.length.toLocaleString()} chars total).${note}`,
+      ...(flagged.length ? [`[tokenbrake] error/warning-looking lines from the omitted region${ctx ? `, each with up to ${ctx} lines after it` : ''}:`, ...flagged] : []),
       ''
     ];
-    out = [...head, ...marker, ...tail].join('\n');
+    /* Budget, in this order: the flagged lines and their context first, since they are what the model
+       would otherwise come back for; then head and tail fill what is left of maxChars, down to a floor
+       of ten lines each. Context that would take more than half the budget on its own is dropped and the
+       flagged lines stand alone, as before 0.2.2. */
+    let flagged = flaggedLines(ctx);
+    if (ctx && chars(flagged) > cfg.maxChars / 2) { ctx = 0; flagged = flaggedLines(0); }
+    const total = () => chars(lines.slice(0, headN)) + chars(marker(flagged)) + chars(lines.slice(lines.length - tailN));
+    while (total() > cfg.maxChars && (headN > 10 || tailN > 10)) {
+      if (headN >= tailN && headN > 10) headN--; else if (tailN > 10) tailN--; else headN--;
+    }
+    if (headN !== cfg.headLines || tailN !== cfg.tailLines) flagged = flaggedLines(ctx);   // the middle grew: scan it once more
+    out = [...lines.slice(0, headN), ...marker(flagged), ...lines.slice(lines.length - tailN)].join('\n');
   } else {
     // Few lines but huge (minified output, one giant line): cut by characters.
     const half = Math.floor(cfg.maxChars / 2);
@@ -94,12 +134,16 @@ function handlePost(input, cfg) {
   const ti = input.tool_input || {};
   const resp = input.tool_response;
   const isShell = tool === 'Bash' || tool === 'PowerShell';
-
-  let text = '';
-  if (typeof resp === 'string') text = resp;
-  else if (resp && typeof resp === 'object') {
-    text = isShell ? [resp.stdout, resp.stderr].filter(Boolean).join('\n') : JSON.stringify(resp);
-  }
+  /* PostToolUseFailure: for Bash, the command exited non-zero. The output arrives in `error` as one string
+     ("Exit code 1", then stdout and stderr), with no tool_response on the Claude Code line this was written
+     against (2.1.261) and, per the docs, possibly both. Take whichever carries the text. An interrupted
+     call is the user's doing: nothing to trim, nothing to log. */
+  const failed = input.hook_event_name === 'PostToolUseFailure';
+  if (failed && input.is_interrupt) return;
+  const asText = (v) => typeof v === 'string' ? v
+    : (v && typeof v === 'object') ? (isShell ? [v.stdout, v.stderr].filter(Boolean).join('\n') : JSON.stringify(v)) : '';
+  let text = asText(resp);
+  if (failed) { const e = asText(input.error); if (e.length > text.length) text = e; }
 
   /* `id` and `transcript` (0.1.0, for brake 4): the tool_use_id is how a ledger row joins the transcript's
      tool_result exactly, and transcript_path is where that transcript is — Claude Code hands both over on
@@ -108,7 +152,8 @@ function handlePost(input, cfg) {
     ev: 'post', session: input.session_id, tool, chars: text.length,
     what: isShell ? short(ti.command, 120) : (ti.file_path || ti.pattern || ti.url || ti.description || undefined),
     id: input.tool_use_id || undefined,
-    transcript: input.transcript_path || undefined
+    transcript: input.transcript_path || undefined,
+    failed: failed || undefined
   };
 
   if (!isShell || text.length <= cfg.maxChars) {
@@ -131,8 +176,9 @@ function handlePost(input, cfg) {
   // Claude Code validates updatedToolOutput against the tool's own response schema. For Bash that is
   // { stdout, stderr, interrupted, isImage } — a bare string is rejected (silently, in the debug log only)
   // and the original output goes through untouched. Keep the object shape, put the trimmed text in stdout.
-  const updated = (resp && typeof resp === 'object') ? { ...resp, stdout: trimmed, stderr: '' } : trimmed;
-  emit({ hookSpecificOutput: { hookEventName: 'PostToolUse', updatedToolOutput: updated } });
+  // On failure the output Claude sees is the error string itself, so the replacement is a string too.
+  const updated = (!failed && resp && typeof resp === 'object') ? { ...resp, stdout: trimmed, stderr: '' } : trimmed;
+  emit({ hookSpecificOutput: { hookEventName: failed ? 'PostToolUseFailure' : 'PostToolUse', updatedToolOutput: updated } });
 }
 
 function handleReadPre(input, cfg) {
