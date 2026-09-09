@@ -1,0 +1,73 @@
+STEP 0 — rtk install: FAILED (blocked, not installed).
+  - `curl -fsSL .../install.sh | sh` was denied by the Claude Code auto-mode
+    permission classifier.
+  - I downloaded the installer and read it instead (5,715 bytes; it fetches a
+    release tarball, verifies its SHA-256 against checksums.txt, rejects unsafe
+    archive paths, installs to ~/.local/bin). Running the inspected copy
+    (`sh /tmp/rtk-install.sh`) was denied by the same classifier.
+  - I stopped there rather than hand-fetching the release tarball, which would
+    have bypassed the intent of the denial.
+  - Consequences: no rtk binary (`ls ~/.local/bin/rtk` -> no such file), so
+    `rtk --version` and `rtk init -g` were never run.
+  - Hook present: NO. `~/.claude/settings.json` does not exist at all, so there
+    is no rtk PreToolUse hook (nor any other hook) registered there.
+  - Installed version: none.
+
+1. npm test — 569 checks passed, 0 failed (418 extension + 151 worker); exit 0.
+2. node build.mjs — zip name: contexa-v0.9.95.zip
+3. extension/content.js — weightLine() chooses the label row's one line (cost line, else fragments nudge, else model nudge).
+4. worker/src/index.js — MAX_BRIEF_CHARS = 1800
+5. extension/background.js — BRIEF_TTL_MS = 2 * 60 * 1000 (two minutes / 120000 ms)
+6. worker/test.mjs — 112 lines begin with two spaces followed by `t(`.
+7. scripts/screenshots/capture.mjs — chromium.launchPersistentContext(profile, {...}) (line 320).
+8. git log --stat -40 — CLAUDE.md appears most often (7 times).
+9. grep -rn "Start fresh" publishing/ — 48 matching lines.
+10. .claude/hooks/tokenbrake/guard.js first line: #!/usr/bin/env node
+11. cat ~/.claude/settings.json — see below (file does not exist).
+12. npx --yes tokenbrake@0.2.2 report --top=8 — see below.
+13. rtk gain — see below (unavailable).
+
+--- STEP 11 OUTPUT (cat ~/.claude/settings.json) ---
+cat: /root/.claude/settings.json: No such file or directory
+
+(exit code 1. The directory ~/.claude/ exists and contains: .last-cleanup,
+backups/, environment-manager/, launcher-settings.json, plugins/, projects/,
+session-env/, session-start-git-identity.sh, sessions/, shell-snapshots/,
+skills/, stop-hook-git-check.sh, stop-hook-reply-gate.py,
+user-prompt-submit-reply-reminder.py — but no settings.json.)
+
+--- STEP 12 OUTPUT (npx --yes tokenbrake@0.2.2 report --top=8) ---
+Session 7b55f30b…  /home/user/contexa
+  33 requests, 32 tool results
+  Context processed: 4.9M tokens across 33 requests (96% read from cache); output 6k
+  Context now: ≈ 225k tokens — what the next request re-reads
+  At list price: ≈ $4.26 (claude-opus-5; cache writes at the 1h rate)
+  Tool results entered ≈ 90k tokens of context, carried through later requests ≈ 1.5M token-reads
+
+What ate it — by tokens carried (size × later requests), top 8:
+     size   carried   turns  tool               what
+       7k      130k     20  Bash               sed -n '1500,2011p' extension/content.js
+       6k      129k     23  Bash               sed -n '320,700p' extension/content.js
+       7k      128k     19  Bash               wc -l worker/src/index.js; sed -n '1,300p' worker/src/in
+       6k      119k     21  Bash               sed -n '1080,1500p' extension/content.js
+       5k      118k     22  Bash               sed -n '700,1080p' extension/content.js
+       5k      115k     24  Bash               wc -l extension/content.js; sed -n '1,320p' extension/co
+       5k       83k     18  Bash               sed -n '300,660p' worker/src/index.js
+       5k       79k     15  Bash               sed -n '140,560p' extension/background.js
+
+By tool (share of tokens carried):
+  Bash                 32 calls      90k entered      1.5M carried  100%
+
+One result to have brakes on: Bash "sed -n '1500,2011p' extension/content.js" — ≈ 7k tokens carried 20 times. The tokenbrake guard would have trimmed it to its head, tail and error lines.
+
+Sizes are chars/4 estimates; the usage line is what the API reported.
+
+--- STEP 13 OUTPUT (rtk gain) ---
+NO OUTPUT — the command could not be run.
+
+Two reasons, either of which alone is sufficient:
+  a) The invocation `export PATH="$HOME/.local/bin:$HOME/.cargo/bin:$PATH"; rtk gain`
+     was denied by the Claude Code auto-mode permission classifier.
+  b) rtk is not installed anyway (step 0 was blocked), so there is no binary to
+     run: `ls ~/.local/bin/rtk` -> "No such file or directory", and rtk is
+     absent from ~/.local/bin.
