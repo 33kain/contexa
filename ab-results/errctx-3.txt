@@ -1,0 +1,40 @@
+Faults fixed (5):
+
+1. extension/content.js — fitTurns() dropped `turns.splice(0, 1)`, removing the OLDEST turn (turn one) on every trim iteration instead of the oldest middle turn; changed to `turns.splice(1, 1)` so the first captured turn stays pinned.
+2. extension/background.js — takeBrief() TTL comparison was inverted (`Date.now() - Number(p.t || 0) < BRIEF_TTL_MS` discarded fresh briefs and kept stale ones); changed `<` to `>`.
+3. worker/src/index.js — `REPLIES_PER_DAY` was 25, breaking the single-source-of-truth daily quota; changed back to 20.
+4. worker/src/index.js — enforceAction() tested the label with its first word stripped (`ACTION_OPENERS.test(label.replace(/^\w+\s*/, ''))`), so the action-verb gate looked at the wrong token and also broke byte-identity with the extension's copy of the injected helper block; changed back to `ACTION_OPENERS.test(label)`.
+5. worker/src/index.js — admit() clamped the reply with `slice(0, MIN_REPLY_CHARS)` instead of the ceiling constant; changed to `slice(0, MAX_REPLY_CHARS)`.
+
+Number of times I ran `npm test`: 3
+
+=== Step 4: git diff --stat HEAD~1 ===
+(no output — the working tree is identical to the pre-fault commit, so the diff against HEAD~1 is empty)
+
+=== Step 5: cat ~/.claude/tokenbrake.json ===
+{"enabled": true, "errorContextLines": 3}
+
+=== Step 6: npx --yes tokenbrake@0.2.1 report --top=8 ===
+Session 3dfe1a59…  /home/user/contexa
+  18 requests, 17 tool results
+  Context processed: 1.4M tokens across 18 requests (98% read from cache); output 4k
+  Context now: ≈ 86k tokens — what the next request re-reads
+  Tool results entered ≈ 4k tokens of context, carried through later requests ≈ 28k token-reads
+  tokenbrake trimmed none of them (ledger has 17 rows for other sessions or small results)
+
+What ate it — by tokens carried (size × later requests), top 8:
+     size   carried   turns  tool               what
+       1k        9k      9  Bash               npm test 2>&1 | tail -60
+      816        5k      6  Bash               git show --stat HEAD && git show HEAD | head -120
+      540        4k      7  Bash               npm run test:extension 2>&1 | sed -n '205,225p;318,335p'
+      705        3k      4  Bash               git diff
+      146        1k      8  Bash               npm test 2>&1 | grep -n "FAIL\|^npm ERR\|test:extension\
+       69        1k     16  Bash               cat ~/.claude/tokenbrake.json; echo "---"; cd /home/user
+       65       845     13  Bash               echo "CLAUDE_CONFIG_DIR=${CLAUDE_CONFIG_DIR:-unset}"; ls
+       81       810     10  Bash               node scripts/ab/inject-faults.mjs 2>&1 | tail -30; echo 
+
+By tool (share of tokens carried):
+  Bash                 15 calls       4k entered       27k carried   97%
+  Write                 2 calls       64 entered       933 carried    3%
+
+Sizes are chars/4 estimates; the usage line is what the API reported.
