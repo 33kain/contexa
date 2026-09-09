@@ -1,0 +1,34 @@
+Session c5ad7352…  /home/user/tokenbrake
+  104 requests, 117 tool results
+  Context processed: 13.9M tokens across 104 requests (99% read from cache); output 68k
+  Context now: ≈ 213k tokens — what the next request re-reads
+  At list price: ≈ $10.24 (claude-opus-5; cache writes at the 1h rate)
+  Tool results entered ≈ 32k tokens of context, carried through later requests ≈ 1.9M token-reads
+  tokenbrake trimmed none of them (ledger has 114 rows for other sessions or small results)
+  Under the trim threshold: 79 of 81 shell results (≈ 18k tokens entered, ≈ 1.1M token-reads carried, 57% of all carried)
+  Repeat reads: none — 9 same-shape reads, each of a file not already in context
+
+What ate it — by tokens carried (size × later requests), top 8:
+     size   carried   turns  tool               what
+       2k      182k    101  Bash               sed -n '644,750p' AB-TASK.md
+       2k      164k    100  Bash               cat LANDSCAPE.md
+       1k      126k    101  Bash               sed -n '380,437p' HANDOFF.md
+       1k      110k     76  mcp__github__actio 
+      965       97k    100  Bash               grep -n 'version' package.json .claude-plugin/plugin.jso
+      930       91k     98  mcp__Claude_Code_R 
+       1k       73k     65  Bash               grep -n 'tokenbrake' /home/user/contexa/CLAUDE.md | head
+       1k       66k     58  Bash               sed -n '381,458p' AB-TASK.md
+
+By tool (share of tokens carried):
+  Bash                 81 calls      21k entered      1.5M carried   75%
+  mcp__github__actio    2 calls       2k entered      173k carried    9%
+  mcp__Claude_Code_R    8 calls       4k entered       99k carried    5%
+  mcp__Claude_Code_R    1 calls      930 entered       91k carried    5%
+  ReadNotifications     3 calls       2k entered       32k carried    2%
+  mcp__Claude_Code_R    6 calls       1k entered       28k carried    1%
+  mcp__github__actio    2 calls      249 entered       17k carried    1%
+  mcp__github__actio    1 calls      224 entered       17k carried    1%
+
+One result to have brakes on: Bash "sed -n '644,750p' AB-TASK.md" — ≈ 2k tokens carried 101 times. The tokenbrake guard would have trimmed it to its head, tail and error lines.
+
+Sizes are chars/4 estimates; the usage line is what the API reported.
