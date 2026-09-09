@@ -1,0 +1,43 @@
+Faults fixed (5)
+
+1. extension/content.js — fitTurns() dropped `turns.splice(0, 1)`, i.e. the OLDEST turn including the pinned first one, so turn one was decapitated by the trim (the exact failure mode CLAUDE.md warns about). Changed to `turns.splice(1, 1)` so the first turn is pinned and the oldest MIDDLE turn goes first.
+2. extension/background.js — takeBrief() had the staleness comparison inverted: `Date.now() - Number(p.t || 0) < BRIEF_TTL_MS` returned an empty brief for a FRESH brief and handed back a stale one. Changed `<` to `>`.
+3. worker/src/index.js — `REPLIES_PER_DAY = 25` contradicted the single-source-of-truth daily twenty (and DEVICE_DAILY_LIMIT derives from it). Changed back to `20`.
+4. worker/src/index.js — enforceAction() tested `ACTION_OPENERS` against `label.replace(/^\w+\s*/, '')`, stripping the label's first word — exactly the imperative verb the gate exists to check — so good rows were dropped and the gate stopped matching the byte-identical helper block in background.js. Changed back to `ACTION_OPENERS.test(label)`.
+5. worker/src/index.js — admit() clamped the reply with `.slice(0, MIN_REPLY_CHARS)` (50) instead of the ceiling, truncating every reply to 50 chars and then failing its own `reply.trim().length < MIN_REPLY_CHARS` check. Changed to `.slice(0, MAX_REPLY_CHARS)`.
+
+`npm test` was run 3 times in full (once to read the failures, once to list them, once to confirm the whole suite green). `npm run build` was also run once and reports the shared prompt / cachedSystem / usageOf invariants intact.
+
+Step 4 — git diff --stat HEAD~1:
+
+(no output — the fixes restore the pre-fault tree exactly, so there is nothing to report against HEAD~1)
+
+Step 5 — cat ~/.claude/tokenbrake.json:
+
+{"enabled": true, "errorContextLines": 0}
+
+Step 6 — npx --yes tokenbrake@0.2.1 report --top=8:
+
+Session 63e267c1…  /home/user/contexa
+  16 requests, 15 tool results
+  Context processed: 1.3M tokens across 16 requests (93% read from cache); output 3k
+  Context now: ≈ 84k tokens — what the next request re-reads
+  Tool results entered ≈ 3k tokens of context, carried through later requests ≈ 21k token-reads
+  tokenbrake trimmed none of them (ledger has 15 rows for other sessions or small results)
+
+What ate it — by tokens carried (size × later requests), top 8:
+     size   carried   turns  tool               what
+       1k        9k      9  Bash               npm test 2>&1 | tail -60
+      816        6k      7  Bash               git show --stat HEAD && git show HEAD | head -200
+      315        1k      4  Bash               npm test 2>&1 | grep -E "FAIL|FAILED|^ok |passed|all |[0
+      126        1k      8  Bash               npm test 2>&1 | grep -n -E "^(FAIL| FAIL|FAILED|npm ERR|
+       69       966     14  Bash               cat ~/.claude/tokenbrake.json; echo "---"; cd /home/user
+       93       558      6  Bash               grep -n "MIN_REPLY_CHARS\|MAX_REPLY_CHARS" worker/src/in
+       33       495     15  Write              /home/user/.claude/tokenbrake.json
+       46       460     10  Bash               node scripts/ab/inject-faults.mjs 2>&1 | tail -30
+
+By tool (share of tokens carried):
+  Bash                 13 calls       3k entered       20k carried   96%
+  Write                 2 calls       64 entered       867 carried    4%
+
+Sizes are chars/4 estimates; the usage line is what the API reported.
