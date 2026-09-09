@@ -1,0 +1,22 @@
+Session ca84ebdd…  /home/user
+  5 requests, 4 tool results
+  Context processed: 372k tokens across 5 requests (82% read from cache); output 2k
+  Context now: ≈ 82k tokens — what the next request re-reads
+  At list price: ≈ $1.52 (claude-fable-5-1; cache writes at the 1h rate)
+  Tool results entered ≈ 3k tokens of context, carried through later requests ≈ 7k token-reads
+  tokenbrake trimmed none of them (ledger has 1 rows for other sessions or small results)
+  Repeat reads: none — 1 same-shape reads, each of a file not already in context
+
+What ate it — by tokens carried (size × later requests), top 8:
+     size   carried   turns  tool               what
+       2k        5k      3  Bash               sed -n 1,110p cli.js
+      310        1k      4  Bash               ls; cd /home/user/tokenbrake && git status --short | hea
+      280       560      2  Bash               npx --yes tokenbrake@0.2.2 init 2>&1; echo "--- exit $?"
+      309       309      1  Bash               git branch --show-current && npx --yes tokenbrake@0.2.2 
+
+By tool (share of tokens carried):
+  Bash                  4 calls       3k entered        7k carried  100%
+
+One result to have brakes on: Bash "sed -n 1,110p cli.js" — ≈ 2k tokens carried 3 times. The tokenbrake guard would have trimmed it to its head, tail and error lines.
+
+Sizes are chars/4 estimates; the usage line is what the API reported.
