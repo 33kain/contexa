@@ -1,0 +1,33 @@
+Session ced42a1a…  /home/user/contexa
+  617 requests, 666 tool results, 2 compaction(s)
+  Context processed: 248.8M tokens across 617 requests (96% read from cache); output 907k
+  Context now: ≈ 632k tokens — what the next request re-reads
+  At list price: ≈ $306.01 (claude-fable-5-1, claude-opus-5; cache writes at the 1h rate)
+  Tool results entered ≈ 265k tokens of context, carried through later requests ≈ 31.8M token-reads
+  tokenbrake trimmed 10 of them: ≈ 12k tokens kept out, ≈ 1.3M token-reads not carried
+  Repeat reads: none — 24 same-shape reads, each of a file not already in context
+
+What ate it — by tokens carried (size × later requests), top 8:
+     size   carried   turns  tool               what
+      15k      2.0M    134  Read               /root/.claude/projects/-home-user-contexa/ced42a1a-1366-
+      14k      1.8M    134  Read               /root/.claude/projects/-home-user-contexa/ced42a1a-1366-
+      13k      1.7M    134  Read               /root/.claude/projects/-home-user-contexa/ced42a1a-1366-
+       7k      1.2M    168  Bash               echo "=== debug log: hook-related lines"; grep -inE 'hoo
+       5k      825k    154  Bash               ls publishing/website; echo "== index 36-135"; sed -n 36
+       4k      588k    133  Bash               cat build.mjs
+       5k      587k    120  Bash               sed -n 80,460p scripts/screenshots/capture.mjs
+       4k      510k    135  Bash               cat extension/options.js extension/manifest.json; echo "
+
+By tool (share of tokens carried):
+  Bash                441 calls     175k entered     21.5M carried   68%
+  Read                 14 calls      44k entered      5.9M carried   19%
+  mcp__Claude_Code_R   15 calls       8k entered      869k carried    3%
+  mcp__Claude_Code_R    6 calls       8k entered      508k carried    2%
+  WebFetch             13 calls       6k entered      502k carried    2%
+  WebSearch             6 calls       5k entered      462k carried    1%
+  mcp__github__pull_    5 calls       2k entered      299k carried    1%
+  ReadNotifications     5 calls       3k entered      297k carried    1%
+
+One result to have brakes on: Read "/root/.claude/projects/-home-user-contexa/ced42a1a" — ≈ 15k tokens carried 134 times. An offset/limit read, or a Grep first, would have kept most of it out.
+
+Sizes are chars/4 estimates; the usage line is what the API reported.
