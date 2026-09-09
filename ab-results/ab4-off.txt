@@ -1,0 +1,42 @@
+1. npm test — 569 checks passed, 0 failed (418 extension + 151 worker; both suites exit 0).
+2. node build.mjs — the zip it prints is contexa-v0.9.95.zip.
+3. extension/content.js — the function that decides which line the label row carries is weightLine (cost line, else the fragments nudge, else the model nudge).
+4. worker/src/index.js — the constant capping the brief's length is MAX_BRIEF_CHARS = 1800.
+5. extension/background.js — a staged brief expires after BRIEF_TTL_MS = 2 * 60 * 1000 (two minutes).
+6. worker/test.mjs — 112 lines begin with two spaces followed by "t(".
+7. scripts/screenshots/capture.mjs — the Playwright call that opens the browser is chromium.launchPersistentContext.
+8. git log --stat -40 — the file appearing most often is CLAUDE.md (7 times).
+9. grep -rn "Start fresh" publishing/ — 48 matching lines.
+10. .claude/hooks/tokenbrake/guard.js — its first line is: #!/usr/bin/env node
+11. cat ~/.claude/settings.json — the file does not exist.
+12. npx --yes tokenbrake@0.2.2 report --top=8 — output kept, pasted below.
+
+--- step 11 output ---
+cat: /root/.claude/settings.json: No such file or directory
+
+--- step 12 output ---
+Session 7d6e5dbe…  /home/user/contexa
+  32 requests, 31 tool results
+  Context processed: 4.7M tokens across 32 requests (96% read from cache); output 5k
+  Context now: ≈ 220k tokens — what the next request re-reads
+  At list price: ≈ $4.05 (claude-opus-5; cache writes at the 1h rate)
+  Tool results entered ≈ 88k tokens of context, carried through later requests ≈ 1.4M token-reads
+  Repeat reads: none — 18 same-shape reads, each of a file not already in context
+
+What ate it — by tokens carried (size × later requests), top 8:
+     size   carried   turns  tool               what
+       7k      127k     18  Bash               sed -n '1,330p' worker/src/index.js
+       5k      124k     24  Bash               sed -n '1,350p' extension/content.js
+       5k      120k     23  Bash               sed -n '350,700p' extension/content.js
+       5k      109k     22  Bash               sed -n '700,1050p' extension/content.js
+       5k      101k     21  Bash               sed -n '1050,1400p' extension/content.js
+       7k       99k     15  Bash               sed -n '1,330p' extension/background.js
+       5k       95k     20  Bash               sed -n '1400,1750p' extension/content.js
+       4k       74k     17  Bash               sed -n '330,660p' worker/src/index.js
+
+By tool (share of tokens carried):
+  Bash                 31 calls      88k entered      1.4M carried  100%
+
+One result to have brakes on: Bash "sed -n '1,330p' worker/src/index.js" — ≈ 7k tokens carried 18 times. The tokenbrake guard would have trimmed it to its head, tail and error lines.
+
+Sizes are chars/4 estimates; the usage line is what the API reported.
