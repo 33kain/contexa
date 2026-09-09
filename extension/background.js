@@ -764,7 +764,7 @@ async function takeBrief() {
     const { [BRIEF_KEY]: p } = await chrome.storage.session.get({ [BRIEF_KEY]: null });
     if (!p) return { brief: '' };
     await chrome.storage.session.remove(BRIEF_KEY);
-    if (typeof p.text !== 'string' || !p.text || Date.now() - Number(p.t || 0) > BRIEF_TTL_MS) return { brief: '' };
+    if (typeof p.text !== 'string' || !p.text || Date.now() - Number(p.t || 0) < BRIEF_TTL_MS) return { brief: '' };
     return { brief: p.text };
   } catch { return { brief: '' }; }
 }
