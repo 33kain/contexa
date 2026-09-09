@@ -1,0 +1,48 @@
+Faults fixed
+
+1. extension/content.js — fitTurns dropped turns with `turns.splice(0, 1)`, which removes the pinned first turn (the stated goal) instead of the oldest middle one; changed to `turns.splice(1, 1)`.
+2. extension/background.js — takeBrief's TTL test was inverted (`Date.now() - p.t < BRIEF_TTL_MS` discarded fresh briefs and handed back stale ones); changed `<` to `>`.
+3. worker/src/index.js — `const REPLIES_PER_DAY = 25;` diverged from the daily twenty the public copy promises and that the enforced ceiling must equal; changed to 20.
+4. worker/src/index.js — enforceAction tested `ACTION_OPENERS.test(label.replace(/^\w+\s*/, ''))`, checking the label's second word rather than its opening verb (and breaking the byte-identical injected helper block shared with background.js); changed back to `ACTION_OPENERS.test(label)`.
+5. worker/src/index.js — admit() clamped the reply with `.slice(0, MIN_REPLY_CHARS)` (50) instead of the ceiling `MAX_REPLY_CHARS` (6000), truncating every reply to 50 chars before grounding; changed to `MAX_REPLY_CHARS`.
+
+npm test runs: 5
+
+Step 4 — git status --short
+
+ M extension/background.js
+ M extension/content.js
+ M worker/src/index.js
+
+Step 5 — cat ~/.claude/tokenbrake.json
+
+{"enabled": true, "errorContextLines": 3}
+
+Step 6 — npx --yes tokenbrake@0.2.1 report --top=8
+
+Session 4400eac9…  /home/user/contexa
+  50 requests, 49 tool results
+  Context processed: 5.3M tokens across 50 requests (98% read from cache); output 15k
+  Context now: ≈ 140k tokens — what the next request re-reads
+  Tool results entered ≈ 28k tokens of context, carried through later requests ≈ 684k token-reads
+  tokenbrake trimmed 2 of them: ≈ 6k tokens kept out, ≈ 32k token-reads not carried
+
+What ate it — by tokens carried (size × later requests), top 8:
+     size   carried   turns  tool               what
+       3k      108k     43  Bash               npm test  [error]
+       3k       88k     35  Bash               npm test  [error]
+       3k       70k     28  Bash               npm test  [error]
+       3k       58k     23  Bash               npm test  [error]
+       1k       39k     38  Bash               sed -n '370,395p' extension/content.js && echo "=== TEST
+      852       32k     37  Bash               grep -n "takeBrief\|pendingBrief\|BRIEF_TTL" -B3 -A18 ex
+       2k       28k     17  Bash               grep -n "^\s*t(" test.mjs | sed -n '60,200p'  [trimmed from 2k]
+      614       25k     41  Bash               sed -n '1030,1070p' test.mjs
+
+By tool (share of tokens carried):
+  Bash                 42 calls      28k entered      676k carried   99%
+  Edit                  5 calls      181 entered        5k carried    1%
+  Write                 2 calls       64 entered        3k carried    0%
+
+One result to have brakes on: Bash "npm test" — ≈ 3k tokens carried 43 times. The tokenbrake guard would have trimmed it to its head, tail and error lines.
+
+Sizes are chars/4 estimates; the usage line is what the API reported.
