@@ -1,0 +1,32 @@
+Session afd5631e…  /home/user/contexa
+  7 requests, 30 tool results
+  Context processed: 682k tokens across 7 requests (89% read from cache); output 10k
+  Context now: ≈ 117k tokens — what the next request re-reads
+  At list price: ≈ $2.11 (claude-fable-5-1; cache writes at the 1h rate)
+  Tool results entered ≈ 19k tokens of context, carried through later requests ≈ 78k token-reads
+  tokenbrake trimmed 1 of them: ≈ 336 tokens kept out, ≈ 2k token-reads not carried
+  Read caps fired: none
+  Under the trim threshold: 24 of 25 shell results (≈ 15k tokens entered, ≈ 57k token-reads carried, 73% of all carried)
+  Repeat reads: none — 3 same-shape reads, each of a file not already in context
+
+What ate it — by tokens carried (size × later requests), top 8:
+     size   carried   turns  tool               what
+       2k       11k      6  Bash               head -150 CHANGELOG.md
+       2k        8k      4  mcp__github__actio 
+       1k        6k      5  Bash               cat SUBMISSION.md | head -120  [trimmed from 2k]
+      957        6k      6  Bash               git status --short | head -20 && echo "---branches---" &
+       1k        5k      4  Bash               echo "=== NEXT-SUBMISSION ===" && head -80 publishing/NE
+       1k        4k      4  Bash               cat publishing/PUBLISHING-CHECKLIST.md | head -60; echo 
+      882        4k      5  Bash               ls -la ab-results/real/ && echo "---README---" && cat ab
+       1k        4k      4  Bash               sed -n 266,280p README.md && echo "=== THESIS 6-7 ===" &
+
+By tool (share of tokens carried):
+  Bash                 25 calls      16k entered       68k carried   87%
+  mcp__github__actio    2 calls       3k entered       10k carried   13%
+  mcp__github__list_    1 calls       21 entered        84 carried    0%
+  ToolSearch            1 calls        1 entered         5 carried    0%
+  mcp__github__list_    1 calls        1 entered         4 carried    0%
+
+One result to have brakes on: Bash "head -150 CHANGELOG.md" — ≈ 2k tokens carried 6 times. The tokenbrake guard would have trimmed it to its head, tail and error lines.
+
+Sizes are chars/4 estimates; the usage line is what the API reported.
