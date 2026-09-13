@@ -3,11 +3,10 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="color-scheme" content="light dark">
+<meta name="color-scheme" content="light">
 <title>CONTEXA - Save tokens on Claude</title>
 <meta name="description" content="Claude replies. Press one button and CONTEXA reads your session, then writes up to four next messages. Pick one, you send it.">
-<meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)">
-<meta name="theme-color" content="#111111" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#0EA5A4">
 <link rel="canonical" href="https://contexa-website.pages.dev/">
 <link rel="stylesheet" href="/site.css">
 <link rel="icon" href="/icon.svg" type="image/svg+xml">
@@ -27,173 +26,465 @@
 <script src="/demo.js" defer></script>
 </head>
 <body>
-<a class="skip" href="#main">Skip to content</a>
-<header class="site">
-  <svg class="mascot" viewBox="0 0 58 50" role="img" aria-label="The CONTEXA mascot: a teal rounded shape with two wide eyes and a small smile">
-    <!-- Dark ink goes through a paint server and the eye whites stay flat, so a
-         phone's force-dark mode cannot invert the face. See extension/content.js MASCOT_SVG. -->
-    <defs><linearGradient id="mg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#2cc4ae"/><stop offset="1" stop-color="#15a594"/></linearGradient><linearGradient id="mp" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="58" y2="0"><stop offset="0" stop-color="#000"/><stop offset="1" stop-color="#000"/></linearGradient><linearGradient id="mo" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="58" y2="0"><stop offset="0" stop-color="#0a352f"/><stop offset="1" stop-color="#0a352f"/></linearGradient></defs>
-    <g><path d="M29 3 C43 3 53 12 53 26 L53 50 L5 50 L5 26 C5 12 15 3 29 3 Z" fill="url(#mg)"/><ellipse cx="21" cy="25.5" rx="7.4" ry="8.6" fill="#fff"/><ellipse cx="37" cy="25.5" rx="7.4" ry="8.6" fill="#fff"/><circle cx="22.9" cy="27.2" r="3.8" fill="url(#mp)"/><circle cx="38.9" cy="27.2" r="3.8" fill="url(#mp)"/><circle cx="21.7" cy="25.9" r="1.3" fill="#fff" opacity=".95"/><circle cx="37.7" cy="25.9" r="1.3" fill="#fff" opacity=".95"/><path d="M25 37 Q29 39.5 33 37" stroke="url(#mo)" stroke-width="2.6" fill="none" stroke-linecap="round"/></g>
-  </svg>
-  <div>
-    <h1 class="name">CONTEXA</h1>
-    <p class="tagline">Save tokens. Extend your sessions.</p>
+<a class="skip-link" href="#main">Skip to content</a>
+
+<!-- Icon sprite: lucide-style strokes, extension-owned, no external library -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
+  <symbol id="i-github" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 22v-4a4.8 4.8 0 0 0-1-3.5c3 0 6-2 6-5.5.08-1.25-.27-2.48-1-3.5.28-1.15.28-2.35 0-3.5 0 0-1 0-3 1.5-2.64-.5-5.36-.5-8 0C6 2 5 2 5 2c-.3 1.15-.3 2.35 0 3.5A5.4 5.4 0 0 0 4 9c0 3.5 3 5.5 6 5.5-.39.49-.68 1.05-.85 1.65-.17.6-.22 1.23-.15 1.85v4"/><path d="M9 18c-4.51 2-5-2-7-2"/></symbol>
+  <symbol id="i-menu" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="4" x2="20" y1="6" y2="6"/><line x1="4" x2="20" y1="12" y2="12"/><line x1="4" x2="20" y1="18" y2="18"/></symbol>
+  <symbol id="i-x" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></symbol>
+  <symbol id="i-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></symbol>
+  <symbol id="i-sparkles" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z"/><path d="M20 3v4"/><path d="M22 5h-4"/><path d="M4 17v2"/><path d="M5 18H3"/></symbol>
+  <symbol id="i-arrow-up" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12 7-7 7 7"/><path d="M12 19V5"/></symbol>
+  <symbol id="i-rotate-ccw" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></symbol>
+  <symbol id="i-layers" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12.83 2.18a2 2 0 0 0-1.66 0L2.6 6.08a1 1 0 0 0 0 1.83l8.58 3.91a2 2 0 0 0 1.66 0l8.58-3.9a1 1 0 0 0 0-1.83z"/><path d="M2 12a1 1 0 0 0 .58.91l8.6 3.91a2 2 0 0 0 1.65 0l8.58-3.9A1 1 0 0 0 22 12"/><path d="M2 17a1 1 0 0 0 .58.91l8.6 3.91a2 2 0 0 0 1.65 0l8.58-3.9A1 1 0 0 0 22 17"/></symbol>
+  <symbol id="i-mpc" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 4.1 12 6"/><path d="m5.1 8-2.9-.8"/><path d="m6 12-1.9 2"/><path d="M7.2 2.2 8 5.1"/><path d="M9.037 9.69a.498.498 0 0 1 .653-.653l11 4.5a.5.5 0 0 1-.074.949l-4.349 1.041a1 1 0 0 0-.74.739l-1.04 4.35a.5.5 0 0 1-.95.074z"/></symbol>
+  <symbol id="i-list-checks" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m3 17 2 2 4-4"/><path d="m3 7 2 2 4-4"/><path d="M13 6h8"/><path d="M13 12h8"/><path d="M13 18h8"/></symbol>
+  <symbol id="i-msg-text" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/><path d="M7 9h10"/><path d="M7 13h6"/></symbol>
+  <symbol id="i-shield-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/><path d="m9 12 2 2 4-4"/></symbol>
+  <symbol id="i-key" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2.586 17.414A2 2 0 0 0 2 18.828V21a1 1 0 0 0 1 1h3a1 1 0 0 0 1-1v-1a1 1 0 0 1 1-1h1a1 1 0 0 0 1-1v-1a1 1 0 0 1 1-1h.172a2 2 0 0 0 1.414-.586l.814-.814a6.5 6.5 0 1 0-4-4z"/><circle cx="16.5" cy="7.5" r=".5" fill="currentColor"/></symbol>
+  <symbol id="i-gift" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="8" width="18" height="4" rx="1"/><path d="M12 8v13"/><path d="M19 12v7a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2v-7"/><path d="M7.5 8a2.5 2.5 0 0 1 0-5A4.8 8 0 0 1 12 8a4.8 8 0 0 1 4.5-5 2.5 2.5 0 0 1 0 5"/></symbol>
+  <symbol id="i-coins" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="8" r="6"/><path d="M18.09 10.37A6 6 0 1 1 10.34 18"/><path d="M7 6h1v4"/><path d="m16.71 13.88.7.71-2.82 2.82"/></symbol>
+  <symbol id="i-wind" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12.8 19.6A2 2 0 1 0 14 16H2"/><path d="M17.5 8a2.5 2.5 0 1 1 2 4H2"/><path d="M9.8 4.4A2 2 0 1 1 11 8H2"/></symbol>
+  <symbol id="i-chrome" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="3.2"/><path d="M12 8.8h8.2M8.9 13.6 4.8 6.5M15.1 13.6 11 20.7"/></symbol>
+  <symbol id="i-cursor" viewBox="0 0 24 24" fill="#0B1220" stroke="#fff" stroke-width="1.4" stroke-linejoin="round"><path d="M5 3l14 8-6 1.3L11 19 5 3z"/></symbol>
+</svg>
+
+<!-- ============================= Nav ============================= -->
+<header class="nav" id="nav">
+  <div class="container">
+    <nav class="nav-inner" aria-label="Primary">
+      <a href="#top" class="wordmark focus-ring" aria-label="CONTEXA home">
+        <span class="brandmark">
+          <svg width="19" height="19" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M4 6.5C4 5.12 5.12 4 6.5 4h11C18.88 4 20 5.12 20 6.5v7c0 1.38-1.12 2.5-2.5 2.5H9l-4 3.2V16H6.5C5.12 16 4 14.88 4 13.5v-7Z" fill="#fff" opacity=".95"/><circle cx="9" cy="10" r="1.15" fill="#087A79"/><circle cx="12.5" cy="10" r="1.15" fill="#087A79"/><circle cx="16" cy="10" r="1.15" fill="#087A79"/></svg>
+        </span>
+        <span class="brand-name">CONTEXA</span>
+      </a>
+
+      <div class="nav-links">
+        <a href="#how-it-works">How it works</a>
+        <a href="#features">Features</a>
+        <a href="#benefits">Benefits</a>
+        <a href="/how-it-works/">Details</a>
+        <a href="/privacy/">Privacy</a>
+      </div>
+
+      <div class="nav-actions">
+        <a class="btn btn-secondary btn-sm focus-ring" href="https://github.com/33kain/contexa" target="_blank" rel="noreferrer">
+          <svg class="ico" width="16" height="16"><use href="#i-github"/></svg> GitHub
+        </a>
+        <a class="btn btn-primary btn-md focus-ring" href="https://chromewebstore.google.com/detail/phhamigkjeeabbjncpmhkppkjccfglhb" target="_blank" rel="noreferrer">
+          <svg class="ico" width="16" height="16"><use href="#i-chrome"/></svg> Add to Chrome
+        </a>
+      </div>
+
+      <button type="button" class="nav-toggle focus-ring" id="navToggle" aria-label="Open menu" aria-expanded="false" aria-controls="drawer">
+        <svg class="ico" width="20" height="20"><use href="#i-menu"/></svg>
+      </button>
+    </nav>
   </div>
 </header>
-<nav class="site" aria-label="Site">
-  <a href="/" aria-current="page">Overview</a> · <a href="/how-it-works/">How it works</a> · <a href="/privacy/">Privacy</a> · <a href="/notes/">Notes</a> · <a href="https://github.com/33kain/contexa">Source</a>
-</nav>
+
+<!-- Mobile drawer -->
+<div class="drawer-scrim" id="drawerScrim" hidden></div>
+<aside class="drawer" id="drawer" aria-label="Menu" hidden>
+  <div class="drawer-head">
+    <span class="wordmark">
+      <span class="brandmark"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M4 6.5C4 5.12 5.12 4 6.5 4h11C18.88 4 20 5.12 20 6.5v7c0 1.38-1.12 2.5-2.5 2.5H9l-4 3.2V16H6.5C5.12 16 4 14.88 4 13.5v-7Z" fill="#fff" opacity=".95"/><circle cx="9" cy="10" r="1.15" fill="#087A79"/><circle cx="12.5" cy="10" r="1.15" fill="#087A79"/><circle cx="16" cy="10" r="1.15" fill="#087A79"/></svg></span>
+      <span class="brand-name">CONTEXA</span>
+    </span>
+    <button type="button" class="nav-toggle focus-ring" id="drawerClose" aria-label="Close menu">
+      <svg class="ico" width="20" height="20"><use href="#i-x"/></svg>
+    </button>
+  </div>
+  <div class="drawer-links">
+    <a href="#how-it-works">How it works</a>
+    <a href="#features">Features</a>
+    <a href="#benefits">Benefits</a>
+    <a href="/how-it-works/">Details</a>
+    <a href="/privacy/">Privacy</a>
+  </div>
+  <div class="drawer-actions">
+    <a class="btn btn-secondary btn-lg focus-ring" href="https://github.com/33kain/contexa" target="_blank" rel="noreferrer">
+      <svg class="ico" width="16" height="16"><use href="#i-github"/></svg> View on GitHub
+    </a>
+    <a class="btn btn-primary btn-lg focus-ring" href="https://chromewebstore.google.com/detail/phhamigkjeeabbjncpmhkppkjccfglhb" target="_blank" rel="noreferrer">
+      <svg class="ico" width="16" height="16"><use href="#i-chrome"/></svg> Add to Chrome
+    </a>
+  </div>
+</aside>
+
+<span id="top"></span>
 
 <main id="main">
-<p>CONTEXA is a Chrome extension for claude.ai. When Claude finishes a reply, one trigger appears above the message box. The reply itself has been copied from the page, and that is all: nothing else has been read, and nothing has been sent or spent. Press it, and the extension reads your own messages from the whole conversation (not Claude's earlier replies) and sends them with the reply just received. It comes back with up to four next messages, each written in full. Click one and the whole text lands in the message box, unsent. You edit it and send it yourself. It never sends on your behalf.</p>
-<p>Every message has to be earned by a verbatim quote from the conversation or the reply, checked before it is drawn. When nothing qualifies, nothing is drawn. The point of all of it is the messages you do not have to send: on a long conversation each one costs the whole conversation to re-read, and <a href="#tokens">the section below</a> puts a number on that. Free, no account, 20 presses a day per device; your own API key removes the limit. Version 0.9.95, MIT, <a href="https://github.com/33kain/contexa">source on GitHub</a>.</p>
-<p><a href="https://chromewebstore.google.com/detail/phhamigkjeeabbjncpmhkppkjccfglhb">Install it from the Chrome Web Store</a>. Which browsers can, and how to tell it is working, are under <a href="#install">Install</a> below.</p>
-
-<figure aria-labelledby="fig1">
-  <div class="demo" id="demo" data-mode="light" role="group" aria-label="Animated reproduction of the card in a claude.ai conversation: first Start fresh, then the row of moves">
-    <div class="stage" aria-hidden="true">
-      <div class="top" id="top">Claude</div>
-      <div class="col" id="col">
-        <div class="row more" id="more">38 earlier messages</div>
-        <div class="row user" id="turn1"><span>I'm giving a five-minute toast at my sister's wedding in three weeks. I've never spoken in public and I'm dreading it.</span></div>
-        <div class="row reply"><p>Five minutes is about six hundred words, which is less than it sounds. The ones that work have three parts: one story only you can tell, one honest line about the person she's marrying, and a short toast to end on. Want me to lay out a structure you can fill in?</p></div>
-        <div class="row user"><span>Yes, lay it out. Keep it simple, I'll add the stories.</span></div>
-        <div class="row reply">
-          <p>Here's the shape, with rough timings:</p>
-          <p><strong>Who you are to her</strong> (30 seconds). One line, and how old you both were in the story that's coming.</p>
-          <p><strong>The story</strong> (2 minutes). One story, told straight, with a detail nobody else would know.</p>
-          <p><strong>What changed when she met him</strong> (1 minute). One thing you noticed, not a list.</p>
-          <p><strong>The toast</strong> (30 seconds). Ask everyone to stand, one sentence, glasses up.</p>
-          <p>Write it out in full first, then cut it to cards later.</p>
+  <!-- ============================= Hero ============================= -->
+  <section class="hero">
+    <div class="hero-bg" aria-hidden="true"></div>
+    <div class="container">
+      <div class="hero-grid">
+        <div>
+          <div class="badge fade-in-up" style="--fd:0s"><span class="dot"></span> Save tokens with CONTEXA for Claude</div>
+          <h1>
+            <span class="sr-only">Pick your next message in one click.</span>
+            <span class="words" aria-hidden="true">
+              <span class="anim-word" style="--wd:.15s">Pick</span>
+              <span class="anim-word" style="--wd:.21s">your</span>
+              <span class="anim-word" style="--wd:.27s">next</span>
+              <span class="anim-word" style="--wd:.33s">message</span>
+              <span class="anim-word" style="--wd:.39s">in</span>
+              <span class="anim-word" style="--wd:.45s">one</span>
+              <span class="anim-word accent" style="--wd:.51s">click.</span>
+            </span>
+          </h1>
+          <p class="hero-lead fade-in-up" style="--fd:.65s">
+            CONTEXA reads where your Claude conversation is going and offers up to four good next
+            moves. You choose one — nothing is sent until you click.
+          </p>
+          <div class="hero-cta fade-in-up" style="--fd:.8s">
+            <a class="btn btn-primary btn-lg focus-ring" href="https://chromewebstore.google.com/detail/phhamigkjeeabbjncpmhkppkjccfglhb" target="_blank" rel="noreferrer">
+              <svg class="ico" width="16" height="16"><use href="#i-chrome"/></svg> Add to Chrome
+            </a>
+            <a class="btn btn-secondary btn-lg focus-ring" href="https://github.com/33kain/contexa" target="_blank" rel="noreferrer">
+              <svg class="ico" width="16" height="16"><use href="#i-github"/></svg> View on GitHub
+            </a>
+          </div>
+          <ul class="proof fade-in-up" style="--fd:1s">
+            <li><span class="check-dot"><svg width="10" height="10" viewBox="0 0 24 24" fill="none"><path d="M5 12l4.5 4.5L19 7" stroke="#087A79" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg></span> Free Chrome extension</li>
+            <li><span class="check-dot"><svg width="10" height="10" viewBox="0 0 24 24" fill="none"><path d="M5 12l4.5 4.5L19 7" stroke="#087A79" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg></span> No account or API key</li>
+            <li><span class="check-dot"><svg width="10" height="10" viewBox="0 0 24 24" fill="none"><path d="M5 12l4.5 4.5L19 7" stroke="#087A79" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg></span> Privacy-first</li>
+          </ul>
         </div>
-      </div>
-      <div class="empty" id="empty"><p>Nothing here yet. The brief is in the message box, unsent.</p></div>
-      <div class="dock">
-        <div class="slot" id="slot"></div>
-        <div class="composer" id="composer">
-          <div class="box" id="box" data-placeholder="Reply to Claude..."></div>
-          <span class="send">&#9650;</span>
+
+        <!-- Hero demo (animated by demo.js; static "filled" frame with JS off) -->
+        <div>
+          <div class="demo-wrap">
+            <div class="demo-badge top"><span class="dot"></span> Nothing sent until you click</div>
+            <div class="demo-window" id="hero-window" data-menu="on">
+              <div class="demo-chrome">
+                <span class="dot r"></span><span class="dot y"></span><span class="dot g"></span>
+                <span class="demo-url-wrap"><span class="demo-url"><span class="lock"></span> claude.ai</span></span>
+              </div>
+              <div class="demo-convo">
+                <div class="bubbles">
+                  <div class="bubble-user"><span>Help me plan a 3-day trip to Lisbon.</span></div>
+                  <div class="bubble-claude">
+                    <span class="avatar">C</span>
+                    <div class="body">
+                      <span class="typing" id="hero-typing" hidden><span></span><span></span><span></span></span>
+                      <span id="hero-reply">Here is a simple 3-day outline: Day 1 Alfama &amp; the cathedral, Day 2 Belém &amp; the river, Day 3 a local market and a sunset viewpoint.</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div class="demo-dock">
+                <div class="contexa-panel when-menu" id="hero-panel">
+                  <div class="contexa-label"><svg class="ico" width="14" height="14"><use href="#i-sparkles"/></svg> CONTEXA · next moves</div>
+                  <div class="chips" id="hero-chips">
+                    <button type="button" class="chip is-selected" tabindex="-1"><svg class="tick ico" width="13" height="13"><use href="#i-check"/></svg> Add food stops for each day</button>
+                    <button type="button" class="chip is-dim" tabindex="-1"><svg class="tick ico" width="13" height="13"><use href="#i-check"/></svg> Make it more budget-friendly</button>
+                    <button type="button" class="chip is-dim" tabindex="-1"><svg class="tick ico" width="13" height="13"><use href="#i-check"/></svg> Suggest a day trip nearby</button>
+                    <button type="button" class="chip is-dim" tabindex="-1"><svg class="tick ico" width="13" height="13"><use href="#i-check"/></svg> Turn this into a checklist</button>
+                  </div>
+                </div>
+                <div class="composer armed" id="hero-composer">
+                  <div class="field" id="hero-field">Add food stops for each day — one lunch and one dinner near the places you listed.</div>
+                  <span class="send"><svg class="ico" width="16" height="16"><use href="#i-arrow-up"/></svg></span>
+                </div>
+              </div>
+              <span class="demo-cursor" id="hero-cursor" aria-hidden="true"><svg width="22" height="22"><use href="#i-cursor"/></svg><span class="ripple"></span></span>
+            </div>
+            <div class="demo-badge bottom"><div class="big">↓ tokens</div><div class="small">fewer wasted messages</div></div>
+          </div>
         </div>
       </div>
     </div>
-    <span class="pointer" id="pointer" aria-hidden="true"></span>
-  </div>
-  <p class="sr-only" id="demo-text">The figure has two parts. First: on a long conversation the card's own line reads "≈ 14k tokens re-read per send" and offers Start fresh. Pressing it writes a brief — "Brief ready: ≈ 137 tokens instead of ≈ 14k per send." — and one press more opens a new conversation with the brief already in the message box, unsent: Goal: write and deliver a five-minute toast at my sister's wedding in three weeks. I have never spoken in public. Settled: four parts, in order, who I am to her (30 seconds), one story told straight (2 minutes), what changed when she met him (1 minute), the toast (30 seconds); one story only, with a detail nobody else would know; write it out in full first, cut it to cue cards later. Open: which story to use, and how to rehearse it. Have: the four-part structure with its timings, in full, paste here. Next: a three-week rehearsal plan, ten minutes a day at most. Second: back on the conversation, pressing the trigger offers three next moves: "Plan three weeks of rehearsal", "Turn the structure into cue cards", and "Write the closing toast line". Clicking the first puts this in the message box, unsent: Give me a three-week rehearsal plan for a five-minute wedding toast, for someone who has never spoken in public. Week by week, ten minutes a day at most. What to do about a shaking voice and losing my place. When to stop editing the words and only practise saying them. Assume: the four-part structure is settled; this is about delivery, not writing.</p>
-  <p class="sr-only" id="live" aria-live="polite"></p>
-  <figcaption>
-    <p class="scene" id="cap" aria-hidden="true"></p>
-    <p class="figure-controls" hidden><button type="button" id="replay">Replay</button><button type="button" id="toggle">Pause</button></p>
-    <p id="fig1">Figure 1. The card as the extension draws it, in an invented conversation about a wedding toast. It shows both halves of the product, in the order the saving matters. First the exit: past about 12,000 tokens the card says what each send re-reads and offers <b>Start fresh</b>, which writes a brief of the thread and opens a new conversation with it already in the message box — a hundred-odd tokens in place of fourteen thousand. Then the row: pressing the trigger offers three moves, and clicking one puts the whole prompt in the box; the line beginning <code>Assume:</code> is the part you change before sending. Nothing is sent in either half. The markup, styles and gestures are the extension's own (<code>extension/content.js</code>); the conversation, the brief and the moves are canned for this figure, and nothing here is recorded or sent anywhere. The brief's figure of ≈ 137 tokens is the chars-over-four estimate of the brief actually on screen, and it is shorter than the briefs measured on real threads — those ran 313 to 444 tokens, in <a href="#tokens">the table below</a>, which is the number to go by. <noscript>The figure animates with JavaScript; without it, this is the frame before the card appears.</noscript></p>
-  </figcaption>
-</figure>
+  </section>
 
-<h2 id="tokens">Save tokens. Extend your sessions.</h2>
-<p>On claude.ai, every message you send is processed with the whole conversation behind it. On a long thread that is the whole cost of a message, and it is paid again on the next one. When a thread has grown past about 12,000 tokens, the card says how much is re-read on every send and offers <strong>Start fresh</strong>. Press it and CONTEXA writes a brief of a few hundred tokens from your side of the conversation (the goal, what is settled, what is open), opens a new conversation (on Cowork, a new session in the same project) and puts the brief in its message box, unsent. You read it, change it, and send it. The next thread starts at a few hundred tokens instead of a few hundred thousand.</p>
-<div class="scroll">
-<table>
-  <caption>Measured: the same five messages, in a 689k-token session and after Start fresh</caption>
-  <thead><tr><th scope="col">Five messages, sent one after another</th><th scope="col">Five-hour usage limit spent</th></tr></thead>
-  <tbody>
-    <tr><th scope="row">Continuing the 689k-token thread</th><td>9%</td></tr>
-    <tr><th scope="row">In the new conversation, with the brief</th><td>3%</td></tr>
-  </tbody>
-</table>
-</div>
-<p>One live session, one phone, the same model on both sides, the usage page read before and after each set of five. Three times cheaper per message. The weekly limit moved two points on the heavy side and none on the fresh one, which is under the page's resolution and so not claimed. One of the five heavy messages ran three tools, and each tool call re-reads the thread again; a run with no tools and the same model is planned and will replace this table when it lands. The numbers are on <a href="https://github.com/33kain/tokenbrake/blob/main/HANDOFF.md">the handoff</a>, with everything that could bias them.</p>
-<div class="scroll">
-<table>
-  <caption>Measured: the brief against the thread it replaces, five sessions</caption>
-  <thead><tr><th scope="col">Where Start fresh was pressed</th><th scope="col">Re-read on every send</th><th scope="col">The brief</th></tr></thead>
-  <tbody>
-    <tr><th scope="row">Cowork session</th><td>689k tokens</td><td>441 tokens</td></tr>
-    <tr><th scope="row">Cowork session</th><td>214k tokens</td><td>313 tokens</td></tr>
-    <tr><th scope="row">Cowork session</th><td>124k tokens</td><td>444 tokens</td></tr>
-    <tr><th scope="row">Chat</th><td>22k tokens</td><td>427 tokens</td></tr>
-    <tr><th scope="row">Chat</th><td>14k tokens</td><td>442 tokens</td></tr>
-  </tbody>
-</table>
-</div>
-<p>Five sessions, one day. The brief lands between 300 and 450 tokens whatever the thread was. Cowork counts are exact, from the session's own record; chat counts are estimates at four characters per token. What the brief does not carry is gone from the new thread: it is a summary you read before sending, not the conversation, and on a thread where every detail still matters the right move is to stay.</p>
-<h3>The moves save a different way</h3>
-<p>The cost of a message is not its length; it is how deep into the session you are when you send it. A wasted message on a forty-message thread costs a forty-message read. Three kinds of message get wasted, and none of them is a bad answer from Claude: the vague follow-up that comes back as a question ("which part?"), the three-jobs-in-one ask that comes back as three half-answers, and "explain that again", which re-reads everything to restate what is already on screen.</p>
-<p>CONTEXA writes the next message as one finished request. One job, one verb. The defaults the session already settled are stated on an <code>Assume:</code> line, so Claude does not ask. The material only you have is a <code>&lt;paste here&gt;</code> slot, so Claude does not ask for that either. A message that cannot draw a clarifying question is a round trip that never happens, and on a long session that round trip is the expensive one. Fewer messages per thing done is how the usage limit lasts longer.</p>
-<p>This next table is a model, not a measurement, and it says so. An <em>ask</em> is one thing you want done. Each exchange is taken as about 150 tokens from you and 900 from Claude. Without CONTEXA an ask is taken to cost 1.7 messages on average, because some asks need a clarifying reply or a redo; with it, 1.1, allowing for the occasional edit. Tokens read is the sum, over every message sent, of the conversation as it stood at that moment.</p>
-<div class="scroll">
-<table>
-  <caption>Modelled spend on one session, without and with CONTEXA</caption>
-  <thead><tr><th scope="col">Session</th><th scope="col">Messages sent</th><th scope="col">Tokens read</th><th scope="col">Saved</th></tr></thead>
-  <tbody>
-    <tr><th scope="row">10 asks, at 1.7 messages per ask today</th><td>17 → 11</td><td>146k → 60k</td><td>about 59%</td></tr>
-    <tr><th scope="row">20 asks, at 1.7 messages per ask today</th><td>34 → 22</td><td>596k → 247k</td><td>about 59%</td></tr>
-    <tr><th scope="row">40 asks, at 1.7 messages per ask today</th><td>68 → 44</td><td>2.4M → 1.0M</td><td>about 58%</td></tr>
-    <tr><th scope="row">40 asks, at 1.5 messages per ask today</th><td>60 → 44</td><td>1.9M → 1.0M</td><td>about 46%</td></tr>
-    <tr><th scope="row">40 asks, at 2 messages per ask today</th><td>80 → 44</td><td>3.3M → 1.0M</td><td>about 70%</td></tr>
-  </tbody>
-</table>
-</div>
-<p>The percentage barely moves with session length. The absolute number is what grows: on the forty-ask session the difference is over a million tokens of re-reading, which is why the saving is felt most on exactly the sessions that hit the limit. Three things are worth knowing before repeating any of it. The whole estimate rests on how many messages an ask costs you today; if your sessions rarely need a clarifying round, the saving is nearer 20 to 30 percent. claude.ai caches context, so a re-read message costs less than a fresh one; the measured table above is the first evidence of how much of a re-read reaches the usage limit (a discount, not a waiver), so treat the message counts as the firm figure and the token figures as the ceiling. And CONTEXA's own call is small next to any of this: at most about 4,500 tokens per press, on its own backend or your own API key, and none of it counts against your claude.ai usage.</p>
-<p class="muted">The rule behind this is the product's motto, <em>save tokens</em>, and the test it is held to, <em>every token earned</em>: a token is earned when its message could not have been shorter, could not have been skipped, and will not need a follow-up to fix. The full argument, with each rule tied to the code that enforces it, is in <a href="https://github.com/33kain/contexa/blob/main/docs/token-savings-thesis.md">the token-savings thesis</a>.</p>
+  <!-- ============================= Start fresh ============================= -->
+  <section id="start-fresh" class="section">
+    <div class="container">
+      <div class="split demo-left">
+        <div class="demo-col">
+          <div class="demo-wrap">
+            <div class="demo-badge top"><span class="dot"></span> Nothing is sent for you</div>
+            <div class="demo-window" id="sf-window" data-view="thread">
+              <div class="demo-chrome">
+                <span class="dot r"></span><span class="dot y"></span><span class="dot g"></span>
+                <span class="demo-url-wrap"><span class="demo-url"><span class="lock"></span> claude.ai<span id="sf-newchat"> · new chat</span></span></span>
+              </div>
+              <div class="sf-convo">
+                <div class="sf-fade" aria-hidden="true"></div>
+                <div class="sf-thread" id="sf-thread">
+                  <div class="sf-earlier"><span>··· 24 earlier messages</span></div>
+                  <div class="bubble-user"><span>Add food stops for each day.</span></div>
+                  <div class="bubble-claude"><span class="avatar">C</span><div class="body">Added a lunch and a dinner near each stop, all walkable.</div></div>
+                  <div class="bubble-user"><span>Make day 2 a bit more budget-friendly.</span></div>
+                  <div class="bubble-claude"><span class="avatar">C</span><div class="body">Swapped in free viewpoints and a cheaper riverside lunch.</div></div>
+                  <div class="bubble-user"><span>Great — now add a budget and a packing checklist.</span></div>
+                  <div class="bubble-claude"><span class="avatar">C</span><div class="body">Updated: rough daily budget added, plus a short packing list for the trip…</div></div>
+                </div>
+                <div class="sf-new" id="sf-new">
+                  <span class="brief-ready"><svg class="ico" width="13" height="13"><use href="#i-sparkles"/></svg> Brief ready</span>
+                  <div class="t">A fresh chat, with your thread carried over</div>
+                  <div class="h">Written in the thread's own words — nothing sent yet</div>
+                </div>
+              </div>
+              <div class="demo-dock">
+                <div class="weight-card" id="sf-weightcard">
+                  <div class="inner">
+                    <div class="head">
+                      <span class="tag"><svg class="ico" width="14" height="14"><use href="#i-sparkles"/></svg> CONTEXA</span>
+                      <span class="count">≈ 689k tokens re-read per send</span>
+                    </div>
+                    <p>This thread is getting heavy. Start fresh keeps what matters and drops the rest.</p>
+                    <button type="button" class="startfresh-btn" id="sf-btn" tabindex="-1"><svg class="ico" width="13" height="13"><use href="#i-rotate-ccw"/></svg> Start fresh</button>
+                  </div>
+                </div>
+                <div class="composer" id="sf-composer">
+                  <div class="field empty" id="sf-field">Message Claude…</div>
+                  <span class="send"><svg class="ico" width="16" height="16"><use href="#i-arrow-up"/></svg></span>
+                </div>
+              </div>
+              <span class="demo-cursor" id="sf-cursor" aria-hidden="true"><svg width="22" height="22"><use href="#i-cursor"/></svg><span class="ripple"></span></span>
+            </div>
+            <div class="demo-badge bottom"><div class="big">↓ re-read</div><div class="small">skip the heavy thread</div></div>
+          </div>
+        </div>
 
-<h2 id="quick-start">Quick start</h2>
-<ol>
-  <li><a href="https://chromewebstore.google.com/detail/phhamigkjeeabbjncpmhkppkjccfglhb">Install it from the Chrome Web Store</a>.</li>
-  <li>Open claude.ai and ask something that takes a paragraph to answer; a reply under 120 characters gets no trigger. When the reply finishes, the mascot appears above the message box. The reply has been copied from the page; nothing else has been read, and nothing has been sent.</li>
-  <li>Press it. This spends one of the day's 20. A row of up to four moves appears, or a one-line notice says nothing was earned and removes itself.</li>
-  <li>Click a move. The whole prompt is in the box, unsent, and picking it cost nothing. Edit it if you want, then send it yourself.</li>
-  <li>On a thread past about 12,000 tokens the card also shows the number re-read on every send and a Start fresh control. Press it, read the brief, click the chip: a new conversation opens with the brief in its message box, unsent.</li>
-</ol>
+        <div class="copy">
+          <div class="reveal"><span class="eyebrow"><span class="dot"></span> Start fresh</span></div>
+          <div class="reveal" style="--reveal-delay:.05s"><h2>Long thread? Start fresh in one click.</h2></div>
+          <div class="reveal" style="--reveal-delay:.1s">
+            <p>Every message re-reads the whole thread. When it gets heavy, CONTEXA offers
+            Start fresh — it writes a short brief of what matters and opens a new chat with
+            it already in the box. Nothing is sent for you.</p>
+          </div>
+          <div class="reveal" style="--reveal-delay:.15s">
+            <ul class="ticklist">
+              <li><span class="tick"><svg class="ico" width="13" height="13"><use href="#i-check"/></svg></span> Shows how many tokens each send re-reads</li>
+              <li><span class="tick"><svg class="ico" width="13" height="13"><use href="#i-check"/></svg></span> Writes a brief in the thread's own words</li>
+              <li><span class="tick"><svg class="ico" width="13" height="13"><use href="#i-check"/></svg></span> Opens a new chat with it ready — nothing sent</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
 
-<h2 id="what-it-does">What it does</h2>
-<h3>It reads your messages across the conversation</h3>
-<p>A follow-up written from the last answer alone is mostly about the last answer. So when you press, it reads your own messages across the whole conversation, through claude.ai's own API from your browser, since the page itself holds only the part that is on screen: the first one, which is usually where you said what you were trying to do, and everything you kept coming back to since. On a Cowork session it reads the head of the session, where the goal is, and the last three thousand events, where the present is. Claude's reply is material, not the subject; what it just built is what makes a new move possible. A move that sends you back over an answer you have already read is the one thing it is written never to offer.</p>
-<h3>Each move stands alone</h3>
-<p>Each move is one complete prompt with one ask, ready to send. The moves do not run in order and do not build on each other; picking one discards the rest. Where a prompt needs something only you have (a file, a link, a story only you can tell) it writes <code>&lt;paste here&gt;</code> instead of inventing it. Where the conversation already settled something, it may add a line starting <code>Assume:</code>, so you can change it before you send rather than discover it in the answer.</p>
-<h3>Start fresh is the exit</h3>
-<p>The moves are ways into the thread you are in. Start fresh is the way out of it, and it appears only when there is a thread worth leaving: past about 12,000 tokens, the card carries the number re-read on every send and the control. The brief it writes is checked like a move, drawn from your own messages, and shown to you in the new message box before anything is sent. On a Cowork session the new session opens in the same project.</p>
-<h3>Zero is a valid outcome</h3>
-<p>Every move must be earned by a verbatim quote from something actually said in the conversation, by you or by Claude, and that is checked before anything reaches your screen. When nothing is earned, no row is drawn, and no suggestion is shown only because it could be. On a one-question chat that is the usual result, and the correct one. How often it happens in real use is the open question the current field test exists to answer.</p>
-<h3>What it will not do</h3>
-<ul>
-  <li>Send anything on your behalf. The message box is where you see the full text before anything goes.</li>
-  <li>Read Claude's earlier replies, your other conversations, or any other site.</li>
-  <li>Store your conversation text.</li>
-  <li>Rewrite what you typed. There is nothing to type into; clicking is the only input.</li>
-  <li>Grade your prompts or tell you how to write.</li>
-  <li>Overlay the message box, interrupt you mid-sentence, or keep a conversation going on its own.</li>
-  <li>Show canned suggestions when something fails. A limit reached, a parse failure or a network error is reported as what it is.</li>
-</ul>
+  <!-- ============================= How it works ============================= -->
+  <section id="how-it-works" class="section">
+    <div class="container">
+      <div class="section-head">
+        <div class="reveal"><span class="eyebrow"><span class="dot"></span> How it works</span></div>
+        <div class="reveal" style="--reveal-delay:.05s"><h2>Three steps. No new habits.</h2></div>
+        <div class="reveal" style="--reveal-delay:.1s"><p>CONTEXA works right inside your Claude chat. You stay in flow — it just hands you the next move.</p></div>
+      </div>
+      <div class="steps">
+        <div class="connector" aria-hidden="true"></div>
+        <div class="step reveal">
+          <div class="icon"><svg class="ico" width="26" height="26"><use href="#i-msg-text"/></svg><span class="num">1</span></div>
+          <h3>Claude replies</h3>
+          <p>When a reply finishes, CONTEXA quietly appears above the message box.</p>
+        </div>
+        <div class="step reveal" style="--reveal-delay:.08s">
+          <div class="icon"><svg class="ico" width="26" height="26"><use href="#i-layers"/></svg><span class="num">2</span></div>
+          <h3>You get a menu</h3>
+          <p>Up to four good next moves show up as clickable chips — read for context.</p>
+        </div>
+        <div class="step reveal" style="--reveal-delay:.16s">
+          <div class="icon"><svg class="ico" width="26" height="26"><use href="#i-mpc"/></svg><span class="num">3</span></div>
+          <h3>Pick one</h3>
+          <p>Your choice lands in the box, unsent. Edit it if you like, then send.</p>
+        </div>
+      </div>
+    </div>
+  </section>
 
-<h2 id="compared">Compared with other prompt extensions</h2>
-<p>Every "prompt" extension we could find either rewrites what you already typed or saves snippets for later. We didn't find one that reads your whole session and writes the next message for you, complete and ready to send.</p>
-<p>It is for people who already use Claude every day, developers or not. It does not grade prompts: making bad prompts good is worth nothing to someone whose prompts are already good. The parts of the mechanism that are worth knowing before you trust it are on <a href="/how-it-works/">How it works</a>; what leaves your browser, and when, is on <a href="/privacy/">Privacy</a>.</p>
+  <!-- ============================= Features ============================= -->
+  <section id="features" class="section section-tint">
+    <div class="container">
+      <div class="section-head">
+        <div class="reveal"><span class="eyebrow"><span class="dot"></span> Features</span></div>
+        <div class="reveal" style="--reveal-delay:.05s"><h2>Small tool. Big on respect.</h2></div>
+        <div class="reveal" style="--reveal-delay:.1s"><p>Everything you need to keep a conversation moving — and nothing you don't.</p></div>
+      </div>
+      <div class="bento">
+        <div class="card wide col-span-2 lg-col-3 reveal">
+          <span class="glow" aria-hidden="true"></span>
+          <span class="icon-tile"><svg class="ico" width="22" height="22"><use href="#i-shield-check"/></svg></span>
+          <h3>Privacy-first by design</h3>
+          <p>CONTEXA reads the on-screen conversation to shape suggestions. Nothing is sent anywhere
+          until you actually click a move. Your choice, your call.</p>
+          <div class="chip-row">
+            <span class="chip-static">No tracking</span>
+            <span class="chip-static">No hidden calls</span>
+            <span class="chip-static">You decide</span>
+          </div>
+        </div>
+        <div class="card card-hover lg-col-3 reveal" style="--reveal-delay:.05s">
+          <span class="icon-tile"><svg class="ico" width="20" height="20"><use href="#i-layers"/></svg></span>
+          <h3>Up to four next moves</h3>
+          <p>Independent options based on the chat. Pick one, discard the rest.</p>
+        </div>
+        <div class="card card-hover col-span-2 lg-col-2 reveal">
+          <span class="icon-tile"><svg class="ico" width="20" height="20"><use href="#i-gift"/></svg></span>
+          <h3>Free to use</h3>
+          <p>No paywall for the core workflow. Just install and go.</p>
+        </div>
+        <div class="card card-hover col-span-2 lg-col-2 reveal" style="--reveal-delay:.05s">
+          <span class="icon-tile"><svg class="ico" width="20" height="20"><use href="#i-list-checks"/></svg></span>
+          <h3>No account needed</h3>
+          <p>Nothing to sign up for. It works the moment it's installed.</p>
+        </div>
+        <div class="card card-hover col-span-2 lg-col-2 reveal" style="--reveal-delay:.1s">
+          <span class="icon-tile"><svg class="ico" width="20" height="20"><use href="#i-key"/></svg></span>
+          <h3>Optional API key</h3>
+          <p>Add your own personal key to remove usage limits.</p>
+        </div>
+      </div>
+    </div>
+  </section>
 
-<h2 id="install">Install</h2>
-<p><a href="https://chromewebstore.google.com/detail/phhamigkjeeabbjncpmhkppkjccfglhb">Install it from the Chrome Web Store</a>. It is free. There is no account, no sign-up and no API key to enter. 20 presses a day per device are included, reset at midnight UTC, and picking a move costs nothing.</p>
-<div class="scroll">
-<table>
-  <caption>Where the store link installs it</caption>
-  <thead><tr><th scope="col">Browser</th><th scope="col">Installs it?</th></tr></thead>
-  <tbody>
-    <tr><th scope="row">Chrome, desktop</th><td>Yes, from the store link.</td></tr>
-    <tr><th scope="row">Edge, Brave, Opera, Vivaldi, Arc, desktop</th><td>Yes, from the same link.</td></tr>
-    <tr><th scope="row">Chromium browsers on a phone that support extensions</th><td>Yes, from the same link.</td></tr>
-    <tr><th scope="row">Chrome for Android, Safari on iOS</th><td>No. They cannot install extensions from the Chrome Web Store, and most mobile browsers cannot.</td></tr>
-  </tbody>
-</table>
-</div>
-<h3>Your own API key</h3>
-<p>Add it in the extension's settings. The daily limit goes away, and requests go from your browser to <code>api.anthropic.com</code> only; no CONTEXA server is involved. The key is stored on your device and is sent nowhere else. Use under your own key falls under your own agreement with Anthropic.</p>
-<h3>How to tell it is working</h3>
-<p>Open claude.ai and ask something that takes a paragraph to answer. When the reply finishes, the mascot appears above the message box; hover or tab to it and it asks <em>What now?</em> If it does not appear, one of three things is true. The reply was under 120 characters, which never gets a trigger. CONTEXA is switched off in its settings. Or claude.ai changed its page structure and the extension went quiet, which is what it is built to do instead of breaking the page.</p>
-<h3>Developer install</h3>
-<p><code>chrome://extensions</code> → Developer mode → Load unpacked → the <code>extension/</code> folder of the source.</p>
-<p>Chrome will warn that it cannot verify where an unpacked extension comes from. That is expected, and it goes away only when installing from the store.</p>
+  <!-- ============================= Benefits ============================= -->
+  <section id="benefits" class="section">
+    <div class="container">
+      <div class="section-head">
+        <div class="reveal"><span class="eyebrow"><span class="dot"></span> Benefits</span></div>
+        <div class="reveal" style="--reveal-delay:.05s"><h2>Why people keep it on.</h2></div>
+        <div class="reveal" style="--reveal-delay:.1s"><p>CONTEXA makes each reply count — so your conversations go further on fewer tokens.</p></div>
+      </div>
+      <div class="benefits">
+        <div class="benefit reveal">
+          <div class="top"><span class="icon-tile"><svg class="ico" width="20" height="20"><use href="#i-coins"/></svg></span><span class="kicker">Spend less</span></div>
+          <h3>Save tokens</h3>
+          <p>Fewer wasted messages and fewer reruns on long threads.</p>
+        </div>
+        <div class="benefit reveal" style="--reveal-delay:.05s">
+          <div class="top"><span class="icon-tile"><svg class="ico" width="20" height="20"><use href="#i-sparkles"/></svg></span><span class="kicker">Ask better</span></div>
+          <h3>Better follow-ups</h3>
+          <p>Clear, single-purpose prompts that keep your context intact.</p>
+        </div>
+        <div class="benefit reveal" style="--reveal-delay:.1s">
+          <div class="top"><span class="icon-tile"><svg class="ico" width="20" height="20"><use href="#i-wind"/></svg></span><span class="kicker">Move faster</span></div>
+          <h3>Stay in flow</h3>
+          <p>No tab-switching. No prompt library. Just pick and go.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================= Measured ============================= -->
+  <section id="measured" class="section section-tint">
+    <div class="container">
+      <div class="section-head">
+        <div class="reveal"><span class="eyebrow"><span class="dot"></span> Measured, not claimed</span></div>
+        <div class="reveal" style="--reveal-delay:.05s"><h2>The savings, in real numbers.</h2></div>
+        <div class="reveal" style="--reveal-delay:.1s"><p>On claude.ai every message is processed with the whole conversation behind it — so on a long thread that cost is paid again on every send. Here is what that looks like, measured and modelled.</p></div>
+      </div>
+      <div class="measured">
+        <div class="data-card reveal">
+          <p class="cap">The same five messages, in a 689k-token session and after Start fresh</p>
+          <div class="scroll">
+            <table>
+              <thead><tr><th scope="col">Five messages, one after another</th><th scope="col">Five-hour limit spent</th></tr></thead>
+              <tbody>
+                <tr><th scope="row">Continuing the 689k-token thread</th><td>9%</td></tr>
+                <tr><th scope="row">In the new conversation, with the brief</th><td>3%</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <p class="note">One live session, one phone, same model on both sides, the usage page read before and after each set of five. Three times cheaper per message.</p>
+        </div>
+
+        <div class="data-card reveal" style="--reveal-delay:.05s">
+          <p class="cap">The brief against the thread it replaces, five sessions</p>
+          <div class="scroll">
+            <table>
+              <thead><tr><th scope="col">Where Start fresh was pressed</th><th scope="col">Re-read per send</th><th scope="col">The brief</th></tr></thead>
+              <tbody>
+                <tr><th scope="row">Cowork session</th><td>689k tokens</td><td>441 tokens</td></tr>
+                <tr><th scope="row">Cowork session</th><td>214k tokens</td><td>313 tokens</td></tr>
+                <tr><th scope="row">Cowork session</th><td>124k tokens</td><td>444 tokens</td></tr>
+                <tr><th scope="row">Chat</th><td>22k tokens</td><td>427 tokens</td></tr>
+                <tr><th scope="row">Chat</th><td>14k tokens</td><td>442 tokens</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <p class="note">Five sessions, one day. The brief lands between 300 and 450 tokens whatever the thread was.</p>
+        </div>
+
+        <div class="data-card full reveal" style="--reveal-delay:.1s">
+          <p class="cap">Modelled spend on one session, without and with CONTEXA</p>
+          <div class="scroll">
+            <table>
+              <thead><tr><th scope="col">Session</th><th scope="col">Messages sent</th><th scope="col">Tokens read</th><th scope="col">Saved</th></tr></thead>
+              <tbody>
+                <tr><th scope="row">10 asks, at 1.7 messages per ask today</th><td>17 → 11</td><td>146k → 60k</td><td>about 59%</td></tr>
+                <tr><th scope="row">20 asks, at 1.7 messages per ask today</th><td>34 → 22</td><td>596k → 247k</td><td>about 59%</td></tr>
+                <tr><th scope="row">40 asks, at 1.7 messages per ask today</th><td>68 → 44</td><td>2.4M → 1.0M</td><td>about 58%</td></tr>
+                <tr><th scope="row">40 asks, at 1.5 messages per ask today</th><td>60 → 44</td><td>1.9M → 1.0M</td><td>about 46%</td></tr>
+                <tr><th scope="row">40 asks, at 2 messages per ask today</th><td>80 → 44</td><td>3.3M → 1.0M</td><td>about 70%</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <p class="note">A model, not a measurement, and it says so: an <em>ask</em> is one thing you want done, each exchange taken as ~150 tokens from you and ~900 from Claude. The percentage barely moves with length; the absolute saving is what grows. The full method, with every caveat, is on <a href="/how-it-works/#start-fresh">How it works</a> and in <a href="https://github.com/33kain/contexa/blob/main/docs/token-savings-thesis.md">the token-savings thesis</a>.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================= Final CTA ============================= -->
+  <section class="final-cta">
+    <div class="container">
+      <div class="reveal">
+        <div class="cta-band">
+          <div class="glow2" aria-hidden="true"></div>
+          <div class="inner">
+            <h2>Keep your Claude sessions moving.</h2>
+            <p>Install CONTEXA and get a menu of smart next moves — one click at a time.</p>
+            <div class="cta-actions">
+              <a class="btn btn-primary btn-lg focus-ring" href="https://chromewebstore.google.com/detail/phhamigkjeeabbjncpmhkppkjccfglhb" target="_blank" rel="noreferrer">
+                <svg class="ico" width="16" height="16"><use href="#i-chrome"/></svg> Add to Chrome
+              </a>
+              <a class="btn btn-secondary btn-lg focus-ring" href="https://github.com/33kain/contexa" target="_blank" rel="noreferrer">
+                <svg class="ico" width="16" height="16"><use href="#i-github"/></svg> View on GitHub
+              </a>
+            </div>
+            <p class="cta-fine">Free · No account · Works with claude.ai</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
 </main>
 
-<footer class="site">
-  <p>CONTEXA is an independent project. It is not affiliated with, endorsed by, or sponsored by Anthropic.</p>
-  <p><a href="https://chromewebstore.google.com/detail/phhamigkjeeabbjncpmhkppkjccfglhb">Chrome Web Store</a> · <a href="https://github.com/33kain/contexa">Source on GitHub</a> · <a href="https://github.com/33kain/contexa/blob/main/LICENSE">MIT licence</a> · <a href="https://github.com/33kain/contexa/blob/main/publishing/PRIVACY.md">Privacy policy</a> · <a href="https://github.com/33kain/contexa/blob/main/CHANGELOG.md">Changelog</a></p>
-  <p class="muted">Version 0.9.95. This site is static files served from one origin: no fonts, scripts, images or analytics are loaded from anywhere else.</p>
+<!-- ============================= Footer ============================= -->
+<footer class="site-footer">
+  <div class="container">
+    <div class="footer-top">
+      <div class="footer-blurb">
+        <span class="wordmark">
+          <span class="brandmark"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M4 6.5C4 5.12 5.12 4 6.5 4h11C18.88 4 20 5.12 20 6.5v7c0 1.38-1.12 2.5-2.5 2.5H9l-4 3.2V16H6.5C5.12 16 4 14.88 4 13.5v-7Z" fill="#fff" opacity=".95"/><circle cx="9" cy="10" r="1.15" fill="#087A79"/><circle cx="12.5" cy="10" r="1.15" fill="#087A79"/><circle cx="16" cy="10" r="1.15" fill="#087A79"/></svg></span>
+          <span class="brand-name">CONTEXA</span>
+        </span>
+        <p>A small Chrome extension that reads where your Claude chat is going and offers your next
+        move — one click at a time.</p>
+      </div>
+      <div class="footer-links">
+        <a href="#how-it-works">How it works</a>
+        <a href="/how-it-works/">Details</a>
+        <a href="/privacy/">Privacy</a>
+        <a href="/notes/">Notes</a>
+        <a href="https://chromewebstore.google.com/detail/phhamigkjeeabbjncpmhkppkjccfglhb" target="_blank" rel="noreferrer">Chrome Web Store</a>
+        <a href="https://github.com/33kain/contexa" target="_blank" rel="noreferrer"><svg class="ico" width="15" height="15"><use href="#i-github"/></svg> GitHub</a>
+      </div>
+    </div>
+    <div class="footer-bottom">
+      <span>© <span id="year">2026</span> CONTEXA. Independent project — not affiliated with, endorsed by, or sponsored by Anthropic.</span>
+      <span>Version 0.9.95 · <a href="https://github.com/33kain/contexa/blob/main/LICENSE">MIT</a> · <a href="https://github.com/33kain/contexa/blob/main/publishing/PRIVACY.md">Privacy policy</a> · <a href="https://github.com/33kain/contexa/blob/main/CHANGELOG.md">Changelog</a></span>
+    </div>
+    <p class="footer-bottom" style="border:0;padding-top:0;margin-top:8px">This site is static files served from one origin: no fonts, scripts, images or analytics are loaded from anywhere else.</p>
+  </div>
 </footer>
 </body>
 </html>

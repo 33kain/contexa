@@ -3,20 +3,29 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="color-scheme" content="light dark">
+<meta name="color-scheme" content="light">
 <title>Not found - CONTEXA</title>
 <meta name="robots" content="noindex">
+<meta name="theme-color" content="#0EA5A4">
 <link rel="stylesheet" href="/site.css">
 <link rel="icon" href="/icon.svg" type="image/svg+xml">
 <link rel="icon" href="/favicon-32.png" type="image/png" sizes="32x32">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
 </head>
 <body>
-<main id="main">
-<h1>404</h1>
-<p>There is no page at this address. The site has four: <a href="/">Overview</a>, <a href="/how-it-works/">How it works</a>, <a href="/privacy/">Privacy</a> and <a href="/notes/">Notes</a>.</p>
+<main id="main" style="min-height:100vh;display:flex;align-items:center;justify-content:center">
+  <div class="hero-bg" aria-hidden="true"></div>
+  <div class="container" style="max-width:36rem;text-align:center">
+    <span class="brandmark" style="width:56px;height:56px;border-radius:16px;margin-bottom:20px">
+      <svg width="30" height="30" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M4 6.5C4 5.12 5.12 4 6.5 4h11C18.88 4 20 5.12 20 6.5v7c0 1.38-1.12 2.5-2.5 2.5H9l-4 3.2V16H6.5C5.12 16 4 14.88 4 13.5v-7Z" fill="#fff" opacity=".95"/><circle cx="9" cy="10" r="1.15" fill="#087A79"/><circle cx="12.5" cy="10" r="1.15" fill="#087A79"/><circle cx="16" cy="10" r="1.15" fill="#087A79"/></svg>
+    </span>
+    <h1 style="font-family:var(--font-head);font-size:2.5rem;margin:0">404</h1>
+    <p style="margin:12px 0 0;color:var(--text-2);font-size:1.0625rem">That page isn't here. It may have moved, or it never existed.</p>
+    <div style="margin-top:28px;display:flex;gap:12px;justify-content:center;flex-wrap:wrap">
+      <a class="btn btn-primary btn-lg focus-ring" href="/">Back to overview</a>
+      <a class="btn btn-secondary btn-lg focus-ring" href="/how-it-works/">How it works</a>
+    </div>
+  </div>
 </main>
-<footer class="site">
-  <p>CONTEXA is an independent project. It is not affiliated with, endorsed by, or sponsored by Anthropic.</p>
-</footer>
 </body>
 </html>

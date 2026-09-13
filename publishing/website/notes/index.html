@@ -3,11 +3,10 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="color-scheme" content="light dark">
+<meta name="color-scheme" content="light">
 <title>Notes - CONTEXA</title>
 <meta name="description" content="The rules CONTEXA follows, the versions that broke them, and what is deliberately not built. Things learned the hard way, newest first.">
-<meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)">
-<meta name="theme-color" content="#111111" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#0EA5A4">
 <link rel="canonical" href="https://contexa-website.pages.dev/notes/">
 <link rel="stylesheet" href="/site.css">
 <link rel="icon" href="/icon.svg" type="image/svg+xml">
@@ -24,25 +23,67 @@
 <meta property="og:image:type" content="image/png">
 <meta property="og:image:alt" content="The CONTEXA mascot, a teal rounded shape with two wide eyes, beside the words: Save tokens">
 <meta name="twitter:card" content="summary_large_image">
+<script src="/demo.js" defer></script>
 </head>
 <body>
-<a class="skip" href="#main">Skip to content</a>
-<header class="site">
-  <svg class="mascot" viewBox="0 0 58 50" role="img" aria-label="The CONTEXA mascot: a teal rounded shape with two wide eyes and a small smile">
-    <defs><linearGradient id="mg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#2cc4ae"/><stop offset="1" stop-color="#15a594"/></linearGradient><linearGradient id="mp" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="58" y2="0"><stop offset="0" stop-color="#000"/><stop offset="1" stop-color="#000"/></linearGradient><linearGradient id="mo" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="58" y2="0"><stop offset="0" stop-color="#0a352f"/><stop offset="1" stop-color="#0a352f"/></linearGradient></defs>
-    <g><path d="M29 3 C43 3 53 12 53 26 L53 50 L5 50 L5 26 C5 12 15 3 29 3 Z" fill="url(#mg)"/><ellipse cx="21" cy="25.5" rx="7.4" ry="8.6" fill="#fff"/><ellipse cx="37" cy="25.5" rx="7.4" ry="8.6" fill="#fff"/><circle cx="22.9" cy="27.2" r="3.8" fill="url(#mp)"/><circle cx="38.9" cy="27.2" r="3.8" fill="url(#mp)"/><circle cx="21.7" cy="25.9" r="1.3" fill="#fff" opacity=".95"/><circle cx="37.7" cy="25.9" r="1.3" fill="#fff" opacity=".95"/><path d="M25 37 Q29 39.5 33 37" stroke="url(#mo)" stroke-width="2.6" fill="none" stroke-linecap="round"/></g>
-  </svg>
-  <div>
-    <a class="name" href="/">CONTEXA</a>
-    <p class="tagline">Save tokens. Extend your sessions.</p>
+<a class="skip-link" href="#main">Skip to content</a>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
+  <symbol id="i-github" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 22v-4a4.8 4.8 0 0 0-1-3.5c3 0 6-2 6-5.5.08-1.25-.27-2.48-1-3.5.28-1.15.28-2.35 0-3.5 0 0-1 0-3 1.5-2.64-.5-5.36-.5-8 0C6 2 5 2 5 2c-.3 1.15-.3 2.35 0 3.5A5.4 5.4 0 0 0 4 9c0 3.5 3 5.5 6 5.5-.39.49-.68 1.05-.85 1.65-.17.6-.22 1.23-.15 1.85v4"/><path d="M9 18c-4.51 2-5-2-7-2"/></symbol>
+  <symbol id="i-menu" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="4" x2="20" y1="6" y2="6"/><line x1="4" x2="20" y1="12" y2="12"/><line x1="4" x2="20" y1="18" y2="18"/></symbol>
+  <symbol id="i-x" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></symbol>
+  <symbol id="i-chrome" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="3.2"/><path d="M12 8.8h8.2M8.9 13.6 4.8 6.5M15.1 13.6 11 20.7"/></symbol>
+</svg>
+
+<header class="nav" id="nav">
+  <div class="container">
+    <nav class="nav-inner" aria-label="Primary">
+      <a href="/" class="wordmark focus-ring" aria-label="CONTEXA home">
+        <span class="brandmark"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M4 6.5C4 5.12 5.12 4 6.5 4h11C18.88 4 20 5.12 20 6.5v7c0 1.38-1.12 2.5-2.5 2.5H9l-4 3.2V16H6.5C5.12 16 4 14.88 4 13.5v-7Z" fill="#fff" opacity=".95"/><circle cx="9" cy="10" r="1.15" fill="#087A79"/><circle cx="12.5" cy="10" r="1.15" fill="#087A79"/><circle cx="16" cy="10" r="1.15" fill="#087A79"/></svg></span>
+        <span class="brand-name">CONTEXA</span>
+      </a>
+      <div class="nav-links">
+        <a href="/">Overview</a>
+        <a href="/how-it-works/">How it works</a>
+        <a href="/privacy/">Privacy</a>
+        <a href="/notes/" aria-current="page">Notes</a>
+      </div>
+      <div class="nav-actions">
+        <a class="btn btn-secondary btn-sm focus-ring" href="https://github.com/33kain/contexa" target="_blank" rel="noreferrer"><svg class="ico" width="16" height="16"><use href="#i-github"/></svg> GitHub</a>
+        <a class="btn btn-primary btn-md focus-ring" href="https://chromewebstore.google.com/detail/phhamigkjeeabbjncpmhkppkjccfglhb" target="_blank" rel="noreferrer"><svg class="ico" width="16" height="16"><use href="#i-chrome"/></svg> Add to Chrome</a>
+      </div>
+      <button type="button" class="nav-toggle focus-ring" id="navToggle" aria-label="Open menu" aria-expanded="false" aria-controls="drawer"><svg class="ico" width="20" height="20"><use href="#i-menu"/></svg></button>
+    </nav>
   </div>
 </header>
-<nav class="site" aria-label="Site">
-  <a href="/">Overview</a> · <a href="/how-it-works/">How it works</a> · <a href="/privacy/">Privacy</a> · <a href="/notes/" aria-current="page">Notes</a> · <a href="https://github.com/33kain/contexa">Source</a>
-</nav>
+
+<div class="drawer-scrim" id="drawerScrim" hidden></div>
+<aside class="drawer" id="drawer" aria-label="Menu" hidden>
+  <div class="drawer-head">
+    <span class="wordmark"><span class="brandmark"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M4 6.5C4 5.12 5.12 4 6.5 4h11C18.88 4 20 5.12 20 6.5v7c0 1.38-1.12 2.5-2.5 2.5H9l-4 3.2V16H6.5C5.12 16 4 14.88 4 13.5v-7Z" fill="#fff" opacity=".95"/><circle cx="9" cy="10" r="1.15" fill="#087A79"/><circle cx="12.5" cy="10" r="1.15" fill="#087A79"/><circle cx="16" cy="10" r="1.15" fill="#087A79"/></svg></span><span class="brand-name">CONTEXA</span></span>
+    <button type="button" class="nav-toggle focus-ring" id="drawerClose" aria-label="Close menu"><svg class="ico" width="20" height="20"><use href="#i-x"/></svg></button>
+  </div>
+  <div class="drawer-links">
+    <a href="/">Overview</a>
+    <a href="/how-it-works/">How it works</a>
+    <a href="/privacy/">Privacy</a>
+    <a href="/notes/">Notes</a>
+  </div>
+  <div class="drawer-actions">
+    <a class="btn btn-secondary btn-lg focus-ring" href="https://github.com/33kain/contexa" target="_blank" rel="noreferrer"><svg class="ico" width="16" height="16"><use href="#i-github"/></svg> View on GitHub</a>
+    <a class="btn btn-primary btn-lg focus-ring" href="https://chromewebstore.google.com/detail/phhamigkjeeabbjncpmhkppkjccfglhb" target="_blank" rel="noreferrer"><svg class="ico" width="16" height="16"><use href="#i-chrome"/></svg> Add to Chrome</a>
+  </div>
+</aside>
+
+<div class="page-head">
+  <div class="container">
+    <span class="eyebrow"><span class="dot"></span> Notes</span>
+    <h1 style="font-family:var(--font-head);font-size:2rem;line-height:1.15;margin:16px 0 0">Notes</h1>
+  </div>
+</div>
 
 <main id="main">
-<h1>Notes</h1>
+<div class="prose">
 <p class="stamp">The rules the product follows, the versions that broke them, and what is deliberately not built. Condensed from the <a href="https://github.com/33kain/contexa/blob/main/CHANGELOG.md">changelog</a>, which has the measurements. Nothing here is a roadmap.</p>
 
 <p>The rule that produced most of the others: zero is a valid outcome. There is no floor, no fallback move, no minimum count and no ceiling. Every failure class this project has recorded came from something that guaranteed a non-empty row.</p>
@@ -143,12 +184,29 @@
 
 <h2 id="status">Status</h2>
 <p>Version 0.9.95 is the number in the extension's manifest and in the worker's <code>BUILD</code> constant; the worker's <code>/v1/health</code> reports it with the model and the limit, so a deploy can be told from a no-op. The shipped model on both paths is <code>claude-sonnet-5</code>. The open questions of the field test are how often a press earns nothing, and how much of a long thread a brief actually replaces.</p>
+</div>
 </main>
 
-<footer class="site">
-  <p>CONTEXA is an independent project. It is not affiliated with, endorsed by, or sponsored by Anthropic.</p>
-  <p><a href="https://chromewebstore.google.com/detail/phhamigkjeeabbjncpmhkppkjccfglhb">Chrome Web Store</a> · <a href="https://github.com/33kain/contexa">Source on GitHub</a> · <a href="https://github.com/33kain/contexa/blob/main/LICENSE">MIT licence</a> · <a href="https://github.com/33kain/contexa/blob/main/publishing/PRIVACY.md">Privacy policy</a> · <a href="https://github.com/33kain/contexa/blob/main/CHANGELOG.md">Changelog</a></p>
-  <p class="muted">Version 0.9.95. This site is static files served from one origin: no fonts, scripts, images or analytics are loaded from anywhere else.</p>
+<footer class="site-footer">
+  <div class="container">
+    <div class="footer-top">
+      <div class="footer-blurb">
+        <span class="wordmark"><span class="brandmark"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M4 6.5C4 5.12 5.12 4 6.5 4h11C18.88 4 20 5.12 20 6.5v7c0 1.38-1.12 2.5-2.5 2.5H9l-4 3.2V16H6.5C5.12 16 4 14.88 4 13.5v-7Z" fill="#fff" opacity=".95"/><circle cx="9" cy="10" r="1.15" fill="#087A79"/><circle cx="12.5" cy="10" r="1.15" fill="#087A79"/><circle cx="16" cy="10" r="1.15" fill="#087A79"/></svg></span><span class="brand-name">CONTEXA</span></span>
+        <p>A small Chrome extension that reads where your Claude chat is going and offers your next move — one click at a time.</p>
+      </div>
+      <div class="footer-links">
+        <a href="/">Overview</a>
+        <a href="/how-it-works/">How it works</a>
+        <a href="/privacy/">Privacy</a>
+        <a href="https://chromewebstore.google.com/detail/phhamigkjeeabbjncpmhkppkjccfglhb" target="_blank" rel="noreferrer">Chrome Web Store</a>
+        <a href="https://github.com/33kain/contexa" target="_blank" rel="noreferrer"><svg class="ico" width="15" height="15"><use href="#i-github"/></svg> GitHub</a>
+      </div>
+    </div>
+    <div class="footer-bottom">
+      <span>© <span id="year">2026</span> CONTEXA. Independent project — not affiliated with, endorsed by, or sponsored by Anthropic.</span>
+      <span>Version 0.9.95 · <a href="https://github.com/33kain/contexa/blob/main/LICENSE">MIT</a> · <a href="https://github.com/33kain/contexa/blob/main/publishing/PRIVACY.md">Privacy policy</a> · <a href="https://github.com/33kain/contexa/blob/main/CHANGELOG.md">Changelog</a></span>
+    </div>
+  </div>
 </footer>
 </body>
 </html>
