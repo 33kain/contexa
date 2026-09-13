@@ -137,8 +137,9 @@
             </span>
           </h1>
           <p class="hero-lead fade-in-up" style="--fd:.65s">
-            CONTEXA reads where your Claude conversation is going and offers up to four good next
-            moves. You choose one — nothing is sent until you click.
+            CONTEXA reads where your Claude conversation is going and hands you the next move —
+            and when a thread grows heavy, a fresh start with everything that matters carried
+            over. Nothing is sent until you click.
           </p>
           <div class="hero-cta fade-in-up" style="--fd:.8s">
             <a class="btn btn-primary btn-lg focus-ring" href="https://chromewebstore.google.com/detail/phhamigkjeeabbjncpmhkppkjccfglhb" target="_blank" rel="noreferrer">
@@ -155,56 +156,8 @@
           </ul>
         </div>
 
-        <!-- Hero demo (animated by demo.js; static "filled" frame with JS off) -->
+        <!-- Hero demo: Start fresh (animated by demo.js; static frame with JS off) -->
         <div>
-          <div class="demo-wrap">
-            <div class="demo-badge top"><span class="dot"></span> Nothing sent until you click</div>
-            <div class="demo-window" id="hero-window" data-menu="on">
-              <div class="demo-chrome">
-                <span class="dot r"></span><span class="dot y"></span><span class="dot g"></span>
-                <span class="demo-url-wrap"><span class="demo-url"><span class="lock"></span> claude.ai</span></span>
-              </div>
-              <div class="demo-convo">
-                <div class="bubbles">
-                  <div class="bubble-user"><span>Help me plan a 3-day trip to Lisbon.</span></div>
-                  <div class="bubble-claude">
-                    <span class="avatar">C</span>
-                    <div class="body">
-                      <span class="typing" id="hero-typing" hidden><span></span><span></span><span></span></span>
-                      <span id="hero-reply">Here is a simple 3-day outline: Day 1 Alfama &amp; the cathedral, Day 2 Belém &amp; the river, Day 3 a local market and a sunset viewpoint.</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-              <div class="demo-dock">
-                <div class="contexa-panel when-menu" id="hero-panel">
-                  <div class="contexa-label"><svg class="ico" width="14" height="14"><use href="#i-sparkles"/></svg> CONTEXA · next moves</div>
-                  <div class="chips" id="hero-chips">
-                    <button type="button" class="chip is-selected" tabindex="-1"><svg class="tick ico" width="13" height="13"><use href="#i-check"/></svg> Add food stops for each day</button>
-                    <button type="button" class="chip is-dim" tabindex="-1"><svg class="tick ico" width="13" height="13"><use href="#i-check"/></svg> Make it more budget-friendly</button>
-                    <button type="button" class="chip is-dim" tabindex="-1"><svg class="tick ico" width="13" height="13"><use href="#i-check"/></svg> Suggest a day trip nearby</button>
-                    <button type="button" class="chip is-dim" tabindex="-1"><svg class="tick ico" width="13" height="13"><use href="#i-check"/></svg> Turn this into a checklist</button>
-                  </div>
-                </div>
-                <div class="composer armed" id="hero-composer">
-                  <div class="field" id="hero-field">Add food stops for each day — one lunch and one dinner near the places you listed.</div>
-                  <span class="send"><svg class="ico" width="16" height="16"><use href="#i-arrow-up"/></svg></span>
-                </div>
-              </div>
-              <span class="demo-cursor" id="hero-cursor" aria-hidden="true"><svg width="22" height="22"><use href="#i-cursor"/></svg><span class="ripple"></span></span>
-            </div>
-            <div class="demo-badge bottom"><div class="big">↓ tokens</div><div class="small">fewer wasted messages</div></div>
-          </div>
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <!-- ============================= Start fresh ============================= -->
-  <section id="start-fresh" class="section">
-    <div class="container">
-      <div class="split demo-left">
-        <div class="demo-col">
           <div class="demo-wrap">
             <div class="demo-badge top"><span class="dot"></span> Nothing is sent for you</div>
             <div class="demo-window" id="sf-window" data-view="thread">
@@ -250,22 +203,130 @@
             <div class="demo-badge bottom"><div class="big">↓ re-read</div><div class="small">skip the heavy thread</div></div>
           </div>
         </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================= Next moves ============================= -->
+  <section id="next-moves" class="section">
+    <div class="container">
+      <div class="split demo-left">
+        <div class="demo-col">
+          <div class="demo-wrap">
+            <div class="demo-badge top"><span class="dot"></span> Nothing sent until you click</div>
+            <div class="demo-window" id="moves-window" data-menu="on">
+              <div class="demo-chrome">
+                <span class="dot r"></span><span class="dot y"></span><span class="dot g"></span>
+                <span class="demo-url-wrap"><span class="demo-url"><span class="lock"></span> claude.ai</span></span>
+              </div>
+              <div class="demo-convo">
+                <div class="bubbles">
+                  <div class="bubble-user"><span>Help me plan a 3-day trip to Lisbon.</span></div>
+                  <div class="bubble-claude">
+                    <span class="avatar">C</span>
+                    <div class="body">
+                      <span class="typing" id="moves-typing" hidden><span></span><span></span><span></span></span>
+                      <span id="moves-reply">Here is a simple 3-day outline: Day 1 Alfama &amp; the cathedral, Day 2 Belém &amp; the river, Day 3 a local market and a sunset viewpoint.</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div class="demo-dock">
+                <div class="contexa-panel when-menu" id="moves-panel">
+                  <div class="contexa-label"><svg class="ico" width="14" height="14"><use href="#i-sparkles"/></svg> CONTEXA · next moves</div>
+                  <div class="chips" id="moves-chips">
+                    <button type="button" class="chip is-selected" tabindex="-1"><svg class="tick ico" width="13" height="13"><use href="#i-check"/></svg> Add food stops for each day</button>
+                    <button type="button" class="chip is-dim" tabindex="-1"><svg class="tick ico" width="13" height="13"><use href="#i-check"/></svg> Make it more budget-friendly</button>
+                    <button type="button" class="chip is-dim" tabindex="-1"><svg class="tick ico" width="13" height="13"><use href="#i-check"/></svg> Suggest a day trip nearby</button>
+                    <button type="button" class="chip is-dim" tabindex="-1"><svg class="tick ico" width="13" height="13"><use href="#i-check"/></svg> Turn this into a checklist</button>
+                  </div>
+                </div>
+                <div class="composer armed" id="moves-composer">
+                  <div class="field" id="moves-field">Add food stops for each day — one lunch and one dinner near the places you listed.</div>
+                  <span class="send"><svg class="ico" width="16" height="16"><use href="#i-arrow-up"/></svg></span>
+                </div>
+              </div>
+              <span class="demo-cursor" id="moves-cursor" aria-hidden="true"><svg width="22" height="22"><use href="#i-cursor"/></svg><span class="ripple"></span></span>
+            </div>
+            <div class="demo-badge bottom"><div class="big">↓ tokens</div><div class="small">fewer wasted messages</div></div>
+          </div>
+        </div>
 
         <div class="copy">
-          <div class="reveal"><span class="eyebrow"><span class="dot"></span> Start fresh</span></div>
-          <div class="reveal" style="--reveal-delay:.05s"><h2>Long thread? Start fresh in one click.</h2></div>
+          <div class="reveal"><span class="eyebrow"><span class="dot"></span> Next moves</span></div>
+          <div class="reveal" style="--reveal-delay:.05s"><h2>Up to four ways forward. Pick one.</h2></div>
           <div class="reveal" style="--reveal-delay:.1s">
-            <p>Every message re-reads the whole thread. When it gets heavy, CONTEXA offers
-            Start fresh — it writes a short brief of what matters and opens a new chat with
-            it already in the box. Nothing is sent for you.</p>
+            <p>When a reply finishes, CONTEXA offers up to four independent next moves — each a
+            complete, ready-to-send message mined from your own side of the whole conversation.
+            Click one and it lands in the box, unsent.</p>
           </div>
           <div class="reveal" style="--reveal-delay:.15s">
             <ul class="ticklist">
-              <li><span class="tick"><svg class="ico" width="13" height="13"><use href="#i-check"/></svg></span> Shows how many tokens each send re-reads</li>
-              <li><span class="tick"><svg class="ico" width="13" height="13"><use href="#i-check"/></svg></span> Writes a brief in the thread's own words</li>
-              <li><span class="tick"><svg class="ico" width="13" height="13"><use href="#i-check"/></svg></span> Opens a new chat with it ready — nothing sent</li>
+              <li><span class="tick"><svg class="ico" width="13" height="13"><use href="#i-check"/></svg></span> Four independent options — pick one, discard the rest</li>
+              <li><span class="tick"><svg class="ico" width="13" height="13"><use href="#i-check"/></svg></span> Each stands alone, complete and ready to send</li>
+              <li><span class="tick"><svg class="ico" width="13" height="13"><use href="#i-check"/></svg></span> Lands in the message box unsent — you edit and send</li>
             </ul>
           </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================= Measured ============================= -->
+  <section id="measured" class="section section-tint">
+    <div class="container">
+      <div class="section-head">
+        <div class="reveal"><span class="eyebrow"><span class="dot"></span> Measured, not claimed</span></div>
+        <div class="reveal" style="--reveal-delay:.05s"><h2>The savings, in real numbers.</h2></div>
+        <div class="reveal" style="--reveal-delay:.1s"><p>On claude.ai every message is processed with the whole conversation behind it — so on a long thread that cost is paid again on every send. Here is what that looks like, measured and modelled.</p></div>
+      </div>
+      <div class="measured">
+        <div class="data-card reveal">
+          <p class="cap">The same five messages, in a 689k-token session and after Start fresh</p>
+          <div class="scroll">
+            <table>
+              <thead><tr><th scope="col">Five messages, one after another</th><th scope="col">Five-hour limit spent</th></tr></thead>
+              <tbody>
+                <tr><th scope="row">Continuing the 689k-token thread</th><td>9%</td></tr>
+                <tr><th scope="row">In the new conversation, with the brief</th><td>3%</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <p class="note">One live session, one phone, same model on both sides, the usage page read before and after each set of five. Three times cheaper per message.</p>
+        </div>
+
+        <div class="data-card reveal" style="--reveal-delay:.05s">
+          <p class="cap">The brief against the thread it replaces, five sessions</p>
+          <div class="scroll">
+            <table>
+              <thead><tr><th scope="col">Where Start fresh was pressed</th><th scope="col">Re-read per send</th><th scope="col">The brief</th></tr></thead>
+              <tbody>
+                <tr><th scope="row">Cowork session</th><td>689k tokens</td><td>441 tokens</td></tr>
+                <tr><th scope="row">Cowork session</th><td>214k tokens</td><td>313 tokens</td></tr>
+                <tr><th scope="row">Cowork session</th><td>124k tokens</td><td>444 tokens</td></tr>
+                <tr><th scope="row">Chat</th><td>22k tokens</td><td>427 tokens</td></tr>
+                <tr><th scope="row">Chat</th><td>14k tokens</td><td>442 tokens</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <p class="note">Five sessions, one day. The brief lands between 300 and 450 tokens whatever the thread was.</p>
+        </div>
+
+        <div class="data-card full reveal" style="--reveal-delay:.1s">
+          <p class="cap">Modelled spend on one session, without and with CONTEXA</p>
+          <div class="scroll">
+            <table>
+              <thead><tr><th scope="col">Session</th><th scope="col">Messages sent</th><th scope="col">Tokens read</th><th scope="col">Saved</th></tr></thead>
+              <tbody>
+                <tr><th scope="row">10 asks, at 1.7 messages per ask today</th><td>17 → 11</td><td>146k → 60k</td><td>about 59%</td></tr>
+                <tr><th scope="row">20 asks, at 1.7 messages per ask today</th><td>34 → 22</td><td>596k → 247k</td><td>about 59%</td></tr>
+                <tr><th scope="row">40 asks, at 1.7 messages per ask today</th><td>68 → 44</td><td>2.4M → 1.0M</td><td>about 58%</td></tr>
+                <tr><th scope="row">40 asks, at 1.5 messages per ask today</th><td>60 → 44</td><td>1.9M → 1.0M</td><td>about 46%</td></tr>
+                <tr><th scope="row">40 asks, at 2 messages per ask today</th><td>80 → 44</td><td>3.3M → 1.0M</td><td>about 70%</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <p class="note">A model, not a measurement, and it says so: an <em>ask</em> is one thing you want done, each exchange taken as ~150 tokens from you and ~900 from Claude. The percentage barely moves with length; the absolute saving is what grows. The full method, with every caveat, is on <a href="/how-it-works/#start-fresh">How it works</a> and in <a href="https://github.com/33kain/contexa/blob/main/docs/token-savings-thesis.md">the token-savings thesis</a>.</p>
         </div>
       </div>
     </div>
@@ -368,66 +429,6 @@
           <div class="top"><span class="icon-tile"><svg class="ico" width="20" height="20"><use href="#i-wind"/></svg></span><span class="kicker">Move faster</span></div>
           <h3>Stay in flow</h3>
           <p>No tab-switching. No prompt library. Just pick and go.</p>
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <!-- ============================= Measured ============================= -->
-  <section id="measured" class="section section-tint">
-    <div class="container">
-      <div class="section-head">
-        <div class="reveal"><span class="eyebrow"><span class="dot"></span> Measured, not claimed</span></div>
-        <div class="reveal" style="--reveal-delay:.05s"><h2>The savings, in real numbers.</h2></div>
-        <div class="reveal" style="--reveal-delay:.1s"><p>On claude.ai every message is processed with the whole conversation behind it — so on a long thread that cost is paid again on every send. Here is what that looks like, measured and modelled.</p></div>
-      </div>
-      <div class="measured">
-        <div class="data-card reveal">
-          <p class="cap">The same five messages, in a 689k-token session and after Start fresh</p>
-          <div class="scroll">
-            <table>
-              <thead><tr><th scope="col">Five messages, one after another</th><th scope="col">Five-hour limit spent</th></tr></thead>
-              <tbody>
-                <tr><th scope="row">Continuing the 689k-token thread</th><td>9%</td></tr>
-                <tr><th scope="row">In the new conversation, with the brief</th><td>3%</td></tr>
-              </tbody>
-            </table>
-          </div>
-          <p class="note">One live session, one phone, same model on both sides, the usage page read before and after each set of five. Three times cheaper per message.</p>
-        </div>
-
-        <div class="data-card reveal" style="--reveal-delay:.05s">
-          <p class="cap">The brief against the thread it replaces, five sessions</p>
-          <div class="scroll">
-            <table>
-              <thead><tr><th scope="col">Where Start fresh was pressed</th><th scope="col">Re-read per send</th><th scope="col">The brief</th></tr></thead>
-              <tbody>
-                <tr><th scope="row">Cowork session</th><td>689k tokens</td><td>441 tokens</td></tr>
-                <tr><th scope="row">Cowork session</th><td>214k tokens</td><td>313 tokens</td></tr>
-                <tr><th scope="row">Cowork session</th><td>124k tokens</td><td>444 tokens</td></tr>
-                <tr><th scope="row">Chat</th><td>22k tokens</td><td>427 tokens</td></tr>
-                <tr><th scope="row">Chat</th><td>14k tokens</td><td>442 tokens</td></tr>
-              </tbody>
-            </table>
-          </div>
-          <p class="note">Five sessions, one day. The brief lands between 300 and 450 tokens whatever the thread was.</p>
-        </div>
-
-        <div class="data-card full reveal" style="--reveal-delay:.1s">
-          <p class="cap">Modelled spend on one session, without and with CONTEXA</p>
-          <div class="scroll">
-            <table>
-              <thead><tr><th scope="col">Session</th><th scope="col">Messages sent</th><th scope="col">Tokens read</th><th scope="col">Saved</th></tr></thead>
-              <tbody>
-                <tr><th scope="row">10 asks, at 1.7 messages per ask today</th><td>17 → 11</td><td>146k → 60k</td><td>about 59%</td></tr>
-                <tr><th scope="row">20 asks, at 1.7 messages per ask today</th><td>34 → 22</td><td>596k → 247k</td><td>about 59%</td></tr>
-                <tr><th scope="row">40 asks, at 1.7 messages per ask today</th><td>68 → 44</td><td>2.4M → 1.0M</td><td>about 58%</td></tr>
-                <tr><th scope="row">40 asks, at 1.5 messages per ask today</th><td>60 → 44</td><td>1.9M → 1.0M</td><td>about 46%</td></tr>
-                <tr><th scope="row">40 asks, at 2 messages per ask today</th><td>80 → 44</td><td>3.3M → 1.0M</td><td>about 70%</td></tr>
-              </tbody>
-            </table>
-          </div>
-          <p class="note">A model, not a measurement, and it says so: an <em>ask</em> is one thing you want done, each exchange taken as ~150 tokens from you and ~900 from Claude. The percentage barely moves with length; the absolute saving is what grows. The full method, with every caveat, is on <a href="/how-it-works/#start-fresh">How it works</a> and in <a href="https://github.com/33kain/contexa/blob/main/docs/token-savings-thesis.md">the token-savings thesis</a>.</p>
         </div>
       </div>
     </div>

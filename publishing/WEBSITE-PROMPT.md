@@ -209,11 +209,13 @@ THE FIGURE (demo.js) — what it now shows:
 THE TWO RENDERED IMAGES:
 - og.png (1200×630) and apple-touch-icon.png (180×180) come from
   scripts/website/assets.html via node scripts/website/render.mjs. The og
-  board still reads "Every token earned" and is the one thing carried over
-  from before the motto changed to "Save tokens"; the pages' og:image:alt
-  says "Save tokens", so the alt and the image disagree. When you re-render
-  the board to say "Save tokens", the alt becomes true; until then this is
-  a known, flagged mismatch, not a fact to state on a page.
+  board reads "CONTEXA / Save tokens" under the mascot, matching the pages'
+  og:image:alt. Change the board only in assets.html and re-render (set
+  PLAYWRIGHT_CHROMIUM_EXECUTABLE to the dev image's Chromium if the default
+  is not found); the script fails rather than write a wrong size, and if the
+  bytes come back identical the board already said what the source says.
+  Whenever the board's wording changes, update every page's og:image:alt to
+  match, since the alt describes the image that exists.
 
 VISUAL IDENTITY, AND THE REGISTER:
 - The register is a polished product landing page, executed cleanly — not

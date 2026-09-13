@@ -122,17 +122,17 @@
     io.observe(el);
   }
 
-  /* ---------------- Hero demo ---------------- */
+  /* ---------------- Next-moves demo ---------------- */
   (function () {
-    var win = $("#hero-window");
+    var win = $("#moves-window");
     if (!win) return;
     var wrap = win.closest(".demo-wrap");
-    var typing = $("#hero-typing", win);
-    var reply = $("#hero-reply", win);
-    var chips = Array.prototype.slice.call(win.querySelectorAll("#hero-chips .chip"));
-    var field = $("#hero-field", win);
-    var composer = $("#hero-composer", win);
-    var cursor = $("#hero-cursor", win);
+    var typing = $("#moves-typing", win);
+    var reply = $("#moves-reply", win);
+    var chips = Array.prototype.slice.call(win.querySelectorAll("#moves-chips .chip"));
+    var field = $("#moves-field", win);
+    var composer = $("#moves-composer", win);
+    var cursor = $("#moves-cursor", win);
     var CHOSEN = "Add food stops for each day — one lunch and one dinner near the places you listed.";
 
     function setFilled() {
