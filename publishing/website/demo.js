@@ -64,7 +64,6 @@
     var intro = $("#intro");
     if (!intro) return; // sub-pages have no intro
     var enter = $("#introEnter");
-    var skip = $("#introSkip");
     doc.body.classList.add("intro-open");
 
     var gone = false;
@@ -87,7 +86,6 @@
     }
 
     if (enter) enter.addEventListener("click", dismiss);
-    if (skip) skip.addEventListener("click", dismiss);
     doc.addEventListener("keydown", function (e) { if (e.key === "Escape") dismiss(); });
 
     // move keyboard focus to the primary control once it has animated in
