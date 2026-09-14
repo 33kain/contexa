@@ -184,62 +184,50 @@
     whenVisible(win, cycle);
   })();
 
-  /* ---------------- Start-fresh demo ---------------- */
+  /* ---------------- Start-fresh demo (hero) — click-driven ----------------
+     Rests on the heavy thread and only opens the new chat when the visitor
+     presses Start fresh. No autoplay, so the first frame shows the thread
+     and the control, not the result. */
   (function () {
     var win = $("#sf-window");
     if (!win) return;
-    var wrap = win.closest(".demo-wrap");
     var field = $("#sf-field", win);
     var composer = $("#sf-composer", win);
     var btn = $("#sf-btn", win);
-    var cursor = $("#sf-cursor", win);
-    var BRIEF = "Carry over: 3-day Lisbon plan — Alfama, Belém, a local market & a sunset viewpoint. Keep it simple and budget-aware. Next: add food stops.";
+    var resetBtn = $("#sf-reset", win);
+    var BRIEF = "Carry over: working through quadratics — factoring when the number in front isn't one, completing the square, and where the quadratic formula comes from. Keep it intuitive, not just formulas. Next: how derivatives connect to the vertex.";
+    var cancelType = null;
 
-    function showBrief() {
-      field.classList.remove("empty");
-      field.textContent = BRIEF;
+    function addSlot() {
       var slot = doc.createElement("span");
       slot.className = "paste-slot";
       slot.textContent = "<paste here>";
       field.appendChild(slot);
-      composer.classList.add("armed");
     }
 
-    if (reduce) { win.setAttribute("data-view", "new"); showBrief(); return; }
-
-    var tl = new Timeline();
-    var cancelType = null;
-
-    function reset() {
-      tl.clear();
+    function toThread() {
       if (cancelType) { cancelType(); cancelType = null; }
       win.setAttribute("data-view", "thread");
-      field.textContent = "Message Claude…"; field.classList.add("empty");
+      field.textContent = "Message Claude…";
+      field.classList.add("empty");
       composer.classList.remove("armed");
-      hideCursor(cursor);
     }
 
-    function cycle() {
-      reset();
-      tl.after(1600, function () { requestAnimationFrame(function () { pointAt(wrap, cursor, btn); }); });
-      tl.after(2300, function () { pointAt(wrap, cursor, btn, true); });
-      tl.after(2500, function () {
-        pointAt(wrap, cursor, btn, false);
-        win.setAttribute("data-view", "new");
-      });
-      tl.after(2700, function () { hideCursor(cursor); });
-      tl.after(3000, function () {
-        cancelType = typeInto(field, BRIEF, 18, function () {
-          var slot = doc.createElement("span");
-          slot.className = "paste-slot";
-          slot.textContent = "<paste here>";
-          field.appendChild(slot);
-        }, true);
-        composer.classList.add("armed");
-      });
-      tl.after(9000, cycle);
+    function toBrief() {
+      if (win.getAttribute("data-view") === "new") return;
+      win.setAttribute("data-view", "new");
+      composer.classList.add("armed");
+      if (reduce) {
+        field.classList.remove("empty");
+        field.textContent = BRIEF;
+        addSlot();
+      } else {
+        cancelType = typeInto(field, BRIEF, 18, addSlot, true);
+      }
     }
 
-    whenVisible(win, cycle);
+    toThread(); // always start at rest on the thread
+    btn.addEventListener("click", toBrief);
+    if (resetBtn) resetBtn.addEventListener("click", toThread);
   })();
 })();
