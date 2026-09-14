@@ -186,25 +186,36 @@ THE FIGURE (demo.js) — what it now shows:
   the extension's real card. (This is a change from the previous site,
   whose figure rebuilt the card from content.js; the landing design uses
   designed mockups instead, in the same spirit as the store illustrations.)
-  Scene one (hero): a short reply, then CONTEXA's row of moves appears, the
-  cursor picks one, and the whole prompt types into the composer, unsent.
-  Scene two (Start fresh section): a heavy thread with a cost line
-  ("≈ 689k tokens re-read per send") and a Start fresh control; the cursor
-  presses it, a new chat opens, and the brief types into the composer with
-  a <paste here> slot, unsent.
-- Both run as plain state machines in demo.js — no framer-motion, no
-  library. Each demo starts only when it scrolls into view
-  (IntersectionObserver) and then loops. Section content reveals on scroll
-  the same way. The headline animates word-by-word on load.
-- Progressive enhancement: the page is complete and readable with
-  JavaScript off (the demos render their final "filled" / thread frames as
-  static HTML; demo.js resets them to the start and animates). Every
-  animation is gated so prefers-reduced-motion gets the final state and no
-  motion — the "js" class demo.js adds is what enables the keyframes, and
-  the reduced-motion media query overrides them.
-- Write a short, self-contained demo conversation (the shipped one is a
-  3-day Lisbon trip). Keep the product's rules for moves: one complete ask
-  each, earned by something actually said, a label of up to six words.
+  Scene one (hero): Start fresh, and it is CLICK-DRIVEN, not autoplayed. It
+  rests on a long, heavy conversation (the shipped one is a words-first math-
+  tutoring thread — factoring, completing the square, the quadratic formula,
+  heading toward derivatives) with the cost line ("≈ 689k tokens re-read per
+  send") and a prominent, filled Start fresh button that pulses to invite the
+  press. Only when the visitor actually clicks does the new chat open and the
+  brief type into the composer with a <paste here> slot, unsent; a small
+  "Watch again" control returns it to the thread. No cursor, no autoplay — the
+  first frame is the thread and the control, so a thumbnail shows the choice,
+  not the result.
+  Scene two (Next moves section): a heavy thread's row of moves appears, an
+  animated cursor picks one, and the whole prompt types into the composer,
+  unsent. This one autoplays and loops (the shipped conversation is a 3-day
+  Lisbon trip).
+- Both run as plain state machines in demo.js — no framer-motion, no library.
+  The auto-playing moves demo starts only when it scrolls into view
+  (IntersectionObserver) and then loops; the hero Start fresh demo waits for a
+  real click. Section content reveals on scroll. The headline animates
+  word-by-word on load.
+- Progressive enhancement: the page is complete and readable with JavaScript
+  off (the hero rests on the thread; the moves demo renders its final "filled"
+  frame). Every animation is gated so prefers-reduced-motion gets a static
+  result and no motion — the "js" class demo.js adds is what enables the
+  keyframes and the Start fresh button's pulse, and the reduced-motion media
+  query overrides them; the click still works, it just fills the brief without
+  the typing effect.
+- Write short, self-contained demo conversations. For the moves, keep the
+  product's rules: one complete ask each, earned by something actually said, a
+  label of up to six words. For a Start fresh thread, favour words over
+  numbers so it reads as a real conversation, not an equation dump.
 
 THE TWO RENDERED IMAGES:
 - og.png (1200×630) and apple-touch-icon.png (180×180) come from

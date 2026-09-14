@@ -156,7 +156,7 @@
           </ul>
         </div>
 
-        <!-- Hero demo: Start fresh (animated by demo.js; static frame with JS off) -->
+        <!-- Hero demo: Start fresh — click-driven; rests on the thread until the button is pressed -->
         <div>
           <div class="demo-wrap">
             <div class="demo-badge top"><span class="dot"></span> Nothing is sent for you</div>
@@ -168,18 +168,22 @@
               <div class="sf-convo">
                 <div class="sf-fade" aria-hidden="true"></div>
                 <div class="sf-thread" id="sf-thread">
-                  <div class="sf-earlier"><span>··· 24 earlier messages</span></div>
-                  <div class="bubble-user"><span>Add food stops for each day.</span></div>
-                  <div class="bubble-claude"><span class="avatar">C</span><div class="body">Added a lunch and a dinner near each stop, all walkable.</div></div>
-                  <div class="bubble-user"><span>Make day 2 a bit more budget-friendly.</span></div>
-                  <div class="bubble-claude"><span class="avatar">C</span><div class="body">Swapped in free viewpoints and a cheaper riverside lunch.</div></div>
-                  <div class="bubble-user"><span>Great — now add a budget and a packing checklist.</span></div>
-                  <div class="bubble-claude"><span class="avatar">C</span><div class="body">Updated: rough daily budget added, plus a short packing list for the trip…</div></div>
+                  <div class="sf-earlier"><span>··· 38 earlier messages</span></div>
+                  <div class="bubble-user"><span>Can you help me understand how to factor a quadratic when the number in front isn't one?</span></div>
+                  <div class="bubble-claude"><span class="avatar">C</span><div class="body">The trick is to split the middle term into two pieces, then factor by grouping.</div></div>
+                  <div class="bubble-user"><span>The grouping step always trips me up — how do I know which two pieces to pick?</span></div>
+                  <div class="bubble-claude"><span class="avatar">C</span><div class="body">Look for two values whose product matches the outer terms and whose sum is the middle one, then rewrite and group.</div></div>
+                  <div class="bubble-user"><span>That clicked. When would I complete the square instead of factoring?</span></div>
+                  <div class="bubble-claude"><span class="avatar">C</span><div class="body">Reach for it when you want the vertex form, or when the roots won't come out clean.</div></div>
+                  <div class="bubble-user"><span>And that's where the quadratic formula actually comes from?</span></div>
+                  <div class="bubble-claude"><span class="avatar">C</span><div class="body">Exactly — the formula is completing the square done once, in general, for any quadratic.</div></div>
+                  <div class="bubble-user"><span>Could we move on to how derivatives connect to all of this?</span></div>
                 </div>
                 <div class="sf-new" id="sf-new">
                   <span class="brief-ready"><svg class="ico" width="13" height="13"><use href="#i-sparkles"/></svg> Brief ready</span>
                   <div class="t">A fresh chat, with your thread carried over</div>
                   <div class="h">Written in the thread's own words — nothing sent yet</div>
+                  <button type="button" class="sf-reset" id="sf-reset"><svg class="ico" width="12" height="12"><use href="#i-rotate-ccw"/></svg> Watch again</button>
                 </div>
               </div>
               <div class="demo-dock">
@@ -190,7 +194,7 @@
                       <span class="count">≈ 689k tokens re-read per send</span>
                     </div>
                     <p>This thread is getting heavy. Start fresh keeps what matters and drops the rest.</p>
-                    <button type="button" class="startfresh-btn" id="sf-btn" tabindex="-1"><svg class="ico" width="13" height="13"><use href="#i-rotate-ccw"/></svg> Start fresh</button>
+                    <button type="button" class="startfresh-btn" id="sf-btn" aria-label="Start fresh — write a brief and open a new chat"><svg class="ico" width="15" height="15"><use href="#i-rotate-ccw"/></svg> Start fresh</button>
                   </div>
                 </div>
                 <div class="composer" id="sf-composer">
@@ -198,7 +202,6 @@
                   <span class="send"><svg class="ico" width="16" height="16"><use href="#i-arrow-up"/></svg></span>
                 </div>
               </div>
-              <span class="demo-cursor" id="sf-cursor" aria-hidden="true"><svg width="22" height="22"><use href="#i-cursor"/></svg><span class="ripple"></span></span>
             </div>
             <div class="demo-badge bottom"><div class="big">↓ re-read</div><div class="small">skip the heavy thread</div></div>
           </div>
