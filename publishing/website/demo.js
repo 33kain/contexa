@@ -94,10 +94,11 @@
     );
 
     // move keyboard focus to the primary control once it has animated in
+    // (the entrance choreography resolves at ~5s; focus after the button lands)
     window.setTimeout(function () {
       if (gone || !enter) return;
       try { enter.focus({ preventScroll: true }); } catch (e) { try { enter.focus(); } catch (e2) {} }
-    }, reduce ? 0 : 1350);
+    }, reduce ? 0 : 5000);
   })();
 
   /* ---------------- Reveal on scroll ---------------- */
