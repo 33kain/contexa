@@ -87,6 +87,11 @@
 
     if (enter) enter.addEventListener("click", dismiss);
     doc.addEventListener("keydown", function (e) { if (e.key === "Escape") dismiss(); });
+    // the header shows over the intro, so navigating from it reveals the site too
+    Array.prototype.forEach.call(
+      doc.querySelectorAll('#nav a[href^="#"], #drawer a[href^="#"], #navToggle'),
+      function (el) { el.addEventListener("click", dismiss); }
+    );
 
     // move keyboard focus to the primary control once it has animated in
     window.setTimeout(function () {
