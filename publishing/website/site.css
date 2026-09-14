@@ -738,18 +738,18 @@ body.intro-open { overflow: hidden; }
   content: ""; position: absolute; bottom: -3px; left: 50%; width: 6px; height: 6px; margin-left: -3px;
   border-radius: 999px; background: #fff; box-shadow: 0 0 10px 2px rgba(255, 255, 255, 0.65);
 }
-.intro-mark { position: relative; z-index: 1; display: inline-flex; animation: introPop 0.85s cubic-bezier(0.2, 1.15, 0.35, 1) both 0.15s; }
+.intro-mark { position: relative; z-index: 1; display: inline-flex; animation: introPop 1.3s cubic-bezier(0.2, 1.15, 0.35, 1) both 0.35s; }
 .intro-mark svg { width: clamp(84px, 19vw, 128px); height: auto; filter: drop-shadow(0 16px 38px rgba(0, 0, 0, 0.5)); }
 
 .intro-word {
   font-family: var(--font-serif); font-weight: 700; letter-spacing: 0.03em; margin: 10px 0 0; line-height: 1;
   font-size: clamp(2.6rem, 8.5vw, 4rem);
-  animation: introUp 0.7s cubic-bezier(0.22, 1, 0.36, 1) both 0.55s;
+  animation: introUp 1.2s cubic-bezier(0.22, 1, 0.36, 1) both 1.5s;
 }
 .intro-tag {
   font-family: var(--font-serif); font-style: italic; font-weight: 400; margin: 0; line-height: 1.5;
   color: rgba(255, 255, 255, 0.78); font-size: clamp(1.05rem, 3.6vw, 1.3rem);
-  animation: introUp 0.7s cubic-bezier(0.22, 1, 0.36, 1) both 0.9s;
+  animation: introUp 1.2s cubic-bezier(0.22, 1, 0.36, 1) both 2.6s;
 }
 .intro-cta {
   margin-top: 18px; display: inline-flex; align-items: center; gap: 10px; cursor: pointer;
@@ -757,7 +757,7 @@ body.intro-open { overflow: hidden; }
   color: #fff; background: rgba(255, 255, 255, 0.1); border: 1px solid rgba(255, 255, 255, 0.38);
   -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px);
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.28), inset 0 1px 0 rgba(255, 255, 255, 0.25);
-  animation: introUp 0.7s cubic-bezier(0.22, 1, 0.36, 1) both 1.25s, introCta 3s ease-in-out 2.6s infinite;
+  animation: introUp 1.2s cubic-bezier(0.22, 1, 0.36, 1) both 3.7s, introCta 3s ease-in-out 5.2s infinite;
   transition: background-color 0.2s, border-color 0.2s, transform 0.2s, box-shadow 0.2s;
 }
 .intro-cta:hover { background: rgba(255, 255, 255, 0.18); border-color: rgba(255, 255, 255, 0.62); transform: translateY(-2px); }
