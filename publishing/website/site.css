@@ -180,7 +180,7 @@ a { color: var(--primary-700); }
   box-shadow: 0 6px 24px rgba(11, 18, 32, 0.05);
   backdrop-filter: blur(12px);
 }
-.nav-inner { display: flex; height: 64px; align-items: center; justify-content: space-between; }
+.nav-inner { display: flex; height: 52px; align-items: center; justify-content: space-between; }
 
 .wordmark { display: inline-flex; align-items: center; gap: 10px; text-decoration: none; }
 .wordmark .brandmark {
