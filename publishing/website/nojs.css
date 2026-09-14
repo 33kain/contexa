@@ -1,0 +1,4 @@
+/* Loaded only through <noscript>: with JavaScript disabled the intro overlay
+   cannot be dismissed, so hide it and show the site directly. Nothing else
+   depends on this file. */
+.intro { display: none !important; }

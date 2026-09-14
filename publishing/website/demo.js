@@ -59,6 +59,44 @@
     });
   })();
 
+  /* ---------------- Opening intro (landing only) ---------------- */
+  (function () {
+    var intro = $("#intro");
+    if (!intro) return; // sub-pages have no intro
+    var enter = $("#introEnter");
+    var skip = $("#introSkip");
+    doc.body.classList.add("intro-open");
+
+    var gone = false;
+    function dismiss() {
+      if (gone) return;
+      gone = true;
+      intro.classList.add("intro--leaving");
+      doc.body.classList.remove("intro-open");
+      var settled = false;
+      var finish = function () {
+        if (settled) return;
+        settled = true;
+        intro.classList.add("intro--gone");
+      };
+      if (reduce) { finish(); return; }
+      intro.addEventListener("transitionend", function h(e) {
+        if (e.target === intro && e.propertyName === "opacity") { intro.removeEventListener("transitionend", h); finish(); }
+      });
+      window.setTimeout(finish, 900); // fallback if transitionend never fires
+    }
+
+    if (enter) enter.addEventListener("click", dismiss);
+    if (skip) skip.addEventListener("click", dismiss);
+    doc.addEventListener("keydown", function (e) { if (e.key === "Escape") dismiss(); });
+
+    // move keyboard focus to the primary control once it has animated in
+    window.setTimeout(function () {
+      if (gone || !enter) return;
+      try { enter.focus({ preventScroll: true }); } catch (e) { try { enter.focus(); } catch (e2) {} }
+    }, reduce ? 0 : 1350);
+  })();
+
   /* ---------------- Reveal on scroll ---------------- */
   (function () {
     var els = Array.prototype.slice.call(doc.querySelectorAll(".reveal"));

@@ -9,6 +9,7 @@
 <meta name="theme-color" content="#0EA5A4">
 <link rel="canonical" href="https://contexa-website.pages.dev/">
 <link rel="stylesheet" href="/site.css">
+<noscript><link rel="stylesheet" href="/nojs.css"></noscript>
 <link rel="icon" href="/icon.svg" type="image/svg+xml">
 <link rel="icon" href="/favicon-32.png" type="image/png" sizes="32x32">
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
@@ -49,6 +50,38 @@
   <symbol id="i-chrome" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="3.2"/><path d="M12 8.8h8.2M8.9 13.6 4.8 6.5M15.1 13.6 11 20.7"/></symbol>
   <symbol id="i-cursor" viewBox="0 0 24 24" fill="#0B1220" stroke="#fff" stroke-width="1.4" stroke-linejoin="round"><path d="M5 3l14 8-6 1.3L11 19 5 3z"/></symbol>
 </svg>
+
+<!-- ===================== Opening intro (landing only) =====================
+     Covers the page on load and animates in; "See how it works" (or Esc /
+     Skip) reveals the site. Dismissed by demo.js; hidden by nojs.css with JS off. -->
+<div class="intro" id="intro" role="dialog" aria-label="Welcome to CONTEXA">
+  <span class="intro-glow" aria-hidden="true"></span>
+  <div class="intro-inner">
+    <span class="intro-mark">
+      <svg viewBox="0 0 58 50" role="img" aria-label="The CONTEXA mascot">
+        <defs>
+          <linearGradient id="ig1" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#2cc4ae"/><stop offset="1" stop-color="#15a594"/></linearGradient>
+          <linearGradient id="io1" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="58" y2="0"><stop offset="0" stop-color="#0a352f"/><stop offset="1" stop-color="#0a352f"/></linearGradient>
+        </defs>
+        <path d="M29 3 C43 3 53 12 53 26 L53 50 L5 50 L5 26 C5 12 15 3 29 3 Z" fill="url(#ig1)"/>
+        <ellipse cx="21" cy="25.5" rx="7.4" ry="8.6" fill="#fff"/>
+        <ellipse cx="37" cy="25.5" rx="7.4" ry="8.6" fill="#fff"/>
+        <circle cx="22.9" cy="27.2" r="3.8" fill="#0b1220"/>
+        <circle cx="38.9" cy="27.2" r="3.8" fill="#0b1220"/>
+        <circle cx="21.7" cy="25.9" r="1.3" fill="#fff" opacity=".95"/>
+        <circle cx="37.7" cy="25.9" r="1.3" fill="#fff" opacity=".95"/>
+        <path d="M25 37 Q29 39.5 33 37" stroke="url(#io1)" stroke-width="2.6" fill="none" stroke-linecap="round"/>
+      </svg>
+    </span>
+    <div class="intro-word">CONTEXA</div>
+    <p class="intro-tag">Save tokens on Claude — your next move, one click away.</p>
+    <button type="button" class="intro-cta" id="introEnter">
+      See how it works
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"/><path d="m13 6 6 6-6 6"/></svg>
+    </button>
+    <button type="button" class="intro-skip" id="introSkip">Skip intro</button>
+  </div>
+</div>
 
 <!-- ============================= Nav ============================= -->
 <header class="nav" id="nav">
