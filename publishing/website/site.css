@@ -774,7 +774,7 @@ body.intro-open { overflow: hidden; }
 
 /* Site header sits over the intro cover: a clean white bar with a thin, subtle
    divider under it. Nav content keeps its normal (light) styling. */
-body.intro-open .nav { z-index: 10000; background: var(--surface); -webkit-backdrop-filter: none; backdrop-filter: none; border-bottom: 1px solid var(--border); box-shadow: none; }
+body.intro-open .nav { z-index: 10000; background: #9CD8CC; -webkit-backdrop-filter: none; backdrop-filter: none; border-bottom: 1px solid var(--border); box-shadow: none; }
 body.intro-open .drawer, body.intro-open .drawer-scrim { z-index: 10001; }
 
 /* ---------------- Reduced motion ------------------------------------------ */
