@@ -1,0 +1,35 @@
+Session bad186f4…  /home/user/contexa
+  483 requests, 454 tool results, 1 compaction(s)
+  Context processed: 226.0M tokens across 483 requests (98% read from cache); output 477k
+  Context now: ≈ 103k tokens — what the next request re-reads
+  At list price: ≈ $162.89 (claude-opus-4-8; cache writes at the 1h rate)
+  Tool results entered ≈ 89k tokens of context, carried through later requests ≈ 29.8M token-reads
+  tokenbrake trimmed 1 of them: ≈ 4k tokens kept out, ≈ 1.9M token-reads not carried
+  Read caps fired: none
+  Under the trim threshold: 165 of 165 shell results (≈ 18k tokens entered, ≈ 5.2M token-reads carried, 18% of all carried)
+  Repeat reads: none — 57 same-shape reads, each of a file not already in context
+
+What ate it — by tokens carried (size × later requests), top 8:
+     size   carried   turns  tool               what
+       6k      2.8M    439  Read               /home/user/contexa/publishing/website/index.html
+       6k      2.5M    432  Read               /home/user/contexa/publishing/website/notes/index.html
+       5k      2.0M    433  Read               /home/user/contexa/publishing/website/how-it-works/index
+       4k      1.7M    442  Read               /tmp/claude-0/-home-user-contexa/bad186f4-db7b-5454-b05f
+       4k      1.7M    441  Read               /tmp/claude-0/-home-user-contexa/bad186f4-db7b-5454-b05f
+       3k      1.5M    445  Read               /tmp/claude-0/-home-user-contexa/bad186f4-db7b-5454-b05f
+       4k      1.4M    328  Read               /home/user/contexa/publishing/WEBSITE-PROMPT.md
+       3k      1.3M    434  Read               /home/user/contexa/publishing/website/privacy/index.html
+
+By tool (share of tokens carried):
+  Read                 56 calls      50k entered     20.0M carried   67%
+  Bash                165 calls      18k entered      5.2M carried   18%
+  mcp__playwright__b   29 calls       5k entered      1.1M carried    4%
+  mcp__github__actio    3 calls       2k entered      603k carried    2%
+  mcp__github__actio    5 calls       4k entered      567k carried    2%
+  mcp__github__pull_   13 calls       2k entered      418k carried    1%
+  mcp__playwright__b   31 calls       2k entered      417k carried    1%
+  mcp__playwright__b   27 calls       2k entered      347k carried    1%
+
+One result to have brakes on: Read "/home/user/contexa/publishing/website/index.html" — ≈ 6k tokens carried 439 times. An offset/limit read, or a Grep first, would have kept most of it out.
+
+Sizes are chars/4 estimates; the usage line is what the API reported.
