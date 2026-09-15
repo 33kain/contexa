@@ -9,6 +9,23 @@ backend's live version separately so a deploy can be told from a no-op.
 
 ---
 
+## 0.9.96 — Extension (new app icon; worker build number only)
+
+The mark changes. The rounded mascot is replaced by a frosted-glass **C** on a
+teal-to-violet field. It is drawn once in `store-assets/contexa-mascot-icon.svg`
+and rolled out everywhere the icon lives: the shipped extension icons
+(`extension/icons/`), the store listing icon and master export set
+(`store-assets/`), the website favicon and hero mark, the social preview
+(`og.png`), the Apple touch icon, and the two Chrome Web Store promo tiles —
+the last four regenerated from source by `scripts/website/render.mjs` and
+`scripts/promo/render.mjs`. The worker's `BUILD` follows the manifest so
+`build.mjs`'s guard stays satisfied; no worker code changed. Not touched: the
+in-product trigger button in `content.js`, which keeps the winking mascot
+character (a separate, animation- and contrast-tuned component the tests
+guard) — swap that on its own if the two marks should converge.
+
+---
+
 ## Repository, 2026-09-06 — tokenbrake split out
 
 `tokenbrake/` is now `33kain/tokenbrake`, moved with its history (26 commits). The root `npm test` runs the extension

@@ -6,16 +6,19 @@ extension or the worker at runtime — the shipped extension icons live in
 
 - `store-icon-128.png` — Chrome Web Store listing icon.
 - `promo-tile-440x280.png`, `promo-marquee-1400x560.png` — the Chrome Web Store
-  promo tiles. **Rebuilt 2026-09-05 against 0.9.95** (the motto "Save tokens." and the 0.9.95 one-line description; before that 2026-09-02 against 0.9.68) by
+  promo tiles. **Rebuilt 2026-09-15 against 0.9.96** (the new frosted-glass **C** icon; before that 2026-09-05 against 0.9.95 for the "Save tokens." motto and one-line description, 2026-09-02 against 0.9.68) by
   `node scripts/promo/render.mjs` from `scripts/promo/tiles.html`; the
   previous pair (in git history) still showed the interview card deleted at
   0.9.58 and the pre-mascot spark icon. Do not retouch these by hand — edit
   the HTML and re-run, then update this line. See `scripts/promo/README.md`.
 - `contexa-mascot-icon-{16,32,48,128,512}.png`, `contexa-mascot-icon.svg` — the
-  mascot's master export set (added 0.9.55). `contexa-mascot-icon-128.png` is
-  byte-identical to `extension/icons/icon128.png`; this set is the source the
-  shipped extension icons were exported from, kept here for future exports
-  (listing updates, social previews, sizes the extension itself doesn't need).
+  app icon's master export set (added 0.9.55). The `.svg` is the single source
+  of the mark — the frosted-glass **C** since 0.9.96, the rounded mascot before
+  that — and the PNGs are exported from it; the `mascot` in the filenames is now
+  legacy. `contexa-mascot-icon-128.png` is byte-identical to
+  `extension/icons/icon128.png`; this set is the source the shipped extension
+  icons were exported from, kept here for future exports (listing updates, social
+  previews, sizes the extension itself doesn't need).
 - `contexa-demo.gif` — the root README's hero. **Stale as of 2026-08-31:** it
   shows the interview card answering three questions and composing a prompt one
   click at a time, and the interview no longer exists. It was a faithful
