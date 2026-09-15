@@ -106,7 +106,7 @@ every claude.ai tab, or you are testing an orphaned copy of the old build. The
 mount log says which version you are actually running:
 
 ```
-[CONTEXA] card mounted v0.9.95 ai anchor top=… bottom=… viewport=… connected=…
+[CONTEXA] card mounted v0.9.96 ai anchor top=… bottom=… viewport=… connected=…
 ```
 
 `v?` there means an orphaned script. Two mount lines with different versions
@@ -126,7 +126,7 @@ npx wrangler deploy                        # secrets FIRST: deploying without th
                                            # key leaves a live worker that reports
                                            # configured:false and refuses every call
 curl https://YOUR-WORKER-HOST/v1/health
-# {"ok":true,"version":"0.9.95","model":"claude-sonnet-5","limit":20,"configured":true}
+# {"ok":true,"version":"0.9.96","model":"claude-sonnet-5","limit":20,"configured":true}
 # `limit` is the device ceiling, which is now also the public figure: one call per
 # reply. Read `version` and `limit` together — they are how you tell a deploy that
 # landed from one that no-opped, and a stale worker still answers 200.
