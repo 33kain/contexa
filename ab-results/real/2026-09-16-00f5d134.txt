@@ -1,0 +1,35 @@
+Session 00f5d134…  /home/user/contexa
+  125 requests, 140 tool results
+  Context processed: 42.4M tokens across 125 requests (96% read from cache); output 321k
+  Context now: ≈ 531k tokens — what the next request re-reads
+  At list price: ≈ $53.59 (claude-opus-4-8, claude-fable-5-1; cache writes at the 1h rate)
+  Tool results entered ≈ 28k tokens of context, carried through later requests ≈ 1.7M token-reads
+  tokenbrake trimmed 3 of them: ≈ 728 tokens kept out, ≈ 37k token-reads not carried
+  Read caps fired: none
+  Under the trim threshold: 49 of 52 shell results (≈ 9k tokens entered, ≈ 438k token-reads carried, 26% of all carried)
+  Repeat reads: none — 32 same-shape reads, each of a file not already in context
+
+What ate it — by tokens carried (size × later requests), top 8:
+     size   carried   turns  tool               what
+       2k      160k     73  Read               /home/user/contexa/scripts/promo/render.mjs
+       2k      111k     72  Bash               cd /home/user/contexa echo "=== playwright global? ==="   [trimmed from 2k]
+       2k      109k     71  Bash               echo "=== 0.9.95 occurrences ===" && grep -rn "0\.9\.95"  [trimmed from 2k]
+       1k       80k     71  Read               /home/user/contexa/extension/content.js
+      976       67k     69  Bash               cd /home/user/contexa echo "=== CHANGELOG top ===" && se
+      975       67k     69  Read               /home/user/contexa/scripts/promo/tiles.html
+      961       67k     70  Read               /home/user/contexa/scripts/website/assets.html
+      495       61k    123  Read               /home/user/contexa/store-assets/README.md
+
+By tool (share of tokens carried):
+  Bash                 52 calls      14k entered      675k carried   40%
+  Read                 32 calls       8k entered      605k carried   36%
+  Artifact              8 calls       2k entered      213k carried   13%
+  Grep                  2 calls       1k entered       72k carried    4%
+  Edit                 25 calls       1k entered       67k carried    4%
+  Write                14 calls      643 entered       55k carried    3%
+  mcp__github__pull_    2 calls      867 entered       12k carried    1%
+  Skill                 1 calls        8 entered       968 carried    0%
+
+One result to have brakes on: Read "/home/user/contexa/scripts/promo/render.mjs" — ≈ 2k tokens carried 73 times. An offset/limit read, or a Grep first, would have kept most of it out.
+
+Sizes are chars/4 estimates; the usage line is what the API reported.
