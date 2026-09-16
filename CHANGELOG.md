@@ -24,6 +24,11 @@ in-product trigger button in `content.js`, which keeps the winking mascot
 character (a separate, animation- and contrast-tuned component the tests
 guard) — swap that on its own if the two marks should converge.
 
+Follow-up, 2026-09-16 (site only): the header, footer and 404 brandmark — a
+separate speech-bubble glyph the icon search never reached — and every page's
+`og:image:alt` now carry the same mark, and the brandmark chip no longer paints
+its own gradient behind the tile.
+
 ---
 
 ## Repository, 2026-09-06 — tokenbrake split out
