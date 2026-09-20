@@ -1,0 +1,32 @@
+Session 531a1c7a…  /home/user/contexa
+  28 requests, 34 tool results
+  Context processed: 3.2M tokens across 28 requests (94% read from cache); output 31k
+  Context now: ≈ 139k tokens — what the next request re-reads
+  At list price: ≈ $4.28 (claude-opus-4-8; cache writes at the 1h rate)
+  Tool results entered ≈ 17k tokens of context, carried through later requests ≈ 337k token-reads
+  tokenbrake trimmed none of them (ledger has 68 rows for other sessions or small results)
+  Read caps fired: none
+  Under the trim threshold: 14 of 14 shell results (≈ 5k tokens entered, ≈ 113k token-reads carried, 34% of all carried)
+  Repeat reads: none — 10 same-shape reads, each of a file not already in context
+
+What ate it — by tokens carried (size × later requests), top 8:
+     size   carried   turns  tool               what
+       3k       53k     20  Read               /home/user/contexa/extension/content.js
+       2k       45k     21  Read               /home/user/contexa/extension/content.js
+       2k       43k     24  Read               /home/user/contexa/docs/token-savings-thesis.md
+       2k       29k     15  Read               /home/user/contexa/extension/test.mjs
+      942       25k     27  Bash               echo "===MANIFEST VERSION===" && grep -m1 '"version"' ex
+       1k       20k     19  Read               /home/user/contexa/extension/content.js
+      797       18k     22  Bash               grep -n 'captureTurns\|fitTurns\|function askNow\|thread
+      883       14k     16  Read               /home/user/contexa/extension/content.js
+
+By tool (share of tokens carried):
+  Read                 10 calls      11k entered      219k carried   65%
+  Bash                 14 calls       5k entered      113k carried   34%
+  Edit                  7 calls      253 entered        2k carried    1%
+  AskUserQuestion       2 calls       83 entered        2k carried    0%
+  Grep                  1 calls      104 entered        1k carried    0%
+
+One result to have brakes on: Read "/home/user/contexa/extension/content.js" — ≈ 3k tokens carried 20 times. An offset/limit read, or a Grep first, would have kept most of it out.
+
+Sizes are chars/4 estimates; the usage line is what the API reported.
