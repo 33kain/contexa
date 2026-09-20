@@ -266,11 +266,27 @@ A thesis that only lists its successes is marketing. These are the gaps.
    turns a session took to reach an outcome. The field test asks how often the
    row comes back empty; it should also ask how often a clicked move is sent
    unchanged and how often the next reply is a question back.
-3. **A virtualised transcript is read from the tail.** On a long page the
-   capture sees rendered rows only, so the "earliest turn" is the oldest
-   *visible* one. The moves may then advance the wrong goal, and a wrong-goal
-   move is an unearned turn with a perfect evidence quote. `askNow` logs the
-   `i` range so this is diagnosable; it is not yet solved.
+3. **A virtualised transcript is read from the tail — mitigated, not closed.**
+   claude.ai virtualises a long transcript, so the DOM holds the rendered rows
+   only and `captureTurns` sees the tail: the "earliest turn" it can find is the
+   oldest *visible* one, not the goal, and a move mined from it is an unearned
+   turn with a perfect evidence quote. The common case is now covered above the
+   DOM. Since 0.9.77 `apiThread` reads the whole conversation from claude.ai's
+   own API (`/api/organizations/<org>/chat_conversations/<conv>`), keeps the
+   user's messages whole and in order under the same clamps, and `sessionTurns`
+   hands `askNow`/`askFork` those turns whenever the API held more than the DOM;
+   since 0.9.85 `coworkTurns` does the head-and-tail walk of the event stream
+   for a Cowork session. What is left is the **fallback**: when that API is
+   unavailable (org resolution fails, an HTTP error, no conversation id in the
+   URL), `sessionTurns` drops back to the DOM read, and on a virtualised page
+   that read is the tail. 0.9.97 makes that fallback no longer silent — it is
+   flagged on `ctx.partialSession` and shown on the diag card and in one console
+   line whenever the page's virtualisation scale (`lastThreadRead.scale > 1`,
+   the same signal the cost line scales by) says the DOM held a fraction of the
+   page. The row still renders; what changed is that the partial read now
+   announces itself, so the invisible cause this list was kept open for is
+   visible. Refusing the row outright on a detected-partial read, and measuring
+   how often the fallback fires, are the next steps (they wait on gaps 2 and 4).
 4. **The zero rate is unknown.** Zero is the honest answer more often than it
    feels, and every zero is a click that bought nothing. If the rate is high,
    the trigger itself becomes the unearned spend, and the fix is upstream of

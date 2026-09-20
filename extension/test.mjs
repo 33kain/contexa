@@ -1627,6 +1627,18 @@ const TURNS = [
   t('and is refreshed when the API answers', (c.match(/refreshDiag\(ctx\);/g) || []).length >= 3);
 }
 
+/* ---- 0.9.97 — the DOM fallback on a virtualised page is no longer silent -- */
+{
+  const c = readFileSync('./content.js', 'utf8');
+  const st = (c.match(/async function sessionTurns\(ctx\)[\s\S]*?\n  \}/) || [''])[0];
+  t('a virtualised DOM read is flagged on the ctx, keyed off the scale signal', /ctx\.partialSession = \{ source: 'dom'/.test(st) && /read\.scale > 1/.test(st));
+  t('and says so in its own console line', /DOM read on a virtualised page/.test(st));
+  t('the row itself is unchanged — the DOM branch still returns its turns', /return dom;/.test(st));
+  t('the flag refreshes an open diag card', /ctx\.partialSession = \{[\s\S]{0,300}refreshDiag\(ctx\);/.test(st));
+  const diag = (c.match(/function diagLines\(ctx\)[\s\S]*?\n  \}/) || [''])[0];
+  t('the diag card carries the partial-session note when set', /ctx\.partialSession \?/.test(diag) && /not the goal/.test(diag));
+}
+
 /* ---- 0.9.80 — the Cowork session, from /v1/code/sessions ---------------- */
 {
   const c = readFileSync('./content.js', 'utf8');

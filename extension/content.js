@@ -739,6 +739,25 @@
       console.log('[CONTEXA] session — from the page API:', api.length, 'turn(s) (DOM held', dom.length + ')');
       return fitTurns(api.map(t => ({ i: t.i, text: t.text })));
     }
+    /* 0.9.97 — the DOM branch on a virtualised page is the one truncation this
+       feature depends on. The rendered rows are the tail, so the earliest turn
+       captured here is not the stated goal but the oldest VISIBLE turn, and the
+       row is mined from a partial session. It is not an error — the page API
+       just did not stand in for the DOM this time (it failed, or held no more
+       than the DOM) — but until now it drew a byte-identical console line to a
+       whole read, which is exactly the invisible cause the thesis's §6 was left
+       open for. lastThreadRead.scale > 1 is the same signal the cost line
+       scales by: the scroller is much taller than what is rendered, so a DOM
+       read on such a page is a tail read. Flag it on the ctx (the diag card
+       carries it) and say so in one line. The row is unchanged — this is B1,
+       "say what happened", not a suppression. */
+    const read = lastThreadRead;
+    if (ctx && read && read.scale > 1) {
+      ctx.partialSession = { source: 'dom', scale: read.scale, blocks: read.blocks, apiState: ctx.apiState || 'not asked' };
+      console.log('[CONTEXA] session — DOM read on a virtualised page (×' + read.scale.toFixed(1)
+        + '): the tail, not the whole session; page API ' + (ctx.apiState || 'not asked'));
+      refreshDiag(ctx);
+    }
     console.log('[CONTEXA] session — from the DOM:', dom.length, 'turn(s)');
     return dom;
   }
@@ -862,6 +881,7 @@
       'rendered: ' + (r.chars || 0) + ' chars in ' + (r.blocks || 0) + ' blocks, scale ×' + (r.scale ? r.scale.toFixed(2) : '1') + ' (' + (r.rendered || 0) + 'px of ' + (r.total || 0) + 'px)',
       ctx.api ? 'page API: ' + ctx.api.chars + ' chars in ' + ctx.api.messages + ' messages, ' + ctx.api.human + ' yours ≈ ' + ctx.api.tokens + ' tokens'
         : 'page API: ' + (ctx.apiState || 'not asked yet'),
+      ...(ctx.partialSession ? ['session read: DOM tail on a virtualised page (×' + ctx.partialSession.scale.toFixed(1) + '), page API ' + ctx.partialSession.apiState + ' — moves may reflect the visible tail, not the goal'] : []),
       'user turns in DOM: ' + turns.length + ', last three: ' + (lastThree.join('/') || '-') + ' chars',
       'model on page: ' + (pageModel() || 'not found') + '; reply ' + ((ctx.reply || '').length) + ' chars',
       ...(COWORK_RE.test(location.pathname) ? ['project page to open: ' + (coworkProjectUrl(ctx) || 'none (the chip copies)') + '; record project id: ' + (ctx.coworkProject || 'none'),

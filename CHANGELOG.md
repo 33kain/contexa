@@ -9,6 +9,33 @@ backend's live version separately so a deploy can be told from a no-op.
 
 ---
 
+## 0.9.97 — Extension (worker build number only)
+
+*The silent tail read announces itself.*
+
+The one correctness gap the thesis kept open (§6, item 3) was smaller than the
+doc admitted — 0.9.77's `apiThread` and 0.9.85's `coworkTurns` already read the
+whole session over the DOM whenever claude.ai's own API answers. What was left
+was the **fallback**: when that API is unavailable, `sessionTurns` drops back to
+the DOM read, and on a virtualised page the DOM holds only the rendered tail, so
+the row is mined from a partial session — the goal turn scrolled off the top.
+Until now that fallback drew a byte-identical console line to a whole read, which
+is precisely the invisible cause the gap was left open for.
+
+Now it says what happened. When `sessionTurns` takes the DOM branch and the
+page's virtualisation scale (`lastThreadRead.scale > 1`, the same signal the
+cost line scales by) shows the DOM held a fraction of the page, the read is
+flagged on `ctx.partialSession` and surfaced on the diag card and in one console
+line. The row itself is unchanged — this is "say what actually happened", not a
+suppression. Refusing a detected-partial row, and measuring how often the
+fallback fires, are the next steps and belong with the thesis's gaps 2 and 4.
+
+The thesis's §6 item 3 is rewritten to match: mitigated, not closed. The
+worker's `BUILD` follows the manifest so `build.mjs`'s guard stays satisfied; no
+worker code changed and it is not redeployed.
+
+---
+
 ## 0.9.96 — Extension (new app icon; worker build number only)
 
 The mark changes. The rounded mascot is replaced by a frosted-glass **C** on a
