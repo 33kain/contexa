@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "CONTEXA for Claude - Save tokens",
-  "version": "0.9.96",
+  "version": "0.9.97",
   "description": "Save tokens on claude.ai. One press writes up to four next messages; Start fresh turns a long thread into a brief. You send it.",
   "permissions": [
     "storage"
