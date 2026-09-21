@@ -39,6 +39,10 @@ sends ever changes, both move in the same release, along with
 - **Developer account**, $5 paid, publisher name set.
 - **Item uploaded and approved.** 0.9.47 cleared review; 0.9.54 is the live
   package.
+- **0.9.97 submitted for review 2026-09-21** (the first upload since 0.9.54).
+  The worker was deployed at 0.9.97 the same day (`/v1/health` reports it), so
+  until review clears, installs still on 0.9.54 are talking to a worker that
+  no longer reads their request shape.
 - **Visibility: PUBLIC** as of 2026-08-26. The control was greyed out for days
   and finally unlocked.
 - **`ALLOWED_EXTENSION_IDS` pinned to `phhamigkjeeabbjncpmhkppkjccfglhb`** —
