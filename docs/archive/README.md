@@ -33,6 +33,9 @@ product. See `CHANGELOG.md` 0.9.58 and `docs/history-mining-audit.md`.
 | `icon-inspect.png` | — | One-off inspection screenshot from the 0.9.55 mascot icon work. |
 | `legacy-steps-prompt.txt` | frozen at 0.9.31 | A snapshot of `LEGACY_STEPS_SYSTEM`, taken when the dual-schema negotiation shipped. It was never the source of truth — that was the constant in `worker/src/index.js` — but the constant was deleted on 2026-08-31 with the rest of the negotiation, so this snapshot is now the only copy that exists. Still nothing reads it. |
 
+`desktop-project/` holds the files imported from the claude.ai desktop project on
+2026-09-21 — three of them are still live; its own `README.md` says which.
+
 See also `test-runs/` for historical prompt-tuning and model-comparison output,
 and `../../scripts/archive/` for the one-off scripts and inputs used to
 produce some of it.

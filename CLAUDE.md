@@ -124,6 +124,8 @@ docs/archive/         shipped planning docs and specs, kept for provenance only
 
 Root-level `LISTING.md`, `SUBMISSION.md` and `SETUP-FOR-FRIENDS.md` are thin pointers or user-facing install notes; the live listing copy is `publishing/STORE-LISTING.md`.
 
+Three documents in `docs/archive/desktop-project/` are still live despite the folder: `claude_CONTEXA-pattern-file.md` (read Part Two before editing `MOVES_SYSTEM`, Part Three before trusting a console number); the **audience decision** — beginners and intermediate users, explicitly not senior developers (`CONTEXA-0.9.27-capability-moves.md`); and, for any paid tier, **sell state, not inference** — a pasted API key defeats any tier whose benefit is more calls or better prompt text (`CONTEXA-monetization-split.md`).
+
 Anything under an `archive/` folder describes finished work, not pending work — treat its content as history, not as a to-do list (each has its own `README.md` explaining what it holds).
 
 ## Design principles worth knowing before changing behavior
