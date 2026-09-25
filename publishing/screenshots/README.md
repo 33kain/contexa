@@ -4,7 +4,7 @@
 `node scripts/screenshots/render-slides.mjs`. Five PNGs, each exactly 1280×800,
 the size the Chrome Web Store takes without rescaling. The 0.9.95 set
 (2026-09-07) was authored elsewhere and only its PNGs landed here, so the rename
-to Keep going had nothing to edit; edit the HTML and re-render, never the PNGs.
+of the Start fresh button had nothing to edit; edit the HTML and re-render, never the PNGs.
 
 **These are designed illustrations, not captures.** Every earlier set in this
 folder was a photograph of the real extension running in a real Chromium against
@@ -22,13 +22,13 @@ selectors. Only a live session proves those still match the site.
 
 | File | Headline | Shows |
 |---|---|---|
-| `1-keep-going.png` | Long session? Keep going. | the cost line on a long thread — `≈ 689k tokens re-read per send` — and the **Keep going** button beside it |
+| `1-new-chat.png` | Long session? Keep going. | the cost line on a long thread — `≈ 689k tokens re-read per send` — and the **Same session, new chat** button beside it |
 | `2-brief.png` | Same work. A lighter thread. | the brief landed in a new chat, not sent, beside the measured pair (689k against 441, 9% against 3% of the five-hour limit), labelled as measured |
 | `3-moves.png` | Deep in a session? Your next move. | the mined row — three independent moves, each a complete request |
 | `4-composed.png` | One click. A complete prompt. | one click later: the whole prompt in the message box, still unsent |
 | `5-trigger.png` | Ready when you ask. | the mascot as it arrives, before anything is asked or spent |
 
-**0.9.98 moved the set onto long sessions.** Start fresh became Keep going, the
+**0.9.98 moved the set onto long sessions.** Start fresh became Same session, new chat, the
 example became a long working session on a quarterly sales report (a 689k-token
 Lisbon itinerary was not believable), and the example texts carry no
 `<paste here>` slot; frame 2 names it once, in the side note, and the one number on the set is the largest one

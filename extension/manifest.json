@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "CONTEXA for Claude - Save tokens",
   "version": "0.9.98",
-  "description": "Long claude.ai session? Keep going carries it into a new chat as a brief. One press writes up to four next messages. You send it.",
+  "description": "Long claude.ai session? Carry it into a new chat as a brief: same session, fewer tokens. Up to four next messages. You send it.",
   "permissions": [
     "storage"
   ],

@@ -1586,7 +1586,7 @@ const TURNS = [
   t('the scale is capped', /const VIRTUAL_MAX_SCALE = \d+;/.test(c));
   t('every read is logged with what was measured', /console\.log\('\[CONTEXA\] thread ≈', tokens/.test(fn));
   t('the wordmark carries the number as its tooltip on both cards and on the refresh', (c.match(/\.title = threadNote\(\);/g) || []).length === 3);
-  t('the tooltip names the threshold so "why not here" has an answer', /Keep going appears from ' \+ kTokens\(LONG_THREAD_TOKENS\)/.test(c));
+  t('the tooltip names the threshold so "why not here" has an answer', /Same session, new chat appears from ' \+ kTokens\(LONG_THREAD_TOKENS\)/.test(c));
   const wr = (c.match(/function watchReplies\(\)[\s\S]*?\n  \}/) || [''])[0];
   t('the settle fallback is armed at attach, not only by a mutation', /scan\(\);\s*\/\*[\s\S]*?\*\/\s*clearTimeout\(settleTimer\);\s*settleTimer = setTimeout\(\(\) => \{ settled = true; scan\(\); \}, 1200\);\s*\}$/.test(wr));
 }

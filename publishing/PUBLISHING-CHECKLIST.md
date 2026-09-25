@@ -69,7 +69,7 @@ Copy comes from `publishing/STORE-LISTING.md`, which since 2026-08-31 IS the lis
 - [ ] Category: Productivity.
 - [ ] Icon: `extension/icons/icon128.png`.
 - [ ] Screenshots: the five 1280×800 PNGs in `publishing/screenshots/`.
-      Order them `1-keep-going` → `2-brief` → `3-moves` → `4-composed` →
+      Order them `1-new-chat` → `2-brief` → `3-moves` → `4-composed` →
       `5-trigger`; the first is what most people judge the listing by, and it
       leads on the saving because the name and short description do.
 - [ ] ⚠️ **Retake the screenshots on real claude.ai** before you submit. The set

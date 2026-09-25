@@ -469,12 +469,12 @@
   }
   /* What the tooltip on the wordmark says — a long press on a phone, a hover on
      a desktop. The field test runs where there is no console, and "why no
-     Keep going here" is unanswerable without this number. */
+     Same session, new chat here" is unanswerable without this number. */
   function threadNote() {
     const r = lastThreadRead;
     if (!r) return '';
     return '≈ ' + kTokens(r.tokens) + ' tokens on the page (' + r.chars.toLocaleString() + ' chars in ' + r.blocks + ' blocks'
-      + (r.scale > 1 ? ', scaled ×' + r.scale.toFixed(1) + ' for the part not rendered' : '') + '). Keep going appears from ' + kTokens(LONG_THREAD_TOKENS) + '.';
+      + (r.scale > 1 ? ', scaled ×' + r.scale.toFixed(1) + ' for the part not rendered' : '') + '). Same session, new chat appears from ' + kTokens(LONG_THREAD_TOKENS) + '.';
   }
   const kTokens = n => (n >= 1000 ? Math.round(n / 1000) + 'k' : String(n));
 
@@ -498,7 +498,7 @@
     words.textContent = '≈ ' + kTokens(ctx.thread) + ' tokens re-read per send';
     const btn = document.createElement('button');
     btn.type = 'button';
-    btn.textContent = 'Keep going';
+    btn.textContent = 'Same session, new chat';
     btn.title = 'Carry this thread into a new chat as a short brief';
     btn.addEventListener('click', () => {
       if (btn.disabled) return;
@@ -877,7 +877,7 @@
     const lastThree = turns.slice(-3).map(el => (el.textContent || '').trim().length);
     return [
       'CONTEXA v' + v,
-      'thread ≈ ' + (ctx.thread != null ? ctx.thread : '?') + ' tokens (' + (r.source || 'dom') + '); Keep going from ' + LONG_THREAD_TOKENS,
+      'thread ≈ ' + (ctx.thread != null ? ctx.thread : '?') + ' tokens (' + (r.source || 'dom') + '); Same session, new chat from ' + LONG_THREAD_TOKENS,
       'rendered: ' + (r.chars || 0) + ' chars in ' + (r.blocks || 0) + ' blocks, scale ×' + (r.scale ? r.scale.toFixed(2) : '1') + ' (' + (r.rendered || 0) + 'px of ' + (r.total || 0) + 'px)',
       ctx.api ? 'page API: ' + ctx.api.chars + ' chars in ' + ctx.api.messages + ' messages, ' + ctx.api.human + ' yours ≈ ' + ctx.api.tokens + ' tokens'
         : 'page API: ' + (ctx.apiState || 'not asked yet'),
