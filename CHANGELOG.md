@@ -26,6 +26,10 @@ The cost line beside it reads **≈ 689k tokens off every message** (the thread 
 said "≈ 689k tokens re-read per send": what the button saves on each message
 that follows, not what the thread costs.
 
+The mascot's bubble says **Next move ✦** where it asked "What now?": it names
+what a click returns, in the same words as the screenshot headline "Your next
+move." The aria-label and the settings page say it too.
+
 The store fields move with it. The manifest `description` leads with the long
 session — *Long claude.ai session? Carry it into a new chat as a brief: same
 session, fewer tokens. Up to four next messages. You send it.* (127 of 132,

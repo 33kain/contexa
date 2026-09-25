@@ -1650,13 +1650,13 @@
          nothing leaves the page before a click. It is a real <button>, so
          Enter/Space fire natively; it must NOT read like the fifth chip, and
          it no longer can: no chip class, no text label. Star asks, pencil
-         types — the bubble whispers 'What now? ✦' and the aria-label says the
+         types — the bubble whispers 'Next move ✦' and the aria-label says the
          same for keyboard and screen-reader users. */
       const chip = document.createElement('button');
       chip.className = 'ctxa-mas';
-      chip.setAttribute('aria-label', 'What now?');
+      chip.setAttribute('aria-label', 'Next move');
       chip.innerHTML = MASCOT_SVG +
-        '<span class="ctxa-mas-bubble">What now? <b>✦</b></span>';
+        '<span class="ctxa-mas-bubble">Next move <b>✦</b></span>';
       chip.addEventListener('click', () => {
         if (chip.disabled) return;
         /* §1d — small hop on the click, then the existing flow runs

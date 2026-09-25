@@ -921,7 +921,7 @@ const TURNS = [
      the product does not have is how a first-time user concludes it is broken,
      and this page did exactly that until 0.9.58. */
   t('and names the trigger the way content.js actually labels it',
-    /What now\? ✦/.test(opts) && readFileSync('./content.js', 'utf8').includes("'What now?'"));
+    /Next move ✦/.test(opts) && readFileSync('./content.js', 'utf8').includes("'Next move'"));
   t('and states the quota in the unit the worker enforces',
     /20 replies a day/i.test(opts));
 
