@@ -43,6 +43,10 @@ sends ever changes, both move in the same release, along with
   The worker was deployed at 0.9.97 the same day (`/v1/health` reports it), so
   until review clears, installs still on 0.9.54 are talking to a worker that
   no longer reads their request shape.
+- **0.9.98 submitted for review 2026-09-26**, replacing 0.9.97 in the queue
+  (0.9.97 was withdrawn before it cleared). New screenshots, promo tiles and
+  both descriptions went up with it. The worker stays at 0.9.97: no worker
+  code changed, only `BUILD`.
 - **Visibility: PUBLIC** as of 2026-08-26. The control was greyed out for days
   and finally unlocked.
 - **`ALLOWED_EXTENSION_IDS` pinned to `phhamigkjeeabbjncpmhkppkjccfglhb`** —
