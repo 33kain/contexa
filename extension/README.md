@@ -23,7 +23,8 @@ what it just built is what makes a new move possible. CONTEXA never sends you
 back over an answer you have already read.
 
 On a long thread — roughly 12,000 tokens of conversation on the page — the card
-also says what the next send costs to re-read, and offers **Start fresh**: one
+also says what the next send costs to re-read, and offers **Keep going** (called
+Start fresh until 0.9.97): one
 click writes a brief of the thread (what you set out to do, what was settled,
 what exists now, what's next), a second opens a new chat with that brief already
 in the message box. You read it and send it yourself. That spends one call, the

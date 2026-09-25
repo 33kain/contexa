@@ -16,6 +16,12 @@ Needs Playwright and a Chromium (present in this repo's dev image; otherwise
 Xvfb, unlike the screenshot harness, because nothing here loads the extension.
 Not part of `npm test` or `npm run build`.
 
+On a machine with Edge and no Playwright browsers (the Windows dev box):
+`npm i playwright-core` into any folder, then
+`NODE_PATH=<that folder>/node_modules CX_CHANNEL=msedge node scripts/promo/render.mjs`.
+`CX_CHANNEL` picks an installed browser; the launch and PNG code is shared with
+the screenshot renderer in `scripts/lib/render-png.mjs`.
+
 - `tiles.html` — the two boards, as HTML. The product parts (the mascot, the
   `✦ CONTEXA` label, the row of moves, the composed prompt) are drawn with
   the tokens `content.js` uses, and the session and moves are the same canned

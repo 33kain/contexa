@@ -6,7 +6,7 @@ extension or the worker at runtime — the shipped extension icons live in
 
 - `store-icon-128.png` — Chrome Web Store listing icon.
 - `promo-tile-440x280.png`, `promo-marquee-1400x560.png` — the Chrome Web Store
-  promo tiles. **Rebuilt 2026-09-15 against 0.9.96** (the new frosted-glass **C** icon; before that 2026-09-05 against 0.9.95 for the "Save tokens." motto and one-line description, 2026-09-02 against 0.9.68) by
+  promo tiles. **Rebuilt 2026-09-26 against 0.9.98** ("Long session? Keep going.", the cost line at the measured 689k and the 441-token brief; before that 2026-09-15 against 0.9.96 for the frosted-glass **C** icon, 2026-09-05 against 0.9.95 for the "Save tokens." motto and one-line description, 2026-09-02 against 0.9.68) by
   `node scripts/promo/render.mjs` from `scripts/promo/tiles.html`; the
   previous pair (in git history) still showed the interview card deleted at
   0.9.58 and the pre-mascot spark icon. Do not retouch these by hand — edit

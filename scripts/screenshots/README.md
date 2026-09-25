@@ -3,8 +3,9 @@
 Captures the card, with the real extension running, into
 `publishing/screenshots/`.
 
-**This is no longer what ships.** The store set authored 2026-09-07 for 0.9.95
-is designed illustrations, not captures — see
+**This is no longer what ships.** The store set is designed illustrations,
+not captures, and since 0.9.98 (2026-09-26) its source is here too:
+`slides.html`, rendered by `node scripts/screenshots/render-slides.mjs` — see
 `publishing/screenshots/README.md`. This harness produced every set before it,
 still works, and is where the next captured set starts. It writes the **same
 five filenames the shipped set uses**, so a run overwrites the shipped frames
@@ -15,7 +16,7 @@ before the reply lands and the default frames need a short one:
 
 ```bash
 xvfb-run -a node scripts/screenshots/capture.mjs             # 3-moves, 4-composed, 5-trigger
-CX_FORK=1 xvfb-run -a node scripts/screenshots/capture.mjs   # 1-start-fresh, 2-brief
+CX_FORK=1 xvfb-run -a node scripts/screenshots/capture.mjs   # 1-keep-going, 2-brief
 ```
 
 The old `4-light` and `5-settings` frames are not made any more: the shipped
@@ -68,7 +69,7 @@ writes under `build-ready/` (git-ignored) and never into the listing set:
   a long thread draws the cost line, not the model note. Neither nudge may
   carry a button.
 - `CX_FORK=1` (0.9.73) — pads the thread past the cost line's threshold,
-  asserts the "≈ Nk tokens re-read per send" line and the **Start fresh**
+  asserts the "≈ Nk tokens re-read per send" line and the **Keep going**
   control render, clicks it against a canned `/v1/fork`, asserts the brief
   card and the before/after log line, clicks the chip, follows the NEW tab to
   `https://claude.ai/new`, and asserts the brief is in that tab's composer —

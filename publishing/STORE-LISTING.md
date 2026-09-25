@@ -42,10 +42,10 @@ the one policy call worth remembering".
 ## Short description — 132 char limit
 
 ```
-Save tokens on claude.ai. One press writes up to four next messages; Start fresh turns a long thread into a brief. You send it.
+Long claude.ai session? Keep going carries it into a new chat as a brief. One press writes up to four next messages. You send it.
 ```
 
-*127 characters.* **This is the `description` field in `extension/manifest.json`,
+*129 characters.* **This is the `description` field in `extension/manifest.json`,
 verbatim.** Keep it that way — two copies of one sentence is how the last three
 surfaces drifted.
 
@@ -58,11 +58,11 @@ Every message you send on claude.ai is processed with the whole conversation beh
 
 MEASURED, NOT MODELLED
 
-Five messages sent in a 689,000-token session used 9% of the five-hour usage limit. The same five, sent after Start fresh in the new conversation it opened, used 3%. Three times cheaper per message, on a live session, the same model on both sides, read off the usage page before and after. On five sessions from 14,000 to 689,000 tokens, the brief that replaced the thread was between 313 and 444 tokens every time. The measurement, and everything that could bias it, is in the open-source repository.
+Five messages sent in a 689,000-token session used 9% of the five-hour usage limit. The same five, sent after Keep going in the new conversation it opened, used 3%. Three times cheaper per message, on a live session, the same model on both sides, read off the usage page before and after. On five sessions from 14,000 to 689,000 tokens, the brief that replaced the thread was between 313 and 444 tokens every time. The measurement, and everything that could bias it, is in the open-source repository.
 
-START FRESH WHEN THE THREAD GETS HEAVY
+KEEP GOING WHEN THE THREAD GETS HEAVY
 
-Past about 12,000 tokens, the CONTEXA card shows how much is re-read on every send and offers Start fresh. Press it and CONTEXA writes a brief from your side of the conversation: the goal, what is settled, what is open. It opens a new conversation (on Cowork, a new session in the same project) with the brief already in the message box. You read it, change it, and send it. The next thread starts at a few hundred tokens instead of a few hundred thousand. The brief is a summary and says so: what it does not carry stays behind, so on a thread where every detail still matters, stay.
+Past about 12,000 tokens, the CONTEXA card shows how much is re-read on every send and offers Keep going. Press it and CONTEXA writes a brief from your side of the conversation: the goal, what is settled, what is open. It opens a new conversation (on Cowork, a new session in the same project) with the brief already in the message box. You read it, change it, and send it. The next thread starts at a few hundred tokens instead of a few hundred thousand. The brief is a summary and says so: what it does not carry stays behind, so on a thread where every detail still matters, stay.
 
 ONE PRESS, THE NEXT MESSAGE WRITTEN IN FULL
 
@@ -87,7 +87,7 @@ HOW TO USE IT
 1. Install it and open a conversation on claude.ai.
 2. When a reply finishes, press the CONTEXA mascot above your message box.
 3. Pick one of the messages it offers. It lands in your box, whole. Edit if you want, send when you are ready.
-4. On a long thread, press Start fresh, read the brief, click the chip. The new conversation opens with the brief in the box.
+4. On a long thread, press Keep going, read the brief, click the chip. The new conversation opens with the brief in the box.
 
 No account. No sign-up. No API key needed. 20 presses a day are free, and picking a message costs nothing extra. With your own Anthropic API key the daily limit goes away and requests go straight from your browser to Anthropic, so nothing passes through our server at all.
 
@@ -95,7 +95,7 @@ PRIVACY, PLAINLY
 
 • CONTEXA runs only on claude.ai. It touches no other site.
 • Nothing is sent anywhere until you press. A reply you never ask about never leaves your browser.
-• When you press, CONTEXA sends your own messages from that conversation and the reply you just received. Claude's earlier replies are never sent. Start fresh sends the same two things and gets a brief back; the brief stays in your browser until the new conversation opens.
+• When you press, CONTEXA sends your own messages from that conversation and the reply you just received. Claude's earlier replies are never sent. Keep going sends the same two things and gets a brief back; the brief stays in your browser until the new conversation opens.
 • To read your side of a long conversation whole, CONTEXA asks claude.ai's own API from your browser, with your existing login. That reading stays on your device.
 • Hard limits: at most 40 of your messages, 12,000 characters in total, and 6,000 characters of the reply. The backend enforces these itself.
 • Your conversation text is never stored. It is used to write the messages and then discarded.
@@ -127,8 +127,9 @@ this file changes.
   data usage, certifications — are **not** here. They are in `SUBMISSION.md`,
   and they are written to match this copy. If you change what the product reads
   or sends, all three files move in the same release.
-- Screenshots: `publishing/screenshots/`, authored 2026-09-07 for 0.9.95 —
-  designed illustrations rather than captures, each footed `Illustrative demo`.
-  Upload in filename order: Start fresh leads, because this copy does.
+- Screenshots: `publishing/screenshots/`, rendered 2026-09-26 for 0.9.98 from
+  `scripts/screenshots/slides.html` — designed illustrations rather than
+  captures, each footed `Illustrative demo`. Upload in filename order: Keep
+  going leads, because this copy does.
 - The live listing went to 0.9.68 on 2026-09-01. Check it against this file
   before pasting; this file is what it is supposed to say.
