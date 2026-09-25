@@ -69,7 +69,7 @@ writes under `build-ready/` (git-ignored) and never into the listing set:
   a long thread draws the cost line, not the model note. Neither nudge may
   carry a button.
 - `CX_FORK=1` (0.9.73) — pads the thread past the cost line's threshold,
-  asserts the "Save ≈ Nk tokens" line and the **Same session, new chat**
+  asserts the "≈ Nk tokens off every message" line and the **Same session, new chat**
   control render, clicks it against a canned `/v1/fork`, asserts the brief
   card and the before/after log line, clicks the chip, follows the NEW tab to
   `https://claude.ai/new`, and asserts the brief is in that tab's composer —

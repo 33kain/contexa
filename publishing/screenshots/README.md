@@ -22,7 +22,7 @@ selectors. Only a live session proves those still match the site.
 
 | File | Headline | Shows |
 |---|---|---|
-| `1-new-chat.png` | Long session? Keep going. | the cost line on a long thread — `Save ≈ 689k tokens` — and the **Same session, new chat** button beside it |
+| `1-new-chat.png` | Long session? Keep going. | the cost line on a long thread — `≈ 689k tokens off every message` — and the **Same session, new chat** button beside it |
 | `2-brief.png` | Same work. A lighter thread. | the brief landed in a new chat, not sent, beside the measured pair (689k against 441, 9% against 3% of the five-hour limit), labelled as measured |
 | `3-moves.png` | Deep in a session? Your next move. | the mined row — three independent moves, each a complete request |
 | `4-composed.png` | One click. A complete prompt. | one click later: the whole prompt in the message box, still unsent |
