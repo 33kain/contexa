@@ -483,7 +483,7 @@ async function main() {
       await again(() => { window.__mock.setModel('Opus 4.1'); window.__mock.padLong(30, 1700); });
       line = await readLine(page);
       console.log('  opus + long thread:', JSON.stringify(line));
-      if (!line || !/re-read per send/.test(line.text) || !line.button) throw new Error('the cost line did not outrank the model note');
+      if (!line || !/^Save \d+k tokens/.test(line.text) || !line.button) throw new Error('the cost line did not outrank the model note');
       if (nudges.some(n => /model opus/.test(n) && nudges.indexOf(n) > 0) && nudges.filter(n => /model opus/.test(n)).length !== 1) throw new Error('model nudge logged more than once: ' + nudges.join(' | '));
       console.log(`\nnudges verified, shots written to ${OUT}`);
       return;
@@ -500,7 +500,7 @@ async function main() {
         return el ? { text: el.textContent.trim(), button: btn ? btn.textContent.trim() : null } : null;
       });
       console.log('  cost line:', JSON.stringify(cost));
-      if (!cost || !/≈ \d+k tokens re-read per send/.test(cost.text)) throw new Error('cost line did not render with a token estimate');
+      if (!cost || !/^Save \d+k tokens/.test(cost.text)) throw new Error('cost line did not render with a token estimate');
       if (cost.button !== 'Same session, new chat') throw new Error('fork control missing from the cost line');
       await shoot(page, '1-new-chat.png', 'a long thread: the cost line and the fork control', { card: true });
 

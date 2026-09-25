@@ -495,7 +495,7 @@
     const cost = document.createElement('span');
     cost.className = 'ctxa-cost';
     const words = document.createElement('span');
-    words.textContent = '≈ ' + kTokens(ctx.thread) + ' tokens re-read per send';
+    words.textContent = 'Save ' + kTokens(ctx.thread) + ' tokens';
     const btn = document.createElement('button');
     btn.type = 'button';
     btn.textContent = 'Same session, new chat';

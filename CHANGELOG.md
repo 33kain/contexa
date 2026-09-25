@@ -22,6 +22,10 @@ nothing on the wire changed. (A first draft of this release called it *Keep
 going*; that stays as the motto on the screenshots, "Save tokens. Keep going.",
 and not as the button.)
 
+The cost line beside it reads **Save 689k tokens** (the thread estimate,
+`Save ${kTokens} tokens`) where it said "≈ 689k tokens re-read per send": what
+the button saves, not what the thread costs.
+
 The store fields move with it. The manifest `description` leads with the long
 session — *Long claude.ai session? Carry it into a new chat as a brief: same
 session, fewer tokens. Up to four next messages. You send it.* (127 of 132,
