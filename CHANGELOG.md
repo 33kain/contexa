@@ -29,9 +29,9 @@ carries it verbatim, with the control renamed through the long description.
 
 The five store screenshots and both promo tiles are redone around the long
 session, with the largest measured thread (689k tokens, and the 441-token brief
-that replaced it) instead of the illustrative 14k. The example is a long build
-session for a bakery's website, because a 689k-token trip itinerary would not
-be believable. The screenshots now have a source in the repo —
+that replaced it) instead of the illustrative 14k. The example is a long working
+session on a quarterly sales report, because a 689k-token trip itinerary would
+not be believable, and no example text carries a `<paste here>` slot. The screenshots now have a source in the repo —
 `scripts/screenshots/slides.html`, rendered by `render-slides.mjs` — where the
 0.9.95 set had only PNGs; the frame-1 file is `1-keep-going.png`. The PNG
 re-encoding and browser launch are shared with the promo renderer in

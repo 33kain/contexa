@@ -13,9 +13,11 @@
   button, the mascot trigger, the row of moves. When any of those strings
   changes in content.js, change it here and re-render.
 
-  One session runs through all five: a long build session for a bakery's
-  website, because the set leads with long sessions and a 689k-token thread
-  has to be a plausible one. No Anthropic wordmark or logo anywhere; claude.ai
+  One session runs through all five: a long working session on a quarterly
+  sales report, because the set leads with long sessions and a 689k-token
+  thread has to be a plausible one. The example texts never carry a
+  <paste here> slot; frame 2's side note is the only place it is named.
+  No Anthropic wordmark or logo anywhere; claude.ai
   is named as the site the extension works on.
 -->
 <meta charset="utf-8">
@@ -113,10 +115,10 @@
   <h1>Long session?<em>Keep going.</em></h1>
   <p class="side">Every message re-reads the whole thread. Keep going carries it into a new chat as a short brief.</p>
   <div class="frame">
-    <div class="bar"><span class="d"><i></i><i></i><i></i></span><span>Mila’s Bakery website</span><span>claude.ai</span></div>
+    <div class="bar"><span class="d"><i></i><i></i><i></i></span><span>Q3 sales report</span><span>claude.ai</span></div>
     <div class="chat">
-      <div class="turn">The menu looks broken on my phone. Can you fix the prices?</div>
-      <div class="reply"><b>Menu page, fixed for small screens.</b>The prices sit to the right of each item now, and the sections stack into one column. The About page is next when you’re ready.</div>
+      <div class="turn">The chart on page 2 still shows September twice. Can you fix it?</div>
+      <div class="reply"><b>Page 2 chart, fixed.</b>September appears once now, and the regions follow the same order as the table. The one-page summary is next when you’re ready.</div>
       <div class="label"><b>✦</b> CONTEXA <span class="cost">≈ 689k tokens re-read per send <button class="hot">Keep going</button></span></div>
       <div class="mascot"><svg><use href="#mascot"/></svg></div>
       <div class="box" style="margin-top:10px">Reply to Claude…<span class="m">Sonnet ▾</span><span class="go">↑</span></div>
@@ -145,14 +147,14 @@
     <div class="bar"><span class="d"><i></i><i></i><i></i></span><span>New chat</span><span>claude.ai</span></div>
     <div class="nc">
       <div class="hd"><span>NEW CHAT</span><span>Brief inserted · not sent</span></div>
-      <div class="box full">Goal: a website for Mila’s Bakery — menu, catering orders, opening hours.
+      <div class="box full">Goal: the Q3 sales report for the team — five pages, due Friday.
 Settled:
-• Plain HTML and CSS, no framework
-• Teal and cream, the logo from the shop sign
-• Catering orders by form, not by phone
+• Regions in the same order everywhere: North, South, West
+• Charts show quarters, not months
+• One page of summary at the front
 Exists now:
-• Home, Menu and About pages <span class="paste">&lt;paste here&gt;</span>
-Next: write the contact form for catering orders.<span class="m">Sonnet ▾</span><span class="go">↑</span></div>
+• Pages 2 to 5, with their charts and tables
+Next: write the one-page summary for the team.<span class="m">Sonnet ▾</span><span class="go">↑</span></div>
     </div>
   </div>
   <div class="foot">Independent extension for claude.ai · Illustrative demo · measured figures from the listing</div>
@@ -166,15 +168,15 @@ Next: write the contact form for catering orders.<span class="m">Sonnet ▾</spa
   <h1>Deep in a session?<em>Your next move.</em></h1>
   <p class="side">Next steps mined from your own messages, each already written as a complete request.</p>
   <div class="frame">
-    <div class="bar"><span class="d"><i></i><i></i><i></i></span><span>Mila’s Bakery website</span><span>claude.ai</span></div>
+    <div class="bar"><span class="d"><i></i><i></i><i></i></span><span>Q3 sales report</span><span>claude.ai</span></div>
     <div class="chat">
-      <div class="turn">Most catering orders come in on Instagram, so it has to work on phones.</div>
-      <div class="reply"><b>Menu page, fixed for small screens.</b>The prices sit to the right of each item now, and the sections stack into one column. The About page is next when you’re ready.</div>
+      <div class="turn">The team reads this on their phones, so keep every page short.</div>
+      <div class="reply"><b>Page 2 chart, fixed.</b>September appears once now, and the regions follow the same order as the table. The one-page summary is next when you’re ready.</div>
       <div class="label"><b>✦</b> CONTEXA</div>
       <div class="chips">
-        <span class="chip">Write the contact form for catering orders</span>
-        <span class="chip">Make the opening hours easy to find on phones</span>
-        <span class="chip">List what is left before launch</span>
+        <span class="chip">Write the one-page summary for the team</span>
+        <span class="chip">Cut the regional section to the key numbers</span>
+        <span class="chip">List what is still missing from the report</span>
       </div>
       <div class="box">Reply to Claude…<span class="m">Sonnet ▾</span><span class="go">↑</span></div>
     </div>
@@ -190,16 +192,16 @@ Next: write the contact form for catering orders.<span class="m">Sonnet ▾</spa
   <h1>One click.<em>A complete prompt.</em></h1>
   <p class="side">One clear ask per message, so the next reply is an answer, not a question back.</p>
   <div class="frame">
-    <div class="bar"><span class="d"><i></i><i></i><i></i></span><span>Mila’s Bakery website</span><span>claude.ai</span></div>
+    <div class="bar"><span class="d"><i></i><i></i><i></i></span><span>Q3 sales report</span><span>claude.ai</span></div>
     <div class="chat">
-      <div class="reply" style="margin-top:0;font-size:17px;color:var(--muted)">You picked: Write the contact form for catering orders</div>
+      <div class="reply" style="margin-top:0;font-size:17px;color:var(--muted)">You picked: Write the one-page summary for the team</div>
       <div class="label" style="margin-top:14px"><b>✦</b> CONTEXA</div>
-      <div class="box full" style="margin-top:10px">Write the contact form for catering orders on the bakery site.
-• Fields: name, phone, date of the event, number of guests, what they’d like
-• Same teal and cream as the other pages, plain HTML and CSS
-• It has to work on a phone first
+      <div class="box full" style="margin-top:10px">Write a one-page summary of the Q3 sales report for the team.
+• Open with the three numbers that changed most since Q2
+• One short paragraph per region, in the same order as the table
+• End with the two decisions we still have to make
 
-Orders go to <span class="paste">&lt;paste here&gt;</span> — no payment on the site.<span class="m">Sonnet ▾</span><span class="go">↑</span></div>
+Keep it easy to read on a phone, with no tables in the summary.<span class="m">Sonnet ▾</span><span class="go">↑</span></div>
     </div>
   </div>
   <div class="foot">Independent extension for claude.ai · Illustrative demo</div>
@@ -213,10 +215,10 @@ Orders go to <span class="paste">&lt;paste here&gt;</span> — no payment on the
   <h1>Ready when<em>you ask.</em></h1>
   <p class="side">Nothing goes to CONTEXA until you click. You choose every message you send.</p>
   <div class="frame">
-    <div class="bar"><span class="d"><i></i><i></i><i></i></span><span>Mila’s Bakery website</span><span>claude.ai</span></div>
+    <div class="bar"><span class="d"><i></i><i></i><i></i></span><span>Q3 sales report</span><span>claude.ai</span></div>
     <div class="chat">
-      <div class="turn">The menu looks broken on my phone. Can you fix the prices?</div>
-      <div class="reply"><b>Menu page, fixed for small screens.</b>The prices sit to the right of each item now, and the sections stack into one column. The About page is next when you’re ready.</div>
+      <div class="turn">The chart on page 2 still shows September twice. Can you fix it?</div>
+      <div class="reply"><b>Page 2 chart, fixed.</b>September appears once now, and the regions follow the same order as the table. The one-page summary is next when you’re ready.</div>
       <div class="label"><b>✦</b> CONTEXA</div>
       <div class="mascot"><svg><use href="#mascot"/></svg><span class="ask">What now? ✦</span></div>
       <div class="box" style="margin-top:12px">Reply to Claude…<span class="m">Sonnet ▾</span><span class="go">↑</span></div>

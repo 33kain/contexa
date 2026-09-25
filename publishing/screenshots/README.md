@@ -29,8 +29,9 @@ selectors. Only a live session proves those still match the site.
 | `5-trigger.png` | Ready when you ask. | the mascot as it arrives, before anything is asked or spent |
 
 **0.9.98 moved the set onto long sessions.** Start fresh became Keep going, the
-example became a long build session (a bakery's website; a 689k-token Lisbon
-itinerary was not believable), and the one number on the set is the largest one
+example became a long working session on a quarterly sales report (a 689k-token
+Lisbon itinerary was not believable), and the example texts carry no
+`<paste here>` slot; frame 2 names it once, in the side note, and the one number on the set is the largest one
 measured. Frame 2 is the only frame with a real figure on it, and says so.
 
 **The order is the argument, and it changed with 0.9.95.** The name and the short
