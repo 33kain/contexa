@@ -1,0 +1,230 @@
+<!doctype html>
+<!--
+  CONTEXA — the five Chrome Web Store screenshots, as HTML.
+
+  Rendered to publishing/screenshots/*.png by render-slides.mjs, one
+  1280 x 800 board per frame (#s1 .. #s5). These are designed illustrations,
+  not captures: every frame says "Illustrative demo" in its footer. The one
+  number that is not illustrative — 689k against 441, 9% against 3% — is the
+  measurement in publishing/STORE-LISTING.md, and frame 2 labels it as such.
+
+  The product parts are drawn with content.js's own copy: the "✦ CONTEXA"
+  label, the cost line ("≈ <n> tokens off every message"), the "Same session, new chat"
+  button, the mascot trigger, the row of moves. When any of those strings
+  changes in content.js, change it here and re-render.
+
+  One session runs through all five: a long working session on a quarterly
+  sales report, because the set leads with long sessions and a 689k-token
+  thread has to be a plausible one. The example texts never carry a
+  <paste here> slot; frame 2's side note is the only place it is named.
+  No Anthropic wordmark or logo anywhere; claude.ai
+  is named as the site the extension works on.
+-->
+<meta charset="utf-8">
+<style>
+  :root{
+    --l-bg:#f4f2ec; --l-ink:#16382f; --l-accent:#0e7a67; --l-muted:#6b6f68;
+    --l-frame:#faf9f5; --l-line:#dcd9cf; --l-bubble:#ebe8e0; --l-text:#2d2c28;
+    --d-bg:#111c19; --d-ink:#f2f1ec; --d-accent:#4fd1bc; --d-muted:#a9aea7;
+    --d-frame:#262624; --d-line:#3f3f3c; --d-bubble:#393936; --d-text:#ecebe6;
+    --send:#d97757;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:#888;font-family:"Segoe UI","DejaVu Sans",Arial,sans-serif;-webkit-font-smoothing:antialiased}
+  .s{position:relative;width:1280px;height:800px;overflow:hidden;margin-bottom:20px}
+  .light{background:var(--l-bg);--ink:var(--l-ink);--accent:var(--l-accent);--muted:var(--l-muted);
+    --frame:var(--l-frame);--line:var(--l-line);--bubble:var(--l-bubble);--text:var(--l-text)}
+  .dark{background:var(--d-bg);--ink:var(--d-ink);--accent:var(--d-accent);--muted:var(--d-muted);
+    --frame:var(--d-frame);--line:var(--d-line);--bubble:var(--d-bubble);--text:var(--d-text)}
+
+  .brand{position:absolute;left:56px;top:38px;display:flex;align-items:center;gap:14px}
+  .brand svg{width:36px;height:36px}
+  .brand span{font-weight:700;letter-spacing:.2em;font-size:21px;color:var(--ink)}
+  .motto{position:absolute;right:157px;top:48px;font-size:12.5px;letter-spacing:.14em;color:var(--muted)}
+  h1{position:absolute;left:54px;top:92px;font-weight:400;font-size:66px;line-height:1.02;letter-spacing:-.015em;color:var(--ink)}
+  h1 em{display:block;font-style:normal;color:var(--accent)}
+  .side{position:absolute;left:887px;top:134px;width:300px;font-size:19.5px;line-height:1.5;color:var(--muted)}
+  .foot{position:absolute;left:56px;bottom:24px;font-size:12px;color:var(--muted)}
+  .dots{position:absolute;right:60px;bottom:29px;display:flex;gap:7px}
+  .dots i{width:19px;height:3px;background:var(--line)}
+  .dots i.on{background:var(--accent)}
+
+  /* the claude.ai-shaped frame */
+  .frame{position:absolute;left:56px;top:255px;width:1168px;height:474px;background:var(--frame);
+    border:1px solid var(--line);border-radius:14px;overflow:hidden}
+  .frame.narrow{left:500px;width:724px}
+  .bar{height:40px;border-bottom:1px solid var(--line);display:flex;align-items:center;
+    justify-content:space-between;padding:0 32px 0 22px;font-size:12.5px;color:var(--muted)}
+  .bar .d{display:flex;gap:6px}.bar .d i{width:9px;height:9px;border-radius:50%;background:var(--line)}
+  .chat{position:absolute;left:150px;right:150px;top:61px;color:var(--text)}
+  .turn{margin-left:142px;background:var(--bubble);border-radius:8px;padding:10px 19px;font-size:17px;line-height:1.35}
+  .reply{margin-top:20px;font-size:18px;line-height:1.62}
+  .reply b{display:block;font-size:19px;margin-bottom:4px}
+  .label{display:flex;align-items:center;gap:10px;margin-top:26px;font-size:11.5px;letter-spacing:.16em;color:var(--muted)}
+  .label b{color:var(--accent);font-weight:700}
+  .cost{margin-left:auto;display:flex;align-items:center;gap:18px;letter-spacing:0;font-size:14.5px;color:var(--muted)}
+  .cost button{font:inherit;font-size:11.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--accent);
+    background:transparent;border:1.5px solid var(--accent);border-radius:999px;padding:6px 14px;font-weight:600}
+  .cost button.hot{background:var(--accent);color:var(--frame)}
+  .mascot{display:flex;align-items:center;gap:12px;margin-top:8px}
+  .mascot svg{width:44px;height:38px}
+  .ask{border:1px solid var(--line);border-radius:999px;padding:5px 14px;font-size:14px;color:var(--text)}
+  .chips{display:flex;flex-wrap:wrap;gap:8px;margin-top:9px}
+  .chip{border:1px solid var(--line);border-radius:999px;padding:6px 15px;font-size:15px;color:var(--text);background:var(--bubble)}
+  .box{margin-top:16px;background:#fff;border:1px solid var(--line);border-radius:14px;height:98px;position:relative;
+    padding:14px 22px;font-size:17px;color:#8f8d85}
+  .dark .box{background:#30302e;color:#8f8d85}
+  .box .m{position:absolute;right:82px;bottom:14px;font-size:13.5px;color:#8f8d85}
+  .box .go{position:absolute;right:20px;bottom:12px;width:28px;height:28px;border-radius:7px;background:var(--send);
+    color:#fff;display:grid;place-items:center;font-size:16px}
+  .box.full{height:auto;min-height:98px;color:var(--text);white-space:pre-line;line-height:1.55;padding-bottom:46px}
+  .paste{color:var(--accent)}
+  .note{margin-top:14px;font-size:14px;color:var(--accent)}
+
+  /* frame 2 — the numbers */
+  .left{position:absolute;left:56px;top:278px;width:395px;color:var(--ink)}
+  .left h2{font-weight:400;font-size:27px;line-height:1.3}
+  .nums{display:flex;margin-top:26px;border-top:1px solid var(--line);border-bottom:1px solid var(--line);padding:16px 0 12px}
+  .nums div{flex:1}
+  .nums small{display:block;font-size:11px;letter-spacing:.14em;color:var(--muted)}
+  .nums strong{display:block;font-weight:400;font-size:50px;margin-top:6px}
+  .nums div+div strong{color:var(--accent)}
+  .meas{margin-top:14px;font-size:13px;line-height:1.55;color:var(--muted)}
+  .meas b{color:var(--ink);font-weight:600}
+  .howto{margin-top:20px;border-left:3px solid var(--accent);background:#e3ebe3;border-radius:0 8px 8px 0;
+    padding:13px 18px;font-size:17px;line-height:1.6;color:#2f5a4a}
+  .nc{position:absolute;left:26px;right:24px;top:62px}
+  .nc .hd{display:flex;justify-content:space-between;font-size:11.5px;letter-spacing:.12em;color:var(--muted)}
+  .nc .hd span+span{letter-spacing:0}
+  .nc .box{margin-top:14px;font-size:16.5px;line-height:1.6}
+</style>
+
+<!-- one SVG pair, reused by every frame -->
+<svg width="0" height="0" style="position:absolute">
+  <defs>
+    <symbol id="logo" viewBox="0 0 128 128"><defs><clipPath id="pm_tile"><rect x="2" y="2" width="124" height="124" rx="30"/></clipPath><linearGradient id="pm_base" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#12b7a4"/><stop offset="1" stop-color="#5b3fd6"/></linearGradient><filter id="pm_soft" x="-60%" y="-60%" width="220%" height="220%"><feGaussianBlur stdDeviation="9"/></filter><filter id="pm_frost" x="-60%" y="-60%" width="220%" height="220%"><feGaussianBlur stdDeviation="5.5"/></filter><mask id="pm_c" maskUnits="userSpaceOnUse" x="0" y="0" width="128" height="128"><path d="M85.4 40.2 A32 32 0 1 0 85.4 87.8" fill="none" stroke="#fff" stroke-width="16" stroke-linecap="round"/></mask></defs><g clip-path="url(#pm_tile)"><rect x="2" y="2" width="124" height="124" fill="url(#pm_base)"/><circle cx="30" cy="24" r="46" fill="#4cf0dd" opacity=".95" filter="url(#pm_soft)"/><circle cx="108" cy="116" r="50" fill="#8a5cff" opacity=".95" filter="url(#pm_soft)"/><circle cx="102" cy="20" r="28" fill="#39b6ff" opacity=".8" filter="url(#pm_soft)"/><g mask="url(#pm_c)"><rect x="2" y="2" width="124" height="124" fill="url(#pm_base)"/><circle cx="30" cy="24" r="46" fill="#4cf0dd" opacity=".95" filter="url(#pm_frost)"/><circle cx="108" cy="116" r="50" fill="#8a5cff" opacity=".95" filter="url(#pm_frost)"/><circle cx="102" cy="20" r="28" fill="#39b6ff" opacity=".8" filter="url(#pm_frost)"/><rect x="2" y="2" width="124" height="124" fill="#fff" opacity=".30"/></g><path d="M85.4 40.2 A32 32 0 1 0 85.4 87.8" fill="none" stroke="#06202b" stroke-opacity=".16" stroke-width="4" stroke-linecap="round" transform="translate(1.3,1.7)"/><path d="M85.4 40.2 A32 32 0 1 0 85.4 87.8" fill="none" stroke="#fff" stroke-opacity=".85" stroke-width="3" stroke-linecap="round" transform="translate(-1.2,-1.6)"/><ellipse cx="34" cy="44" rx="6" ry="9" fill="#fff" opacity=".7" transform="rotate(-32 34 44)"/></g><rect x="2.9" y="2.9" width="122.2" height="122.2" rx="28.5" fill="none" stroke="#fff" stroke-opacity=".22" stroke-width="1.4"/></symbol>
+    <!-- content.js MASCOT_SVG, the in-page trigger -->
+    <symbol id="mascot" viewBox="0 0 58 50"><defs><linearGradient id="ctxaMg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#2cc4ae"/><stop offset="1" stop-color="#15a594"/></linearGradient></defs><path d="M29 3 C43 3 53 12 53 26 L53 50 L5 50 L5 26 C5 12 15 3 29 3 Z" fill="url(#ctxaMg)"/><ellipse cx="21" cy="25.5" rx="7.4" ry="8.6" fill="#fff"/><circle cx="22.9" cy="27.2" r="3.8" fill="#000"/><circle cx="21.7" cy="25.9" r="1.3" fill="#fff" opacity=".95"/><ellipse cx="37" cy="25.5" rx="7.4" ry="8.6" fill="#fff"/><circle cx="38.9" cy="27.2" r="3.8" fill="#000"/><circle cx="37.7" cy="25.9" r="1.3" fill="#fff" opacity=".95"/><path d="M25 37 Q29 39.5 33 37" stroke="#0a352f" stroke-width="2.6" fill="none" stroke-linecap="round"/><ellipse cx="41" cy="37" rx="4.6" ry="3.4" fill="#2cc4ae"/></symbol>
+  </defs>
+</svg>
+
+<!-- ============ 1 — same session, new chat ============ -->
+<section class="s light" id="s1" data-file="1-new-chat.png">
+  <div class="brand"><svg><use href="#logo"/></svg><span>CONTEXA</span></div>
+  <div class="motto">SAVE TOKENS. KEEP GOING.</div>
+  <h1>Long session?<em>Keep going.</em></h1>
+  <p class="side">Every message re-reads the whole thread. One press carries it into a new chat as a short brief.</p>
+  <div class="frame">
+    <div class="bar"><span class="d"><i></i><i></i><i></i></span><span>Q3 sales report</span><span>claude.ai</span></div>
+    <div class="chat">
+      <div class="turn">The chart on page 2 still shows September twice. Can you fix it?</div>
+      <div class="reply"><b>Page 2 chart, fixed.</b>September appears once now, and the regions follow the same order as the table. The one-page summary is next when you’re ready.</div>
+      <div class="label"><b>✦</b> CONTEXA <span class="cost">≈ 689k tokens off every message <button class="hot">Same session, new chat</button></span></div>
+      <div class="mascot"><svg><use href="#mascot"/></svg></div>
+      <div class="box" style="margin-top:10px">Reply to Claude…<span class="m">Sonnet ▾</span><span class="go">↑</span></div>
+    </div>
+  </div>
+  <div class="foot">Independent extension for claude.ai · Illustrative demo</div>
+  <div class="dots"><i class="on"></i><i></i><i></i><i></i><i></i></div>
+</section>
+
+<!-- ============ 2 — the brief and the numbers ============ -->
+<section class="s light" id="s2" data-file="2-brief.png">
+  <div class="brand"><svg><use href="#logo"/></svg><span>CONTEXA</span></div>
+  <div class="motto">SAVE TOKENS. KEEP GOING.</div>
+  <h1>Same work.<em>A lighter thread.</em></h1>
+  <p class="side">The goal, what’s settled and the next step arrive in a new chat’s message box.</p>
+  <div class="left">
+    <h2>The context comes with you. The weight stays behind.</h2>
+    <div class="nums">
+      <div><small>LONG SESSION</small><strong>689k</strong></div>
+      <div><small>THE BRIEF</small><strong>441</strong></div>
+    </div>
+    <p class="meas"><b>Measured on a live session:</b> the same five messages used 9% of the five-hour limit in the long session, and 3% after the brief.</p>
+    <div class="howto">Review the brief.<br>Fill any &lt;paste here&gt; slot.<br>Send when you’re ready.</div>
+  </div>
+  <div class="frame narrow">
+    <div class="bar"><span class="d"><i></i><i></i><i></i></span><span>New chat</span><span>claude.ai</span></div>
+    <div class="nc">
+      <div class="hd"><span>NEW CHAT</span><span>Brief inserted · not sent</span></div>
+      <div class="box full">Goal: the Q3 sales report for the team — five pages, due Friday.
+Settled:
+• Regions in the same order everywhere: North, South, West
+• Charts show quarters, not months
+• One page of summary at the front
+Exists now:
+• Pages 2 to 5, with their charts and tables
+Next: write the one-page summary for the team.<span class="m">Sonnet ▾</span><span class="go">↑</span></div>
+    </div>
+  </div>
+  <div class="foot">Independent extension for claude.ai · Illustrative demo · measured figures from the listing</div>
+  <div class="dots"><i></i><i class="on"></i><i></i><i></i><i></i></div>
+</section>
+
+<!-- ============ 3 — the row of moves ============ -->
+<section class="s dark" id="s3" data-file="3-moves.png">
+  <div class="brand"><svg><use href="#logo"/></svg><span>CONTEXA</span></div>
+  <div class="motto">SAVE TOKENS. KEEP GOING.</div>
+  <h1>Deep in a session?<em>Your next move.</em></h1>
+  <p class="side">Next steps mined from your own messages, each already written as a complete request.</p>
+  <div class="frame">
+    <div class="bar"><span class="d"><i></i><i></i><i></i></span><span>Q3 sales report</span><span>claude.ai</span></div>
+    <div class="chat">
+      <div class="turn">The team reads this on their phones, so keep every page short.</div>
+      <div class="reply"><b>Page 2 chart, fixed.</b>September appears once now, and the regions follow the same order as the table. The one-page summary is next when you’re ready.</div>
+      <div class="label"><b>✦</b> CONTEXA</div>
+      <div class="chips">
+        <span class="chip">Write the one-page summary for the team</span>
+        <span class="chip">Cut the regional section to the key numbers</span>
+        <span class="chip">List what is still missing from the report</span>
+      </div>
+      <div class="box">Reply to Claude…<span class="m">Sonnet ▾</span><span class="go">↑</span></div>
+    </div>
+  </div>
+  <div class="foot">Independent extension for claude.ai · Illustrative demo</div>
+  <div class="dots"><i></i><i></i><i class="on"></i><i></i><i></i></div>
+</section>
+
+<!-- ============ 4 — one click, a complete prompt ============ -->
+<section class="s light" id="s4" data-file="4-composed.png">
+  <div class="brand"><svg><use href="#logo"/></svg><span>CONTEXA</span></div>
+  <div class="motto">SAVE TOKENS. KEEP GOING.</div>
+  <h1>One click.<em>A complete prompt.</em></h1>
+  <p class="side">One clear ask per message, so the next reply is an answer, not a question back.</p>
+  <div class="frame">
+    <div class="bar"><span class="d"><i></i><i></i><i></i></span><span>Q3 sales report</span><span>claude.ai</span></div>
+    <div class="chat">
+      <div class="reply" style="margin-top:0;font-size:17px;color:var(--muted)">You picked: Write the one-page summary for the team</div>
+      <div class="label" style="margin-top:14px"><b>✦</b> CONTEXA</div>
+      <div class="box full" style="margin-top:10px">Write a one-page summary of the Q3 sales report for the team.
+• Open with the three numbers that changed most since Q2
+• One short paragraph per region, in the same order as the table
+• End with the two decisions we still have to make
+
+Keep it easy to read on a phone, with no tables in the summary.<span class="m">Sonnet ▾</span><span class="go">↑</span></div>
+    </div>
+  </div>
+  <div class="foot">Independent extension for claude.ai · Illustrative demo</div>
+  <div class="dots"><i></i><i></i><i></i><i class="on"></i><i></i></div>
+</section>
+
+<!-- ============ 5 — the trigger ============ -->
+<section class="s dark" id="s5" data-file="5-trigger.png">
+  <div class="brand"><svg><use href="#logo"/></svg><span>CONTEXA</span></div>
+  <div class="motto">SAVE TOKENS. KEEP GOING.</div>
+  <h1>Ready when<em>you ask.</em></h1>
+  <p class="side">Nothing goes to CONTEXA until you click. You choose every message you send.</p>
+  <div class="frame">
+    <div class="bar"><span class="d"><i></i><i></i><i></i></span><span>Q3 sales report</span><span>claude.ai</span></div>
+    <div class="chat">
+      <div class="turn">The chart on page 2 still shows September twice. Can you fix it?</div>
+      <div class="reply"><b>Page 2 chart, fixed.</b>September appears once now, and the regions follow the same order as the table. The one-page summary is next when you’re ready.</div>
+      <div class="label"><b>✦</b> CONTEXA</div>
+      <div class="mascot"><svg><use href="#mascot"/></svg><span class="ask">Next move ✦</span></div>
+      <div class="box" style="margin-top:12px">Reply to Claude…<span class="m">Sonnet ▾</span><span class="go">↑</span></div>
+      <div class="note">No account required · No API key needed</div>
+    </div>
+  </div>
+  <div class="foot">Independent extension for claude.ai · Illustrative demo</div>
+  <div class="dots"><i></i><i></i><i></i><i></i><i class="on"></i></div>
+</section>

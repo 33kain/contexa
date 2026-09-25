@@ -7,12 +7,13 @@
     #tile     440 x 280   small promo tile
     #marquee  1400 x 560  marquee promo tile
 
-  Everything shown is the product as it ships at 0.9.68 — the mascot trigger,
-  the "✦ CONTEXA" label, the row of moves, the composed prompt in the message
-  box — drawn with the same tokens content.js uses (dark theme, brand teal
-  accent). The example session and the three moves are the same canned Lisbon
-  session the screenshot harness shows (MOVES in scripts/screenshots/
-  capture.mjs), so the tiles and the screenshots describe one product.
+  Everything shown is the product as it ships at 0.9.98 — the "✦ CONTEXA"
+  label, the cost line and its "Same session, new chat" button, the brief landed in a new
+  chat — drawn with the same tokens content.js uses (dark theme, brand teal
+  accent). The example is the sales-report session the store screenshots
+  show (scripts/screenshots/slides.html), and 689k -> 441 is the measured pair
+  from publishing/STORE-LISTING.md, so the tiles and the screenshots describe
+  one product.
 
   No Anthropic wordmark or logo, anywhere. "Claude" is named the way the
   listing names it — as the site the extension works on — and nothing here
@@ -42,6 +43,7 @@
   .wordmark .name{font-weight:700;letter-spacing:.22em;color:var(--text);line-height:1}
   .mascot{display:block;flex:none}
 
+  .tag em{font-style:normal;color:var(--accent)}
   .tag{font-weight:700;letter-spacing:-.015em;line-height:1.12;color:var(--text)}
   .lead{color:var(--text2);line-height:1.45}
   .lead b{color:var(--text);font-weight:600}
@@ -71,14 +73,23 @@
   .turn span{background:var(--surface);border:1px solid var(--border);border-radius:14px;
     padding:10px 16px;font-size:13px;line-height:1.55;color:var(--text);max-width:540px}
 
+  .cost{display:inline-flex;align-items:center;gap:10px;color:var(--text2);letter-spacing:0;text-transform:none;font-size:12px}
+  .cost .btn{border:1.5px solid var(--accent);color:var(--accent);border-radius:999px;padding:4px 11px;
+    font-size:10px;letter-spacing:.12em;text-transform:uppercase;font-weight:700}
+  .cost .btn.hot{background:var(--accent);color:var(--bg)}
+  .nc{margin-top:18px;font-size:11px;letter-spacing:.06em;color:var(--text3)}
+  .nc b{color:var(--accent);letter-spacing:0}
+
   /* ================= 440 x 280 ================= */
   #tile{width:440px;height:280px;padding:26px 28px 24px}
   #tile .wordmark .name{font-size:22px}
   #tile .mascot{width:42px;height:42px}
-  #tile .tag{font-size:21px;margin:16px 0 14px;white-space:nowrap}
+  #tile .tag{font-size:21px;margin:14px 0 10px;white-space:nowrap}
   #tile .label{margin-bottom:7px}
   #tile .chip{font-size:12px;padding:5px 12px}
-  #tile .chips{gap:5px}
+  #tile .cost{font-size:13px;gap:12px;white-space:nowrap}
+  #tile .cost .btn{white-space:nowrap}
+  #tile .lead{font-size:13px;margin-top:10px}
   #tile .foot{position:absolute;left:28px;bottom:20px;font-size:11px}
 
   /* ================= 1400 x 560 ================= */
@@ -87,7 +98,7 @@
   #marquee .wordmark .name{font-size:34px}
   #marquee .mascot{width:64px;height:64px}
   #marquee .tag{font-size:44px;margin:34px 0 22px;max-width:15ch}
-  #marquee .lead{font-size:18.5px;max-width:30ch}
+  #marquee .lead{font-size:18.5px;max-width:31.5ch}
   #marquee .foot{position:absolute;left:80px;bottom:56px;font-size:14px}
   #marquee .stage{position:relative;padding:36px 0 0 0}
   #marquee .frame{position:absolute;left:0;top:64px;width:760px;height:600px;
@@ -98,7 +109,8 @@
     letter-spacing:.01em;color:var(--text)}
   #marquee .frame .body{position:relative;margin-top:22px}
   #marquee .frame .reply{max-width:650px;margin-top:18px}
-  #marquee .frame .label{margin:22px 0 7px}
+  #marquee .frame .label{margin:22px 0 7px;width:650px}
+  #marquee .frame .label .cost{margin-left:auto}
   #marquee .frame .box{margin-top:14px;max-width:650px;font-size:13.5px}
 </style>
 
@@ -108,13 +120,10 @@
     <svg class="mascot" viewBox="0 0 128 128" aria-hidden="true"><defs><clipPath id="pm_tile"><rect x="2" y="2" width="124" height="124" rx="30"/></clipPath><linearGradient id="pm_base" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#12b7a4"/><stop offset="1" stop-color="#5b3fd6"/></linearGradient><filter id="pm_soft" x="-60%" y="-60%" width="220%" height="220%"><feGaussianBlur stdDeviation="9"/></filter><filter id="pm_frost" x="-60%" y="-60%" width="220%" height="220%"><feGaussianBlur stdDeviation="5.5"/></filter><mask id="pm_c" maskUnits="userSpaceOnUse" x="0" y="0" width="128" height="128"><path d="M85.4 40.2 A32 32 0 1 0 85.4 87.8" fill="none" stroke="#fff" stroke-width="16" stroke-linecap="round"/></mask></defs><g clip-path="url(#pm_tile)"><rect x="2" y="2" width="124" height="124" fill="url(#pm_base)"/><circle cx="30" cy="24" r="46" fill="#4cf0dd" opacity=".95" filter="url(#pm_soft)"/><circle cx="108" cy="116" r="50" fill="#8a5cff" opacity=".95" filter="url(#pm_soft)"/><circle cx="102" cy="20" r="28" fill="#39b6ff" opacity=".8" filter="url(#pm_soft)"/><g mask="url(#pm_c)"><rect x="2" y="2" width="124" height="124" fill="url(#pm_base)"/><circle cx="30" cy="24" r="46" fill="#4cf0dd" opacity=".95" filter="url(#pm_frost)"/><circle cx="108" cy="116" r="50" fill="#8a5cff" opacity=".95" filter="url(#pm_frost)"/><circle cx="102" cy="20" r="28" fill="#39b6ff" opacity=".8" filter="url(#pm_frost)"/><rect x="2" y="2" width="124" height="124" fill="#fff" opacity=".30"/></g><path d="M85.4 40.2 A32 32 0 1 0 85.4 87.8" fill="none" stroke="#06202b" stroke-opacity=".16" stroke-width="4" stroke-linecap="round" transform="translate(1.3,1.7)"/><path d="M85.4 40.2 A32 32 0 1 0 85.4 87.8" fill="none" stroke="#fff" stroke-opacity=".85" stroke-width="3" stroke-linecap="round" transform="translate(-1.2,-1.6)"/><ellipse cx="34" cy="44" rx="6" ry="9" fill="#fff" opacity=".7" transform="rotate(-32 34 44)"/></g><rect x="2.9" y="2.9" width="122.2" height="122.2" rx="28.5" fill="none" stroke="#fff" stroke-opacity=".22" stroke-width="1.4"/></svg>
     <span class="name">CONTEXA</span>
   </div>
-  <div class="tag">Save tokens.</div>
+  <div class="tag">Long session? <em>Keep going.</em></div>
   <div class="label"><b>✦</b> CONTEXA</div>
-  <div class="chips">
-    <span class="chip hover">Write the birthday card revealing Lisbon</span>
-    <span class="chip">Move the walking into the mornings</span>
-    <span class="chip">Pick one dinner for each night</span>
-  </div>
+  <div class="cost"><span>≈ 689k tokens off every message</span><span class="btn">Same session, new chat</span></div>
+  <p class="lead"><b>689k → 441 tokens.</b> The thread goes on in a new chat.</p>
   <div class="foot">Free <i>·</i> No account <i>·</i> No API key needed</div>
 </div>
 
@@ -122,34 +131,27 @@
 <div class="board" id="marquee">
   <div class="brand">
     <div class="wordmark">
-      <svg class="mascot" viewBox="0 0 128 128" aria-hidden="true"><defs><clipPath id="pm_tile"><rect x="2" y="2" width="124" height="124" rx="30"/></clipPath><linearGradient id="pm_base" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#12b7a4"/><stop offset="1" stop-color="#5b3fd6"/></linearGradient><filter id="pm_soft" x="-60%" y="-60%" width="220%" height="220%"><feGaussianBlur stdDeviation="9"/></filter><filter id="pm_frost" x="-60%" y="-60%" width="220%" height="220%"><feGaussianBlur stdDeviation="5.5"/></filter><mask id="pm_c" maskUnits="userSpaceOnUse" x="0" y="0" width="128" height="128"><path d="M85.4 40.2 A32 32 0 1 0 85.4 87.8" fill="none" stroke="#fff" stroke-width="16" stroke-linecap="round"/></mask></defs><g clip-path="url(#pm_tile)"><rect x="2" y="2" width="124" height="124" fill="url(#pm_base)"/><circle cx="30" cy="24" r="46" fill="#4cf0dd" opacity=".95" filter="url(#pm_soft)"/><circle cx="108" cy="116" r="50" fill="#8a5cff" opacity=".95" filter="url(#pm_soft)"/><circle cx="102" cy="20" r="28" fill="#39b6ff" opacity=".8" filter="url(#pm_soft)"/><g mask="url(#pm_c)"><rect x="2" y="2" width="124" height="124" fill="url(#pm_base)"/><circle cx="30" cy="24" r="46" fill="#4cf0dd" opacity=".95" filter="url(#pm_frost)"/><circle cx="108" cy="116" r="50" fill="#8a5cff" opacity=".95" filter="url(#pm_frost)"/><circle cx="102" cy="20" r="28" fill="#39b6ff" opacity=".8" filter="url(#pm_frost)"/><rect x="2" y="2" width="124" height="124" fill="#fff" opacity=".30"/></g><path d="M85.4 40.2 A32 32 0 1 0 85.4 87.8" fill="none" stroke="#06202b" stroke-opacity=".16" stroke-width="4" stroke-linecap="round" transform="translate(1.3,1.7)"/><path d="M85.4 40.2 A32 32 0 1 0 85.4 87.8" fill="none" stroke="#fff" stroke-opacity=".85" stroke-width="3" stroke-linecap="round" transform="translate(-1.2,-1.6)"/><ellipse cx="34" cy="44" rx="6" ry="9" fill="#fff" opacity=".7" transform="rotate(-32 34 44)"/></g><rect x="2.9" y="2.9" width="122.2" height="122.2" rx="28.5" fill="none" stroke="#fff" stroke-opacity=".22" stroke-width="1.4"/></svg>
+      <svg class="mascot" viewBox="0 0 128 128" aria-hidden="true"><defs><clipPath id="pm2_tile"><rect x="2" y="2" width="124" height="124" rx="30"/></clipPath><linearGradient id="pm2_base" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#12b7a4"/><stop offset="1" stop-color="#5b3fd6"/></linearGradient><filter id="pm2_soft" x="-60%" y="-60%" width="220%" height="220%"><feGaussianBlur stdDeviation="9"/></filter><filter id="pm2_frost" x="-60%" y="-60%" width="220%" height="220%"><feGaussianBlur stdDeviation="5.5"/></filter><mask id="pm2_c" maskUnits="userSpaceOnUse" x="0" y="0" width="128" height="128"><path d="M85.4 40.2 A32 32 0 1 0 85.4 87.8" fill="none" stroke="#fff" stroke-width="16" stroke-linecap="round"/></mask></defs><g clip-path="url(#pm2_tile)"><rect x="2" y="2" width="124" height="124" fill="url(#pm2_base)"/><circle cx="30" cy="24" r="46" fill="#4cf0dd" opacity=".95" filter="url(#pm2_soft)"/><circle cx="108" cy="116" r="50" fill="#8a5cff" opacity=".95" filter="url(#pm2_soft)"/><circle cx="102" cy="20" r="28" fill="#39b6ff" opacity=".8" filter="url(#pm2_soft)"/><g mask="url(#pm2_c)"><rect x="2" y="2" width="124" height="124" fill="url(#pm2_base)"/><circle cx="30" cy="24" r="46" fill="#4cf0dd" opacity=".95" filter="url(#pm2_frost)"/><circle cx="108" cy="116" r="50" fill="#8a5cff" opacity=".95" filter="url(#pm2_frost)"/><circle cx="102" cy="20" r="28" fill="#39b6ff" opacity=".8" filter="url(#pm2_frost)"/><rect x="2" y="2" width="124" height="124" fill="#fff" opacity=".30"/></g><path d="M85.4 40.2 A32 32 0 1 0 85.4 87.8" fill="none" stroke="#06202b" stroke-opacity=".16" stroke-width="4" stroke-linecap="round" transform="translate(1.3,1.7)"/><path d="M85.4 40.2 A32 32 0 1 0 85.4 87.8" fill="none" stroke="#fff" stroke-opacity=".85" stroke-width="3" stroke-linecap="round" transform="translate(-1.2,-1.6)"/><ellipse cx="34" cy="44" rx="6" ry="9" fill="#fff" opacity=".7" transform="rotate(-32 34 44)"/></g><rect x="2.9" y="2.9" width="122.2" height="122.2" rx="28.5" fill="none" stroke="#fff" stroke-opacity=".22" stroke-width="1.4"/></svg>
       <span class="name">CONTEXA</span>
     </div>
-    <div class="tag">Save tokens.</div>
-    <p class="lead">Save tokens on claude.ai. One press writes up to four next messages; Start fresh turns a long thread into a brief. <b>You send it.</b></p>
+    <div class="tag">Long session? <em>Keep going.</em></div>
+    <p class="lead">Every message re-reads the whole thread. One press carries it into a new chat as a short brief: same session, fewer tokens. <b>You send it.</b></p>
     <div class="foot">Free <i>·</i> No account <i>·</i> No API key needed</div>
   </div>
   <div class="stage">
     <div class="frame">
       <div class="top">Claude</div>
       <div class="body">
-        <div class="turn"><span>Plan the four days. He'll want to see everything, but I want one slow day in there.</span></div>
+        <div class="turn"><span>The team reads this on their phones, so keep every page short.</span></div>
         <div class="reply">
-          <p><strong>Day 4 — Sintra.</strong> Forty minutes by train, an early start, the palaces, back by late afternoon so the last evening is in the city.</p>
-          <p>Evenings I've left open. Nothing here needs booking except Sintra, which sells out on weekends.</p>
+          <p><strong>Page 2 chart, fixed.</strong> September appears once now, and the regions follow the same order as the table.</p>
         </div>
-        <div class="label"><b>✦</b> CONTEXA</div>
-        <div class="chips">
-          <span class="chip hover">Write the birthday card revealing Lisbon</span>
-          <span class="chip">Move the walking into the mornings</span>
-          <span class="chip">Pick one dinner for each night</span>
-        </div>
-        <div class="box">Write the birthday card that gives my dad the Lisbon trip.
-- four days at the end of May, just the two of us
-- hint at what's planned without giving the days away
-- short and warm, nothing about his age
-- work in one memory of ours: <span class="paste">&lt;paste here&gt;</span>
-Assume: he still doesn't know.<span class="send">▲</span></div>
+        <div class="label"><b>✦</b> CONTEXA <span class="cost"><span>≈ 689k tokens off every message</span><span class="btn hot">Same session, new chat</span></span></div>
+        <div class="nc">New chat · brief inserted, not sent · <b>689k → 441 tokens</b></div>
+        <div class="box">Goal: the Q3 sales report for the team — five pages, due Friday.
+Settled: regions North, South, West · charts by quarter · summary up front
+Exists now: pages 2 to 5, with their charts and tables
+Next: write the one-page summary for the team.<span class="send">▲</span></div>
       </div>
     </div>
   </div>

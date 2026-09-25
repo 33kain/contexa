@@ -469,12 +469,12 @@
   }
   /* What the tooltip on the wordmark says — a long press on a phone, a hover on
      a desktop. The field test runs where there is no console, and "why no
-     Start fresh here" is unanswerable without this number. */
+     Same session, new chat here" is unanswerable without this number. */
   function threadNote() {
     const r = lastThreadRead;
     if (!r) return '';
     return '≈ ' + kTokens(r.tokens) + ' tokens on the page (' + r.chars.toLocaleString() + ' chars in ' + r.blocks + ' blocks'
-      + (r.scale > 1 ? ', scaled ×' + r.scale.toFixed(1) + ' for the part not rendered' : '') + '). Start fresh appears from ' + kTokens(LONG_THREAD_TOKENS) + '.';
+      + (r.scale > 1 ? ', scaled ×' + r.scale.toFixed(1) + ' for the part not rendered' : '') + '). Same session, new chat appears from ' + kTokens(LONG_THREAD_TOKENS) + '.';
   }
   const kTokens = n => (n >= 1000 ? Math.round(n / 1000) + 'k' : String(n));
 
@@ -495,11 +495,11 @@
     const cost = document.createElement('span');
     cost.className = 'ctxa-cost';
     const words = document.createElement('span');
-    words.textContent = '≈ ' + kTokens(ctx.thread) + ' tokens re-read per send';
+    words.textContent = '≈ ' + kTokens(ctx.thread) + ' tokens off every message';
     const btn = document.createElement('button');
     btn.type = 'button';
-    btn.textContent = 'Start fresh';
-    btn.title = 'Write a brief of this thread and open a new chat with it';
+    btn.textContent = 'Same session, new chat';
+    btn.title = 'Carry this thread into a new chat as a short brief';
     btn.addEventListener('click', () => {
       if (btn.disabled) return;
       btn.disabled = true;
@@ -877,7 +877,7 @@
     const lastThree = turns.slice(-3).map(el => (el.textContent || '').trim().length);
     return [
       'CONTEXA v' + v,
-      'thread ≈ ' + (ctx.thread != null ? ctx.thread : '?') + ' tokens (' + (r.source || 'dom') + '); Start fresh from ' + LONG_THREAD_TOKENS,
+      'thread ≈ ' + (ctx.thread != null ? ctx.thread : '?') + ' tokens (' + (r.source || 'dom') + '); Same session, new chat from ' + LONG_THREAD_TOKENS,
       'rendered: ' + (r.chars || 0) + ' chars in ' + (r.blocks || 0) + ' blocks, scale ×' + (r.scale ? r.scale.toFixed(2) : '1') + ' (' + (r.rendered || 0) + 'px of ' + (r.total || 0) + 'px)',
       ctx.api ? 'page API: ' + ctx.api.chars + ' chars in ' + ctx.api.messages + ' messages, ' + ctx.api.human + ' yours ≈ ' + ctx.api.tokens + ' tokens'
         : 'page API: ' + (ctx.apiState || 'not asked yet'),
@@ -1650,13 +1650,13 @@
          nothing leaves the page before a click. It is a real <button>, so
          Enter/Space fire natively; it must NOT read like the fifth chip, and
          it no longer can: no chip class, no text label. Star asks, pencil
-         types — the bubble whispers 'What now? ✦' and the aria-label says the
+         types — the bubble whispers 'Next move ✦' and the aria-label says the
          same for keyboard and screen-reader users. */
       const chip = document.createElement('button');
       chip.className = 'ctxa-mas';
-      chip.setAttribute('aria-label', 'What now?');
+      chip.setAttribute('aria-label', 'Next move');
       chip.innerHTML = MASCOT_SVG +
-        '<span class="ctxa-mas-bubble">What now? <b>✦</b></span>';
+        '<span class="ctxa-mas-bubble">Next move <b>✦</b></span>';
       chip.addEventListener('click', () => {
         if (chip.disabled) return;
         /* §1d — small hop on the click, then the existing flow runs

@@ -9,6 +9,49 @@ backend's live version separately so a deploy can be told from a no-op.
 
 ---
 
+## 0.9.98 — Extension (the fork control renamed; worker build number only)
+
+*Start fresh is now "Same session, new chat".*
+
+The button on the cost line said "start over", which is the opposite of what a
+user on a long session wants to hear. It carries the thread into a new chat as a
+brief so the work continues, so it now says exactly that: **Same session, new
+chat**. The tooltip, the wordmark note and the diag line say it too; the code
+still calls the mechanism the fork (`askFork`, `FORK_SYSTEM`, `/v1/fork`), and
+nothing on the wire changed. (A first draft of this release called it *Keep
+going*; that stays as the motto on the screenshots, "Save tokens. Keep going.",
+and not as the button.)
+
+The cost line beside it reads **≈ 689k tokens off every message** (the thread estimate) where it
+said "≈ 689k tokens re-read per send": what the button saves on each message
+that follows, not what the thread costs.
+
+The mascot's bubble says **Next move ✦** where it asked "What now?": it names
+what a click returns, in the same words as the screenshot headline "Your next
+move." The aria-label and the settings page say it too.
+
+The store fields move with it. The manifest `description` leads with the long
+session — *Long claude.ai session? Carry it into a new chat as a brief: same
+session, fewer tokens. Up to four next messages. You send it.* (127 of 132,
+still "up to four", still "You send it") — and `publishing/STORE-LISTING.md`
+carries it verbatim, with the control renamed through the long description.
+
+The five store screenshots and both promo tiles are redone around the long
+session, with the largest measured thread (689k tokens, and the 441-token brief
+that replaced it) instead of the illustrative 14k. The example is a long working
+session on a quarterly sales report, because a 689k-token trip itinerary would
+not be believable, and no example text carries a `<paste here>` slot. The
+screenshots now have a source in the repo — `scripts/screenshots/slides.html`,
+rendered by `render-slides.mjs` — where the 0.9.95 set had only PNGs; the
+frame-1 file is `1-new-chat.png`. The PNG re-encoding and browser launch are
+shared with the promo renderer in `scripts/lib/render-png.mjs`, and
+`CX_CHANNEL=msedge` renders both with an installed Edge.
+
+The website still says Start fresh; it follows separately. The worker's `BUILD`
+follows the manifest; no worker code changed.
+
+---
+
 ## 0.9.97 — Extension (worker build number only)
 
 *The silent tail read announces itself.*

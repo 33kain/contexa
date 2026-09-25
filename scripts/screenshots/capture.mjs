@@ -6,10 +6,10 @@
  * than writing a wrong one. The five shipped frames come from two runs:
  *
  *   node scripts/screenshots/capture.mjs            -> 3-moves, 4-composed, 5-trigger
- *   CX_FORK=1 node scripts/screenshots/capture.mjs  -> 1-start-fresh, 2-brief
+ *   CX_FORK=1 node scripts/screenshots/capture.mjs  -> 1-new-chat, 2-brief
  *
  * The fork run pads the thread before the reply lands (a long thread is what
- * makes the cost line and Start fresh appear), so it cannot share a page with
+ * makes the cost line and its button appear), so it cannot share a page with
  * the default run; the filenames are the listing order, not the capture order.
  *
  * WHY THIS FILE IS COMMITTED. The first attempt at these screenshots (PR #13)
@@ -483,7 +483,7 @@ async function main() {
       await again(() => { window.__mock.setModel('Opus 4.1'); window.__mock.padLong(30, 1700); });
       line = await readLine(page);
       console.log('  opus + long thread:', JSON.stringify(line));
-      if (!line || !/re-read per send/.test(line.text) || !line.button) throw new Error('the cost line did not outrank the model note');
+      if (!line || !/^≈ \d+k tokens off every message/.test(line.text) || !line.button) throw new Error('the cost line did not outrank the model note');
       if (nudges.some(n => /model opus/.test(n) && nudges.indexOf(n) > 0) && nudges.filter(n => /model opus/.test(n)).length !== 1) throw new Error('model nudge logged more than once: ' + nudges.join(' | '));
       console.log(`\nnudges verified, shots written to ${OUT}`);
       return;
@@ -500,9 +500,9 @@ async function main() {
         return el ? { text: el.textContent.trim(), button: btn ? btn.textContent.trim() : null } : null;
       });
       console.log('  cost line:', JSON.stringify(cost));
-      if (!cost || !/≈ \d+k tokens re-read per send/.test(cost.text)) throw new Error('cost line did not render with a token estimate');
-      if (cost.button !== 'Start fresh') throw new Error('fork control missing from the cost line');
-      await shoot(page, '1-start-fresh.png', 'a long thread: the cost line and the fork control', { card: true });
+      if (!cost || !/^≈ \d+k tokens off every message/.test(cost.text)) throw new Error('cost line did not render with a token estimate');
+      if (cost.button !== 'Same session, new chat') throw new Error('fork control missing from the cost line');
+      await shoot(page, '1-new-chat.png', 'a long thread: the cost line and the fork control', { card: true });
 
       const logs = [];
       page.on('console', m => { if (m.text().includes('[CONTEXA] fork')) logs.push(m.text()); });
@@ -548,7 +548,7 @@ async function main() {
       await fresh.waitForTimeout(1500);
       const again = await fresh.evaluate(() => (document.querySelector('#composer')?.innerText || '').trim());
       if (again) throw new Error('the brief landed twice — takeBrief did not consume it');
-      console.log(`\nfork verified end to end — wrote 1-start-fresh, 2-brief to ${OUT}`);
+      console.log(`\nfork verified end to end — wrote 1-new-chat, 2-brief to ${OUT}`);
       return;
     }
 
@@ -584,7 +584,7 @@ async function main() {
     }
 
     /* The frames are numbered in LISTING order, not capture order. Since 0.9.95
-       the listing leads with the saving — Start fresh and the brief, from the
+       the listing leads with the saving — the new chat and the brief, from the
        CX_FORK run — and the row and the composed prompt follow; the trigger,
        shot first, ships last. */
     // ---- 3-moves: click it, the mined row arrives --------------------------
@@ -607,7 +607,7 @@ async function main() {
     await page.waitForTimeout(600);
     await shoot(page, '4-composed.png', 'the prompt, landed in the message box', { card: true });
 
-    console.log('\nwrote 3-moves, 4-composed, 5-trigger to publishing/screenshots/ — run again with CX_FORK=1 for 1-start-fresh and 2-brief');
+    console.log('\nwrote 3-moves, 4-composed, 5-trigger to publishing/screenshots/ — run again with CX_FORK=1 for 1-new-chat and 2-brief');
   } finally {
     await ctx.close();
     server.close();

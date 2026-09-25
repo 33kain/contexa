@@ -1,7 +1,10 @@
 # Store screenshots
 
-**Authored 2026-09-07, for 0.9.95.** Five PNGs, each exactly 1280×800, the size
-the Chrome Web Store takes without rescaling.
+**Rendered 2026-09-26, for 0.9.98**, from `scripts/screenshots/slides.html` by
+`node scripts/screenshots/render-slides.mjs`. Five PNGs, each exactly 1280×800,
+the size the Chrome Web Store takes without rescaling. The 0.9.95 set
+(2026-09-07) was authored elsewhere and only its PNGs landed here, so the rename
+of the Start fresh button had nothing to edit; edit the HTML and re-render, never the PNGs.
 
 **These are designed illustrations, not captures.** Every earlier set in this
 folder was a photograph of the real extension running in a real Chromium against
@@ -19,11 +22,17 @@ selectors. Only a live session proves those still match the site.
 
 | File | Headline | Shows |
 |---|---|---|
-| `1-start-fresh.png` | Save tokens. Start fresh. | the cost line on a long thread — `≈ 14k tokens re-read per send` — and the **Start fresh** control beside it |
-| `2-brief.png` | A fresh chat. A clear handoff. | the brief landed in a new chat's message box, not sent, with the two numbers (≈14k against ≈91) and the `<paste here>` slot |
-| `3-moves.png` | Your conversation. Your next move. | the mined row — three independent moves, each a complete request |
+| `1-new-chat.png` | Long session? Keep going. | the cost line on a long thread — `≈ 689k tokens off every message` — and the **Same session, new chat** button beside it |
+| `2-brief.png` | Same work. A lighter thread. | the brief landed in a new chat, not sent, beside the measured pair (689k against 441, 9% against 3% of the five-hour limit), labelled as measured |
+| `3-moves.png` | Deep in a session? Your next move. | the mined row — three independent moves, each a complete request |
 | `4-composed.png` | One click. A complete prompt. | one click later: the whole prompt in the message box, still unsent |
 | `5-trigger.png` | Ready when you ask. | the mascot as it arrives, before anything is asked or spent |
+
+**0.9.98 moved the set onto long sessions.** Start fresh became Same session, new chat, the
+example became a long working session on a quarterly sales report (a 689k-token
+Lisbon itinerary was not believable), and the example texts carry no
+`<paste here>` slot; frame 2 names it once, in the side note, and the one number on the set is the largest one
+measured. Frame 2 is the only frame with a real figure on it, and says so.
 
 **The order is the argument, and it changed with 0.9.95.** The name and the short
 description now lead with saving tokens, so the set leads with the saving too:
