@@ -616,6 +616,19 @@ body.drawer-open { overflow: hidden; }
 @media (min-width: 640px) { .startfresh-btn { font-size: 0.9375rem; } }
 .startfresh-btn:hover { background: var(--primary-600); transform: translateY(-1px); box-shadow: var(--shadow-btn-hover); }
 .startfresh-btn:active { transform: translateY(0) scale(0.98); }
+/* The trigger mascot beside the button: the extension's own MASCOT_SVG (ids
+   renamed), decorative here, with the same idle wink and glance. */
+.sf-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 12px; }
+.sf-row .startfresh-btn { margin-top: 0; }
+.sf-mascot { display: inline-flex; align-items: center; gap: 6px; flex: none; pointer-events: none; }
+.sf-mascot svg { display: block; }
+.sf-ask { border-radius: 999px; border: 1px solid var(--border); background: #fff; padding: 3px 9px; font-size: 0.75rem; color: var(--text-2); white-space: nowrap; }
+.sf-ask b { color: var(--primary-700); font-weight: 700; }
+.sfm-wink { animation: sfmWink 6s infinite; transform-box: fill-box; transform-origin: center; }
+.sfm-pup { animation: sfmGlance 8s ease-in-out infinite; }
+@keyframes sfmWink { 0%, 93%, 100% { transform: scaleY(1); } 94.5%, 96.5% { transform: scaleY(0.08); } }
+@keyframes sfmGlance { 0%, 72%, 100% { transform: translateX(0); } 80%, 90% { transform: translateX(1.5px); } }
+@media (max-width: 420px) { .sf-ask { display: none; } }
 /* draw the eye to the control while the demo waits for a click (JS on, motion allowed) */
 .js .demo-window[data-view="thread"] .startfresh-btn { animation: sfPulse 2.1s ease-in-out infinite; }
 @keyframes sfPulse {
