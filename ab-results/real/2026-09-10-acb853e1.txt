@@ -1,0 +1,28 @@
+Session acb853e1…  C:\users\q\desktop\contexa
+  6 requests, 24 tool results
+  Context processed: 655k tokens across 6 requests (73% read from cache); output 6k
+  Context now: ≈ 213k tokens — what the next request re-reads
+  At list price: ≈ $3.96 (claude-fable-5-1; cache writes at the 1h rate)
+  Tool results entered ≈ 91k tokens of context, carried through later requests ≈ 175k token-reads
+  tokenbrake trimmed 1 of them: ≈ 2k tokens kept out, ≈ 13k token-reads not carried
+  Under the trim threshold: 12 of 13 shell results (≈ 2k tokens entered, ≈ 9k token-reads carried, 5% of all carried)
+  Repeat reads: none — 11 same-shape reads, each of a file not already in context
+
+What ate it — by tokens carried (size × later requests), top 8:
+     size   carried   turns  tool               what
+      16k       31k      2  Read               C:\users\q\desktop\contexa\extension\background.js
+       9k       19k      2  Read               C:\users\q\desktop\contexa\worker\src\index.js
+       9k       18k      2  Read               C:\users\q\desktop\contexa\scripts\screenshots\capture.m
+       8k       16k      2  Read               C:\users\q\desktop\contexa\extension\content.js
+       8k       16k      2  Read               C:\users\q\desktop\contexa\extension\content.js
+       8k       15k      2  Read               C:\users\q\desktop\contexa\extension\content.js
+       7k       14k      2  Read               C:\users\q\desktop\contexa\worker\src\index.js
+       7k       13k      2  Read               C:\users\q\desktop\contexa\extension\content.js
+
+By tool (share of tokens carried):
+  Read                 11 calls      87k entered      159k carried   91%
+  Bash                 13 calls       4k entered       16k carried    9%
+
+One result to have brakes on: Read "C:\users\q\desktop\contexa\extension\background.js" — ≈ 16k tokens carried 2 times. An offset/limit read, or a Grep first, would have kept most of it out.
+
+37 sessions on disk; --all lists them. Sizes are chars/4 estimates; the usage line is what the API reported.
