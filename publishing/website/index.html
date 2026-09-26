@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="color-scheme" content="light">
 <title>CONTEXA - Save tokens on Claude</title>
-<meta name="description" content="Claude replies. Press one button and CONTEXA reads your session, then writes up to four next messages. Pick one, you send it.">
+<meta name="description" content="Long claude.ai session? Carry it into a new chat as a brief: same session, fewer tokens. Up to four next messages. You send it.">
 <meta name="theme-color" content="#9CD8CC">
 <link rel="canonical" href="https://contexa-website.pages.dev/">
 <link rel="stylesheet" href="/site.css">
@@ -16,7 +16,7 @@
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="CONTEXA">
 <meta property="og:title" content="CONTEXA - Save tokens on Claude">
-<meta property="og:description" content="Claude replies. Press one button and CONTEXA reads your session, then writes up to four next messages. Pick one, you send it.">
+<meta property="og:description" content="Long claude.ai session? Carry it into a new chat as a brief: same session, fewer tokens. Up to four next messages. You send it.">
 <meta property="og:url" content="https://contexa-website.pages.dev/">
 <meta property="og:image" content="https://contexa-website.pages.dev/og.png">
 <meta property="og:image:width" content="1200">
@@ -150,21 +150,17 @@
         <div>
           <div class="badge fade-in-up" style="--fd:0s"><span class="dot"></span> Save tokens with CONTEXA for Claude</div>
           <h1>
-            <span class="sr-only">Pick your next message in one click.</span>
+            <span class="sr-only">Long session? Keep going.</span>
             <span class="words" aria-hidden="true">
-              <span class="anim-word" style="--wd:.15s">Pick</span>
-              <span class="anim-word" style="--wd:.21s">your</span>
-              <span class="anim-word" style="--wd:.27s">next</span>
-              <span class="anim-word" style="--wd:.33s">message</span>
-              <span class="anim-word" style="--wd:.39s">in</span>
-              <span class="anim-word" style="--wd:.45s">one</span>
-              <span class="anim-word accent" style="--wd:.51s">click.</span>
+              <span class="anim-word" style="--wd:.15s">Long</span>
+              <span class="anim-word" style="--wd:.21s">session?</span>
+              <span class="anim-word accent" style="--wd:.33s;white-space:nowrap">Keep going.</span>
             </span>
           </h1>
           <p class="hero-lead fade-in-up" style="--fd:.65s">
-            CONTEXA reads where your Claude conversation is going and hands you the next move —
-            and when a thread grows heavy, a fresh start with everything that matters carried
-            over. Nothing is sent until you click.
+            Every message on claude.ai re-reads the whole thread. When it grows heavy, CONTEXA carries
+            it into a new chat as a short brief: same session, fewer tokens. And after any reply,
+            up to four next messages, already written. Nothing is sent until you click.
           </p>
           <div class="hero-cta fade-in-up" style="--fd:.8s">
             <a class="btn btn-primary btn-lg focus-ring" href="https://chromewebstore.google.com/detail/phhamigkjeeabbjncpmhkppkjccfglhb" target="_blank" rel="noreferrer">
@@ -181,7 +177,7 @@
           </ul>
         </div>
 
-        <!-- Hero demo: Start fresh — click-driven; rests on the thread until the button is pressed -->
+        <!-- Hero demo: Same session, new chat — click-driven; rests on the thread until the button is pressed -->
         <div>
           <div class="demo-wrap">
             <div class="demo-badge top"><span class="dot"></span> Nothing is sent for you</div>
@@ -216,10 +212,10 @@
                   <div class="inner">
                     <div class="head">
                       <span class="tag"><svg class="ico" width="14" height="14"><use href="#i-sparkles"/></svg> CONTEXA</span>
-                      <span class="count">≈ 689k tokens re-read per send</span>
+                      <span class="count">≈ 689k tokens off every message</span>
                     </div>
-                    <p>This thread is getting heavy. Start fresh keeps what matters and drops the rest.</p>
-                    <button type="button" class="startfresh-btn" id="sf-btn" aria-label="Start fresh — write a brief and open a new chat"><svg class="ico" width="15" height="15"><use href="#i-rotate-ccw"/></svg> Start fresh</button>
+                    <p>This thread is getting heavy. Carry it into a new chat as a short brief and keep going.</p>
+                    <button type="button" class="startfresh-btn" id="sf-btn" aria-label="Same session, new chat — write a brief and open a new chat"><svg class="ico" width="15" height="15"><use href="#i-rotate-ccw"/></svg> Same session, new chat</button>
                   </div>
                 </div>
                 <div class="composer" id="sf-composer">
@@ -310,7 +306,7 @@
       </div>
       <div class="measured">
         <div class="data-card reveal">
-          <p class="cap">The same five messages, in a 689k-token session and after Start fresh</p>
+          <p class="cap">The same five messages, in a 689k-token session and in a new chat with its brief</p>
           <div class="scroll">
             <table>
               <thead><tr><th scope="col">Five messages, one after another</th><th scope="col">Five-hour limit spent</th></tr></thead>
@@ -327,7 +323,7 @@
           <p class="cap">The brief against the thread it replaces, five sessions</p>
           <div class="scroll">
             <table>
-              <thead><tr><th scope="col">Where Start fresh was pressed</th><th scope="col">Re-read per send</th><th scope="col">The brief</th></tr></thead>
+              <thead><tr><th scope="col">Where it was pressed</th><th scope="col">Re-read per send</th><th scope="col">The brief</th></tr></thead>
               <tbody>
                 <tr><th scope="row">Cowork session</th><td>689k tokens</td><td>441 tokens</td></tr>
                 <tr><th scope="row">Cowork session</th><td>214k tokens</td><td>313 tokens</td></tr>
@@ -510,7 +506,7 @@
     </div>
     <div class="footer-bottom">
       <span>© <span id="year">2026</span> CONTEXA. Independent project — not affiliated with, endorsed by, or sponsored by Anthropic.</span>
-      <span>Version 0.9.96 · <a href="https://github.com/33kain/contexa/blob/main/LICENSE">MIT</a> · <a href="https://github.com/33kain/contexa/blob/main/publishing/PRIVACY.md">Privacy policy</a> · <a href="https://github.com/33kain/contexa/blob/main/CHANGELOG.md">Changelog</a></span>
+      <span>Version 0.9.99 · <a href="https://github.com/33kain/contexa/blob/main/LICENSE">MIT</a> · <a href="https://github.com/33kain/contexa/blob/main/publishing/PRIVACY.md">Privacy policy</a> · <a href="https://github.com/33kain/contexa/blob/main/CHANGELOG.md">Changelog</a></span>
     </div>
     <p class="footer-bottom" style="border:0;padding-top:0;margin-top:8px">This site is static files served from one origin: no fonts, scripts, images or analytics are loaded from anywhere else.</p>
   </div>
