@@ -65,7 +65,7 @@ where `<session>` was the eight-character prefix on the report's first line, com
 - the cost-parity helpers `cachedSystem` and `usageOf` must be byte-identical in both files, and both call sites must still send the system prompt through `cachedSystem` (the own-key path did not until 0.9.72, and nothing but the bill could tell);
 - the model-default freeze guards: `DEFAULTS.model` in `options.js` and `background.js` must be `''` (a stored concrete model once froze installs on Haiku), the options page must not backfill an empty model field with the default, and the shipped model must not also appear in `SUPERSEDED_MODEL_DEFAULTS`.
 
-If you edit the system prompt, edit both files identically and run `npm run build` to verify before committing. The prompt is written once in a scratch file and injected into both, which is why they are byte-identical by construction rather than by discipline.
+If you edit the system prompt, edit both files identically and run `npm run build` to verify before committing. The prompt is written once in a scratch file and injected into both, which is why they are byte-identical by construction rather than by discipline. `.claude/skills/edit-prompt/prompt.mjs` does the extract and inject; the `edit-prompt` skill is the procedure.
 
 ### One shape, and what that replaced
 
@@ -108,6 +108,7 @@ Everything the model returns (labels, texts, evidence) renders through `document
 extension/            the product (Chrome extension, MV3)
 worker/               the hosted backend (Cloudflare Worker)
 .claude/              empty project settings (the tokenbrake hooks that lived here were removed 2026-09-10; the package is 33kain/tokenbrake)
+.claude/skills/       project skills: release (version bump checklist) and edit-prompt (prompt.mjs writes MOVES_SYSTEM/FORK_SYSTEM into both files at once)
 build.mjs             extension/ -> build-ready/ + store zip, plus the invariant checks above
 publishing/           Chrome Web Store listing copy, privacy policy, screenshots, submission notes
 publishing/website/   the static product site (deployed to Cloudflare Pages by deploy-pages.yml)
