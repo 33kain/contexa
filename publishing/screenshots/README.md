@@ -1,6 +1,6 @@
 # Store screenshots
 
-**Rendered 2026-09-26, for 0.9.98**, from `scripts/screenshots/slides.html` by
+**Rendered 2026-09-26, for 0.9.99** (the living-C mascot; 0.9.98 earlier the same day), from `scripts/screenshots/slides.html` by
 `node scripts/screenshots/render-slides.mjs`. Five PNGs, each exactly 1280×800,
 the size the Chrome Web Store takes without rescaling. The 0.9.95 set
 (2026-09-07) was authored elsewhere and only its PNGs landed here, so the rename

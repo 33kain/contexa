@@ -9,7 +9,7 @@ backend's live version separately so a deploy can be told from a no-op.
 
 ---
 
-## 0.9.99 — Extension + Worker (one extractJson for both paths)
+## 0.9.99 — Extension + Worker (one extractJson for both paths; the mascot becomes the C)
 
 *A model that repeats its answer no longer costs hosted users the row.*
 
@@ -38,6 +38,16 @@ left as it is.
 The worker changed and must be redeployed for hosted users to get this. The
 extension changed too (the function moved; its behaviour did not). The website
 footer still says 0.9.96 and follows separately.
+
+**The mascot is now the living C.** The in-page trigger (`MASCOT_SVG`) was the
+teal ghost; it is now the app icon's C with a face inside it, so the toolbar
+icon and the button above the message box are one mark. Same 58×50 box, same
+animation hooks (`ctxa-mas-pup` glances, `ctxa-mas-wink` winks, the
+`ctxa-mas-whisp` blush shows on hover), and the same force-dark rules the
+0.9.70 test asserts: white only as a flat fill, dark ink and the C's colour only
+through a paint server. The mouth takes the C's gradient rather than dark ink,
+because dark ink vanished on claude.ai's dark theme with no body behind it.
+Screenshots 1 and 5 re-rendered from `slides.html`.
 
 ---
 
