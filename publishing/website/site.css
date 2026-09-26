@@ -776,6 +776,20 @@ body.intro-open { overflow: hidden; }
    back in space (perspective + translateZ + rotateX), then settles onto the
    plane — primakne se, izoštri i uspravi. Per-element --z/--b/--rx set how far
    back and how blurred each one starts, for a layered arrival. */
+/* Typed intro (demo.js adds .intro--typing): the wordmark and tagline skip the
+   depth arrival and appear character by character behind a blinking caret; the
+   button waits for the tagline to finish. */
+.intro--typing .intro-word, .intro--typing .intro-tag { animation: none; }
+.intro--typing .intro-cta { animation-delay: 4.8s, 6.5s; }
+.tw-ch { visibility: hidden; }
+.tw-ch.is-on { visibility: visible; }
+.tw-caret { display: inline-block; width: 0; position: relative; }
+.tw-caret::after {
+  content: ""; position: absolute; left: 1px; bottom: 0.12em; width: 2px; height: 1em;
+  background: #7be6d5; animation: twBlink 1s steps(1) infinite;
+}
+@keyframes twBlink { 50% { opacity: 0; } }
+
 @keyframes introDepth {
   0%   { opacity: 0; transform: perspective(1100px) translateZ(var(--z, 340px)) rotateX(var(--rx, 20deg)); filter: blur(var(--b, 18px)); }
   22%  { opacity: 1; }

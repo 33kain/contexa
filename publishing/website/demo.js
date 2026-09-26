@@ -85,6 +85,49 @@
       window.setTimeout(finish, 900); // fallback if transitionend never fires
     }
 
+    // the wordmark and the tagline type themselves in, one character at a time.
+    // Every character is laid out from the start (visibility, not display), so
+    // the lines never reflow while typing; screen readers get the whole text.
+    function typeIn(el, startMs, perChar, keepCaret) {
+      var text = el.textContent;
+      el.textContent = "";
+      var sr = doc.createElement("span");
+      sr.className = "sr-only";
+      sr.textContent = text;
+      var shown = doc.createElement("span");
+      shown.setAttribute("aria-hidden", "true");
+      var chars = text.split("").map(function (c) {
+        var s = doc.createElement("span");
+        s.className = "tw-ch";
+        s.textContent = c;
+        shown.appendChild(s);
+        return s;
+      });
+      var caret = doc.createElement("span");
+      caret.className = "tw-caret";
+      el.appendChild(sr);
+      el.appendChild(shown);
+      window.setTimeout(function () {
+        shown.insertBefore(caret, chars[0]);
+        var i = 0;
+        (function step() {
+          if (i >= chars.length) { if (!keepCaret) caret.remove(); return; }
+          chars[i].classList.add("is-on");
+          shown.insertBefore(caret, chars[i].nextSibling);
+          i++;
+          window.setTimeout(step, perChar);
+        })();
+      }, startMs);
+    }
+    if (!reduce) {
+      var word = $(".intro-word", intro), tag = $(".intro-tag", intro);
+      if (word && tag) {
+        intro.classList.add("intro--typing");
+        typeIn(word, 1500, 110, false); // 7 characters, done by ~2.3s
+        typeIn(tag, 2600, 34, true);    // 55 characters, done by ~4.5s
+      }
+    }
+
     if (enter) enter.addEventListener("click", dismiss);
     doc.addEventListener("keydown", function (e) { if (e.key === "Escape") dismiss(); });
     // the header shows over the intro, so navigating from it reveals the site too
@@ -94,11 +137,11 @@
     );
 
     // move keyboard focus to the primary control once it has animated in
-    // (the entrance choreography resolves at ~5s; focus after the button lands)
+    // (the entrance choreography resolves at ~6s; focus after the button lands)
     window.setTimeout(function () {
       if (gone || !enter) return;
       try { enter.focus({ preventScroll: true }); } catch (e) { try { enter.focus(); } catch (e2) {} }
-    }, reduce ? 0 : 5000);
+    }, reduce ? 0 : 6200);
   })();
 
   /* ---------------- Reveal on scroll ---------------- */
