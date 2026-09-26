@@ -1,7 +1,7 @@
 # CONTEXA — Chrome Web Store: the review-facing declarations
 
 **This is no longer a submission walkthrough.** The account exists, the item is
-uploaded, 0.9.54 is approved and **Public**. Steps 1–7 of the old version
+uploaded, 0.9.98 is approved and **Public**. Steps 1–7 of the old version
 described a first-time unlisted launch and every one of them is done.
 
 **What this file is now:** the four fields a *reviewer* reads, kept accurate, so
@@ -37,8 +37,8 @@ sends ever changes, both move in the same release, along with
 ## Already done — do not redo
 
 - **Developer account**, $5 paid, publisher name set.
-- **Item uploaded and approved.** 0.9.47 cleared review; 0.9.54 is the live
-  package.
+- **Item uploaded and approved.** 0.9.47 cleared review, then 0.9.54, then
+  **0.9.98 on 2026-09-27**, the live package now.
 - **0.9.97 submitted for review 2026-09-21** (the first upload since 0.9.54).
   The worker was deployed at 0.9.97 the same day (`/v1/health` reports it), so
   until review clears, installs still on 0.9.54 are talking to a worker that
@@ -49,7 +49,10 @@ sends ever changes, both move in the same release, along with
 - **Worker deployed at 0.9.99 2026-09-26** (`/v1/health` reports it), ahead of
   the 0.9.99 package: its one behaviour change, a shared `extractJson`, only
   salvages more replies, so 0.9.98 clients lose nothing. 0.9.99 (that fix plus
-  the living-C mascot) is built on `main` and goes up once 0.9.98 clears.
+  the living-C mascot) is built on `main` and goes up next.
+- **0.9.98 approved 2026-09-27.** Installs left 0.9.54 for a client that
+  speaks the worker's current request shape, so the gap the 0.9.97 note
+  describes is closed.
 - **Visibility: PUBLIC** as of 2026-08-26. The control was greyed out for days
   and finally unlocked.
 - **`ALLOWED_EXTENSION_IDS` pinned to `phhamigkjeeabbjncpmhkppkjccfglhb`** —
