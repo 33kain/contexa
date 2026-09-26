@@ -1604,29 +1604,30 @@
      forced-colors mode is a separate subsystem this does not address, and
      could not be exercised on the build these measurements came from. */
   const MASCOT_SVG = `<svg width="58" height="50" viewBox="0 0 58 50" aria-hidden="true">
-  <defs><linearGradient id="ctxaMg" x1="0" y1="0" x2="0" y2="1">
-    <stop offset="0" stop-color="#2cc4ae"/><stop offset="1" stop-color="#15a594"/>
+  <defs><linearGradient id="ctxaMg" x1="0" y1="0" x2="1" y2="1">
+    <stop offset="0" stop-color="#19c3ad"/><stop offset=".55" stop-color="#2a9fd0"/><stop offset="1" stop-color="#6a4fe0"/>
   </linearGradient>
   <linearGradient id="ctxaPg" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="58" y2="0">
     <stop offset="0" stop-color="#000"/><stop offset="1" stop-color="#000"/>
   </linearGradient>
-  <linearGradient id="ctxaOg" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="58" y2="0">
-    <stop offset="0" stop-color="#0a352f"/><stop offset="1" stop-color="#0a352f"/>
+  <linearGradient id="ctxaOg" gradientUnits="userSpaceOnUse" x1="27.5" y1="31" x2="34.5" y2="33">
+    <stop offset="0" stop-color="#19c3ad"/><stop offset="1" stop-color="#6a4fe0"/>
   </linearGradient>
   <linearGradient id="ctxaWg" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="58" y2="0">
-    <stop offset="0" stop-color="#2cc4ae"/><stop offset="1" stop-color="#2cc4ae"/>
+    <stop offset="0" stop-color="#8f7cf0"/><stop offset="1" stop-color="#8f7cf0"/>
   </linearGradient></defs>
-  <path d="M29 3 C43 3 53 12 53 26 L53 50 L5 50 L5 26 C5 12 15 3 29 3 Z" fill="url(#ctxaMg)"/>
+  <path d="M42.5 12.5 A17 17 0 1 0 42.5 37.5" fill="none" stroke="url(#ctxaMg)" stroke-width="11" stroke-linecap="round"/>
+  <path d="M40 11 A15.5 15.5 0 0 0 14 17" fill="none" stroke="#fff" stroke-opacity=".75" stroke-width="1.6" stroke-linecap="round"/>
   <g class="ctxa-mas-pup">
-    <g><ellipse cx="21" cy="25.5" rx="7.4" ry="8.6" fill="#fff"/>
-       <circle cx="22.9" cy="27.2" r="3.8" fill="url(#ctxaPg)"/>
-       <circle cx="21.7" cy="25.9" r="1.3" fill="#fff" opacity=".95"/></g>
-    <g class="ctxa-mas-wink"><ellipse cx="37" cy="25.5" rx="7.4" ry="8.6" fill="#fff"/>
-       <circle cx="38.9" cy="27.2" r="3.8" fill="url(#ctxaPg)"/>
-       <circle cx="37.7" cy="25.9" r="1.3" fill="#fff" opacity=".95"/></g>
+    <g><ellipse cx="26" cy="22.5" rx="4.4" ry="5.2" fill="#fff"/>
+       <circle cx="26.4" cy="23.4" r="2.5" fill="url(#ctxaPg)"/>
+       <circle cx="25.6" cy="22.3" r=".9" fill="#fff" opacity=".95"/></g>
+    <g class="ctxa-mas-wink"><ellipse cx="36" cy="22.5" rx="4.4" ry="5.2" fill="#fff"/>
+       <circle cx="36.4" cy="23.4" r="2.5" fill="url(#ctxaPg)"/>
+       <circle cx="35.6" cy="22.3" r=".9" fill="#fff" opacity=".95"/></g>
   </g>
-  <path d="M25 37 Q29 39.5 33 37" stroke="url(#ctxaOg)" stroke-width="2.6" fill="none" stroke-linecap="round"/>
-  <ellipse class="ctxa-mas-whisp" cx="41" cy="37" rx="4.6" ry="3.4" fill="url(#ctxaWg)"/>
+  <path d="M27.5 31 Q31 33.5 34.5 31" stroke="url(#ctxaOg)" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+  <ellipse class="ctxa-mas-whisp" cx="39.6" cy="30.2" rx="2.4" ry="1.6" fill="url(#ctxaWg)"/>
 </svg>`;
 
   function renderTrigger(anchor, ctx) {
