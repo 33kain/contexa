@@ -15,6 +15,9 @@ root) — these are convenience scripts run by hand.
   `scripts/screenshots/README.md`.
 - `promo/` — generates the two Chrome Web Store promo tiles into
   `store-assets/` from an HTML source, headless. See `scripts/promo/README.md`.
+- `gsc/` — weekly Search Console report for the website into `seo/reports/`,
+  no dependencies, no model call. Setup (site verification, service account,
+  Task Scheduler) in `scripts/gsc/README.md`.
 - `release-commit.ps1` — release ceremony: bump, build, tag, push.
 - `dogfood-test.ps1` — drive three real sessions through the live backend for
   manual scoring. The session accumulates across the run, so the last turn is
