@@ -64,9 +64,10 @@ that camera is the shipped code, while the page is a mock and the model output i
 canned (`MOVES`, at the top of the harness). It produced every set in this
 folder's history, the 0.9.68 one of 2026-09-01 included; it no longer produces
 what ships, but it writes the same five filenames (default run: `3-moves`,
-`4-composed`, `5-trigger`; `CX_FORK=1`: `1-start-fresh`, `2-brief`), so a run
-**overwrites the shipped frames in place** — a deliberate choice, so that the
-next captured set slots in without a rename, and a warning for the same reason.
+`4-composed`, `5-trigger`; `CX_FORK=1`: `1-new-chat`, `2-brief`), so that the
+next captured set slots in without a rename. Since 2026-09-26 a run writes them
+to `build-ready/capture/`, and only `CX_SHIP=1` writes them here, over the
+shipped frames. Before that, every run did, the check runs included.
 Keep it: it is the cheapest way to see the real card render.
 
 Two things it does are worth knowing, because both came out of a failure. The

@@ -59,13 +59,13 @@ where `<session>` was the eight-character prefix on the report's first line, com
 `extension/background.js` and `worker/src/index.js` each define their own copy of `MOVES_SYSTEM` — the system prompt behind the row of moves — and, since 0.9.73, of `FORK_SYSTEM`, the prompt behind the thread brief. **Each pair must be byte-identical**, because a user's own-key request (extension calls Anthropic directly) and a hosted request (extension → Worker → Anthropic) must produce the same product. `build.mjs` extracts both by regex and fails the build if they differ, along with several related checks:
 
 - the request's `SESSION SO FAR:` section labels must match on both sides, and both worker endpoints must send their prompt through `callUpstream` while the own-key fork sends `FORK_SYSTEM`;
-- the injected helper block — from `function cleanTurns` through `groundMoves`, `tallySources`, `ACTION_OPENERS`, `enforceAction` and `cleanBrief`, up to the `/* end of the injected helper block` sentinel comment — must be byte-identical (do not delete that sentinel; it is the end anchor);
+- the injected helper block — from `function cleanTurns` through `groundMoves`, `tallySources`, `ACTION_OPENERS`, `enforceAction`, `cleanBrief` and (since 0.9.99) `extractJson`/`salvageTruncated`, up to the `/* end of the injected helper block` sentinel comment — must be byte-identical (do not delete that sentinel; it is the end anchor);
 - the extension must still capture the session (`captureTurns()` inside `askNow`), without which every request is refused;
 - the shipped model name must agree across `background.js`, `worker/src/index.js`, and `worker/wrangler.toml`, and the worker's `BUILD` must equal the manifest version;
 - the cost-parity helpers `cachedSystem` and `usageOf` must be byte-identical in both files, and both call sites must still send the system prompt through `cachedSystem` (the own-key path did not until 0.9.72, and nothing but the bill could tell);
 - the model-default freeze guards: `DEFAULTS.model` in `options.js` and `background.js` must be `''` (a stored concrete model once froze installs on Haiku), the options page must not backfill an empty model field with the default, and the shipped model must not also appear in `SUPERSEDED_MODEL_DEFAULTS`.
 
-If you edit the system prompt, edit both files identically and run `npm run build` to verify before committing. The prompt is written once in a scratch file and injected into both, which is why they are byte-identical by construction rather than by discipline.
+If you edit the system prompt, edit both files identically and run `npm run build` to verify before committing. The prompt is written once in a scratch file and injected into both, which is why they are byte-identical by construction rather than by discipline. `.claude/skills/edit-prompt/prompt.mjs` does the extract and inject; the `edit-prompt` skill is the procedure.
 
 ### One shape, and what that replaced
 
@@ -77,7 +77,7 @@ This was not always so. Until 0.9.58 the worker served three extension generatio
 
 ### Hosted vs. own-key paths must behave identically
 
-Every request path exists twice — once in `extension/background.js` (calls Anthropic directly when the user has set their own API key) and once in `worker/src/index.js` (hosted/proxied, quota-enforced). The functions that police model output — `cleanTurns`, `cleanMoves`, `groundMoves`, `enforceAction`, plus `trimPayload` — are duplicated across both files and **must stay behaviorally identical**. All but `trimPayload` live in the injected helper block that `build.mjs` asserts byte-identical; the rule they inherit is that a gate living only in the worker is a gate half the users do not have. The rule covers cost as well as output: `cachedSystem` (the system prompt as one cacheable block) and `usageOf` (the four usage counters, cache reads included) are duplicated the same way and checked the same way, because until 0.9.72 only the worker cached the prefix and no product test could see the difference. When fixing a bug in one, check the other.
+Every request path exists twice — once in `extension/background.js` (calls Anthropic directly when the user has set their own API key) and once in `worker/src/index.js` (hosted/proxied, quota-enforced). The functions that police model output — `cleanTurns`, `cleanMoves`, `groundMoves`, `enforceAction`, `extractJson`, plus `trimPayload` — are duplicated across both files and **must stay behaviorally identical**. All but `trimPayload` live in the injected helper block that `build.mjs` asserts byte-identical; the rule they inherit is that a gate living only in the worker is a gate half the users do not have. The rule covers cost as well as output: `cachedSystem` (the system prompt as one cacheable block) and `usageOf` (the four usage counters, cache reads included) are duplicated the same way and checked the same way, because until 0.9.72 only the worker cached the prefix and no product test could see the difference. When fixing a bug in one, check the other.
 
 Two gates run on every row, in order:
 
@@ -108,12 +108,13 @@ Everything the model returns (labels, texts, evidence) renders through `document
 extension/            the product (Chrome extension, MV3)
 worker/               the hosted backend (Cloudflare Worker)
 .claude/              empty project settings (the tokenbrake hooks that lived here were removed 2026-09-10; the package is 33kain/tokenbrake)
+.claude/skills/       project skills: release, edit-prompt (prompt.mjs), parity-fix (parity.mjs), selector-check (probe.mjs), screenshots, steward
 build.mjs             extension/ -> build-ready/ + store zip, plus the invariant checks above
 publishing/           Chrome Web Store listing copy, privacy policy, screenshots, submission notes
 publishing/website/   the static product site (deployed to Cloudflare Pages by deploy-pages.yml)
 store-assets/         store listing images, promo tiles, mascot brand source assets
 scripts/              dev/release tooling (release-commit, dogfood-test, reproduce-test)
-scripts/screenshots/  captures the card by driving the real extension against a mock claude.ai DOM (Playwright + Xvfb; not part of the test suite). It made every store set up to 0.9.68; what ships since 2026-09-07 is designed illustrations — since 0.9.98 rendered from `scripts/screenshots/slides.html` by `render-slides.mjs` — and the harness writes the same five filenames (default run: 3–5; `CX_FORK=1`: 1–2), so a re-run overwrites the shipped frames in place
+scripts/screenshots/  captures the card by driving the real extension against a mock claude.ai DOM (Playwright + Xvfb; not part of the test suite). It made every store set up to 0.9.68; what ships since 2026-09-07 is designed illustrations — since 0.9.98 rendered from `scripts/screenshots/slides.html` by `render-slides.mjs` — and the harness writes the same five filenames (default run: 3–5; `CX_FORK=1`: 1–2) into `build-ready/capture/`, over the shipped frames only with `CX_SHIP=1`
 scripts/promo/        renders the store promo tiles into store-assets/ from an HTML source
 scripts/website/      renders the site's social preview and touch icon into publishing/website/ from an HTML source
 scripts/archive/      one-off scripts from closed investigations — not part of the workflow

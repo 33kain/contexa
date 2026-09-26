@@ -2,11 +2,16 @@
  *
  *   node scripts/screenshots/capture.mjs
  *
- * Writes the 1280x800 PNGs in publishing/screenshots/, and fails loudly rather
- * than writing a wrong one. The five shipped frames come from two runs:
+ * Writes 1280x800 PNGs into build-ready/capture/ (git-ignored), and fails
+ * loudly rather than writing a wrong one. The five frames come from two runs:
  *
  *   node scripts/screenshots/capture.mjs            -> 3-moves, 4-composed, 5-trigger
  *   CX_FORK=1 node scripts/screenshots/capture.mjs  -> 1-new-chat, 2-brief
+ *
+ * CX_SHIP=1 on either run writes into publishing/screenshots/ instead, over the
+ * shipped store set. That is opt-in because the shipped set has been designed
+ * illustrations (slides.html) since 0.9.95, and a check run used to overwrite
+ * it silently.
  *
  * The fork run pads the thread before the reply lands (a long thread is what
  * makes the cost line and its button appear), so it cannot share a page with
@@ -80,8 +85,8 @@ const ZERO = process.env.CX_ZERO === '1';
 const TURNS_CHECK = process.env.CX_TURNS === '1';
 /* CX_FORK drives the 0.9.73 fork end to end: the cost line on a long thread,
    the brief card off a canned /v1/fork, and the hand-off into a NEW tab's
-   composer. A verification pass like CX_ZERO — it writes to build-ready/ and
-   never into the listing set. It is the only place the hand-off is exercised
+   composer. Its frames are the listing's 1 and 2, so like the default run it
+   writes to build-ready/capture/ unless CX_SHIP=1. It is the only place the hand-off is exercised
    by a real browser: the source assertions can see that stageBrief is called
    and that /new collects it, but not that a second tab actually receives it. */
 const FORK = process.env.CX_FORK === '1';
@@ -89,11 +94,20 @@ const FORK = process.env.CX_FORK === '1';
    mid-weight thread, and a short question sent on Opus — and checks that the
    long-thread cost line outranks both. Verification only, like the others. */
 const NUDGE = process.env.CX_NUDGE === '1';
-const OUT = ZERO
-  ? join(REPO, 'build-ready', 'zero-check')
-  : FORK ? join(REPO, 'publishing', 'screenshots')
+/* CX_SHIP is the only way anything lands in the listing set, and only the two
+   runs that make listing frames may ask for it. Until it existed, the default
+   run, CX_FORK and CX_TURNS all wrote into publishing/screenshots/, so running
+   a check overwrote the shipped illustrations with captures. */
+const SHIP = process.env.CX_SHIP === '1';
+if (SHIP && (ZERO || NUDGE || TURNS_CHECK)) {
+  console.error('CX_SHIP=1 goes with the default run or CX_FORK=1 only; CX_ZERO, CX_NUDGE and CX_TURNS are checks, not listing frames');
+  process.exit(1);
+}
+const OUT = ZERO ? join(REPO, 'build-ready', 'zero-check')
   : NUDGE ? join(REPO, 'build-ready', 'nudge-check')
-  : join(REPO, 'publishing', 'screenshots');
+  : TURNS_CHECK ? join(REPO, 'build-ready', 'turns-check')
+  : SHIP ? join(REPO, 'publishing', 'screenshots')
+  : join(REPO, 'build-ready', 'capture');
 const MOCK = join(HERE, 'mock-claude.html');
 
 const PORT = 8443;
@@ -417,9 +431,14 @@ async function main() {
       await page.click(MASCOT);
       await page.waitForTimeout(2500);
       if (!seen.length) throw new Error('no [CONTEXA] session line — the diagnostic did not fire');
-      console.log(' ', seen[0].replace(/^\S+\s/, ''));
-      const m = seen[0].match(/i=(\d+)\.\.(\d+)/);
-      if (!m) throw new Error(`session line carried no i range: ${seen[0]}`);
+      /* More than one line starts "[CONTEXA] session": since 0.9.90 the source
+         line ("session — from the DOM: N turn(s)") comes first and carries no
+         range. Read the one that does, not simply the first. */
+      seen.forEach(l => console.log(' ', l.replace(/^\S+\s/, '')));
+      const line = seen.find(l => /i=(\d+|none)/.test(l));
+      if (!line) throw new Error(`no session line carried an i range: ${seen.join(' | ')}`);
+      const m = line.match(/i=(\d+)\.\.(\d+)/);
+      if (!m) throw new Error(`session line carried no i range: ${line}`);
       if (m[1] !== '1' || m[2] !== '20') {
         throw new Error(`captureTurns read i=${m[1]}..${m[2]} from a complete 20-turn DOM`);
       }
@@ -607,7 +626,7 @@ async function main() {
     await page.waitForTimeout(600);
     await shoot(page, '4-composed.png', 'the prompt, landed in the message box', { card: true });
 
-    console.log('\nwrote 3-moves, 4-composed, 5-trigger to publishing/screenshots/ — run again with CX_FORK=1 for 1-new-chat and 2-brief');
+    console.log(`\nwrote 3-moves, 4-composed, 5-trigger to ${OUT} — run again with CX_FORK=1 for 1-new-chat and 2-brief`);
   } finally {
     await ctx.close();
     server.close();

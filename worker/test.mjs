@@ -216,6 +216,29 @@ t('unknown route 404', r.status === 404, String(r.status));
 }
 
 
+/* ---- 0.9.99: a response carrying two complete objects -------------------
+   The model sometimes repeats its answer. The own-key path took the first
+   object; the hosted path had its own extractJson and answered bad_json. One
+   copy now, in the injected helper block, and this is the case that told them
+   apart. The same fixture runs against the own-key path in extension/test.mjs. */
+{
+  const obj = n => JSON.stringify({ moves: [{ label: `Write the ${n} page`, text: `Write the ${n} page.`, evidence: 'now the menu page' }] });
+  globalThis.fetch = async () => ({
+    ok: true, status: 200,
+    async json() { return {
+      stop_reason: 'end_turn',
+      usage: { input_tokens: 900, output_tokens: 200 },
+      content: [{ type: 'text', text: obj('One') + '\n' + obj('Two') }]
+    }; },
+    async text() { return ''; }
+  });
+  const r = await w.fetch(post(), { ANTHROPIC_API_KEY: 'k', CX_KV: makeKV(), IP_SALT: 's' });
+  const b = await r.json();
+  t('two complete objects: 200, not bad_json', r.status === 200, String(r.status) + ' ' + JSON.stringify(b).slice(0, 120));
+  t('two complete objects: the first one is read', Array.isArray(b.moves) && b.moves.length === 1 && b.moves[0].label === 'Write the One page',
+    JSON.stringify(b.moves));
+}
+
 /* ---- v0.9.20: thinking explicitly disabled on the hosted path ------------- */
 {
   let sentBody = null;
