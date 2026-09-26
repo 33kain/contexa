@@ -49,6 +49,10 @@ through a paint server. The mouth takes the C's gradient rather than dark ink,
 because dark ink vanished on claude.ai's dark theme with no body behind it.
 Screenshots 1 and 5 re-rendered from `slides.html`.
 
+**The listing links the website.** `homepage_url` in the manifest and the
+listing's Homepage URL both point at `https://contexa-website.pages.dev/`;
+until now neither the store page nor `chrome://extensions` led to it.
+
 ---
 
 ## 0.9.98 — Extension (the fork control renamed; worker build number only)

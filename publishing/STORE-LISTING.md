@@ -121,6 +121,19 @@ this file changes.
 
 ---
 
+## Homepage URL
+
+```
+https://contexa-website.pages.dev/
+```
+
+Store listing tab, *Homepage URL*. Empty until 0.9.99: the site existed but the
+listing never linked to it. The same address is `homepage_url` in
+`extension/manifest.json` since 0.9.99, the *Website* link on
+`chrome://extensions`; if the site ever moves, both change together.
+
+---
+
 ## Before you paste
 
 - The four review-facing fields — single purpose, permission justifications,
