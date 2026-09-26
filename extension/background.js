@@ -125,68 +125,6 @@ async function getSettings() {
   return chrome.storage.local.get(DEFAULTS);
 }
 
-/* Robust JSON extraction. Models sometimes wrap JSON in ``` fences, prepend a
-   sentence, or get cut off by max_tokens mid-object. Handle all three rather
-   than throwing a generic parse error. */
-function extractJson(text) {
-  let t = (text || '').trim();
-  t = t.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '');
-  const start = t.indexOf('{');
-  if (start < 0) throw new Error('no JSON object in response');
-
-  const end = t.lastIndexOf('}');
-  if (end > start) {
-    try { return JSON.parse(t.slice(start, end + 1)); } catch {}
-  }
-
-  // walk braces for the first balanced object (ignoring braces inside strings)
-  let depth = 0, inStr = false, escaped = false;
-  for (let i = start; i < t.length; i++) {
-    const c = t[i];
-    if (escaped) { escaped = false; continue; }
-    if (c === '\\') { escaped = true; continue; }
-    if (c === '"') { inStr = !inStr; continue; }
-    if (inStr) continue;
-    if (c === '{') depth++;
-    else if (c === '}') {
-      depth--;
-      if (depth === 0) { try { return JSON.parse(t.slice(start, i + 1)); } catch {} }
-    }
-  }
-
-  const salvaged = salvageTruncated(t, start);
-  if (salvaged) return salvaged;
-  throw new Error('unparseable JSON');
-}
-
-/* Truncated response: rewind to the last COMPLETE element and close the
-   structure, tracking both {} and [] (closing only braces leaves arrays open).
-   Salvages the steps that came through whole. */
-function salvageTruncated(t, start) {
-  const stack = [];
-  let inStr = false, escaped = false, safeIdx = -1, safeStack = null;
-  for (let i = start; i < t.length; i++) {
-    const c = t[i];
-    if (escaped) { escaped = false; continue; }
-    if (c === '\\') { escaped = true; continue; }
-    if (c === '"') { inStr = !inStr; continue; }
-    if (inStr) continue;
-    if (c === '{') stack.push('}');
-    else if (c === '[') stack.push(']');
-    else if (c === '}' || c === ']') {
-      stack.pop();
-      if (stack.length) { safeIdx = i; safeStack = stack.slice(); }
-    }
-  }
-  if (safeIdx < 0 || !safeStack) return null;
-  const candidate = t.slice(start, safeIdx + 1) + safeStack.reverse().join('');
-  try {
-    const parsed = JSON.parse(candidate);
-    Object.defineProperty(parsed, '__cxPartial', { value: true, enumerable: false });
-    return parsed;
-  } catch { return null; }
-}
-
 /* The system prompt travels as one cacheable content block — the same shape
    the worker has sent since 2026-08-27, from the same function. build.mjs
    asserts the two bodies are byte-identical and that both call sites use it,
@@ -653,6 +591,71 @@ function rawBrief(text) {
      when there is a whole line before it to keep. */
   if (!closed && t.includes('\n')) t = t.slice(0, t.lastIndexOf('\n'));
   return cleanBrief(t);
+}
+/* Tolerant JSON extraction. Models sometimes wrap JSON in ``` fences, prepend a
+   sentence, repeat the object, or get cut off by max_tokens mid-object. Handle
+   all of them rather than throwing a generic parse error. One copy, inside the
+   injected helper block, since 0.9.99: until then the two paths each had their
+   own, and on a response carrying two complete objects the own-key path took
+   the first while the hosted path answered bad_json. __cxPartial marks a
+   salvaged parse (non-enumerable, so it never reaches the wire). */
+function extractJson(text) {
+  let t = (text || '').trim();
+  t = t.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '');
+  const start = t.indexOf('{');
+  if (start < 0) throw new Error('no JSON object in response');
+
+  const end = t.lastIndexOf('}');
+  if (end > start) {
+    try { return JSON.parse(t.slice(start, end + 1)); } catch {}
+  }
+
+  // walk braces for the first balanced object (ignoring braces inside strings)
+  let depth = 0, inStr = false, escaped = false;
+  for (let i = start; i < t.length; i++) {
+    const c = t[i];
+    if (escaped) { escaped = false; continue; }
+    if (c === '\\') { escaped = true; continue; }
+    if (c === '"') { inStr = !inStr; continue; }
+    if (inStr) continue;
+    if (c === '{') depth++;
+    else if (c === '}') {
+      depth--;
+      if (depth === 0) { try { return JSON.parse(t.slice(start, i + 1)); } catch {} }
+    }
+  }
+
+  const salvaged = salvageTruncated(t, start);
+  if (salvaged) return salvaged;
+  throw new Error('unparseable JSON');
+}
+
+/* Truncated response: rewind to the last COMPLETE element and close the
+   structure, tracking both {} and [] (closing only braces leaves arrays open).
+   Salvages the steps that came through whole. */
+function salvageTruncated(t, start) {
+  const stack = [];
+  let inStr = false, escaped = false, safeIdx = -1, safeStack = null;
+  for (let i = start; i < t.length; i++) {
+    const c = t[i];
+    if (escaped) { escaped = false; continue; }
+    if (c === '\\') { escaped = true; continue; }
+    if (c === '"') { inStr = !inStr; continue; }
+    if (inStr) continue;
+    if (c === '{') stack.push('}');
+    else if (c === '[') stack.push(']');
+    else if (c === '}' || c === ']') {
+      stack.pop();
+      if (stack.length) { safeIdx = i; safeStack = stack.slice(); }
+    }
+  }
+  if (safeIdx < 0 || !safeStack) return null;
+  const candidate = t.slice(start, safeIdx + 1) + safeStack.reverse().join('');
+  try {
+    const parsed = JSON.parse(candidate);
+    Object.defineProperty(parsed, '__cxPartial', { value: true, enumerable: false });
+    return parsed;
+  } catch { return null; }
 }
 /* end of the injected helper block — build.mjs reads to here for byte-identity */
 

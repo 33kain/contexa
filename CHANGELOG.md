@@ -9,6 +9,48 @@ backend's live version separately so a deploy can be told from a no-op.
 
 ---
 
+## 0.9.99 — Extension + Worker (one extractJson for both paths; the mascot becomes the C)
+
+*A model that repeats its answer no longer costs hosted users the row.*
+
+`extractJson`, which reads the model's JSON out of its reply, existed twice and
+the two copies had drifted. The own-key path (`background.js`) tried the whole
+span first, then the first balanced object, then `salvageTruncated()` for a
+reply cut at the output ceiling. The hosted path (`worker/src/index.js`) had its
+own shorter version with the salvage inlined and no balanced-object step. On a
+reply cut mid-move the two agreed, but on a reply carrying **two complete
+objects** (the model repeating itself) the own-key path read the first and the
+hosted path answered `bad_json`. So the same session drew a row for one user and
+an error card for another, and nothing checked it: the function sat outside the
+injected helper block, so `build.mjs` never compared the copies.
+
+The own-key version is now the only one. `extractJson` and `salvageTruncated`
+moved into the injected helper block on both sides, so the build's byte-identity
+check covers them from here on. Both suites run the two-object fixture against
+their own path, and the extension suite asserts both functions sit inside the
+block on both sides.
+
+The `partial` flag still comes from different places on the two paths (the
+worker reads `stop_reason === 'max_tokens'`, the extension a salvaged parse). It
+feeds only the console log (`[CONTEXA] partial salvage`), never the row, and is
+left as it is.
+
+The worker changed and must be redeployed for hosted users to get this. The
+extension changed too (the function moved; its behaviour did not). The website
+footer still says 0.9.96 and follows separately.
+
+**The mascot is now the living C.** The in-page trigger (`MASCOT_SVG`) was the
+teal ghost; it is now the app icon's C with a face inside it, so the toolbar
+icon and the button above the message box are one mark. Same 58×50 box, same
+animation hooks (`ctxa-mas-pup` glances, `ctxa-mas-wink` winks, the
+`ctxa-mas-whisp` blush shows on hover), and the same force-dark rules the
+0.9.70 test asserts: white only as a flat fill, dark ink and the C's colour only
+through a paint server. The mouth takes the C's gradient rather than dark ink,
+because dark ink vanished on claude.ai's dark theme with no body behind it.
+Screenshots 1 and 5 re-rendered from `slides.html`.
+
+---
+
 ## 0.9.98 — Extension (the fork control renamed; worker build number only)
 
 *Start fresh is now "Same session, new chat".*

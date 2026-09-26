@@ -104,6 +104,12 @@
 
 <h2 id="versions">By version, newest first</h2>
 <dl>
+  <dt><code>0.9.99</code></dt>
+  <dd>The trigger above the message box is now the app icon's <em>C</em> with a face inside it, so the toolbar icon and the button are one mark. And a reply in which the model repeated its answer no longer costs a hosted user the row: both paths now read the model's output with one shared parser.</dd>
+  <dt><code>0.9.98</code></dt>
+  <dd>Start fresh is now <em>Same session, new chat</em>, because it carries the thread on rather than starting over. The cost line reads "≈ <em>n</em> tokens off every message", the trigger's bubble says <em>Next move ✦</em>, and the store description and screenshots lead with long sessions.</dd>
+  <dt><code>0.9.97</code></dt>
+  <dd>When the conversation could only be read from the page, which keeps just the rows near where you are, the diagnostic card and the console now say so instead of quietly working from the tail.</dd>
   <dt><code>0.9.96</code></dt>
   <dd>A new app icon: a frosted-glass <em>C</em> on a teal-to-violet field, replacing the rounded mascot. The extension icons, the store and website marks, the favicon, the social preview and the promo tiles all move to it. The worker's build number follows the manifest so the guard stays satisfied; nothing the extension or worker does changes.</dd>
   <dt><code>0.9.95</code></dt>
@@ -185,7 +191,7 @@
 </ul>
 
 <h2 id="status">Status</h2>
-<p>Version 0.9.96 is the number in the extension's manifest and in the worker's <code>BUILD</code> constant; the worker's <code>/v1/health</code> reports it with the model and the limit, so a deploy can be told from a no-op. The shipped model on both paths is <code>claude-sonnet-5</code>. The open questions of the field test are how often a press earns nothing, and how much of a long thread a brief actually replaces.</p>
+<p>Version 0.9.99 is the number in the extension's manifest and in the worker's <code>BUILD</code> constant; the worker's <code>/v1/health</code> reports it with the model and the limit, so a deploy can be told from a no-op. The shipped model on both paths is <code>claude-sonnet-5</code>. The open questions of the field test are how often a press earns nothing, and how much of a long thread a brief actually replaces.</p>
 </div>
 </main>
 
@@ -206,7 +212,7 @@
     </div>
     <div class="footer-bottom">
       <span>© <span id="year">2026</span> CONTEXA. Independent project — not affiliated with, endorsed by, or sponsored by Anthropic.</span>
-      <span>Version 0.9.96 · <a href="https://github.com/33kain/contexa/blob/main/LICENSE">MIT</a> · <a href="https://github.com/33kain/contexa/blob/main/publishing/PRIVACY.md">Privacy policy</a> · <a href="https://github.com/33kain/contexa/blob/main/CHANGELOG.md">Changelog</a></span>
+      <span>Version 0.9.99 · <a href="https://github.com/33kain/contexa/blob/main/LICENSE">MIT</a> · <a href="https://github.com/33kain/contexa/blob/main/publishing/PRIVACY.md">Privacy policy</a> · <a href="https://github.com/33kain/contexa/blob/main/CHANGELOG.md">Changelog</a></span>
     </div>
   </div>
 </footer>

@@ -84,7 +84,7 @@
 
 <main id="main">
 <div class="prose">
-<p class="stamp">Describes version 0.9.95. Names in monospace are identifiers in the code. The numbers are read from <code>worker/src/index.js</code> and, where the table says so, <code>extension/content.js</code>; the code stays the source when the two disagree.</p>
+<p class="stamp">Describes version 0.9.99. Names in monospace are identifiers in the code. The numbers are read from <code>worker/src/index.js</code> and, where the table says so, <code>extension/content.js</code>; the code stays the source when the two disagree.</p>
 
 <p>There are two moments, and only the second costs anything.</p>
 <p>The first is the reply finishing. The content script watches claude.ai's <code>data-is-streaming</code> attribute; when it flips to false (a 1.2 s settle timer is the fallback), the script copies the reply out of the page and stops. It draws one trigger above the message box, and, to size the thread, asks claude.ai's own API from your browser how large the conversation is (<code>refineThread</code>; on a Cowork session, <code>coworkRead</code> takes the exact token count from the session record). That reading stays on your device. It makes no request to the backend and no model call. A reply you never ask about never leaves the page.</p>
@@ -156,8 +156,8 @@ own key   extension → api.anthropic.com
 <h2 id="box">What lands in the box</h2>
 <p>Clicking a move puts its whole prompt in the message box in one step, as a single block of text. If you already have a draft there, the prompt goes below it; nothing you typed is replaced. Nothing is sent; you edit and send it yourself. Picking costs nothing, because the messages arrived already written. Everything the model returns (labels, texts, evidence) is rendered as text, never as markup, because it is generated text drawn into a third-party page. The row for a reply is kept in the extension's session storage (<code>chrome.storage.session</code>: gone when the browser closes, sixty entries, oldest out, errors never kept), so pressing twice under the same reply does not spend twice.</p>
 
-<h2 id="start-fresh">Start fresh: the exit from a thread</h2>
-<p>The moves are ways into the thread you are in. Start fresh is the way out, and it is drawn only when there is a thread worth leaving. <code>threadTokens</code> sizes the conversation (the API count when it answers, the page at four characters per token when it does not); past <code>LONG_THREAD_TOKENS</code>, 12,000, the card's label row carries the number re-read on every send and the control. Pressing it reads the session exactly as a press for moves does and asks for a brief instead: <code>FORK_SYSTEM</code>, byte-identical on both paths like the moves prompt, returns the goal, what is settled, what is open, in a few hundred tokens, capped at <code>FORK_MAX_TOKENS</code>, 2,000. A brief cut at the ceiling is salvaged at a clean line and marked partial, never padded. It spends one of the day's twenty.</p>
+<h2 id="start-fresh">Same session, new chat: the exit from a thread</h2>
+<p>The moves are ways into the thread you are in. Same session, new chat is the way out, and it is drawn only when there is a thread worth leaving. <code>threadTokens</code> sizes the conversation (the API count when it answers, the page at four characters per token when it does not); past <code>LONG_THREAD_TOKENS</code>, 12,000, the card's label row carries the number re-read on every send and the control. Pressing it reads the session exactly as a press for moves does and asks for a brief instead: <code>FORK_SYSTEM</code>, byte-identical on both paths like the moves prompt, returns the goal, what is settled, what is open, in a few hundred tokens, capped at <code>FORK_MAX_TOKENS</code>, 2,000. A brief cut at the ceiling is salvaged at a clean line and marked partial, never padded. It spends one of the day's twenty.</p>
 <p>The brief renders as one chip. Clicking it parks the brief with the service worker (<code>stageBrief</code>, session storage, two-minute life, consumed on read) and opens the new conversation: <code>claude.ai/new</code> for a chat, or on Cowork the session's project page, whose address is the session record's <code>chat_project_id</code> decoded (it is the project's uuid in base58). The content script loading there finds a message box with no messages and puts the brief in it, unsent. No URL carries the text.</p>
 <p>Why this is the control that earns a place, in numbers from one working day of one session on the API:</p>
 <div class="scroll">
@@ -171,7 +171,7 @@ own key   extension → api.anthropic.com
   </tbody>
 </table>
 </div>
-<p>Cached re-reads are billed at a tenth of the input price and still made up 58% of that day's cost. The subscription limit discounts them too, and still counts them: five messages in a 689k-token session spent 9% of the five-hour limit, the same five after Start fresh 3%. The measurement and its caveats are on <a href="/#measured">the overview</a> and in the handoff.</p>
+<p>Cached re-reads are billed at a tenth of the input price and still made up 58% of that day's cost. The subscription limit discounts them too, and still counts them: five messages in a 689k-token session spent 9% of the five-hour limit, the same five in a new chat with the brief 3%. The measurement and its caveats are on <a href="/#measured">the overview</a> and in the handoff.</p>
 
 <h2 id="known-limits">Known limits</h2>
 <ul>
@@ -204,7 +204,7 @@ own key   extension → api.anthropic.com
     </div>
     <div class="footer-bottom">
       <span>© <span id="year">2026</span> CONTEXA. Independent project — not affiliated with, endorsed by, or sponsored by Anthropic.</span>
-      <span>Version 0.9.96 · <a href="https://github.com/33kain/contexa/blob/main/LICENSE">MIT</a> · <a href="https://github.com/33kain/contexa/blob/main/publishing/PRIVACY.md">Privacy policy</a> · <a href="https://github.com/33kain/contexa/blob/main/CHANGELOG.md">Changelog</a></span>
+      <span>Version 0.9.99 · <a href="https://github.com/33kain/contexa/blob/main/LICENSE">MIT</a> · <a href="https://github.com/33kain/contexa/blob/main/publishing/PRIVACY.md">Privacy policy</a> · <a href="https://github.com/33kain/contexa/blob/main/CHANGELOG.md">Changelog</a></span>
     </div>
   </div>
 </footer>

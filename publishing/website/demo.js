@@ -228,7 +228,7 @@
 
   /* ---------------- Start-fresh demo (hero) — click-driven ----------------
      Rests on the heavy thread and only opens the new chat when the visitor
-     presses Start fresh. No autoplay, so the first frame shows the thread
+     presses Same session, new chat. No autoplay, so the first frame shows the thread
      and the control, not the result. */
   (function () {
     var win = $("#sf-window");

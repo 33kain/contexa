@@ -79,7 +79,7 @@ Copy comes from `publishing/STORE-LISTING.md`, which since 2026-08-31 IS the lis
       Reviewers compare screenshots against actual behaviour, so a live set is
       both more convincing and the only evidence the extension still mounts.
       `publishing/screenshots/README.md` says what changed and why; the capture
-      harness (`xvfb-run -a node scripts/screenshots/capture.mjs`) is still
+      harness (`CX_SHIP=1 xvfb-run -a node scripts/screenshots/capture.mjs`) is still
       there if the next set should be a capture again. Either way, do not
       retouch a captured frame by hand.
 - [ ] Single purpose description (verbatim from `SUBMISSION.md` — it is a
