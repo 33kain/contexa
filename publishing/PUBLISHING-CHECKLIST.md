@@ -67,6 +67,8 @@ Copy comes from `publishing/STORE-LISTING.md`, which since 2026-08-31 IS the lis
 
 - [ ] Name, short description, detailed description.
 - [ ] Category: Productivity.
+- [ ] Homepage URL: `https://contexa-website.pages.dev/` (the same as
+      `homepage_url` in `manifest.json`; see `STORE-LISTING.md`).
 - [ ] Icon: `extension/icons/icon128.png`.
 - [ ] Screenshots: the five 1280×800 PNGs in `publishing/screenshots/`.
       Order them `1-new-chat` → `2-brief` → `3-moves` → `4-composed` →
