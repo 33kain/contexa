@@ -8,8 +8,11 @@ not captures, and since 0.9.98 (2026-09-26) its source is here too:
 `slides.html`, rendered by `node scripts/screenshots/render-slides.mjs` — see
 `publishing/screenshots/README.md`. This harness produced every set before it,
 still works, and is where the next captured set starts. It writes the **same
-five filenames the shipped set uses**, so a run overwrites the shipped frames
-in place — which is the point, and also the warning.
+five filenames the shipped set uses**, into `build-ready/capture/` (git-ignored).
+Only `CX_SHIP=1` sends them to `publishing/screenshots/`, over the shipped
+frames, so a captured set can still slot in without a rename. Until 2026-09-26
+that was the default, and the check runs (`CX_FORK`, `CX_TURNS`) overwrote the
+shipped illustrations as a side effect.
 
 Two runs make the five, because the fork frames need a long thread padded in
 before the reply lands and the default frames need a short one:
@@ -17,6 +20,7 @@ before the reply lands and the default frames need a short one:
 ```bash
 xvfb-run -a node scripts/screenshots/capture.mjs             # 3-moves, 4-composed, 5-trigger
 CX_FORK=1 xvfb-run -a node scripts/screenshots/capture.mjs   # 1-new-chat, 2-brief
+# add CX_SHIP=1 to either to write into publishing/screenshots/ instead
 ```
 
 The old `4-light` and `5-settings` frames are not made any more: the shipped

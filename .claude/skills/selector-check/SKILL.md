@@ -66,13 +66,15 @@ above the composer) matters because `mountHost()` climbs six levels.
 
 ```bash
 npm test && npm run build
-# real browser, real extension, against the mock; both write only to build-ready/:
-CX_ZERO=1  CX_CHROME=/opt/pw-browsers/chromium xvfb-run -a node scripts/screenshots/capture.mjs
-CX_NUDGE=1 CX_CHROME=/opt/pw-browsers/chromium xvfb-run -a node scripts/screenshots/capture.mjs
+# real browser, real extension, against the mock; all write only to build-ready/:
+xvfb-run -a env CX_CHROME=/opt/pw-browsers/chromium node scripts/screenshots/capture.mjs
+for m in CX_TURNS CX_ZERO CX_NUDGE CX_FORK; do
+  env $m=1 CX_CHROME=/opt/pw-browsers/chromium xvfb-run -a node scripts/screenshots/capture.mjs || break
+done
 ```
 
-See the `screenshots` skill before running any other `capture.mjs` mode: some
-of them overwrite the shipped store images. The mock proves only that the code
+Never add `CX_SHIP=1` here: it writes over the shipped store images (see the
+`screenshots` skill). The mock proves only that the code
 matches the mock. Only the user's re-run of the probe on claude.ai proves the fix.
 
 A selector fix changes the extension only, so it ships through the `release`

@@ -25,26 +25,25 @@ designed illustrations marked `Illustrative demo`, not captures.
    back to DejaVu Sans. A cloud re-render gives different bytes and different
    typography in every frame, even with no change to the source. Unless the user
    has agreed to cloud-rendered images, render to check the layout, look at the
-   result, and then `git checkout publishing/screenshots store-assets`. Leave
+   result, and then `git checkout publishing/screenshots store-assets publishing/website`
+   (these renderers have no `build-ready/` mode). Leave
    the final render to the maintainer and say so.
-2. **`capture.mjs` overwrites the shipped images in two modes.** The code
-   comment says `CX_FORK` writes to `build-ready/`, but it doesn't:
+2. **Only `CX_SHIP=1` writes into the shipped set.** `capture.mjs` writes to
+   `build-ready/` (git-ignored) by default:
 
    | Mode | Writes to |
    |---|---|
-   | default | `publishing/screenshots/` (3-moves, 4-composed, 5-trigger) **over the shipped set** |
-   | `CX_FORK=1` | `publishing/screenshots/` (1-new-chat, 2-brief) **over the shipped set** |
-   | `CX_TURNS=1` | `publishing/screenshots/` (5-trigger) **over the shipped set** |
-   | `CX_ZERO=1` | `build-ready/zero-check/`: safe |
-   | `CX_NUDGE=1` | `build-ready/nudge-check/`: safe |
+   | default | `build-ready/capture/` (3-moves, 4-composed, 5-trigger) |
+   | `CX_FORK=1` | `build-ready/capture/` (1-new-chat, 2-brief) |
+   | `CX_TURNS=1` | `build-ready/turns-check/` |
+   | `CX_ZERO=1` | `build-ready/zero-check/` |
+   | `CX_NUDGE=1` | `build-ready/nudge-check/` |
+   | `CX_SHIP=1` + default or `CX_FORK=1` | `publishing/screenshots/`, **over the shipped set** |
 
-   After any run that isn't in the "safe" rows, run `git checkout publishing/screenshots`
-   unless the user asked for captured frames.
-3. **`CX_TURNS=1` has been broken since 0.9.90.** The harness reads the first
-   `[CONTEXA] session` console line and expects `i=1..20` in it. Since 0.9.90,
-   `content.js` logs `session — from the DOM: N turn(s)` first, so the check fails
-   with "session line carried no i range" before it reaches the line that has the range.
-   Fix the harness (match the line that contains `i=`) before relying on it.
+   Use `CX_SHIP=1` only when the user wants captured frames to replace the
+   illustrations. Before 2026-09-26 the default, `CX_FORK` and `CX_TURNS` runs
+   all wrote into `publishing/screenshots/`. On an older branch, check
+   `git status` after a run.
 
 ## Running in this container
 
@@ -55,9 +54,11 @@ headless. `capture.mjs` loads the extension, so it needs Xvfb and the path:
 ```bash
 CX_ZERO=1  CX_CHROME=/opt/pw-browsers/chromium xvfb-run -a node scripts/screenshots/capture.mjs
 CX_NUDGE=1 CX_CHROME=/opt/pw-browsers/chromium xvfb-run -a node scripts/screenshots/capture.mjs
-CX_FORK=1  CX_CHROME=/opt/pw-browsers/chromium xvfb-run -a node scripts/screenshots/capture.mjs && git checkout publishing/screenshots
+CX_TURNS=1 CX_CHROME=/opt/pw-browsers/chromium xvfb-run -a node scripts/screenshots/capture.mjs
+CX_FORK=1  CX_CHROME=/opt/pw-browsers/chromium xvfb-run -a node scripts/screenshots/capture.mjs
 ```
 
+`CX_TURNS` checks that `captureTurns()` reads all 20 turns of a full page (`i=1..20`).
 `CX_FORK` is the only check that runs the fork handoff across two tabs in a
 real browser. Run it after touching `stageBrief`, `collectBrief`,
 `takeBrief` or `insertPrompt`.
