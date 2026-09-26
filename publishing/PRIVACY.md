@@ -7,7 +7,7 @@ conversations on claude.ai. When Claude finishes replying, CONTEXA offers you a
 button. If you press it, it reads that reply together with your own earlier
 messages in the same conversation, and offers you up to four next messages —
 each one already written. Clicking one puts it in your message box. On a long
-conversation the same card also offers **Start fresh**: pressing it reads the
+conversation the same card also offers **Same session, new chat**: pressing it reads the
 same text and writes a short brief for a new conversation, which is put in the
 new conversation's message box for you to read and send.
 
@@ -29,7 +29,7 @@ sponsored by Anthropic.
   request.
 - **Claude's earlier replies are never sent** — only your own messages and the
   single reply you pressed the button under.
-- **Start fresh sends the same two things** and gets back a brief of a few
+- **Same session, new chat sends the same two things** and gets back a brief of a few
   hundred words instead of next messages. The brief waits in your browser for
   at most two minutes until the new conversation opens, then goes into its
   message box. It is not sent anywhere.
@@ -76,7 +76,7 @@ These limits are applied twice: by the extension before it sends, and again by
 the backend before anything is forwarded to Anthropic. The second one is what
 actually binds.
 
-**Start fresh** reads and sends exactly the same two things, under the same
+**Same session, new chat** reads and sends exactly the same two things, under the same
 limits, and gets back a brief instead of next messages. The brief is held in the
 extension's session storage for at most two minutes, until the new conversation
 opens, then placed in its message box and removed from storage. It is never
@@ -86,7 +86,7 @@ sent anywhere; you read it and decide whether to send it.
 messages travel, plus the single reply you pressed the button under. CONTEXA also
 does not read your other conversations or any other page. On a Cowork session it
 asks claude.ai once for the names of your projects, only to name the project on
-the Start fresh button; that list stays on your device.
+the Same session, new chat button; that list stays on your device.
 It sends nothing unless you press the button, nothing before a reply has
 finished, and nothing at all in a conversation where you have not sent a
 message. A reply you never press the button under is never transmitted anywhere.
@@ -100,7 +100,7 @@ still only when you press the button.*
 
 *This section changed again on 5 September 2026: the reading now goes through
 claude.ai's own API rather than the visible page, so that a long conversation is
-read whole; Cowork sessions are supported; and Start fresh was added. What is
+read whole; Cowork sessions are supported; and Same session, new chat was added. What is
 sent, and when, did not change: the same two things, only on a press.*
 
 ### Settings stored on your device
@@ -146,7 +146,7 @@ a counter key. The original IP address cannot be recovered from it.
 When you press the button, your own messages from that conversation and the reply
 you just received are sent to the CONTEXA backend, which runs on Cloudflare
 Workers. The backend applies the size limits described above, forwards the text
-to Anthropic's API to write the suggested messages (or, for Start fresh, the
+to Anthropic's API to write the suggested messages (or, for Same session, new chat, the
 brief), returns them to your browser, and discards the text. Both requests share
 the same daily allowance.
 The backend does not write your conversation content to any database, log, or
@@ -176,7 +176,7 @@ advertising networks, and no data brokers involved.
 |---|---|
 | Conversation text (your own messages, and the reply you pressed the button under) | Not stored. Held in memory only for the duration of the request. |
 | The suggested messages | Not stored server-side. Cached in your own browser briefly so pressing the button twice on the same reply does not repeat the request. |
-| The Start fresh brief | Not stored server-side. Held in the extension's session storage for at most two minutes, until the new conversation's message box takes it, then removed. |
+| The Same session, new chat brief | Not stored server-side. Held in the extension's session storage for at most two minutes, until the new conversation's message box takes it, then removed. |
 | Anonymous device token | Stored on your device until you clear storage or uninstall. |
 | Daily usage counters (token and hashed IP) | Automatically deleted after 48 hours. |
 | Your API key and settings | Stored on your device only, until you remove them. |

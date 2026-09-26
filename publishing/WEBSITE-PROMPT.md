@@ -22,8 +22,8 @@ commit it unasked.
 
 ```
 publishing/website/
-  index.html                landing: hero + two animated faux-browser demos (the row of moves, and Start fresh), how it works (3 steps), features (bento), benefits, Measured (the real token tables), final CTA
-  how-it-works/index.html   the pipeline, what is read and how much, the request and the two paths, the two gates, an empty row, what lands in the box, Start fresh, known limits
+  index.html                landing: hero + two animated faux-browser demos (the row of moves, and Same session, new chat), how it works (3 steps), features (bento), benefits, Measured (the real token tables), final CTA
+  how-it-works/index.html   the pipeline, what is read and how much, the request and the two paths, the two gates, an empty row, what lands in the box, Same session, new chat, known limits
   privacy/index.html        in the order it happens, where it goes, what is kept, the two stored things, third parties, permissions, choices, this site
   notes/index.html          rules and the failure behind each, by version, not built, status
   site.css                  one stylesheet: design tokens, layout, components, demo styles, scroll-reveal, prose styles for the sub-pages
@@ -70,7 +70,7 @@ goes with it. CONTEXA spends fewer tokens per thing done, two ways. One
 press writes the next message in full — up to four independent, complete
 next messages mined from the user's own side of the whole conversation;
 picking one lands it in the message box, whole, unsent. And when a thread
-has grown heavy, Start fresh hands the user the exit: a brief of the thread
+has grown heavy, Same session, new chat hands the user the exit: a brief of the thread
 (goal, what is settled, what is open, a <paste here> slot for what the new
 chat will not have), landed in a new conversation's message box, unsent.
 Nothing is sent for the user, ever. Nothing leaves the page until the press.
@@ -78,13 +78,13 @@ Nothing is sent for the user, ever. Nothing leaves the page until the press.
 READ FIRST, IN THIS ORDER:
 1. CLAUDE.md (repo root) — architecture and the design principles. Re-read
    "Design principles worth knowing before changing behavior" for voice,
-   and "The fork and the cost line (0.9.73)" for what Start fresh actually
+   and "The fork and the cost line (0.9.73)" for what Same session, new chat actually
    does, including on Cowork.
 2. README.md — the hero, the ASCII pipeline, "The weight of the thread",
    and "Design notes", which is the voice bible.
 3. publishing/STORE-LISTING.md — the 0.9.95 public copy: the name
    (CONTEXA for Claude - Save tokens), the short description, the detailed
-   description in its three parts (measured, Start fresh, one press). This
+   description in its three parts (measured, Same session, new chat, one press). This
    IS the copy. Reuse its language and its order; do not paraphrase it into
    something blander, and do not reorder it so the writing leads again.
 4. docs/token-savings-thesis.md — the test behind the motto: "every token
@@ -116,13 +116,13 @@ FACTS THE SITE MUST GET RIGHT, AND KEEP APART:
 - Measured is measured; modelled is modelled; the page says which every
   time. Measured, from STORE-LISTING.md and the tables now on the landing's
   Measured section: five messages in a 689k-token session spent 9% of the
-  five-hour usage limit; the same five after Start fresh spent 3%; on five
+  five-hour usage limit; the same five after Same session, new chat spent 3%; on five
   sessions from 14k to 689k tokens the brief was between 313 and 444 tokens
   every time, Cowork counts exact from the session record, chat counts
   estimated at four characters a token. The modelled table (asks ×
   messages-per-ask) is a model and must keep saying so in its caption.
 - The cost line appears above LONG_THREAD_TOKENS (about 12,000, read the
-  constant), says how much is re-read per send, and offers Start fresh.
+  constant), says how much is re-read per send, and offers Same session, new chat.
   A fork spends one of the same daily REPLIES_PER_DAY. The brief lands
   unsent; the user reads, edits and sends. On a chat it opens a new
   conversation; on a Cowork session it opens a new session in the same
@@ -158,9 +158,9 @@ AS A SEPARATE DECISION:
   'self'; font-src 'self'; …); keep it, and keep the site passing it. The
   footer states the single-origin claim; do not weaken it.
 - Language: the product is one trigger and up to four independent,
-  already-written next messages, plus Start fresh. Never "questions you
+  already-written next messages, plus Same session, new chat. Never "questions you
   answer" or "smart replies". Never "summarise your chat" or "compress the
-  context" for Start fresh — it writes a brief you read and send yourself,
+  context" for Same session, new chat — it writes a brief you read and send yourself,
   into a new conversation. Never present a modelled figure as measured.
 - The "Add to Chrome" call to action links to
   https://chromewebstore.google.com/detail/phhamigkjeeabbjncpmhkppkjccfglhb
@@ -186,11 +186,11 @@ THE FIGURE (demo.js) — what it now shows:
   the extension's real card. (This is a change from the previous site,
   whose figure rebuilt the card from content.js; the landing design uses
   designed mockups instead, in the same spirit as the store illustrations.)
-  Scene one (hero): Start fresh, and it is CLICK-DRIVEN, not autoplayed. It
+  Scene one (hero): Same session, new chat, and it is CLICK-DRIVEN, not autoplayed. It
   rests on a long, heavy conversation (the shipped one is a words-first math-
   tutoring thread — factoring, completing the square, the quadratic formula,
   heading toward derivatives) with the cost line ("≈ 689k tokens re-read per
-  send") and a prominent, filled Start fresh button that pulses to invite the
+  send") and a prominent, filled Same session, new chat button that pulses to invite the
   press. Only when the visitor actually clicks does the new chat open and the
   brief type into the composer with a <paste here> slot, unsent; a small
   "Watch again" control returns it to the thread. No cursor, no autoplay — the
@@ -202,19 +202,19 @@ THE FIGURE (demo.js) — what it now shows:
   Lisbon trip).
 - Both run as plain state machines in demo.js — no framer-motion, no library.
   The auto-playing moves demo starts only when it scrolls into view
-  (IntersectionObserver) and then loops; the hero Start fresh demo waits for a
+  (IntersectionObserver) and then loops; the hero Same session, new chat demo waits for a
   real click. Section content reveals on scroll. The headline animates
   word-by-word on load.
 - Progressive enhancement: the page is complete and readable with JavaScript
   off (the hero rests on the thread; the moves demo renders its final "filled"
   frame). Every animation is gated so prefers-reduced-motion gets a static
   result and no motion — the "js" class demo.js adds is what enables the
-  keyframes and the Start fresh button's pulse, and the reduced-motion media
+  keyframes and the Same session, new chat button's pulse, and the reduced-motion media
   query overrides them; the click still works, it just fills the brief without
   the typing effect.
 - Write short, self-contained demo conversations. For the moves, keep the
   product's rules: one complete ask each, earned by something actually said, a
-  label of up to six words. For a Start fresh thread, favour words over
+  label of up to six words. For a Same session, new chat thread, favour words over
   numbers so it reads as a real conversation, not an equation dump.
 
 THE TWO RENDERED IMAGES:
@@ -249,7 +249,7 @@ VISUAL IDENTITY, AND THE REGISTER:
   tokens, not a naive invert, and treat it as a separate decision.
 - Layout vocabulary: a sticky translucent nav that gains a border/shadow on
   scroll and collapses to a mobile drawer; a two-column hero (copy + demo)
-  over a faint radial gradient; a Start fresh split (demo + copy +
+  over a faint radial gradient; a Same session, new chat split (demo + copy +
   tick-list); a three-step "how it works" with a connector line and
   numbered icon tiles; a bento of feature cards (one wide privacy card plus
   smaller ones); three benefit cards; the Measured section as data cards
@@ -266,7 +266,7 @@ VISUAL IDENTITY, AND THE REGISTER:
 
 OPEN FOR YOUR WORK:
 - How much of STORE-LISTING.md's detailed description to carry verbatim
-  versus compress for a page — but its order (measured, Start fresh, one
+  versus compress for a page — but its order (measured, Same session, new chat, one
   press) is the site's order.
 - Whether the measured tables live on the landing's Measured section or move
   to how-it-works, as long as the landing states the 9% against 3% and the
