@@ -19,7 +19,7 @@
    which build is live. Deliberately independent of the extension's manifest
    version — they ship on separate paths and a worker fix should not force
    everyone to reinstall the extension. */
-const BUILD = '0.9.98';   // matches the extension generation this serves; every bump here has paid for itself by telling one deploy from another — 0.9.52 could not tell a pre-fork deploy from a post-fork one, 0.9.54 a pre-voice from a post-voice, 0.9.56 a pre-precedence-fix from a post-precedence-fix, and 0.9.58 is the first that must distinguish a worker that speaks moves from one that still speaks questions
+const BUILD = '0.9.99';   // matches the extension generation this serves; every bump here has paid for itself by telling one deploy from another — 0.9.52 could not tell a pre-fork deploy from a post-fork one, 0.9.54 a pre-voice from a post-voice, 0.9.56 a pre-precedence-fix from a post-precedence-fix, and 0.9.58 is the first that must distinguish a worker that speaks moves from one that still speaks questions
 
 const ANTHROPIC_URL = 'https://api.anthropic.com/v1/messages';
 /* Sonnet 5 rather than Haiku, on measured evidence: in a controlled three-model
@@ -323,36 +323,6 @@ function diagnose(data, text, ceiling = MAX_TOKENS) {
     blocks: [...new Set((data.content || []).map(b => b.type || 'unknown'))]
   };
 }
-
-/* Same tolerant JSON parsing the extension uses: models sometimes fence their
-   output, prepend a sentence, or get cut off mid-object. */
-function extractJson(text) {
-  let t = String(text || '').trim().replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '');
-  const start = t.indexOf('{');
-  if (start < 0) throw new Error('no JSON');
-  const end = t.lastIndexOf('}');
-  if (end > start) { try { return JSON.parse(t.slice(start, end + 1)); } catch {} }
-  const stack = [];
-  let inStr = false, esc = false, safeIdx = -1, safeStack = null;
-  for (let i = start; i < t.length; i++) {
-    const c = t[i];
-    if (esc) { esc = false; continue; }
-    if (c === '\\') { esc = true; continue; }
-    if (c === '"') { inStr = !inStr; continue; }
-    if (inStr) continue;
-    if (c === '{') stack.push('}');
-    else if (c === '[') stack.push(']');
-    else if (c === '}' || c === ']') {
-      stack.pop();
-      if (stack.length) { safeIdx = i; safeStack = stack.slice(); }
-    }
-  }
-  if (safeIdx > 0 && safeStack) {
-    try { return JSON.parse(t.slice(start, safeIdx + 1) + safeStack.reverse().join('')); } catch {}
-  }
-  throw new Error('unparseable JSON');
-}
-
 
 /* Payloads are now multi-line with bullets, and models overshoot the stated cap.
    A blind slice() cuts mid-word and ships visibly broken text ("...without users
@@ -665,6 +635,71 @@ function rawBrief(text) {
      when there is a whole line before it to keep. */
   if (!closed && t.includes('\n')) t = t.slice(0, t.lastIndexOf('\n'));
   return cleanBrief(t);
+}
+/* Tolerant JSON extraction. Models sometimes wrap JSON in ``` fences, prepend a
+   sentence, repeat the object, or get cut off by max_tokens mid-object. Handle
+   all of them rather than throwing a generic parse error. One copy, inside the
+   injected helper block, since 0.9.99: until then the two paths each had their
+   own, and on a response carrying two complete objects the own-key path took
+   the first while the hosted path answered bad_json. __cxPartial marks a
+   salvaged parse (non-enumerable, so it never reaches the wire). */
+function extractJson(text) {
+  let t = (text || '').trim();
+  t = t.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '');
+  const start = t.indexOf('{');
+  if (start < 0) throw new Error('no JSON object in response');
+
+  const end = t.lastIndexOf('}');
+  if (end > start) {
+    try { return JSON.parse(t.slice(start, end + 1)); } catch {}
+  }
+
+  // walk braces for the first balanced object (ignoring braces inside strings)
+  let depth = 0, inStr = false, escaped = false;
+  for (let i = start; i < t.length; i++) {
+    const c = t[i];
+    if (escaped) { escaped = false; continue; }
+    if (c === '\\') { escaped = true; continue; }
+    if (c === '"') { inStr = !inStr; continue; }
+    if (inStr) continue;
+    if (c === '{') depth++;
+    else if (c === '}') {
+      depth--;
+      if (depth === 0) { try { return JSON.parse(t.slice(start, i + 1)); } catch {} }
+    }
+  }
+
+  const salvaged = salvageTruncated(t, start);
+  if (salvaged) return salvaged;
+  throw new Error('unparseable JSON');
+}
+
+/* Truncated response: rewind to the last COMPLETE element and close the
+   structure, tracking both {} and [] (closing only braces leaves arrays open).
+   Salvages the steps that came through whole. */
+function salvageTruncated(t, start) {
+  const stack = [];
+  let inStr = false, escaped = false, safeIdx = -1, safeStack = null;
+  for (let i = start; i < t.length; i++) {
+    const c = t[i];
+    if (escaped) { escaped = false; continue; }
+    if (c === '\\') { escaped = true; continue; }
+    if (c === '"') { inStr = !inStr; continue; }
+    if (inStr) continue;
+    if (c === '{') stack.push('}');
+    else if (c === '[') stack.push(']');
+    else if (c === '}' || c === ']') {
+      stack.pop();
+      if (stack.length) { safeIdx = i; safeStack = stack.slice(); }
+    }
+  }
+  if (safeIdx < 0 || !safeStack) return null;
+  const candidate = t.slice(start, safeIdx + 1) + safeStack.reverse().join('');
+  try {
+    const parsed = JSON.parse(candidate);
+    Object.defineProperty(parsed, '__cxPartial', { value: true, enumerable: false });
+    return parsed;
+  } catch { return null; }
 }
 /* end of the injected helper block — build.mjs reads to here for byte-identity */
 

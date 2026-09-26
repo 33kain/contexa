@@ -9,6 +9,38 @@ backend's live version separately so a deploy can be told from a no-op.
 
 ---
 
+## 0.9.99 — Extension + Worker (one extractJson for both paths)
+
+*A model that repeats its answer no longer costs hosted users the row.*
+
+`extractJson`, which reads the model's JSON out of its reply, existed twice and
+the two copies had drifted. The own-key path (`background.js`) tried the whole
+span first, then the first balanced object, then `salvageTruncated()` for a
+reply cut at the output ceiling. The hosted path (`worker/src/index.js`) had its
+own shorter version with the salvage inlined and no balanced-object step. On a
+reply cut mid-move the two agreed, but on a reply carrying **two complete
+objects** (the model repeating itself) the own-key path read the first and the
+hosted path answered `bad_json`. So the same session drew a row for one user and
+an error card for another, and nothing checked it: the function sat outside the
+injected helper block, so `build.mjs` never compared the copies.
+
+The own-key version is now the only one. `extractJson` and `salvageTruncated`
+moved into the injected helper block on both sides, so the build's byte-identity
+check covers them from here on. Both suites run the two-object fixture against
+their own path, and the extension suite asserts both functions sit inside the
+block on both sides.
+
+The `partial` flag still comes from different places on the two paths (the
+worker reads `stop_reason === 'max_tokens'`, the extension a salvaged parse). It
+feeds only the console log (`[CONTEXA] partial salvage`), never the row, and is
+left as it is.
+
+The worker changed and must be redeployed for hosted users to get this. The
+extension changed too (the function moved; its behaviour did not). The website
+footer still says 0.9.96 and follows separately.
+
+---
+
 ## 0.9.98 — Extension (the fork control renamed; worker build number only)
 
 *Start fresh is now "Same session, new chat".*

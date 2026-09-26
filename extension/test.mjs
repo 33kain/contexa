@@ -1717,6 +1717,32 @@ const TURNS = [
   t('the diag card carries the last error with its diag', /ctx\.lastError = \{ call: 'fork'/.test(c) && /ctx\.lastError = \{ call: 'moves'/.test(c) && /'last error \(' \+ ctx\.lastError\.call/.test(c));
 }
 
+/* ---- 0.9.99 — a response carrying two complete objects ------------------
+   The same fixture as worker/test.mjs's: the model repeats its answer. The
+   own-key path always read the first object; the hosted path answered
+   bad_json until extractJson moved into the injected helper block. */
+{
+  const h = load({ storage: { model: '', apiKey: 'sk-x' } }); await settle();
+  const obj = n => JSON.stringify({ moves: [{ label: `Write the ${n} page`, text: `Write the ${n} page.`, evidence: 'now the menu page' }] });
+  h.sandbox.fetch = async () => ({ ok: true, status: 200, async text() { return ''; },
+    async json() { return { stop_reason: 'end_turn', usage: { input_tokens: 400, output_tokens: 200 },
+      content: [{ type: 'text', text: obj('One') + '\n' + obj('Two') }] }; } });
+  const r = await h.send({ type: 'nextSteps', reply: 'r'.repeat(80), turns: TURNS });
+  t('own key: two complete objects read as the first, not an error',
+    Array.isArray(r.moves) && r.moves.length === 1 && r.moves[0].label === 'Write the One page', JSON.stringify(r).slice(0, 160));
+  /* Inside the block, so build.mjs's byte-identity check covers them: on both
+     sides, between `function cleanTurns` and the sentinel, and nowhere else. */
+  const inBlock = src => {
+    const a = src.indexOf('function cleanTurns'), z = src.indexOf('/* end of the injected helper block');
+    return ['function extractJson', 'function salvageTruncated'].every(f => {
+      const i = src.indexOf(f);
+      return i > a && i < z && src.indexOf(f, i + 1) < 0;
+    });
+  };
+  t('extractJson and salvageTruncated live in the injected block, on both paths',
+    inBlock(readFileSync('./background.js', 'utf8')) && inBlock(readFileSync('../worker/src/index.js', 'utf8')));
+}
+
 /* ---- 0.9.87 — the landing without an address ---------------------------- */
 {
   const c = readFileSync('./content.js', 'utf8');

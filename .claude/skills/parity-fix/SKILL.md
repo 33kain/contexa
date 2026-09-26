@@ -24,11 +24,11 @@ Run it **before** you start, so you know which differences were there already.
 
 | Definition | How it is kept identical |
 |---|---|
-| `cleanTurns` … `cleanBrief` / `rawBrief` (the injected helper block: from `function cleanTurns` to the `/* end of the injected helper block` sentinel) | `build.mjs` fails on any byte difference |
+| `cleanTurns` … `cleanBrief` / `rawBrief`, `extractJson`, `salvageTruncated` (the injected helper block: from `function cleanTurns` to the `/* end of the injected helper block` sentinel) | `build.mjs` fails on any byte difference |
 | `cachedSystem`, `usageOf` | `build.mjs`, byte-identical, and both call sites must use `cachedSystem` |
 | `MOVES_SYSTEM`, `FORK_SYSTEM` | `build.mjs`. Use the `edit-prompt` skill |
 | `trimPayload`, the `MAX_*` limits | **nothing but discipline.** Currently identical: keep them that way |
-| `extractJson`, `diagnose` | **nothing, and they already differ** (see below) |
+| `diagnose` | **nothing, and it already differs** (see below) |
 
 Code that is only on one side on purpose, such as quotas, `admit()`,
 `callUpstream`, origin and device checks (worker), or `callClaude` and storage
@@ -58,17 +58,15 @@ the endpoint. A test on only one side proves only half the product. Each file
 is one flat script with no filter: add your `t('…', cond)` next to the existing
 tests for the same function.
 
-## Known differences (as of 0.9.98)
+## Known differences (as of 0.9.99)
 
-- **`extractJson`**: the two copies do different things with a response the model cut off
-  at `max_tokens`. The extension walks braces and then calls
-  `salvageTruncated()` (which tracks `[` as well as `{`). The worker has its own
-  inline stack-based rewind and no `salvageTruncated`. On most responses they
-  return the same thing, but a truncated response can come out differently on
-  the two paths. Nothing has decided which one is right: settle that with the
-  user before merging the two, then add a truncated-response test to both suites.
 - **`diagnose`**: only cosmetic (a default parameter, `?? null`, a comment). It
   goes to logs only.
+- **The `partial` flag**: the worker sets it from `stop_reason === 'max_tokens'`,
+  and the extension from a salvaged parse (`__cxPartial`). It reaches only the
+  console log (`[CONTEXA] partial salvage`), never the row.
+
+(`extractJson` differed until 0.9.99, when it moved into the helper block.)
 
 When you remove a difference, delete its bullet here. When you find a new one,
 add it.
