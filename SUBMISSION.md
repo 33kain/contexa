@@ -53,6 +53,9 @@ sends ever changes, both move in the same release, along with
 - **0.9.98 approved 2026-09-27.** Installs left 0.9.54 for a client that
   speaks the worker's current request shape, so the gap the 0.9.97 note
   describes is closed.
+- **0.9.99 submitted for review 2026-09-27**, with the listing's Homepage
+  URL (`https://contexa-website.pages.dev/`) and screenshots 1 and 5 replaced
+  for the living-C mascot. Worker and website were already at 0.9.99.
 - **Visibility: PUBLIC** as of 2026-08-26. The control was greyed out for days
   and finally unlocked.
 - **`ALLOWED_EXTENSION_IDS` pinned to `phhamigkjeeabbjncpmhkppkjccfglhb`** —
