@@ -1,7 +1,7 @@
 # CONTEXA — Chrome Web Store: the review-facing declarations
 
 **This is no longer a submission walkthrough.** The account exists, the item is
-uploaded, 0.9.98 is approved and **Public**. Steps 1–7 of the old version
+uploaded, 0.9.99 is approved and **Public**. Steps 1–7 of the old version
 described a first-time unlisted launch and every one of them is done.
 
 **What this file is now:** the four fields a *reviewer* reads, kept accurate, so
@@ -38,7 +38,7 @@ sends ever changes, both move in the same release, along with
 
 - **Developer account**, $5 paid, publisher name set.
 - **Item uploaded and approved.** 0.9.47 cleared review, then 0.9.54, then
-  **0.9.98 on 2026-09-27**, the live package now.
+  0.9.98 on 2026-09-27, then **0.9.99 on 2026-10-05**, the live package now.
 - **0.9.97 submitted for review 2026-09-21** (the first upload since 0.9.54).
   The worker was deployed at 0.9.97 the same day (`/v1/health` reports it), so
   until review clears, installs still on 0.9.54 are talking to a worker that
@@ -56,6 +56,10 @@ sends ever changes, both move in the same release, along with
 - **0.9.99 submitted for review 2026-09-27**, with the listing's Homepage
   URL (`https://contexa-website.pages.dev/`) and screenshots 1 and 5 replaced
   for the living-C mascot. Worker and website were already at 0.9.99.
+- **0.9.99 live 2026-10-05.** The same day the worker's `ANTHROPIC_API_KEY`
+  was rejected upstream (401) and was replaced; hosted moves verified after.
+  Set the secret only from a real terminal: `wrangler secret put` without a
+  TTY uploads an empty value.
 - **Visibility: PUBLIC** as of 2026-08-26. The control was greyed out for days
   and finally unlocked.
 - **`ALLOWED_EXTENSION_IDS` pinned to `phhamigkjeeabbjncpmhkppkjccfglhb`** —
