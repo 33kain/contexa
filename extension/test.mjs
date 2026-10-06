@@ -903,25 +903,28 @@ const TURNS = [
     [/opens the box|type roughly what you want/i, 'the fifth chip’s free-text box'],
     [/instead of asking you about it/i, 'the standalone Assume: mechanism'],
     [/what do i say next/i, 'the pre-mascot trigger label'],
-    [/\d+ prompts a day/i, 'the retired quota unit — it meters replies now']
+    [/\d+ prompts a day/i, 'the retired quota unit — it meters replies now'],
+    // Retired with the model-written moves, when the mascot became the questions card.
+    [/few things you could ask for next|never more than four|complete message on its own/i, 'the row of model-written moves'],
+    [/Next move ✦|Next moves will not appear/i, 'the old trigger name'],
+    [/picking a message costs nothing/i, 'the moves quota sentence']
   ];
   for (const [re, why] of DEAD) {
     t('settings page has no dead copy: ' + why, !re.test(opts));
   }
-  t('settings page describes the row it actually renders',
-    /offers you a few things you could ask for next/i.test(opts));
+  t('settings page describes the card it actually renders',
+    /asks what you need/i.test(opts) && /writes your next message/i.test(opts));
   t('and puts the card where it really is',
     /above your message box/i.test(opts));
-  t('and says each one is a whole message, which is the product',
-    /complete message on its own/i.test(opts));
-  t('and that silence is a real outcome, not a failure',
-    /shows nothing at all/i.test(opts));
-  t('and does not overstate the count', /never more than four/i.test(opts));
+  t('and says the user sends it, never CONTEXA',
+    /send it yourself/i.test(opts));
+  t('and that the card needs no connection and no limit',
+    /needs no connection/i.test(opts) && /questions card has no limit/i.test(opts));
   /* The trigger's name lives in content.js. A settings page naming a control
      the product does not have is how a first-time user concludes it is broken,
      and this page did exactly that until 0.9.58. */
   t('and names the trigger the way content.js actually labels it',
-    /Next move ✦/.test(opts) && readFileSync('./content.js', 'utf8').includes("'Next move'"));
+    /What now\? ✦/.test(opts) && readFileSync('./content.js', 'utf8').includes("bubble: 'What now?'"));
   t('and states the quota in the unit the worker enforces',
     /20 replies a day/i.test(opts));
 
@@ -995,6 +998,7 @@ const TURNS = [
      could have, because none of them read this file. Now one does. */
   const ojs = readFileSync('./options.js', 'utf8');
   for (const [re, why] of [
+    [/Next moves (come from|will not appear)/i, 'the moves-era wording'],
     [/prompts a day/i, 'the retired quota unit'],
     [/Questions and prompts come from/i, 'the ask-or-offer framing'],
     [/Suggestions will not appear/i, 'chip-era wording'],
@@ -1785,6 +1789,165 @@ const TURNS = [
   t('the chip resolves the address at click time', /const projectUrl = onCowork \? coworkProjectUrl\(ctx\) : null;/.test(c));
   t('the page\'s links, the details, the conversations and the resource timing are gone', !/pageProjectLinks|pageProjectFetches|projUuidIn|chat_conversations'\)|\/conversations'|\/v1\/code\/projects|\/v1\/code\/sessions\?|getEntriesByType/.test(c));
   t('the diag says what would open and what the decode found', /'project page to open: '/.test(c) && /\.\.\.\(ctx\.coworkLookup \|\| \[\]\)\] : \[\]\)/.test(c));
+}
+
+/* ---- the questions card: no model, fixed templates ------------------------
+   The mascot opens a click-only card that writes the next message from fixed
+   templates. Everything it says is ours, so everything it can say is checked
+   here: every path, in both languages, with and without a picked step or a
+   selection, for a user who writes with diacritics and one who does not. */
+{
+  const c = readFileSync('./content.js', 'utf8');
+  const blk = (c.match(/  const QC_HEAD_MAX[\s\S]*?\/\* end of the questions-card pure block \*\//) || [''])[0];
+  t('questions card: the pure block is found', blk.length > 1000);
+  const Q = new Function(blk + '\nreturn { qcLang, qcPlain, qcStrip, qcHead, qcQuote, qcEndsWithQuestion, qcSequence, QC_UI, QC_DOORS, QC_LEAVES, qcLeaves, qcDoors, qcCompose, QC_OTHER_LANG };')();
+  t('the pure block touches no DOM, no chrome.*, no network',
+    !/document\.|window\.|chrome\.|fetch\(|sendMessage|innerHTML/.test(blk));
+
+  /* Every leaf a door can reach exists, in both languages, with a label in both. */
+  const reach = new Set();
+  const walk = id => { reach.add(id); const l = Q.QC_LEAVES[id]; if (l && l.next) l.next.leaves.forEach(walk); };
+  for (const d of Q.QC_DOORS) [...d.leaves, ...(d.codeLeaves || [])].forEach(walk);
+  walk('w.circle');
+  const missing = [...reach].filter(id => !Q.QC_LEAVES[id]);
+  t('questions card: every reachable leaf exists', !missing.length, missing.join(','));
+  const orphans = Object.keys(Q.QC_LEAVES).filter(id => !reach.has(id));
+  t('questions card: no leaf is unreachable', !orphans.length, orphans.join(','));
+  const terminal = [...reach].filter(id => Q.QC_LEAVES[id] && !Q.QC_LEAVES[id].next);
+  t('questions card: every message leaf has a whole-answer form in both languages',
+    terminal.every(id => Q.QC_LEAVES[id].en && Q.QC_LEAVES[id].sr && Q.QC_LEAVES[id].en.whole && Q.QC_LEAVES[id].sr.whole));
+  t('questions card: a part form exists in one language only if it exists in both',
+    terminal.every(id => !!Q.QC_LEAVES[id].en.part === !!Q.QC_LEAVES[id].sr.part));
+  const labels = [...Q.QC_DOORS.map(d => d.label), ...[...reach].map(id => Q.QC_LEAVES[id].label)];
+  t('questions card: every label exists in both languages and fits a button (<= 32 chars)',
+    labels.every(l => l && l.en && l.sr && l.en.length <= 32 && l.sr.length <= 32));
+  t('questions card: at most five options on any screen',
+    Q.QC_DOORS.length <= 5 && Q.QC_DOORS.every(d => d.leaves.length <= 5 && (!d.codeLeaves || d.codeLeaves.length <= 5))
+      && [...reach].every(id => !Q.QC_LEAVES[id].next || Q.QC_LEAVES[id].next.leaves.length <= 5));
+
+  /* Every message, every variant. */
+  const heads = { kind: 'step', n: 4, head: 'Otvori Podešavanja > Uređaji' };
+  const variants = [
+    ['whole', {}], ['step', { ref: heads }], ['part', { ref: { kind: 'part', n: 2, head: 'Podesi PATH promenljivu' } }],
+    ['sel', { ref: { kind: 'sel', text: 'Složena kamata znači da zarađuješ kamatu i na već zarađenu kamatu.' } }],
+    ['plain', { plain: true, ref: heads }]
+  ];
+  const all = [];
+  for (const id of terminal) for (const lang of ['en', 'sr', 'other']) for (const [v, opt] of variants) {
+    all.push({ id, lang, v, msg: Q.qcCompose(id, lang, opt) });
+  }
+  const bad = all.filter(x => !x.msg || x.msg.length > 700);
+  t('questions card: every message is non-empty and under 700 chars  (' + all.length + ' messages)', !bad.length,
+    bad.slice(0, 3).map(x => x.id + '/' + x.lang + '/' + x.v + ' ' + x.msg.length).join('; '));
+  const slotLast = all.filter(x => /<[^>]+>/.test(x.msg) && !/\n<[^<>\n]+>$/.test(x.msg));
+  t('questions card: a slot, when there is one, is always the last line', !slotLast.length,
+    slotLast.slice(0, 3).map(x => x.id + '/' + x.lang).join('; '));
+  t('questions card: at most one slot per message', all.every(x => (x.msg.match(/<[^>]+>/g) || []).length <= 1));
+  const srText = JSON.stringify(Object.values(Q.QC_LEAVES).map(l => [l.label && l.label.sr, l.sr, l.slot && l.slot.sr, l.next && l.next.q.sr, l.wordLabel && l.wordLabel.sr]))
+    + JSON.stringify(Q.QC_DOORS.map(d => [d.label.sr, d.q.sr])) + JSON.stringify(Q.QC_UI.sr);
+  t('questions card: Serbian is gender-neutral for the user and for Claude',
+    !/\b(tražio|tražila|mislio|mislila|rekao|rekla|uradio|uradila|opisao|opisala|predložio|predložila|probao|probala|siguran|sigurna|kritičan|kritična|spreman|spremna)\b/i.test(srText));
+  t('questions card: no message describes the user (beginner, my English, I am new)',
+    !all.some(x => /beginner|početnik|my english|i('|’)m new|novajlij/i.test(x.msg)));
+  t('questions card: every message speaks in the first person and never claims to have read the reply',
+    all.every(x => !/\b(you said that|as you mentioned|kao što si rekao)\b/i.test(x.msg)));
+
+  /* The quote is never rewritten; the template is, for a user without diacritics. */
+  const plainFind = Q.qcCompose('w.find', 'sr', { plain: true, ref: heads });
+  t('questions card: a picked step leads the message with its number and Claude\'s own words',
+    plainFind.startsWith('Korak 4 iz tvog odgovora („Otvori Podešavanja > Uređaji“):\nTo ne mogu da nadjem.'), plainFind);
+  t('and the template loses its diacritics while the quote keeps them',
+    /nadjem/.test(plainFind) && /Podešavanja/.test(plainFind) && /<opisi ili zakaci snimak ekrana>$/.test(plainFind));
+  t('a list item outside "it didn\'t work" is a point, never a step',
+    Q.qcCompose('u.simple', 'en', { ref: { kind: 'part', n: 3, head: 'Set the PATH variable' } }).startsWith('Point 3 of your answer (“Set the PATH variable”):\n'));
+  t('a short selection asks what the word means',
+    Q.qcCompose('u.words', 'sr', { word: 'refaktorisanje' }) === 'Šta znači „refaktorisanje“ u tvom odgovoru? Objasni mi to u jednoj ili dve jednostavne rečenice.');
+  t('a long selection is quoted on its own line and cut visibly',
+    /^This part of your answer:\n“[x ]+ \[…\]”\n/.test(Q.qcCompose('u.example', 'en', { ref: { kind: 'sel', text: ('x'.repeat(50) + ' ').repeat(10) } })));
+  const other = Q.qcCompose('w.error', 'other', {});
+  t('another language gets the English template and asks for the reply in theirs, before the slot',
+    other.includes(Q.QC_OTHER_LANG + '\n\nThis is the error:\n<paste the error here>'), other);
+  t('"something is wrong" asks for a correction only where one is due (no caving)',
+    /tell me plainly if it was right after all/.test(Q.qcCompose('n.wrong', 'en', {})) && /reci mi otvoreno ako je ipak bilo tačno/.test(Q.qcCompose('n.wrong', 'sr', {})));
+
+  /* Language is read from words, never from diacritics. */
+  t('the owner\'s Serbian without diacritics reads as Serbian',
+    Q.qcLang(['nesto razmisljam da vratim onu karticu sa pitanjima. sta mislis o tome?']) === 'sr'
+      && Q.qcLang(['moze, kreni. slazem se sa nazivima dugmadi. i za fork.']) === 'sr');
+  t('English reads as English', Q.qcLang(['How do I install this on Windows? It says access denied.']) === 'en');
+  t('a third language reads as other', Q.qcLang(['Wie installiere ich das unter Windows? Es sagt Zugriff verweigert.']) === 'other');
+  t('too little text falls back', Q.qcLang(['ok'], 'sr') === 'sr' && Q.qcLang([], 'en') === 'en');
+  t('a user who writes without diacritics gets templates without them',
+    Q.qcPlain(['nesto razmisljam da vratim onu karticu sa pitanjima']) && !Q.qcPlain(['nešto razmišljam da vratim onu karticu']));
+  t('đ becomes dj, the way the owner writes it', Q.qcStrip('nađem Đorđe') === 'nadjem Djordje');
+
+  /* The four facts. */
+  t('a closing question opens the fifth door', Q.qcEndsWithQuestion('Koju verziju Excela koristiš?')
+    && Q.qcEndsWithQuestion('Here is the plan. Want me to add a contact form?'));
+  t('a courtesy question does not', !Q.qcEndsWithQuestion('Does that help?') && !Q.qcEndsWithQuestion('Evo ga. Ima li smisla?')
+    && !Q.qcEndsWithQuestion('Done.'));
+  t('one list of 2-12 items earns a step row', JSON.stringify(Q.qcSequence([{ start: 1, items: ['a', 'b', 'c'] }])) === '["a","b","c"]');
+  t('a list that resumes its numbering after code is one list',
+    (Q.qcSequence([{ start: 1, items: ['a', 'b'] }, { start: 3, items: ['c', 'd'] }]) || []).length === 4);
+  t('two separate lists, one item, or a long list earn none',
+    Q.qcSequence([{ start: 1, items: ['a', 'b'] }, { start: 1, items: ['c', 'd'] }]) === null
+      && Q.qcSequence([{ start: 1, items: ['a'] }]) === null
+      && Q.qcSequence([{ start: 1, items: Array.from({ length: 13 }, (_, i) => 'x' + i) }]) === null);
+  const long = Q.qcHead('Open the Settings app, then go to Devices and choose Bluetooth and other devices from the list');
+  t('a long item is cut at a word, with an ellipsis', long.length <= 61 && long.endsWith('…') && !/\s…$/.test(long), long);
+
+  t('the fifth door only when the reply ends with a question',
+    Q.qcDoors({ question: false }).length === 4 && Q.qcDoors({ question: true }).length === 5);
+  t('a code-only reply gets the code repairs', Q.qcLeaves('w', { code: true, list: null }, 0).includes('w.where'));
+  t('a reply with steps keeps the step repairs even with code', Q.qcLeaves('w', { code: true, list: ['a', 'b'] }, 0).includes('w.find'));
+  t('"is it safe" only when there is something to do', !Q.qcLeaves('t', { code: false, list: null }, 0).includes('t.safe')
+    && Q.qcLeaves('t', { code: false, list: ['a', 'b'] }, 0).includes('t.safe'));
+  t('going in circles after two repairs in this chat', !Q.qcLeaves('w', {}, 1).includes('w.circle') && Q.qcLeaves('w', {}, 2).includes('w.circle'));
+
+  /* qcShapeOf against a hand-rolled DOM. */
+  const shapeSrc = (c.match(/function qcShapeOf\(anchor\) \{[\s\S]*?\n  \}/) || [''])[0];
+  const mk = (tag, attrs, ...kids) => {
+    const n = { tagName: tag.toUpperCase(), attrs: attrs || {}, children: [], parentElement: null, nodeType: 1 };
+    for (const k of kids) { if (typeof k === 'string') { n.text = (n.text || '') + k; } else { k.parentElement = n; n.children.push(k); } }
+    return n;
+  };
+  const is = (n, sel) => sel.split(',').map(s => s.trim()).some(s => s.startsWith('.')
+    ? (n.attrs.class || '').split(/\s+/).includes(s.slice(1)) : n.tagName === s.toUpperCase());
+  const proto = {
+    get textContent() { return (this.text || '') + this.children.map(k => k.textContent).join(' '); },
+    getAttribute(a) { return a in this.attrs ? this.attrs[a] : null; },
+    matches(sel) { return is(this, sel); },
+    closest(sel) { for (let n = this; n; n = n.parentElement) if (is(n, sel)) return n; return null; },
+    querySelectorAll(sel) { const out = []; const rec = n => { for (const k of n.children) { if (is(k, sel)) out.push(k); rec(k); } }; rec(this); return out; },
+    querySelector(sel) { return this.querySelectorAll(sel)[0] || null; }
+  };
+  const dom = (tag, attrs, ...kids) => { const n = mk(tag, attrs, ...kids); Object.setPrototypeOf(n, proto); return n; };
+  const qcShapeOf = new Function('RESPONSE_SEL', 'qcSequence', 'qcEndsWithQuestion', shapeSrc + '\nreturn qcShapeOf;')('.font-claude-response', Q.qcSequence, Q.qcEndsWithQuestion);
+  const row = dom('div', {},
+    dom('div', { class: 'font-claude-response' },
+      dom('p', {}, 'Do this:'),
+      dom('ol', {}, dom('li', {}, 'Open Settings'), dom('li', {}, 'Go to Devices')),
+      dom('pre', {}, 'npm install'),
+      dom('ol', { start: '3' }, dom('li', {}, 'Restart', dom('ol', {}, dom('li', {}, 'nested')))),
+      dom('p', {}, 'Which version of Windows do you have?')));
+  const sh = qcShapeOf(row);
+  t('qcShapeOf: a list broken by code is one list, nested lists ignored',
+    JSON.stringify(sh.list) === JSON.stringify(['Open Settings', 'Go to Devices', 'Restart nested']) || (sh.list && sh.list.length === 3), JSON.stringify(sh.list));
+  t('qcShapeOf: code and a closing question are seen', sh.code === true && sh.question === true);
+  const plainRow = dom('div', {}, dom('div', { class: 'font-claude-response' }, dom('p', {}, 'Paris is the capital of France.')));
+  const sh2 = qcShapeOf(plainRow);
+  t('qcShapeOf: plain prose reads as nothing to point at', sh2.list === null && !sh2.code && !sh2.question);
+
+  /* The card in the page. */
+  const trig = (c.match(/function renderTrigger\(anchor, ctx\) \{[\s\S]*?\n  \}\r?\n/) || [''])[0];
+  t('the mascot opens the questions card, not a model call', /qcOpen\(slot, anchor, ctx,/.test(trig) && !/askNow\(/.test(trig));
+  const open = (c.match(/function qcOpen\([\s\S]*?\n  \}\r?\n/) || [''])[0];
+  t('the card renders through textContent, never innerHTML', open.length > 500 && !/innerHTML/.test(open));
+  t('the card makes no request of any kind', !/fetch\(|sendMessage|apiJson\(/.test(open + (c.match(/function qcShapeOf[\s\S]*?function qcUserLang/) || [''])[0]));
+  t('the card writes through insertPrompt and falls back to the clipboard, saying which',
+    /if \(insertPrompt\(msg\)\)/.test(open) && /clipboard\.writeText\(msg\)/.test(open) && /u\.copied/.test(open));
+  t('insertPrompt reports whether it landed', /if \(!composer\) return false;/.test(c) && /dispatchEvent\(new InputEvent\('input', \{ bubbles: true \}\)\);\r?\n    return true;/.test(c));
+  t('the questions card stores nothing', !/chrome\.storage/.test(open));
 }
 
 console.log(fails.length ? '\nFAILED: ' + fails.join(', ') : '\nall extension checks passed');

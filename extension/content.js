@@ -244,6 +244,46 @@
   @media (pointer:coarse),(max-width:520px){
     .chip{padding:9px 14px;font-size:13px;min-height:40px}
   }
+  /* The questions card. Its own classes, nothing shared with .chip (which
+     truncates with an ellipsis and would cut an option mid-word), no "N of
+     M", no numbered rows, no Skip — the marks of claude.ai's own question
+     widget, which this card must never be mistaken for. */
+  .ctxa-mas-slot:has(.qc){display:block;width:100%}
+  .qc{display:block;max-width:560px;border:1px solid var(--border2);border-radius:12px;
+    background:var(--surface);padding:8px 10px 10px}
+  .qc-head{display:flex;align-items:center;gap:4px;margin-bottom:6px}
+  .qc-q{flex:1;font-size:12.5px;font-weight:600;color:var(--text);letter-spacing:0;text-transform:none}
+  .qc-ic{border:none;background:transparent;color:var(--text2);font-size:15px;line-height:1;
+    padding:4px 7px;border-radius:6px;cursor:pointer;font-family:inherit}
+  .qc-ic:hover{color:var(--accent)}
+  .qc-lang{font-size:10px;letter-spacing:.08em;border:1px solid var(--border2);border-radius:999px;padding:3px 8px}
+  .qc-opts{display:flex;flex-wrap:wrap;gap:6px}
+  .qc-opt{background:var(--surface2);border:1px solid var(--border2);border-radius:10px;padding:7px 11px;
+    cursor:pointer;font-size:12px;line-height:1.3;color:var(--text);font-family:inherit;text-align:left;
+    white-space:normal;transition:border-color .14s,color .14s}
+  .qc-opt:hover,.qc-opt:focus-visible{border-color:var(--accent);color:var(--accent);outline:none}
+  .qc-opt.wide{flex-basis:100%}
+  .qc-hint,.qc-cap{font-size:11px;color:var(--text2);margin:0 0 6px;line-height:1.4}
+  .qc-quote{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--text2);
+    background:var(--accent-soft);border-radius:8px;padding:3px 4px 3px 8px;margin-bottom:6px}
+  .qc-quote span{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .qc-ref{display:flex;flex-wrap:wrap;align-items:center;gap:4px;margin-bottom:6px;font-size:11px;color:var(--text2)}
+  .qc-num{min-width:28px;border:1px solid var(--border2);background:transparent;color:var(--text2);
+    border-radius:999px;padding:2px 8px;font-size:11px;cursor:pointer;font-family:inherit}
+  .qc-num[aria-pressed="true"]{border-color:var(--accent);color:var(--accent);background:var(--accent-soft)}
+  .qc-done{font-size:11.5px;color:var(--text2);line-height:1.4;max-width:420px;margin-left:4px}
+  .ctxa-mas-label{display:none}
+  @media (hover:none){
+    .ctxa-mas-label{display:inline-block;align-self:center;margin-left:6px;line-height:1.2;
+      font-size:12px;color:var(--text2)}
+  }
+  @media (pointer:coarse),(max-width:520px){
+    .qc-opts.grid{display:grid;grid-template-columns:1fr 1fr}
+    .qc-opts.grid .qc-opt.wide{grid-column:1 / -1}
+    .qc-opt{min-height:44px;font-size:13px;padding:9px 12px}
+    .qc-num{min-height:36px;min-width:36px;font-size:12px}
+    .qc-ic{min-width:40px;min-height:40px}
+  }
   @keyframes cxpulse{0%,100%{opacity:.55}50%{opacity:1}}`;
 
   const esc = s => { const d = document.createElement('div'); d.textContent = s || ''; return d.innerHTML; };
@@ -884,6 +924,9 @@
       ...(ctx.partialSession ? ['session read: DOM tail on a virtualised page (×' + ctx.partialSession.scale.toFixed(1) + '), page API ' + ctx.partialSession.apiState + ' — moves may reflect the visible tail, not the goal'] : []),
       'user turns in DOM: ' + turns.length + ', last three: ' + (lastThree.join('/') || '-') + ' chars',
       'model on page: ' + (pageModel() || 'not found') + '; reply ' + ((ctx.reply || '').length) + ' chars',
+      'questions: opened ' + qcStats.opens + ', wrote ' + qcStats.inserts + (qcStats.last ? ' (last ' + qcStats.last + ')' : '')
+        + (ctx.qcShape ? '; reply read as: ' + (ctx.qcShape.list ? ctx.qcShape.list.length + ' numbered' : 'no list') + ', '
+          + (ctx.qcShape.code ? 'code' : 'no code') + ', ' + (ctx.qcShape.question ? 'ends with ?' : 'no closing ?') : ''),
       ...(COWORK_RE.test(location.pathname) ? ['project page to open: ' + (coworkProjectUrl(ctx) || 'none (the chip copies)') + '; record project id: ' + (ctx.coworkProject || 'none'),
         ...(ctx.coworkLookup || [])] : []),
       ...(ctx.lastError ? ['last error (' + ctx.lastError.call + '): ' + ctx.lastError.code + (ctx.lastError.diag ? ' ' + JSON.stringify(ctx.lastError.diag) : '') + (ctx.lastError.detail ? ' ' + String(ctx.lastError.detail).slice(0, 120) : '')] : []),
@@ -1384,6 +1427,535 @@
     renderMoves(anchor, moves, ctx);
   }
 
+  /* ---------------- the questions card (no model) ------------------------- */
+  /* The mascot no longer calls a model. It opens a card that asks two or
+     three click-only questions — what the user needs, then what exactly —
+     and writes the next message from fixed templates, in the user's language,
+     into the composer, unsent. Nothing leaves the page and nothing is spent.
+
+     The card does not understand the reply and must never look as if it did.
+     It reads four cheap facts and nothing else: the user's own selection
+     (quoted verbatim), one numbered list (so "step 4" can be picked and its
+     first words quoted), whether there is code, and whether the reply ends
+     with a question. A fact it cannot read means fewer options, never a
+     claim. The messages say only "your last answer", "step N (…)" / "point N
+     (…)", "your question" when the reply really ends in "?", or the user's
+     selection — never a paraphrase of Claude's text.
+
+     Everything from here to the end sentinel is pure (no DOM, no chrome.*),
+     so test.mjs extracts it and runs every path in both languages. */
+  const QC_HEAD_MAX = 60;          // chars of a list item quoted beside its number
+  const QC_SEL_MAX = 300;          // chars of a selection quoted in a message
+  const QC_WORD_MAX = 4;           // a selection this short asks "what does X mean?"
+  const QC_LIST_MIN = 2, QC_LIST_MAX = 12;
+  const QC_DIACRITICS = /[čćšžđČĆŠŽĐ]/;
+  /* The owner writes Serbian without diacritics ("sta mislis"), so language is
+     read from function words, never from diacritics, and the script is
+     mirrored: a user who writes without them gets templates without them.
+     Words shared with English ("i", "me", "do", "on", "to") are on neither
+     list, because they would score the wrong language. */
+  const QC_SR_WORDS = new Set(('je sam si smo ste su da ne sta šta kako sto što ali ili za mi meni tebi ' +
+    'ovo ovaj ova nije jos još treba moze može mogu hocu hoću zelim želim koji koja koje kad kada gde ' +
+    'gdje zasto zašto bih bi li pa sa od iz kod nesto nešto mislim razumem radi hvala molim tko ko').split(' '));
+  const QC_EN_WORDS = new Set(('the and is are was you your my it this that what how why can could would ' +
+    'should does not with for of in have has be will please thanks').split(' '));
+  function qcLang(texts, fallback) {
+    let sr = 0, en = 0, words = 0;
+    for (const t of texts || []) {
+      for (const w of String(t || '').toLowerCase().match(/\p{L}+/gu) || []) {
+        words++;
+        if (QC_SR_WORDS.has(w)) sr++;
+        if (QC_EN_WORDS.has(w)) en++;
+      }
+    }
+    if (sr >= 2 && sr > en) return 'sr';
+    if (en >= 2 && en >= sr) return 'en';
+    if (words >= 6) return 'other';   // enough text, and it is neither
+    return fallback || 'en';
+  }
+  function qcPlain(texts) {
+    const all = (texts || []).join(' ');
+    return (all.match(/\p{L}/gu) || []).length >= 20 && !QC_DIACRITICS.test(all);
+  }
+  function qcStrip(s) {
+    return String(s).replace(/[čć]/g, 'c').replace(/[ČĆ]/g, 'C').replace(/š/g, 's').replace(/Š/g, 'S')
+      .replace(/ž/g, 'z').replace(/Ž/g, 'Z').replace(/đ/g, 'dj').replace(/Đ/g, 'Dj');
+  }
+  /* A list item's first words, cut at a word so the quote never ends mid-word. */
+  function qcHead(text) {
+    const t = String(text || '').replace(/\s+/g, ' ').trim();
+    if (t.length <= QC_HEAD_MAX) return t;
+    const cut = t.slice(0, QC_HEAD_MAX);
+    const sp = cut.lastIndexOf(' ');
+    return (sp > 20 ? cut.slice(0, sp) : cut).replace(/[\s,;:.]+$/, '') + '…';
+  }
+  function qcQuote(text) {
+    const t = String(text || '').replace(/\s+/g, ' ').trim();
+    return t.length <= QC_SEL_MAX ? t : t.slice(0, QC_SEL_MAX).replace(/\s+\S*$/, '') + ' […]';
+  }
+  /* "Does that help?" is a closing courtesy, not a question to answer. */
+  const QC_STOCK_Q = /^(does (that|this) (help|make sense)|is (that|this) (clear|helpful)|makes? sense|ima li (to )?smisla|da li (ti )?je (to )?jasno|je l'? (ti )?jasno|jasno)\?$/i;
+  function qcEndsWithQuestion(lastText) {
+    const t = String(lastText || '').replace(/\s+/g, ' ').trim();
+    if (!/[?？]["”»'’)\s]*$/.test(t)) return false;
+    const last = t.split(/(?<=[.!…])\s+/).pop().trim();
+    return !QC_STOCK_Q.test(last);
+  }
+  /* Ordered lists as the page renders them: a list that resumes its numbering
+     (start="3" after a code block broke it) joins the one before it. Exactly
+     one sequence of 2-12 items earns a step row; anything else earns none. */
+  function qcSequence(lists) {
+    const seqs = [];
+    for (const l of lists || []) {
+      const prev = seqs[seqs.length - 1];
+      if (prev && l.start > 1 && l.start === prev.length + 1) prev.push(...l.items);
+      else seqs.push([...l.items]);
+    }
+    const real = seqs.filter(s => s.length);
+    if (real.length !== 1) return null;
+    const s = real[0];
+    return s.length >= QC_LIST_MIN && s.length <= QC_LIST_MAX ? s.map(qcHead) : null;
+  }
+
+  const QC_UI = {
+    en: {
+      bubble: 'What now?', title: 'What do I need now?',
+      hint: 'Tap what fits — you see the message before it’s sent.',
+      step: 'Which step?', part: 'Which part?', all: 'All', about: 'About:',
+      back: 'Back', close: 'Close', clear: 'Remove the quote',
+      done: '✓ It’s in your message box. Read it, change anything, then send.',
+      doneSlot: '✓ It’s in your message box. Replace the part in <…>, then send.',
+      copied: 'Couldn’t find the message box, so the message is copied. Paste it there.',
+      failed: 'Couldn’t find the message box. Tap again once it’s on screen.'
+    },
+    sr: {
+      bubble: 'Šta sad?', title: 'Šta mi sad treba?',
+      hint: 'Dodirni šta ti odgovara — poruku vidiš pre slanja.',
+      step: 'Koji korak?', part: 'Koji deo?', all: 'Sve', about: 'O delu:',
+      back: 'Nazad', close: 'Zatvori', clear: 'Ukloni citat',
+      done: '✓ U poruci je. Pročitaj, izmeni šta hoćeš, pa pošalji.',
+      doneSlot: '✓ U poruci je. Zameni deo u <…>, pa pošalji.',
+      copied: 'Polje za poruku nije nađeno, pa je poruka kopirana. Nalepi je tamo.',
+      failed: 'Polje za poruku nije nađeno. Dodirni ponovo kad bude na ekranu.'
+    }
+  };
+  const QC_OTHER_LANG = 'Please reply in the language of my earlier messages.';
+  /* The doors. Positions never change, so the grid can be learned; the fifth
+     appears only when the reply ends with a question. `ref` says how a picked
+     list item is named: "step" only where something was DONE (it didn't work,
+     is it safe), "part" elsewhere, because Claude numbers reasons and options
+     too, and calling a reason a step would put a false claim in the user's
+     mouth. */
+  const QC_DOORS = [
+    { id: 'u', ref: 'part', label: { en: 'I don’t get it', sr: 'Ne razumem' },
+      q: { en: 'What would help?', sr: 'Šta bi mi pomoglo?' },
+      leaves: ['u.simple', 'u.example', 'u.steps', 'u.words'] },
+    { id: 'w', ref: 'step', label: { en: 'It didn’t work', sr: 'Ne radi mi' },
+      q: { en: 'What happens?', sr: 'Šta se dešava?' },
+      leaves: ['w.error', 'w.nothing', 'w.other', 'w.find'],
+      codeLeaves: ['w.error', 'w.wrong', 'w.where', 'w.run'] },
+    { id: 'n', ref: null, label: { en: 'Not quite right', sr: 'Nije to to' },
+      q: { en: 'What’s off?', sr: 'Šta ne valja?' },
+      leaves: ['n.long', 'n.complex', 'n.notasked', 'n.wrong', 'n.form'] },
+    { id: 't', ref: 'step', label: { en: 'Can I trust this?', sr: 'Mogu li ovome da verujem?' },
+      q: { en: 'What do I want to know?', sr: 'Šta hoću da znam?' },
+      leaves: ['t.reliable', 't.check', 't.weak', 't.safe'] },
+    { id: 'q', ref: null, when: 'question', label: { en: 'Not sure what to answer', sr: 'Ne znam šta da odgovorim' },
+      q: { en: 'What would help?', sr: 'Šta bi mi pomoglo?' },
+      leaves: ['q.explain', 'q.find', 'q.decide', 'q.pick'] }
+  ];
+  /* Every message: first person, plain prose, one ask with its limits, numbers
+     instead of "short", at most one slot and always last, nothing about who
+     the user is. Serbian is gender-neutral for the user AND for Claude (no
+     "tražio sam", no "si opisao", no "budi kritičan"); test.mjs checks it.
+     `part` is the form used after a lead that names a step, a point or a
+     selection; a leaf without one always speaks about the whole answer. */
+  const QC_ERR_SLOT = { sr: ['Ovo je greška:', '<nalepi grešku ovde>'], en: ['This is the error:', '<paste the error here>'] };
+  const QC_LEAVES = {
+    'u.simple': { label: { en: 'Simpler words', sr: 'Prostije reči' },
+      en: { whole: 'I don’t understand your last answer. Explain it again in plain, everyday words and short sentences, and explain any technical term in brackets. Five sentences at most.',
+            part: 'I don’t understand this. Explain it again in plain, everyday words and short sentences, and explain any technical term in brackets. Five sentences at most.' },
+      sr: { whole: 'Nije mi jasan tvoj poslednji odgovor. Objasni ga ponovo jednostavnim, svakodnevnim rečima i kratkim rečenicama, a svaki stručni izraz objasni u zagradi. Najviše 5 rečenica.',
+            part: 'Ovo mi nije jasno. Objasni mi to ponovo jednostavnim, svakodnevnim rečima i kratkim rečenicama, a svaki stručni izraz objasni u zagradi. Najviše 5 rečenica.' } },
+    'u.example': { label: { en: 'An example', sr: 'Primer' },
+      en: { whole: 'I don’t fully get your last answer. Show me how it works with one concrete, everyday example.',
+            part: 'I don’t fully get this. Show me how it works with one concrete, everyday example.' },
+      sr: { whole: 'Nije mi skroz jasan tvoj poslednji odgovor. Pokaži mi na jednom konkretnom primeru iz svakodnevice kako to funkcioniše.',
+            part: 'Ovo mi nije skroz jasno. Pokaži mi na jednom konkretnom primeru iz svakodnevice kako to funkcioniše.' } },
+    'u.steps': { label: { en: 'Step by step', sr: 'Korak po korak' },
+      en: { whole: 'I still don’t understand your last answer. Walk me through it step by step: give me only the first step, then wait for my “ok” before the next one.',
+            part: 'I still don’t understand this. Walk me through it step by step: give me only the first step, then wait for my “ok” before the next one.' },
+      sr: { whole: 'Još ne razumem tvoj poslednji odgovor. Vodi me kroz njega korak po korak: daj mi samo prvi korak, pa sačekaj moje „ok“ pre sledećeg.',
+            part: 'Ovo još ne razumem. Vodi me kroz to korak po korak: daj mi samo prvi korak, pa sačekaj moje „ok“ pre sledećeg.' } },
+    'u.words': { label: { en: 'Words I don’t know', sr: 'Nepoznate reči' },
+      wordLabel: { en: 'What does “{w}” mean?', sr: 'Šta znači „{w}“?' },
+      en: { whole: 'There are words in your last answer I don’t know. Explain each technical term in it in one plain sentence.',
+            part: 'There are words here I don’t know. Explain each technical term in it in one plain sentence.',
+            word: 'What does “{w}” mean in your answer? Explain it in one or two plain sentences.' },
+      sr: { whole: 'U tvom poslednjem odgovoru ima izraza koje ne znam. Objasni svaki stručni izraz iz njega u po jednoj jednostavnoj rečenici.',
+            part: 'Ovde ima izraza koje ne znam. Objasni svaki stručni izraz odavde u po jednoj jednostavnoj rečenici.',
+            word: 'Šta znači „{w}“ u tvom odgovoru? Objasni mi to u jednoj ili dve jednostavne rečenice.' } },
+
+    'w.error': { label: { en: 'I get an error', sr: 'Dobijam grešku' }, slot: QC_ERR_SLOT,
+      en: { whole: 'When I do what your answer says, I get an error. Explain in plain words what it means, then give me only the first thing to try, and wait for my result.',
+            part: 'When I do this, I get an error. Explain in plain words what it means, then give me only the first thing to try, and wait for my result.' },
+      sr: { whole: 'Kad uradim ono što piše u tvom odgovoru, dobijam grešku. Objasni mi jednostavnim rečima šta znači, pa mi daj samo prvu stvar koju da probam i sačekaj moj rezultat.',
+            part: 'Kad ovo uradim, dobijam grešku. Objasni mi jednostavnim rečima šta znači, pa mi daj samo prvu stvar koju da probam i sačekaj moj rezultat.' } },
+    'w.nothing': { label: { en: 'Nothing happens', sr: 'Ništa se ne desi' },
+      slot: { en: ['What I see:', '<describe what you see, or attach a screenshot>'], sr: ['Šta vidim:', '<opiši šta vidiš ili zakači snimak ekrana>'] },
+      en: { whole: 'When I do what your answer says, nothing happens. Tell me what I should have seen and what to check, one thing at a time, and wait for my result before the next.',
+            part: 'When I do this, nothing happens. Tell me what I should have seen and what to check, one thing at a time, and wait for my result before the next.' },
+      sr: { whole: 'Kad uradim ono što piše u tvom odgovoru, ništa se ne desi. Reci mi šta je trebalo da vidim i šta da proverim, jedno po jedno, i sačekaj moj rezultat pre sledećeg.',
+            part: 'Kad ovo uradim, ništa se ne desi. Reci mi šta je trebalo da vidim i šta da proverim, jedno po jedno, i sačekaj moj rezultat pre sledećeg.' } },
+    'w.other': { label: { en: 'Something else happens', sr: 'Desi se nešto drugo' },
+      slot: { en: ['What happened:', '<describe what happened, or attach a screenshot>'], sr: ['Šta se desilo:', '<opiši šta se desilo ili zakači snimak ekrana>'] },
+      en: { whole: 'When I do what your answer says, something different happens. Tell me what probably happened and what to do next, one step at a time, and wait for my result.',
+            part: 'When I do this, something different happens. Tell me what probably happened and what to do next, one step at a time, and wait for my result.' },
+      sr: { whole: 'Kad uradim ono što piše u tvom odgovoru, desi se nešto drugo. Reci mi šta se verovatno desilo i šta da uradim sledeće, jedan po jedan korak, i sačekaj moj rezultat.',
+            part: 'Kad ovo uradim, desi se nešto drugo. Reci mi šta se verovatno desilo i šta da uradim sledeće, jedan po jedan korak, i sačekaj moj rezultat.' } },
+    'w.find': { label: { en: 'I can’t find it', sr: 'Ne mogu da nađem' },
+      slot: { en: ['What I see on my screen:', '<describe it or attach a screenshot>'], sr: ['Šta vidim na ekranu:', '<opiši ili zakači snimak ekrana>'] },
+      en: { whole: 'I can’t find what your last answer describes. My screen looks different. Tell me what I should see and where to look, go one step at a time, and wait for me to confirm before the next one.',
+            part: 'I can’t find that. My screen looks different. Tell me what I should see and where to look, go one step at a time, and wait for me to confirm before the next one.' },
+      sr: { whole: 'Ne mogu da nađem ono što opisuje tvoj poslednji odgovor. Ekran mi izgleda drugačije. Reci mi šta treba da vidim i gde da gledam, idi jedan po jedan korak i sačekaj da potvrdim pre sledećeg.',
+            part: 'To ne mogu da nađem. Ekran mi izgleda drugačije. Reci mi šta treba da vidim i gde da gledam, idi jedan po jedan korak i sačekaj da potvrdim pre sledećeg.' } },
+    'w.wrong': { label: { en: 'Wrong result', sr: 'Rezultat nije dobar' },
+      slot: { en: ['What I get, and what I expected:', '<describe it here>'], sr: ['Šta dobijam, a šta očekujem:', '<opiši ovde>'] },
+      en: { whole: 'The code from your answer runs, but the result isn’t right. Suggest one change and wait for my result.' },
+      sr: { whole: 'Kod iz tvog odgovora radi, ali rezultat nije dobar. Predloži jednu izmenu i sačekaj moj rezultat.' } },
+    'w.where': { label: { en: 'Where does it go?', sr: 'Gde ovo ide?' },
+      en: { whole: 'I don’t know where to put the code from your answer or how to use it. Tell me exactly where it goes and what to do, one step at a time, and what I should see if it works.' },
+      sr: { whole: 'Ne znam gde da stavim kod iz tvog odgovora ni kako da ga koristim. Reci mi tačno gde ide i šta da uradim, jedan po jedan korak, i šta treba da vidim ako radi.' } },
+    'w.run': { label: { en: 'How do I run it?', sr: 'Kako da pokrenem?' },
+      en: { whole: 'I don’t know how to run the code from your answer. Tell me exactly how, one step at a time, and what I should see if it works.' },
+      sr: { whole: 'Ne znam kako da pokrenem kod iz tvog odgovora. Objasni mi tačno kako, jedan po jedan korak, i šta treba da vidim ako radi.' } },
+    'w.circle': { label: { en: 'We’re going in circles', sr: 'Vrtimo se u krug' },
+      en: { whole: 'It still doesn’t work. Let’s step back: in a few short lines, sum up what I’m trying to do and what we’ve tried so far, then suggest one different approach and wait for my OK before the details.' },
+      sr: { whole: 'I dalje ne radi. Hajde da se vratimo korak unazad: u par kratkih redova sažmi šta pokušavam da uradim i šta smo do sada probali, pa predloži jedan drugačiji pristup i sačekaj moje „ok“ pre detalja.' } },
+
+    'n.long': { label: { en: 'Too long', sr: 'Predugačko' },
+      next: { q: { en: 'How short?', sr: 'Koliko kratko?' }, leaves: ['n.long.gist', 'n.long.three', 'n.long.todo', 'n.long.half'] } },
+    'n.long.gist': { label: { en: 'Just the gist', sr: 'Samo suština' },
+      en: { whole: 'Your last answer is too long for me. Give me just the main point, in one or two sentences.' },
+      sr: { whole: 'Tvoj poslednji odgovor mi je predugačak. Daj mi samo suštinu, u jednoj ili dve rečenice.' } },
+    'n.long.three': { label: { en: '3 short points', sr: '3 kratke tačke' },
+      en: { whole: 'Your last answer is too long for me. Give me the same thing as 3 short bullet points, most important first.' },
+      sr: { whole: 'Tvoj poslednji odgovor mi je predugačak. Daj mi isto to u 3 kratke tačke, najvažnije prvo.' } },
+    'n.long.todo': { label: { en: 'Just what to do', sr: 'Samo šta da radim' },
+      en: { whole: 'Your last answer is too long for me. Tell me only what to do first, in a couple of sentences, and wait for my OK before the rest.' },
+      sr: { whole: 'Tvoj poslednji odgovor mi je predugačak. Reci mi samo šta prvo da uradim, u par rečenica, i sačekaj moje „ok“ pre ostalog.' } },
+    'n.long.half': { label: { en: 'Half as long', sr: 'Upola kraće' },
+      en: { whole: 'Your last answer is too long for me. Write it again half as long, with no repetition and no intro.' },
+      sr: { whole: 'Tvoj poslednji odgovor mi je predugačak. Napiši ga ponovo upola kraće, bez ponavljanja i bez uvoda.' } },
+    'n.complex': { label: { en: 'Too complicated', sr: 'Previše komplikovano' },
+      en: { whole: 'Your last answer is too complicated for me. Write it again more simply: shorter sentences, no technical terms where possible, and only what I really need.',
+            part: 'This is too complicated for me. Write it again more simply: shorter sentences, no technical terms where possible, and only what I really need.' },
+      sr: { whole: 'Tvoj poslednji odgovor mi je previše komplikovan. Napiši ga ponovo jednostavnije: kraće rečenice, bez stručnih izraza gde god može, i samo ono što mi zaista treba.',
+            part: 'Ovo mi je previše komplikovano. Napiši to ponovo jednostavnije: kraće rečenice, bez stručnih izraza gde god može, i samo ono što mi zaista treba.' } },
+    'n.notasked': { label: { en: 'Not what I asked', sr: 'Nije ono što tražim' },
+      en: { whole: 'That’s not what I’m after. Before you try again, ask me up to 3 short questions about what I need, one at a time, each with a few answers I can pick from.' },
+      sr: { whole: 'To nije ono što tražim. Pre nego što probaš ponovo, postavi mi najviše 3 kratka pitanja o tome šta mi treba, jedno po jedno, svako sa par ponuđenih odgovora.' } },
+    'n.wrong': { label: { en: 'Something is wrong', sr: 'Nešto nije tačno' },
+      slot: { en: ['What seems wrong (optional):', '<write it or delete this line>'], sr: ['Šta mi deluje netačno (po želji):', '<napiši ili obriši ovaj red>'] },
+      en: { whole: 'I think something in your last answer may be wrong. Check it again, correct only what is actually wrong, and tell me plainly if it was right after all.',
+            part: 'I think this may be wrong. Check it again, correct only what is actually wrong, and tell me plainly if it was right after all.' },
+      sr: { whole: 'Mislim da nešto u tvom poslednjem odgovoru možda nije tačno. Proveri ponovo, ispravi samo ono što zaista nije tačno i reci mi otvoreno ako je ipak bilo tačno.',
+            part: 'Mislim da ovo možda nije tačno. Proveri ponovo, ispravi samo ono što zaista nije tačno i reci mi otvoreno ako je ipak bilo tačno.' } },
+    'n.form': { label: { en: 'Other form or tone', sr: 'Drugi oblik ili ton' },
+      next: { q: { en: 'How should it look?', sr: 'Kako da izgleda?' }, leaves: ['n.form.check', 'n.form.table', 'n.form.formal', 'n.form.warm'] } },
+    'n.form.check': { label: { en: 'As a checklist', sr: 'Kao ček-lista' },
+      en: { whole: 'Rewrite your last answer as a checklist: short items I can tick off, in the order I do them.' },
+      sr: { whole: 'Napiši tvoj poslednji odgovor ponovo kao ček-listu: kratke stavke koje mogu da štikliram, redom kojim ih radim.' } },
+    'n.form.table': { label: { en: 'As a table', sr: 'Kao tabela' },
+      en: { whole: 'Show your last answer as a table, with short text in the cells.' },
+      sr: { whole: 'Prikaži tvoj poslednji odgovor kao tabelu, sa kratkim tekstom u poljima.' } },
+    'n.form.formal': { label: { en: 'More formal', sr: 'Zvaničnije' },
+      en: { whole: 'Rewrite your last answer in a more formal, professional tone. Keep the content the same.' },
+      sr: { whole: 'Napiši tvoj poslednji odgovor ponovo zvaničnijim, profesionalnim tonom. Sadržaj neka ostane isti.' } },
+    'n.form.warm': { label: { en: 'Warmer', sr: 'Toplije' },
+      en: { whole: 'Rewrite your last answer in a warmer, friendlier tone. Keep the content the same.' },
+      sr: { whole: 'Napiši tvoj poslednji odgovor ponovo toplijim, prijatnijim tonom. Sadržaj neka ostane isti.' } },
+
+    't.reliable': { label: { en: 'How reliable is this?', sr: 'Koliko je ovo pouzdano?' },
+      en: { whole: 'How reliable is your last answer? Tell me plainly what is certain, what is likely and what is a guess, and why.',
+            part: 'How reliable is this? Tell me plainly what is certain, what is likely and what is a guess, and why.' },
+      sr: { whole: 'Koliko je pouzdan tvoj poslednji odgovor? Reci mi otvoreno šta je sigurno, šta je verovatno, a šta nagađanje, i zašto.',
+            part: 'Koliko je ovo pouzdano? Reci mi otvoreno šta je sigurno, šta je verovatno, a šta nagađanje, i zašto.' } },
+    't.check': { label: { en: 'What should I check?', sr: 'Šta da proverim?' },
+      en: { whole: 'Before I rely on your last answer: what should I double-check, and how can I check it myself? Up to 3 things, most important first. If you don’t know something, say so instead of guessing.',
+            part: 'Before I rely on this: what should I double-check, and how can I check it myself? Up to 3 things, most important first. If you don’t know something, say so instead of guessing.' },
+      sr: { whole: 'Pre nego što se oslonim na tvoj poslednji odgovor: šta treba da proverim i kako to mogu da proverim na svoju ruku? Najviše 3 stvari, najvažnije prvo. Ako nešto ne znaš, reci to umesto da nagađaš.',
+            part: 'Pre nego što se oslonim na ovo: šta treba da proverim i kako to mogu da proverim na svoju ruku? Najviše 3 stvari, najvažnije prvo. Ako nešto ne znaš, reci to umesto da nagađaš.' } },
+    't.weak': { label: { en: 'The weak spots', sr: 'Slabe tačke' },
+      en: { whole: 'Look at your last answer critically: what are its weak spots, and what could go wrong? Up to 3, most important first.',
+            part: 'Look at this critically: what are its weak spots, and what could go wrong? Up to 3, most important first.' },
+      sr: { whole: 'Kritički pogledaj svoj poslednji odgovor: koje su njegove slabe tačke i šta bi moglo da pođe naopako? Najviše 3, najvažnije prvo.',
+            part: 'Kritički pogledaj ovo: koje su slabe tačke i šta bi moglo da pođe naopako? Najviše 3, najvažnije prvo.' } },
+    't.safe': { label: { en: 'Is it safe to do?', sr: 'Je l’ bezbedno?' }, when: 'action',
+      en: { whole: 'Before I do what your answer says: is it safe? Could I lose anything, and how do I undo it if it goes wrong? Tell me what to back up first.',
+            part: 'Before I do this: is it safe? Could I lose anything, and how do I undo it if it goes wrong? Tell me what to back up first.' },
+      sr: { whole: 'Pre nego što uradim ono što piše u tvom odgovoru: da li je to bezbedno? Mogu li nešto da izgubim i kako da vratim ako pođe naopako? Reci mi šta prvo da sačuvam.',
+            part: 'Pre nego što ovo uradim: da li je to bezbedno? Mogu li nešto da izgubim i kako da vratim ako pođe naopako? Reci mi šta prvo da sačuvam.' } },
+
+    'q.explain': { label: { en: 'I don’t get the question', sr: 'Ne razumem pitanje' },
+      en: { whole: 'I’m not sure how to answer your question because I don’t fully get it. Explain it in plain words and give me 2–3 example answers I can pick from.' },
+      sr: { whole: 'Ne znam šta da odgovorim na tvoje pitanje, jer mi nije jasno šta tačno pitaš. Objasni ga jednostavnim rečima i daj mi 2–3 primera odgovora između kojih mogu da biram.' } },
+    'q.find': { label: { en: 'How do I find out?', sr: 'Kako da saznam?' },
+      en: { whole: 'I don’t know the answer to your question. Tell me exactly how to find it out, step by step, and what I’ll see when I find it.' },
+      sr: { whole: 'Ne znam odgovor na tvoje pitanje. Reci mi tačno kako da ga saznam, korak po korak, i šta ću videti kad ga nađem.' } },
+    'q.decide': { label: { en: 'Help me decide', sr: 'Pomozi mi da odlučim' },
+      en: { whole: 'I’m not sure how to answer your question. Ask me up to 3 short questions about my situation, one at a time, then recommend one answer and say why in 2–3 sentences.' },
+      sr: { whole: 'Ne znam šta da odgovorim na tvoje pitanje. Postavi mi najviše 3 kratka pitanja o mojoj situaciji, jedno po jedno, pa mi preporuči jedan odgovor i u 2–3 rečenice reci zašto.' } },
+    'q.pick': { label: { en: 'You pick', sr: 'Izaberi ti' },
+      en: { whole: 'I’m not sure how to answer your question. Pick a sensible option yourself, say in one line what you’re assuming, and carry on.' },
+      sr: { whole: 'Ne znam šta da odgovorim na tvoje pitanje. Izaberi ti razumnu opciju, u jednom redu napiši koju pretpostavku koristiš, pa nastavi.' } }
+  };
+  const QC_LEADS = {
+    en: { step: 'Step {n} of your answer (“{h}”):', part: 'Point {n} of your answer (“{h}”):', sel: 'This part of your answer:\n“{s}”' },
+    sr: { step: 'Korak {n} iz tvog odgovora („{h}“):', part: 'Deo pod brojem {n} iz tvog odgovora („{h}“):', sel: 'Ovaj deo tvog odgovora:\n„{s}“' }
+  };
+  /* Templates are stripped of diacritics for a user who writes without them;
+     what is QUOTED (Claude's step, the user's selection) is never touched,
+     because a quote that differs from the page is not a quote. Substitution
+     therefore happens after stripping. */
+  function qcFill(tpl, vars, plain) {
+    const t = plain ? qcStrip(tpl) : tpl;
+    return t.replace(/\{(\w)\}/g, (m, k) => (k in vars ? String(vars[k]) : m));
+  }
+  function qcLabel(o, lang, plain) {
+    const s = o[lang === 'sr' ? 'sr' : 'en'];
+    return plain && lang === 'sr' ? qcStrip(s) : s;
+  }
+  /* Which leaves a door offers for this reply. */
+  function qcLeaves(door, shape, circles) {
+    const d = QC_DOORS.find(x => x.id === door);
+    if (!d) return [];
+    let ids = d.id === 'w' && shape && shape.code && !(shape.list && shape.list.length) ? d.codeLeaves : d.leaves;
+    ids = ids.filter(id => QC_LEAVES[id].when !== 'action' || (shape && (shape.code || (shape.list && shape.list.length))));
+    if (d.id === 'w' && circles >= 2) ids = [...ids, 'w.circle'];
+    return ids;
+  }
+  function qcDoors(shape) {
+    return QC_DOORS.filter(d => d.when !== 'question' || (shape && shape.question));
+  }
+  /* The message for one leaf. `opt.ref` is {kind:'step'|'part', n, head} or
+     {kind:'sel', text}; `opt.word` is a short selection for "what does X mean". */
+  function qcCompose(id, lang, opt) {
+    const o = opt || {};
+    const L = lang === 'sr' ? 'sr' : 'en';
+    const plain = L === 'sr' && !!o.plain;
+    const leaf = QC_LEAVES[id];
+    if (!leaf || !leaf[L]) return '';
+    const t = leaf[L];
+    let msg;
+    if (o.word && t.word) msg = qcFill(t.word, { w: o.word }, plain);
+    else if (o.ref && t.part) {
+      const lead = o.ref.kind === 'sel'
+        ? qcFill(QC_LEADS[L].sel, { s: qcQuote(o.ref.text) }, plain)
+        : qcFill(QC_LEADS[L][o.ref.kind === 'step' ? 'step' : 'part'], { n: o.ref.n, h: o.ref.head }, plain);
+      msg = lead + '\n' + qcFill(t.part, {}, plain);
+    } else msg = qcFill(t.whole, {}, plain);
+    if (lang === 'other') msg += ' ' + QC_OTHER_LANG;
+    if (leaf.slot) {
+      const s = leaf.slot[L];
+      msg += '\n\n' + qcFill(s[0], {}, plain) + '\n' + qcFill(s[1], {}, plain);
+    }
+    return msg;
+  }
+  /* end of the questions-card pure block */
+
+  /* The page side: the four facts, read when the card opens (the DOM is
+     settled by then, and a reply nobody opens is never read for them). The
+     row anchor holds every response block of this turn, so a list broken by
+     a code block is still seen whole. */
+  function qcShapeOf(anchor) {
+    const blocks = anchor ? [...anchor.querySelectorAll(RESPONSE_SEL)] : [];
+    if (!blocks.length && anchor && anchor.matches && anchor.matches(RESPONSE_SEL)) blocks.push(anchor);
+    const lists = [];
+    let code = false;
+    for (const b of blocks) {
+      if (b.querySelector('pre')) code = true;
+      for (const ol of b.querySelectorAll('ol')) {
+        if (ol.closest('pre') || (ol.parentElement && ol.parentElement.closest('ol,ul'))) continue;
+        const items = [...ol.children].filter(li => li.tagName === 'LI').map(li => li.textContent || '');
+        lists.push({ start: parseInt(ol.getAttribute('start') || '1', 10) || 1, items });
+      }
+    }
+    let lastText = '';
+    const last = blocks[blocks.length - 1];
+    if (last) {
+      const els = [...last.querySelectorAll('p, li, h1, h2, h3, h4, h5, h6, blockquote')]
+        .filter(e => !e.closest('pre') && (e.textContent || '').trim());
+      lastText = els.length ? els[els.length - 1].textContent : (last.textContent || '');
+    }
+    return { list: qcSequence(lists), code, question: qcEndsWithQuestion(lastText) };
+  }
+
+  /* The user's selection in a reply, kept for two minutes: on Android the tap
+     that opens the card clears the selection first, so reading it at the tap
+     would always find nothing. Only text inside a response block counts, and
+     only for the card of that same turn; the quote shows on the card with an
+     × so a stale one is one tap from gone. */
+  const QC_SEL_TTL_MS = 120000;
+  let qcSel = null;
+  document.addEventListener('selectionchange', () => {
+    try {
+      if (!settings.enabled) return;
+      const s = window.getSelection();
+      if (!s || s.isCollapsed) return;
+      const text = String(s).replace(/\s+/g, ' ').trim();
+      const n = s.anchorNode;
+      const el = n && (n.nodeType === 1 ? n : n.parentElement);
+      const block = text && el && el.closest ? el.closest(RESPONSE_SEL) : null;
+      if (block) qcSel = { text, block, t: Date.now() };
+    } catch { /* a selection API quirk must never break the page */ }
+  });
+  function qcSelectionFor(anchor) {
+    if (!qcSel || Date.now() - qcSel.t > QC_SEL_TTL_MS) return null;
+    if (!qcSel.block.isConnected || !anchor || !(anchor === qcSel.block || anchor.contains(qcSel.block))) return null;
+    return qcSel.text;
+  }
+
+  /* Page memory only — nothing here is stored. Read on the diag card. */
+  const qcStats = { opens: 0, inserts: 0, last: null };
+  const qcCircles = new Map();     // conversation path -> inserts from "It didn't work"
+  const qcLangPick = new Map();    // conversation path -> language picked on the chip
+  function qcNavSr() {
+    try { return /^(sr|hr|bs|sh|cnr)\b/i.test(navigator.language || ''); } catch { return false; }
+  }
+  function qcUserLang(ctx) {
+    const picked = qcLangPick.get(location.pathname);
+    const api = ctx && ctx.api && ctx.api.turns ? ctx.api.turns.slice(-3).map(t => t.text) : null;
+    const texts = api && api.length ? api : lastTurns(3);
+    const detected = qcLang(texts, qcNavSr() ? 'sr' : 'en');
+    /* The EN|SR chip shows only where Serbian is plausible; for any other
+       language the card speaks English and asks for the reply in theirs. */
+    return { lang: picked || detected, plain: qcPlain(texts), srPossible: detected === 'sr' || qcNavSr() || picked === 'sr' };
+  }
+
+  /* The card itself. Built with createElement and textContent only: every
+     label is ours, but the quote and the step heads are page text. */
+  function qcOpen(slot, anchor, ctx, done) {
+    const L0 = qcUserLang(ctx);
+    const st = {
+      lang: L0.lang, plain: L0.plain, srPossible: L0.srPossible,
+      shape: qcShapeOf(anchor), sel: qcSelectionFor(anchor),
+      door: null, sub: null, pick: null
+    };
+    ctx.qcShape = st.shape;
+    qcStats.opens++;
+    console.log('[CONTEXA] questions — opened', JSON.stringify({ list: st.shape.list ? st.shape.list.length : 0,
+      code: st.shape.code, question: st.shape.question, sel: !!st.sel, lang: st.lang, plain: st.plain }));
+    const ui = () => QC_UI[st.lang === 'sr' ? 'sr' : 'en'];
+    const tx = s => (st.plain && st.lang === 'sr' ? qcStrip(s) : s);
+    const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
+    const btn = (cls, text, onClick, aria) => {
+      const b = el('button', cls, text); b.type = 'button';
+      if (aria) b.setAttribute('aria-label', aria);
+      b.addEventListener('click', onClick); return b;
+    };
+    const panel = el('div', 'qc');
+    panel.addEventListener('keydown', e => { if (e.key === 'Escape') { e.stopPropagation(); done(null); } });
+    slot.replaceChildren(panel);
+    draw();
+
+    function draw() {
+      panel.replaceChildren();
+      const u = ui();
+      const door = st.door ? QC_DOORS.find(d => d.id === st.door) : null;
+      const sub = st.sub ? QC_LEAVES[st.sub] : null;
+      const head = el('div', 'qc-head');
+      if (door) head.appendChild(btn('qc-ic', '‹', () => { if (st.sub) st.sub = null; else { st.door = null; st.pick = null; } draw(); }, tx(u.back)));
+      head.appendChild(el('span', 'qc-q', sub ? qcLabel(sub.next.q, st.lang, st.plain)
+        : door ? qcLabel(door.q, st.lang, st.plain) : tx(u.title)));
+      if (st.srPossible) {
+        head.appendChild(btn('qc-ic qc-lang', st.lang === 'sr' ? 'EN' : 'SR', () => {
+          st.lang = st.lang === 'sr' ? 'en' : 'sr';
+          qcLangPick.set(location.pathname, st.lang);
+          draw();
+        }));
+      }
+      head.appendChild(btn('qc-ic', '×', () => done(null), tx(u.close)));
+      panel.appendChild(head);
+
+      if (st.sel) {
+        const q = el('div', 'qc-quote');
+        q.appendChild(el('span', null, tx(u.about) + (st.lang === 'sr' ? ' „' + st.sel + '“' : ' “' + st.sel + '”')));
+        q.appendChild(btn('qc-ic', '×', () => { st.sel = null; draw(); }, tx(u.clear)));
+        panel.appendChild(q);
+      }
+      if (!door && qcStats.opens <= 2) panel.appendChild(el('div', 'qc-hint', tx(u.hint)));
+
+      const opts = el('div', 'qc-opts');
+      if (!door) {
+        opts.classList.add('grid');
+        for (const d of qcDoors(st.shape)) {
+          const b = btn('qc-opt' + (d.when ? ' wide' : ''), qcLabel(d.label, st.lang, st.plain), () => { st.door = d.id; draw(); });
+          opts.appendChild(b);
+        }
+      } else {
+        if (!sub && door.ref && st.shape.list && !st.sel) panel.appendChild(refRow(door, u));
+        const ids = sub ? sub.next.leaves : qcLeaves(door.id, st.shape, qcCircles.get(location.pathname) || 0);
+        for (const id of ids) {
+          const leaf = QC_LEAVES[id];
+          const word = id === 'u.words' ? shortSel() : null;
+          const label = word ? qcFill(leaf.wordLabel[st.lang === 'sr' ? 'sr' : 'en'], { w: word }, st.plain && st.lang === 'sr')
+            : qcLabel(leaf.label, st.lang, st.plain);
+          opts.appendChild(btn('qc-opt', label, () => pickLeaf(id, door)));
+        }
+      }
+      panel.appendChild(opts);
+      const first = panel.querySelector('.qc-opt');
+      if (first && panel.isConnected) try { first.focus({ preventScroll: true }); } catch {}
+    }
+
+    function refRow(door, u) {
+      const wrap = el('div');
+      const row = el('div', 'qc-ref');
+      row.appendChild(el('span', null, tx(door.ref === 'step' ? u.step : u.part)));
+      const all = btn('qc-num', tx(u.all), () => { st.pick = null; draw(); });
+      all.setAttribute('aria-pressed', st.pick ? 'false' : 'true');
+      row.appendChild(all);
+      st.shape.list.forEach((h, i) => {
+        const b = btn('qc-num', String(i + 1), () => { st.pick = i + 1; draw(); });
+        b.setAttribute('aria-pressed', st.pick === i + 1 ? 'true' : 'false');
+        row.appendChild(b);
+      });
+      wrap.appendChild(row);
+      if (st.pick) wrap.appendChild(el('div', 'qc-cap', st.pick + ' — ' + st.shape.list[st.pick - 1]));
+      return wrap;
+    }
+
+    function shortSel() {
+      if (!st.sel) return null;
+      const words = st.sel.split(/\s+/).filter(Boolean);
+      return words.length && words.length <= QC_WORD_MAX && st.sel.length <= 60 ? st.sel : null;
+    }
+
+    function pickLeaf(id, door) {
+      const leaf = QC_LEAVES[id];
+      if (leaf.next) { st.sub = id; draw(); return; }
+      const opt = { plain: st.plain };
+      const word = id === 'u.words' ? shortSel() : null;
+      if (word) opt.word = word;
+      else if (st.sel) opt.ref = { kind: 'sel', text: st.sel };
+      else if (st.pick && door.ref && st.shape.list) opt.ref = { kind: door.ref, n: st.pick, head: st.shape.list[st.pick - 1] };
+      const msg = qcCompose(id, st.lang, opt);
+      const u = ui();
+      let note;
+      if (insertPrompt(msg)) {
+        note = tx(/<[^>]+>/.test(msg) ? u.doneSlot : u.done);
+      } else {
+        note = tx(u.failed);
+        try { if (navigator.clipboard && navigator.clipboard.writeText) { navigator.clipboard.writeText(msg); note = tx(u.copied); } } catch {}
+      }
+      qcStats.inserts++; qcStats.last = id;
+      if (door.id === 'w' && id !== 'w.circle') qcCircles.set(location.pathname, (qcCircles.get(location.pathname) || 0) + 1);
+      console.log('[CONTEXA] questions — wrote', id, st.lang + (st.plain ? ' (plain)' : ''), opt.ref ? opt.ref.kind : opt.word ? 'word' : 'whole', msg.length, 'chars');
+      done(note);
+    }
+  }
+
   /* ---------------- rendering -------------------------------------------- */
   /* 0.9.30: one card for the page, mounted above the composer, replacing the
      row-under-every-reply model. Owner's call, and it has a second payoff — a
@@ -1644,30 +2216,33 @@
     wrap.querySelector('.chips').appendChild(slot);
     idle();
 
-    function idle() {
-      /* 0.9.55 §1 — the mascot IS the trigger: same slot, same mount
-         conditions, same click handler, same spends-one-call-on-click
-         semantics. Its appearance is pure DOM/CSS — no model call, no fetch,
-         nothing leaves the page before a click. It is a real <button>, so
-         Enter/Space fire natively; it must NOT read like the fifth chip, and
-         it no longer can: no chip class, no text label. Star asks, pencil
-         types — the bubble whispers 'Next move ✦' and the aria-label says the
-         same for keyboard and screen-reader users. */
+    function idle(note) {
+      /* 0.9.55 §1 — the mascot IS the trigger. Since the questions card it
+         opens that card instead of calling a model: nothing leaves the page,
+         before the click or after it. It is a real <button>, so Enter/Space
+         fire natively. The bubble whispers 'What now? ✦' (in the user's
+         language) and the aria-label says the same; on a touch screen, where
+         there is no hover, the words stand beside the face, because a tap
+         that would reveal them already opens the card. askNow (the old row
+         of model-written moves) stays in the file, unreachable, until the
+         worker that serves 0.9.99 installs is retired. */
+      const qcl = qcUserLang(ctx);
+      const name = QC_UI[qcl.lang === 'sr' ? 'sr' : 'en'].bubble;
+      const shown = qcl.plain && qcl.lang === 'sr' ? qcStrip(name) : name;
       const chip = document.createElement('button');
       chip.className = 'ctxa-mas';
-      chip.setAttribute('aria-label', 'Next move');
+      chip.setAttribute('aria-label', shown);
       chip.innerHTML = MASCOT_SVG +
-        '<span class="ctxa-mas-bubble">Next move <b>✦</b></span>';
+        '<span class="ctxa-mas-bubble"></span><span class="ctxa-mas-label"></span>';
+      chip.querySelector('.ctxa-mas-bubble').append(shown + ' ', Object.assign(document.createElement('b'), { textContent: '✦' }));
+      chip.querySelector('.ctxa-mas-label').textContent = shown;
       chip.addEventListener('click', () => {
         if (chip.disabled) return;
-        /* §1d — small hop on the click, then the existing flow runs
-           unchanged. The mascot stays put (idle animations may keep running)
-           and the existing loading presentation renders beside it; askNow
-           re-renders the shell, so nothing here survives the response. */
-        chip.disabled = true;
         chip.classList.add('ctxa-hop');
-        busy();
-        askNow(anchor, ctx);
+        qcOpen(slot, anchor, ctx, (doneNote) => {
+          idle(doneNote);
+          if (!doneNote) { const m = slot.querySelector('.ctxa-mas'); if (m) try { m.focus({ preventScroll: true }); } catch {} }
+        });
       });
       /* round 2 — the field showed the hover gesture firing once per page
          load and never again on that machine; a clean Chromium re-fires it
@@ -1688,13 +2263,12 @@
       chip.addEventListener('focus', peekOn);
       chip.addEventListener('blur', peekOff);
       slot.replaceChildren(chip);
-    }
-
-    function busy() {
-      const b = document.createElement('span');
-      b.className = 'chip busy';
-      b.textContent = '✦ reading…';
-      slot.appendChild(b);
+      if (note) {
+        const n = document.createElement('span');
+        n.className = 'qc-done';
+        n.textContent = note;
+        slot.appendChild(n);
+      }
     }
   }
 
@@ -1948,9 +2522,11 @@
     standDown();
   }
 
+  /* Returns whether a composer took the text, so the questions card can fall
+     back to the clipboard and say so instead of claiming it landed. */
   function insertPrompt(text) {
-    if (!composer) composer = findComposer();
-    if (!composer) return;
+    if (!composer || !composer.isConnected) composer = findComposer();
+    if (!composer) return false;
     composer.focus();
     const sel = window.getSelection();
     const existing = (composer.textContent || '').trim();
@@ -1974,6 +2550,7 @@
       composer.textContent = existing ? composer.textContent + text : text;
     }
     composer.dispatchEvent(new InputEvent('input', { bubbles: true }));
+    return true;
   }
 
   /* ---------------- lifecycle -------------------------------------------- */

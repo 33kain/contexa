@@ -40,7 +40,7 @@ function paintState() {
   $('stateTitle').textContent = on ? 'CONTEXA is on' : 'CONTEXA is off';
   $('stateNote').textContent = on
     ? 'Nothing else to set up.'
-    : 'Next moves will not appear until you turn it back on.';
+    : 'The mascot will not appear until you turn it back on.';
 }
 
 /* Toggling is the one control a beginner touches, so it saves itself. A Save
@@ -58,10 +58,10 @@ function paintMode() {
   $('modePill').textContent = own ? 'unlimited' : 'no key needed';
   $('modeDesc').textContent = own
     ? 'Requests go straight from this browser to Anthropic using your key. No daily limit, and Anthropic bills you directly for usage.'
-    : 'Next moves come from the CONTEXA service. Nothing to set up, and a fair-use limit of 20 replies a day.';
+    : 'The questions card needs no service at all. Same session, new chat uses the CONTEXA service: nothing to set up, and a fair-use limit of 20 replies a day.';
   $('quotaLine').innerHTML = own
     ? '<b>Using your own key.</b> No daily limit — Anthropic bills you for what you use.'
-    : '<b>Free.</b> No account, no sign-up. Fair use is 20 replies a day.';
+    : '<b>Free.</b> No account, no sign-up. The questions card has no limit; Same session, new chat has a fair-use limit of 20 replies a day.';
 }
 $('apiKey').addEventListener('input', paintMode);
 
